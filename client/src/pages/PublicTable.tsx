@@ -604,6 +604,7 @@ export const PublicTable: React.FC = () => {
       return res.data;
     },
     enabled: !!tableToken,
+    refetchInterval: waiterCallState === 'waiting' ? 4000 : false,
   });
 
   // Sync initial waiter call state
@@ -996,6 +997,7 @@ export const PublicTable: React.FC = () => {
         requestType: selectedRequestType,
       });
       toast('Call successfully dispatched to staff operations board.', 'success');
+      queryClient.invalidateQueries({ queryKey: ['activeWaiterCall', tableToken] });
 
       // Add to recent log
       const key = `pixora_waiter_calls_${restaurantSlug}_${tableToken}`;
