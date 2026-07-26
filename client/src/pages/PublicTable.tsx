@@ -1102,6 +1102,9 @@ export const PublicTable: React.FC = () => {
 
   const cartGrandTotal = cartSubtotal + cartTaxTotal;
 
+  const activeOrderCount = sessionDetailsData?.data?.orders?.length || 0;
+  const activeOrdersIds = (sessionDetailsData?.data?.orders || []).map((o: any) => o._id);
+
 
   // Mock Google reviews details
   const mockReviews = [
@@ -1176,7 +1179,7 @@ export const PublicTable: React.FC = () => {
             </div>
 
             {/* Track Orders Banner */}
-            {recentOrderIds.length > 0 && (
+            {activeOrderCount > 0 && (
               <div className="bg-amber-50 border border-amber-200/65 rounded-3xl p-5 flex items-center justify-between shadow-sm animate-fade-in gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
@@ -1184,12 +1187,12 @@ export const PublicTable: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="font-bold text-xs text-slate-900">Track Placed Orders</h4>
-                    <p className="text-[10px] text-slate-500 font-medium">You have {recentOrderIds.length} order{recentOrderIds.length > 1 ? 's' : ''} placed at this table.</p>
+                    <p className="text-[10px] text-slate-500 font-medium">You have {activeOrderCount} order{activeOrderCount > 1 ? 's' : ''} placed at this table.</p>
                   </div>
                 </div>
                 <button
                   onClick={() => {
-                    updateNavigationState('cart-orders', 'orders', recentOrderIds[recentOrderIds.length - 1]);
+                    updateNavigationState('cart-orders', 'orders', activeOrdersIds[activeOrdersIds.length - 1]);
                   }}
                   className="px-3.5 py-2 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-[10px] rounded-xl flex items-center gap-1 transition shadow-sm shrink-0 whitespace-nowrap"
                 >
@@ -1477,7 +1480,7 @@ export const PublicTable: React.FC = () => {
           </div>
 
           {/* Track Orders Banner */}
-          {recentOrderIds.length > 0 && (
+          {activeOrderCount > 0 && (
             <div className="max-w-md mx-auto px-4">
               <div className="bg-amber-50 border border-amber-200/65 rounded-3xl p-4 flex items-center justify-between shadow-sm animate-fade-in gap-3">
                 <div className="flex items-center gap-3">
@@ -1486,12 +1489,12 @@ export const PublicTable: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="font-bold text-xs text-slate-900">Track Placed Orders</h4>
-                    <p className="text-[10px] text-slate-500 font-medium">You have {recentOrderIds.length} order{recentOrderIds.length > 1 ? 's' : ''} placed at this table.</p>
+                    <p className="text-[10px] text-slate-500 font-medium">You have {activeOrderCount} order{activeOrderCount > 1 ? 's' : ''} placed at this table.</p>
                   </div>
                 </div>
                 <button
                   onClick={() => {
-                    updateNavigationState('cart-orders', 'orders', recentOrderIds[recentOrderIds.length - 1]);
+                    updateNavigationState('cart-orders', 'orders', activeOrdersIds[activeOrdersIds.length - 1]);
                   }}
                   className="px-3 py-1.5 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-[10px] rounded-xl flex items-center gap-1 transition shadow-sm shrink-0 whitespace-nowrap"
                 >
@@ -1821,7 +1824,7 @@ export const PublicTable: React.FC = () => {
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Placed Orders ({recentOrderIds.length})
+              Placed Orders ({activeOrderCount})
             </button>
           </div>
 

@@ -59,6 +59,9 @@ const publicGetLimiter = rateLimit({
 router.get('/restaurants/:restaurantSlug/tables/:tableToken', publicGetLimiter, publicController.resolveTable);
 router.get('/restaurants/:restaurantSlug/tables/:tableToken/menu', publicGetLimiter, publicController.getMenu);
 
+// Public taxes
+router.get('/restaurants/:restaurantId/taxes', publicGetLimiter, publicController.getTaxes);
+
 // Public Order Creation & Getters (Order placing limited to 5 orders/10 mins)
 router.post('/restaurants/:restaurantSlug/tables/:tableToken/orders', orderCreationLimiter, publicController.createOrder);
 router.get('/orders/:orderId', publicGetLimiter, publicController.getOrder);

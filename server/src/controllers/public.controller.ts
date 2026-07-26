@@ -20,6 +20,7 @@ export class PublicController {
     this.getOrder = this.getOrder.bind(this);
     this.getOrderStatus = this.getOrderStatus.bind(this);
     this.getTableSession = this.getTableSession.bind(this);
+    this.getTaxes = this.getTaxes.bind(this);
   }
 
   async resolveTable(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -580,6 +581,22 @@ export class PublicController {
       }
 
       sendSuccess(res, { status: order.status }, 'Order status retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getTaxes(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      const activeTaxes = await Tax.find({ restaurantId, isActive: true });
+      sendSuccess(res, activeTaxes, 'Taxes retrieved successfully');
     } catch (error) {
       next(error);
     }
