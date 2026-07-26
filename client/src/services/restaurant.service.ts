@@ -45,6 +45,17 @@ export interface AddOn {
   priceDelta: number;
 }
 
+export interface Staff {
+  _id: string;
+  email: string;
+  name: string;
+  role: 'MANAGER' | 'STAFF';
+  pin?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface MenuItem {
   _id: string;
   restaurantId: string;
@@ -167,6 +178,27 @@ export const managerService = {
 
   async getTableQr(restaurantId: string, tableId: string) {
     const res = await apiClient.get(`/restaurants/${restaurantId}/tables/${tableId}/qr`);
+    return res.data;
+  },
+
+  // Staff endpoints
+  async listStaff(restaurantId: string) {
+    const res = await apiClient.get(`/restaurants/${restaurantId}/staff`);
+    return res.data;
+  },
+
+  async createStaff(restaurantId: string, data: any) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/staff`, data);
+    return res.data;
+  },
+
+  async updateStaff(restaurantId: string, staffId: string, data: any) {
+    const res = await apiClient.patch(`/restaurants/${restaurantId}/staff/${staffId}`, data);
+    return res.data;
+  },
+
+  async deleteStaff(restaurantId: string, staffId: string) {
+    const res = await apiClient.delete(`/restaurants/${restaurantId}/staff/${staffId}`);
     return res.data;
   },
 };

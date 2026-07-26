@@ -16,6 +16,7 @@ import {
   Volume2,
   VolumeX,
   BellRing,
+  Users,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -47,6 +48,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'menu'
     : currentPath.startsWith('/manager/tables')
     ? 'tables'
+    : currentPath.startsWith('/manager/staff')
+    ? 'staff'
     : currentPath.startsWith('/manager/settings')
     ? 'settings'
     : currentPath.startsWith('/manager/analytics')
@@ -333,6 +336,21 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
+          {/* Staff tab (Manager/Super Admin only) */}
+          {!isStaff && (
+            <button
+              onClick={() => navigate('/manager/staff')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'staff'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-4 h-4" strokeWidth={1.75} />
+              <span>Staff Management</span>
+            </button>
+          )}
+
           {/* Settings tab (Manager/Super Admin only) */}
           {!isStaff && (
             <button
@@ -462,6 +480,19 @@ export const ManagerLayout: React.FC = () => {
           >
             <TableProperties className="w-5 h-5" strokeWidth={1.75} />
             <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Tables</span>
+          </button>
+        )}
+
+        {/* Staff (Manager only) */}
+        {!isStaff && (
+          <button
+            onClick={() => navigate('/manager/staff')}
+            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+              activeTab === 'staff' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <Users className="w-5 h-5" strokeWidth={1.75} />
+            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Staff</span>
           </button>
         )}
 

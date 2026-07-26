@@ -8,6 +8,7 @@ import ManagerTables from './pages/ManagerTables';
 import ManagerMenu from './pages/ManagerMenu';
 import ManagerOrders from './pages/ManagerOrders';
 import ManagerWaiterCalls from './pages/ManagerWaiterCalls';
+import ManagerStaff from './pages/ManagerStaff';
 import ManagerSettings from './pages/ManagerSettings';
 import ManagerAnalytics from './pages/ManagerAnalytics';
 import ManagerProfile from './pages/ManagerProfile';
@@ -58,6 +59,7 @@ export const App = () => {
                 <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'SUPER_ADMIN']} />}>
                   <Route path="/manager/tables" element={<ManagerTables />} />
                   <Route path="/manager/menu" element={<ManagerMenu />} />
+                  <Route path="/manager/staff" element={<ManagerStaff />} />
                   <Route path="/manager/settings" element={<ManagerSettings />} />
                   <Route path="/manager/analytics" element={<ManagerAnalytics />} />
                 </Route>

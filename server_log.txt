@@ -1,0 +1,104 @@
+
+> server@1.0.0 dev
+> ts-node-dev --respawn --transpile-only src/index.ts
+
+[INFO] 06:02:12 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+[2026-07-26 06:02:44.321 +0000] [31mERROR[39m: [36mError starting the server[39m
+    err: {
+      "type": "MongooseServerSelectionError",
+      "message": "connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017",
+      "stack":
+          MongooseServerSelectionError: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+              at _handleConnectionErrors (/app/node_modules/mongoose/lib/connection.js:1169:11)
+              at NativeConnection.openUri (/app/node_modules/mongoose/lib/connection.js:1100:11)
+              at startServer (/app/server/src/index.ts:110:5)
+      "errorLabelSet": {},
+      "reason": {
+        "type": "Unknown",
+        "servers": {
+          "localhost:27017": {
+            "address": "localhost:27017",
+            "type": "Unknown",
+            "hosts": [],
+            "passives": [],
+            "arbiters": [],
+            "tags": {},
+            "minWireVersion": 0,
+            "maxWireVersion": 0,
+            "roundTripTime": -1,
+            "minRoundTripTime": 0,
+            "lastUpdateTime": 784534,
+            "lastWriteDate": 0,
+            "error": {
+              "errorLabelSet": {},
+              "beforeHandshake": false
+            },
+            "topologyVersion": null,
+            "setName": null,
+            "setVersion": null,
+            "electionId": null,
+            "logicalSessionTimeoutMinutes": null,
+            "maxMessageSizeBytes": null,
+            "maxWriteBatchSize": null,
+            "maxBsonObjectSize": null,
+            "primary": null,
+            "me": null,
+            "$clusterTime": null,
+            "iscryptd": false
+          }
+        },
+        "stale": false,
+        "compatible": true,
+        "heartbeatFrequencyMS": 10000,
+        "localThresholdMS": 15,
+        "setName": null,
+        "maxElectionId": null,
+        "maxSetVersion": null,
+        "commonWireVersion": 0,
+        "logicalSessionTimeoutMinutes": null
+      },
+      "cause": {
+        "type": "Unknown",
+        "servers": {
+          "localhost:27017": {
+            "address": "localhost:27017",
+            "type": "Unknown",
+            "hosts": [],
+            "passives": [],
+            "arbiters": [],
+            "tags": {},
+            "minWireVersion": 0,
+            "maxWireVersion": 0,
+            "roundTripTime": -1,
+            "minRoundTripTime": 0,
+            "lastUpdateTime": 784534,
+            "lastWriteDate": 0,
+            "error": {
+              "errorLabelSet": {},
+              "beforeHandshake": false
+            },
+            "topologyVersion": null,
+            "setName": null,
+            "setVersion": null,
+            "electionId": null,
+            "logicalSessionTimeoutMinutes": null,
+            "maxMessageSizeBytes": null,
+            "maxWriteBatchSize": null,
+            "maxBsonObjectSize": null,
+            "primary": null,
+            "me": null,
+            "$clusterTime": null,
+            "iscryptd": false
+          }
+        },
+        "stale": false,
+        "compatible": true,
+        "heartbeatFrequencyMS": 10000,
+        "localThresholdMS": 15,
+        "setName": null,
+        "maxElectionId": null,
+        "maxSetVersion": null,
+        "commonWireVersion": 0,
+        "logicalSessionTimeoutMinutes": null
+      }
+    }
