@@ -562,16 +562,7 @@ export const PublicTable: React.FC = () => {
     updateNavigationState(activeTab, cartOrdersSubTab, trackId);
   };
 
-  const [recentOrderIds, setRecentOrderIds] = useState<string[]>([]);
   const [recentWaiterCalls, setRecentWaiterCalls] = useState<{ type: string; timestamp: string }[]>([]);
-
-  useEffect(() => {
-    if (restaurantSlug && tableToken) {
-      const key = `pixora_orders_${restaurantSlug}_${tableToken}`;
-      const stored = JSON.parse(localStorage.getItem(key) || '[]');
-      setRecentOrderIds(stored);
-    }
-  }, [restaurantSlug, tableToken]);
 
   useEffect(() => {
     if (restaurantSlug && tableToken) {
@@ -1003,7 +994,6 @@ export const PublicTable: React.FC = () => {
         const stored = JSON.parse(localStorage.getItem(key) || '[]');
         stored.push(res.data.data._id);
         localStorage.setItem(key, JSON.stringify(stored));
-        setRecentOrderIds(stored);
 
         clearCart();
         queryClient.invalidateQueries({ queryKey: ['publicTable'] });
