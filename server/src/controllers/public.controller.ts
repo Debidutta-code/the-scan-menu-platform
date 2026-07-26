@@ -260,15 +260,45 @@ export class PublicController {
       const activeTaxes: any[] = await Tax.find({ restaurantId: restaurant._id, isActive: true });
 
       let tax = 0;
-      const taxBreakdown = activeTaxes.map((t: any) => {
-        const amount = Math.round(subtotal * (t.percentage / 100));
-        tax += amount;
-        return {
-          name: t.name,
-          percentage: t.percentage,
-          amount
-        };
-      });
+      const taxBreakdown: any[] = [];
+      const groups = activeTaxes.filter(t => t.type === 'GROUP');
+      const standardTaxes = activeTaxes.filter(t => t.type === 'TAX');
+
+      // Process Groups
+      for (const group of groups) {
+          const subTaxes = standardTaxes.filter(t => t.groupId?.toString() === group._id.toString());
+          if (subTaxes.length === 0) continue;
+
+          let groupAmount = 0;
+          let groupPercentage = 0;
+          const subTaxesBreakdown = subTaxes.map(st => {
+             const amt = Math.round(subtotal * (st.percentage / 100));
+             groupAmount += amt;
+             groupPercentage += st.percentage;
+             return { name: st.name, percentage: st.percentage, amount: amt };
+          });
+
+          tax += groupAmount;
+          taxBreakdown.push({
+             name: group.name,
+             percentage: groupPercentage,
+             amount: groupAmount,
+             subTaxes: subTaxesBreakdown
+          });
+      }
+
+      // Process Standalone Taxes
+      const standaloneTaxes = standardTaxes.filter(t => !t.groupId);
+      for (const st of standaloneTaxes) {
+          const amount = Math.round(subtotal * (st.percentage / 100));
+          tax += amount;
+          taxBreakdown.push({
+             name: st.name,
+             percentage: st.percentage,
+             amount,
+             subTaxes: []
+          });
+      }
 
       const total = subtotal + tax;
 
@@ -311,15 +341,47 @@ export class PublicController {
           order.subtotal = order.items.reduce((sum: number, item: any) => sum + item.unitPriceSnapshot * item.quantity, 0);
 
           let mergedTax = 0;
-          order.taxBreakdown = activeTaxes.map((t: any) => {
-            const amount = Math.round(order.subtotal * (t.percentage / 100));
-            mergedTax += amount;
-            return {
-              name: t.name,
-              percentage: t.percentage,
-              amount
-            };
-          });
+          const mergedTaxBreakdown: any[] = [];
+          const groups = activeTaxes.filter(t => t.type === 'GROUP');
+          const standardTaxes = activeTaxes.filter(t => t.type === 'TAX');
+
+          // Process Groups
+          for (const group of groups) {
+              const subTaxes = standardTaxes.filter(t => t.groupId?.toString() === group._id.toString());
+              if (subTaxes.length === 0) continue;
+
+              let groupAmount = 0;
+              let groupPercentage = 0;
+              const subTaxesBreakdown = subTaxes.map(st => {
+                 const amt = Math.round(order.subtotal * (st.percentage / 100));
+                 groupAmount += amt;
+                 groupPercentage += st.percentage;
+                 return { name: st.name, percentage: st.percentage, amount: amt };
+              });
+
+              mergedTax += groupAmount;
+              mergedTaxBreakdown.push({
+                 name: group.name,
+                 percentage: groupPercentage,
+                 amount: groupAmount,
+                 subTaxes: subTaxesBreakdown
+              });
+          }
+
+          // Process Standalone Taxes
+          const standaloneTaxes = standardTaxes.filter(t => !t.groupId);
+          for (const st of standaloneTaxes) {
+              const amount = Math.round(order.subtotal * (st.percentage / 100));
+              mergedTax += amount;
+              mergedTaxBreakdown.push({
+                 name: st.name,
+                 percentage: st.percentage,
+                 amount,
+                 subTaxes: []
+              });
+          }
+
+          order.taxBreakdown = mergedTaxBreakdown;
 
           order.tax = mergedTax;
           order.total = order.subtotal + order.tax;

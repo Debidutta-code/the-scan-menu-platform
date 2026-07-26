@@ -50,6 +50,11 @@ export interface IOrderTaxBreakdown {
   name: string;
   percentage: number;
   amount: number; // calculated in cents/paise
+  subTaxes?: {
+    name: string;
+    percentage: number;
+    amount: number;
+  }[];
 }
 
 export interface IOrder extends Document {
@@ -118,6 +123,13 @@ const orderSchema = new Schema<IOrder>(
         name: { type: String, required: true },
         percentage: { type: Number, required: true },
         amount: { type: Number, required: true },
+        subTaxes: [
+          {
+            name: { type: String, required: true },
+            percentage: { type: Number, required: true },
+            amount: { type: Number, required: true },
+          },
+        ],
       },
     ],
     total: { type: Number, required: true },

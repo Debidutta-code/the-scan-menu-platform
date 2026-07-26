@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+with open('client/src/pages/ManagerTaxes.tsx', 'w') as f:
+    f.write('''import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,7 +34,7 @@ export const ManagerTaxes: React.FC = () => {
     enabled: !!activeRestaurantId,
   });
 
-  const taxes: Tax[] = useMemo(() => taxesData?.data || [], [taxesData?.data]);
+  const taxes: Tax[] = taxesData?.data || [];
 
   const groups = useMemo(() => taxes.filter((t) => t.type === 'GROUP'), [taxes]);
   const standaloneTaxes = useMemo(() => taxes.filter((t) => t.type === 'TAX' && !t.groupId), [taxes]);
@@ -407,3 +408,4 @@ export const ManagerTaxes: React.FC = () => {
 };
 
 export default ManagerTaxes;
+''')

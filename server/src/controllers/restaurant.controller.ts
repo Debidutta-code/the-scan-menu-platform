@@ -529,17 +529,24 @@ export class RestaurantController {
   async createTax(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { name, percentage } = req.body;
+      const { name, percentage, type, groupId } = req.body;
 
-      if (!name || typeof percentage !== 'number') {
-        sendError(res, 'BAD_REQUEST', 'Tax name and valid percentage are required', null, 400);
+      if (!name) {
+        sendError(res, 'BAD_REQUEST', 'Tax name is required', null, 400);
+        return;
+      }
+
+      if (type === 'TAX' && typeof percentage !== 'number') {
+        sendError(res, 'BAD_REQUEST', 'Tax percentage is required for regular taxes', null, 400);
         return;
       }
 
       const tax = new Tax({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        type: type || 'TAX',
+        groupId: groupId ? new mongoose.Types.ObjectId(groupId) : undefined,
         name: name.trim(),
-        percentage,
+        percentage: type === 'GROUP' ? 0 : percentage,
         isActive: true,
       });
 
@@ -553,7 +560,7 @@ export class RestaurantController {
   async updateTax(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, taxId } = req.params;
-      const { name, percentage, isActive } = req.body;
+      const { name, percentage, isActive, type, groupId } = req.body;
 
       const tax = await Tax.findOne({ _id: taxId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
       if (!tax) {
@@ -562,8 +569,13 @@ export class RestaurantController {
       }
 
       if (name) tax.name = name.trim();
-      if (percentage !== undefined) tax.percentage = percentage;
+      if (percentage !== undefined && tax.type !== 'GROUP') tax.percentage = percentage;
       if (isActive !== undefined) tax.isActive = !!isActive;
+      if (type !== undefined) {
+         tax.type = type;
+         if (type === 'GROUP') tax.percentage = 0;
+      }
+      if (groupId !== undefined) tax.groupId = groupId ? new mongoose.Types.ObjectId(groupId) : undefined;
 
       await tax.save();
       sendSuccess(res, tax, 'Tax updated successfully');

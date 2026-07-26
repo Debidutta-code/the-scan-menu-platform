@@ -38,6 +38,8 @@ export interface TableZone {
 export interface Tax {
   _id: string;
   restaurantId: string;
+  type: 'GROUP' | 'TAX';
+  groupId?: string | Tax;
   name: string;
   percentage: number;
   isActive: boolean;
@@ -47,6 +49,11 @@ export interface OrderTaxBreakdown {
   name: string;
   percentage: number;
   amount: number;
+  subTaxes?: {
+    name: string;
+    percentage: number;
+    amount: number;
+  }[];
 }
 
 export interface Table {
