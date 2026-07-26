@@ -46,6 +46,12 @@ export interface IOrderItem {
   servedAt?: Date;
 }
 
+export interface IOrderTaxBreakdown {
+  name: string;
+  percentage: number;
+  amount: number; // calculated in cents/paise
+}
+
 export interface IOrder extends Document {
   restaurantId: Types.ObjectId;
   tableId: Types.ObjectId;
@@ -56,6 +62,7 @@ export interface IOrder extends Document {
   items: IOrderItem[];
   subtotal: number; // in cents/paise
   tax: number; // in cents/paise
+  taxBreakdown: IOrderTaxBreakdown[]; // Snapshot of taxes applied
   total: number; // in cents/paise
   customerNote?: string;
   status: OrderStatus;
@@ -106,6 +113,13 @@ const orderSchema = new Schema<IOrder>(
     items: [orderItemSchema],
     subtotal: { type: Number, required: true },
     tax: { type: Number, required: true },
+    taxBreakdown: [
+      {
+        name: { type: String, required: true },
+        percentage: { type: Number, required: true },
+        amount: { type: Number, required: true },
+      },
+    ],
     total: { type: Number, required: true },
     customerNote: { type: String, trim: true },
     status: {

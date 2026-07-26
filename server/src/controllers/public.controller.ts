@@ -1,3 +1,4 @@
+import { Tax } from '../models/Tax';
 import { Request, Response, NextFunction } from 'express';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
@@ -252,9 +253,23 @@ export class PublicController {
         return;
       }
 
-      // 5. Calculate Subtotal, Tax, Total
+      // 5. Calculate Subtotal, Tax Breakdown, Tax, Total
       const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
-      const tax = Math.round(subtotal * ((restaurant.taxRatePercent || 0) / 100));
+
+      // Fetch active taxes for this restaurant
+      const activeTaxes: any[] = await Tax.find({ restaurantId: restaurant._id, isActive: true });
+
+      let tax = 0;
+      const taxBreakdown = activeTaxes.map((t: any) => {
+        const amount = Math.round(subtotal * (t.percentage / 100));
+        tax += amount;
+        return {
+          name: t.name,
+          percentage: t.percentage,
+          amount
+        };
+      });
+
       const total = subtotal + tax;
 
       // 5b. Resolve or create TableSession
@@ -294,7 +309,19 @@ export class PublicController {
 
           // Recompute order totals
           order.subtotal = order.items.reduce((sum: number, item: any) => sum + item.unitPriceSnapshot * item.quantity, 0);
-          order.tax = Math.round(order.subtotal * ((restaurant.taxRatePercent || 0) / 100));
+
+          let mergedTax = 0;
+          order.taxBreakdown = activeTaxes.map((t: any) => {
+            const amount = Math.round(order.subtotal * (t.percentage / 100));
+            mergedTax += amount;
+            return {
+              name: t.name,
+              percentage: t.percentage,
+              amount
+            };
+          });
+
+          order.tax = mergedTax;
           order.total = order.subtotal + order.tax;
           order.isMerged = true;
           if (customerNote) {
@@ -329,6 +356,7 @@ export class PublicController {
           items: validatedItems,
           subtotal,
           tax,
+          taxBreakdown,
           total,
           customerNote: customerNote || '',
           status: 'PENDING',
@@ -402,6 +430,7 @@ export class PublicController {
             items: order.items,
             subtotal: order.subtotal,
             tax: order.tax,
+            taxBreakdown: order.taxBreakdown,
             total: order.total,
             customerNote: order.customerNote,
             status: order.status,

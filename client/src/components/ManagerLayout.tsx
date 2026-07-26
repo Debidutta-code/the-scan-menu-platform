@@ -17,6 +17,7 @@ import {
   VolumeX,
   BellRing,
   Users,
+  Calculator,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -50,6 +51,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'tables'
     : currentPath.startsWith('/manager/staff')
     ? 'staff'
+    : currentPath.startsWith('/manager/taxes')
+    ? 'taxes'
     : currentPath.startsWith('/manager/settings')
     ? 'settings'
     : currentPath.startsWith('/manager/analytics')
@@ -351,6 +354,21 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
+          {/* Taxes tab (Manager/Super Admin only) */}
+          {!isStaff && (
+            <button
+              onClick={() => navigate('/manager/taxes')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'taxes'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Calculator className="w-4 h-4" strokeWidth={1.75} />
+              <span>Tax Management</span>
+            </button>
+          )}
+
           {/* Settings tab (Manager/Super Admin only) */}
           {!isStaff && (
             <button
@@ -493,6 +511,19 @@ export const ManagerLayout: React.FC = () => {
           >
             <Users className="w-5 h-5" strokeWidth={1.75} />
             <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Staff</span>
+          </button>
+        )}
+
+        {/* Taxes (Manager only) */}
+        {!isStaff && (
+          <button
+            onClick={() => navigate('/manager/taxes')}
+            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+              activeTab === 'taxes' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <Calculator className="w-5 h-5" strokeWidth={1.75} />
+            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Taxes</span>
           </button>
         )}
 

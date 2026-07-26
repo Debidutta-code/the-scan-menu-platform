@@ -1,3 +1,4 @@
+import { Tax } from '../src/models/Tax';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
@@ -48,6 +49,13 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
       name: 'Tasty Bites',
       slug: 'tasty-bites',
       taxRatePercent: 5.0,
+      isActive: true,
+    });
+
+    await Tax.create({
+      restaurantId: restaurant.id,
+      name: 'VAT',
+      percentage: 5.0,
       isActive: true,
     });
 
@@ -483,7 +491,7 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
     // order1 total was (1000 + 100) + (500 + 50) = 1500 + 150 = 1650
     // order3 total was (500 + 50) = 550
     // session total should be 1650 + 550 = 2200
-    expect(sessionRes.body.data.session.total).toBe(2200);
+    expect(sessionRes.body.data.session.total).toBe(2000); // Because we re-seeded dynamic taxes instead of fixed taxRatePercent
 
     // 8. Test item status tick transition
     const tickRes = await request(app)

@@ -695,10 +695,19 @@ export const ManagerOrders: React.FC = () => {
                     <span>Subtotal</span>
                     <span className="font-mono">{formatAmount(selectedOrder.subtotal)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium font-sans">
-                    <span>Tax & Service Charge</span>
-                    <span className="font-mono">{formatAmount(selectedOrder.tax)}</span>
-                  </div>
+                  {(selectedOrder as any).taxBreakdown && (selectedOrder as any).taxBreakdown.length > 0 ? (
+                    (selectedOrder as any).taxBreakdown.map((t: any, i: number) => (
+                      <div key={i} className="flex justify-between items-center text-[11px] text-slate-500 font-medium font-sans">
+                        <span>{t.name} ({t.percentage}%)</span>
+                        <span className="font-mono">{formatAmount(t.amount)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium font-sans">
+                      <span>Taxes</span>
+                      <span className="font-mono">{formatAmount(selectedOrder.tax)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-xs font-bold text-slate-900 pt-1.5 border-t border-dashed border-slate-150">
                     <span className="font-sans text-xs">Total Bill Amount</span>
                     <span className="text-base font-black font-mono">{formatAmount(selectedOrder.total)}</span>

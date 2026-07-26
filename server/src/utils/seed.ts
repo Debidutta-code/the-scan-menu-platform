@@ -6,6 +6,8 @@ import { Restaurant } from '../models/Restaurant';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Table } from '../models/Table';
+import { TableZone } from '../models/TableZone';
+import { Tax } from '../models/Tax';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { logger } from './logger';
 
@@ -163,14 +165,49 @@ export const seedDatabase = async () => {
       logger.info('Linked Staff Two to "Demo Cafe".');
     }
 
+    // 3.5 Seed Taxes & Table Zones
+    logger.info('Seeding taxes...');
+    const taxesData = [
+      { name: 'CGST', percentage: 2.5 },
+      { name: 'SGST', percentage: 2.5 },
+    ];
+    for (const tax of taxesData) {
+      const existingTax = await Tax.findOne({ restaurantId: restaurant._id, name: tax.name });
+      if (!existingTax) {
+        await Tax.create({
+          restaurantId: restaurant._id,
+          name: tax.name,
+          percentage: tax.percentage,
+          isActive: true,
+        });
+      }
+    }
+
+    logger.info('Seeding table zones...');
+    const zonesData = ['Indoor Dining', 'Outdoor Patio'];
+    const createdZones = [];
+    for (const zoneName of zonesData) {
+      let zone = await TableZone.findOne({ restaurantId: restaurant._id, name: zoneName });
+      if (!zone) {
+        zone = await TableZone.create({
+          restaurantId: restaurant._id,
+          name: zoneName,
+          isActive: true,
+        });
+      }
+      createdZones.push(zone);
+    }
+    const indoorZone = createdZones.find(z => z.name === 'Indoor Dining');
+    const outdoorZone = createdZones.find(z => z.name === 'Outdoor Patio');
+
     // 4. Seed 5 Tables idempotently
     logger.info('Seeding tables...');
     const tablesData = [
-      { num: '1', name: 'Table 1 (Window Side)' },
-      { num: '2', name: 'Table 2 (Lounge)' },
-      { num: '3', name: 'Table 3 (Terrace)' },
-      { num: '4', name: 'Table 4 (Bar Side)' },
-      { num: '5', name: 'Table 5 (VIP Cabin)' },
+      { num: '1', name: 'Table 1 (Window Side)', zoneId: indoorZone?._id },
+      { num: '2', name: 'Table 2 (Lounge)', zoneId: indoorZone?._id },
+      { num: '3', name: 'Table 3 (Terrace)', zoneId: outdoorZone?._id },
+      { num: '4', name: 'Table 4 (Bar Side)', zoneId: indoorZone?._id },
+      { num: '5', name: 'Table 5 (VIP Cabin)', zoneId: outdoorZone?._id },
     ];
 
     for (const t of tablesData) {
@@ -181,6 +218,7 @@ export const seedDatabase = async () => {
       if (!existingTable) {
         await Table.create({
           restaurantId: restaurant._id,
+          zoneId: t.zoneId,
           tableNumber: t.num,
           displayName: t.name,
           token: `secureTableTokenDemoCafeNumber${t.num}XYZ`,

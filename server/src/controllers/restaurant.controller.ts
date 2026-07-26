@@ -2,6 +2,8 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { Restaurant } from '../models/Restaurant';
 import { Table } from '../models/Table';
+import { TableZone } from '../models/TableZone';
+import { Tax } from '../models/Tax';
 import { User } from '../models/User';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
@@ -258,6 +260,7 @@ export class RestaurantController {
         restaurantId: restaurant.id,
         tableNumber: tableNumber.trim(),
         displayName: displayName.trim(),
+        zoneId: req.body.zoneId ? new mongoose.Types.ObjectId(req.body.zoneId) : undefined,
         token,
         qrCodeUrl,
         isActive: true,
@@ -302,6 +305,10 @@ export class RestaurantController {
 
       if (isActive !== undefined) {
         table.isActive = !!isActive;
+      }
+
+      if (req.body.zoneId !== undefined) {
+          table.zoneId = req.body.zoneId ? new mongoose.Types.ObjectId(req.body.zoneId) : undefined;
       }
 
       await table.save();
@@ -417,6 +424,165 @@ export class RestaurantController {
       const pngDataUri = await tableService.generateQrCodePngDataUri(tableUrl);
 
       sendSuccess(res, { svg, pngDataUri, url: tableUrl }, 'QR retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // TABLE ZONES MANAGEMENT
+  // ==========================================
+
+  async listZones(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const zones = await TableZone.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) }).sort({ name: 1 });
+      sendSuccess(res, zones, 'Zones fetched successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createZone(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { name } = req.body;
+
+      if (!name) {
+        sendError(res, 'BAD_REQUEST', 'Zone name is required', null, 400);
+        return;
+      }
+
+      const existingZone = await TableZone.findOne({ restaurantId: new mongoose.Types.ObjectId(restaurantId), name: name.trim() });
+      if (existingZone) {
+        sendError(res, 'CONFLICT', 'Zone with this name already exists', null, 409);
+        return;
+      }
+
+      const zone = new TableZone({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        name: name.trim(),
+        isActive: true,
+      });
+
+      await zone.save();
+      sendSuccess(res, zone, 'Zone created successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateZone(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, zoneId } = req.params;
+      const { name, isActive } = req.body;
+
+      const zone = await TableZone.findOne({ _id: zoneId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      if (!zone) {
+        sendError(res, 'NOT_FOUND', 'Zone not found', null, 404);
+        return;
+      }
+
+      if (name) zone.name = name.trim();
+      if (isActive !== undefined) zone.isActive = !!isActive;
+
+      await zone.save();
+      sendSuccess(res, zone, 'Zone updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteZone(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, zoneId } = req.params;
+
+      const zone = await TableZone.findOneAndDelete({ _id: zoneId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      if (!zone) {
+        sendError(res, 'NOT_FOUND', 'Zone not found', null, 404);
+        return;
+      }
+
+      // Hard delete all tables in this zone as per user request
+      await Table.deleteMany({ restaurantId: new mongoose.Types.ObjectId(restaurantId), zoneId: new mongoose.Types.ObjectId(zoneId) });
+
+      sendSuccess(res, {}, 'Zone and associated tables deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // TAXES MANAGEMENT
+  // ==========================================
+
+  async listTaxes(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const taxes = await Tax.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) }).sort({ createdAt: 1 });
+      sendSuccess(res, taxes, 'Taxes fetched successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createTax(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { name, percentage } = req.body;
+
+      if (!name || typeof percentage !== 'number') {
+        sendError(res, 'BAD_REQUEST', 'Tax name and valid percentage are required', null, 400);
+        return;
+      }
+
+      const tax = new Tax({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        name: name.trim(),
+        percentage,
+        isActive: true,
+      });
+
+      await tax.save();
+      sendSuccess(res, tax, 'Tax created successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateTax(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, taxId } = req.params;
+      const { name, percentage, isActive } = req.body;
+
+      const tax = await Tax.findOne({ _id: taxId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      if (!tax) {
+        sendError(res, 'NOT_FOUND', 'Tax not found', null, 404);
+        return;
+      }
+
+      if (name) tax.name = name.trim();
+      if (percentage !== undefined) tax.percentage = percentage;
+      if (isActive !== undefined) tax.isActive = !!isActive;
+
+      await tax.save();
+      sendSuccess(res, tax, 'Tax updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteTax(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, taxId } = req.params;
+
+      const tax = await Tax.findOneAndDelete({ _id: taxId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      if (!tax) {
+        sendError(res, 'NOT_FOUND', 'Tax not found', null, 404);
+        return;
+      }
+
+      sendSuccess(res, {}, 'Tax deleted successfully');
     } catch (error) {
       next(error);
     }

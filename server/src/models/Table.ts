@@ -2,6 +2,7 @@ import { Schema, model, Document, Types } from 'mongoose';
 
 export interface ITable extends Document {
   restaurantId: Types.ObjectId;
+  zoneId?: Types.ObjectId;
   tableNumber: string;
   displayName: string;
   token: string;

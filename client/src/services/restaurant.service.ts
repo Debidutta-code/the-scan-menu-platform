@@ -28,9 +28,31 @@ export interface Restaurant {
   updatedAt: string;
 }
 
+export interface TableZone {
+  _id: string;
+  restaurantId: string;
+  name: string;
+  isActive: boolean;
+}
+
+export interface Tax {
+  _id: string;
+  restaurantId: string;
+  name: string;
+  percentage: number;
+  isActive: boolean;
+}
+
+export interface OrderTaxBreakdown {
+  name: string;
+  percentage: number;
+  amount: number;
+}
+
 export interface Table {
   _id: string;
   restaurantId: string;
+  zoneId?: TableZone | string;
   tableNumber: string;
   displayName: string;
   token: string;
@@ -178,6 +200,48 @@ export const managerService = {
 
   async getTableQr(restaurantId: string, tableId: string) {
     const res = await apiClient.get(`/restaurants/${restaurantId}/tables/${tableId}/qr`);
+    return res.data;
+  },
+
+  // Zone endpoints
+  async listZones(restaurantId: string) {
+    const res = await apiClient.get(`/restaurants/${restaurantId}/zones`);
+    return res.data;
+  },
+
+  async createZone(restaurantId: string, data: any) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/zones`, data);
+    return res.data;
+  },
+
+  async updateZone(restaurantId: string, zoneId: string, data: any) {
+    const res = await apiClient.patch(`/restaurants/${restaurantId}/zones/${zoneId}`, data);
+    return res.data;
+  },
+
+  async deleteZone(restaurantId: string, zoneId: string) {
+    const res = await apiClient.delete(`/restaurants/${restaurantId}/zones/${zoneId}`);
+    return res.data;
+  },
+
+  // Tax endpoints
+  async listTaxes(restaurantId: string) {
+    const res = await apiClient.get(`/restaurants/${restaurantId}/taxes`);
+    return res.data;
+  },
+
+  async createTax(restaurantId: string, data: any) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/taxes`, data);
+    return res.data;
+  },
+
+  async updateTax(restaurantId: string, taxId: string, data: any) {
+    const res = await apiClient.patch(`/restaurants/${restaurantId}/taxes/${taxId}`, data);
+    return res.data;
+  },
+
+  async deleteTax(restaurantId: string, taxId: string) {
+    const res = await apiClient.delete(`/restaurants/${restaurantId}/taxes/${taxId}`);
     return res.data;
   },
 

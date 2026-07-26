@@ -208,7 +208,7 @@ const Timeline: React.FC<TimelineProps> = ({ currentStatus, workflowMode = 'FIVE
 interface OrderTrackerProps {
   orderId: string;
   currency: string;
-  taxRatePercent: number;
+
   onBack: () => void;
   workflowMode?: WorkflowMode;
 }
@@ -216,7 +216,7 @@ interface OrderTrackerProps {
 const OrderTracker: React.FC<OrderTrackerProps> = ({
   orderId,
   currency,
-  taxRatePercent,
+
   onBack,
   workflowMode = 'FIVE_STEP',
 }) => {
@@ -467,10 +467,19 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({
                 <span>Subtotal</span>
                 <span className="font-mono">{formatPrice(order.subtotal, currency)}</span>
               </div>
-              <div className="flex justify-between font-medium">
-                <span>VAT / Taxes ({taxRatePercent}%)</span>
-                <span className="font-mono">{formatPrice(order.tax, currency)}</span>
-              </div>
+              {order.taxBreakdown && order.taxBreakdown.length > 0 ? (
+                order.taxBreakdown.map((t: any, i: number) => (
+                  <div key={i} className="flex justify-between font-medium">
+                    <span>{t.name} ({t.percentage}%)</span>
+                    <span className="font-mono">{formatPrice(t.amount, currency)}</span>
+                  </div>
+                ))
+              ) : (
+                  <div className="flex justify-between font-medium">
+                    <span>Taxes</span>
+                    <span className="font-mono">{formatPrice(order.tax, currency)}</span>
+                  </div>
+              )}
               <div className="flex justify-between text-slate-900 font-bold text-sm border-t border-slate-50 pt-2">
                 <span>Grand Total</span>
                 <span className="font-mono">{formatPrice(order.total, currency)}</span>
@@ -720,6 +729,18 @@ export const PublicTable: React.FC = () => {
     enabled: !!restaurantSlug && !!tableToken,
     retry: false,
   });
+
+  const restaurantId = tableData?.data?.restaurant?._id;
+  const { data: taxesData } = useQuery({
+    queryKey: ['publicTaxes', restaurantId],
+    queryFn: async () => {
+       const res = await apiClient.get(`/public/restaurants/${restaurantId}/taxes`);
+       return res.data;
+    },
+    enabled: !!restaurantId,
+  });
+  const activeTaxes: any[] = taxesData?.data || [];
+
 
   // Verify and clear cart if tableToken is changed
   useEffect(() => {
@@ -1030,6 +1051,14 @@ export const PublicTable: React.FC = () => {
   };
 
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  let cartTaxTotal = 0;
+  const cartTaxBreakdown = (activeTaxes || []).map((t: any) => {
+     const amt = Math.round(cartSubtotal * (t.percentage / 100));
+     cartTaxTotal += amt;
+     return { name: t.name, percentage: t.percentage, amount: amt };
+  });
+  const cartGrandTotal = cartSubtotal + cartTaxTotal;
+
 
   // Mock Google reviews details
   const mockReviews = [
@@ -1855,9 +1884,21 @@ export const PublicTable: React.FC = () => {
                       <span className="font-mono">{formatPrice(cartSubtotal, currency)}</span>
                     </div>
 
+                    <div className="flex flex-col gap-1 mb-2 border-b border-slate-200 pb-2">
+                       <div className="flex justify-between text-slate-500 text-sm">
+                          <span>Subtotal</span>
+                          <span className="font-mono">{formatPrice(cartSubtotal, currency)}</span>
+                       </div>
+                       {cartTaxBreakdown.map((t: any, idx: number) => (
+                           <div key={idx} className="flex justify-between text-slate-500 text-sm">
+                              <span>{t.name} ({t.percentage}%)</span>
+                              <span className="font-mono">{formatPrice(t.amount, currency)}</span>
+                           </div>
+                       ))}
+                    </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-800 font-bold text-sm">Grand Total (Incl. Taxes)</span>
-                      <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartSubtotal + Math.round(cartSubtotal * ((restaurant.taxRatePercent || 0) / 100)), currency)}</span>
+                      <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
                     </div>
 
                     <button
@@ -1880,7 +1921,7 @@ export const PublicTable: React.FC = () => {
                 <OrderTracker
                   orderId={activeTrackingOrderId}
                   currency={currency}
-                  taxRatePercent={restaurant.taxRatePercent || 0}
+
                   onBack={() => setActiveTrackingOrderId(null)}
                   workflowMode={(restaurant as any).orderWorkflowMode || 'FIVE_STEP'}
                 />
