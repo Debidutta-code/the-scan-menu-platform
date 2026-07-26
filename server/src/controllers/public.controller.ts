@@ -21,6 +21,56 @@ export class PublicController {
     this.getOrderStatus = this.getOrderStatus.bind(this);
     this.getTableSession = this.getTableSession.bind(this);
     this.getTaxes = this.getTaxes.bind(this);
+    this.clearTableSession = this.clearTableSession.bind(this);
+  }
+
+  async clearTableSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantSlug, tableToken } = req.params;
+
+      if (!restaurantSlug || !tableToken) {
+        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+        return;
+      }
+
+      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+      if (!restaurant || !restaurant.isActive) {
+        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+        return;
+      }
+
+      const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
+      if (!table || !table.isActive) {
+        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+        return;
+      }
+
+      const activeSession = await TableSession.findOne({
+        restaurantId: restaurant._id,
+        tableId: table._id,
+        status: 'OPEN',
+      });
+
+      if (activeSession) {
+        activeSession.status = 'CLOSED';
+        activeSession.closedAt = new Date();
+        await activeSession.save();
+
+        try {
+          NotificationService.getInstance().notifySessionUpdated(
+            restaurant._id.toString(),
+            activeSession._id.toString(),
+            activeSession
+          );
+        } catch (err) {
+          console.error('Failed to notify session update:', err);
+        }
+      }
+
+      sendSuccess(res, { success: true }, 'Table session cleared successfully');
+    } catch (error) {
+      next(error);
+    }
   }
 
   async resolveTable(req: Request, res: Response, next: NextFunction): Promise<void> {

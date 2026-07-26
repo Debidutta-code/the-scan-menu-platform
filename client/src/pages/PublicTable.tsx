@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search as SearchIcon,
@@ -596,6 +596,7 @@ export const PublicTable: React.FC = () => {
   const [selectedRequestType, setSelectedRequestType] = useState<'CALL_WAITER' | 'REQUEST_BILL' | 'WATER' | 'TISSUE' | 'OTHER'>('CALL_WAITER');
   const [isWaiterConfirmOpen, setIsWaiterConfirmOpen] = useState(false);
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
+  const [isClearSessionModalOpen, setIsClearSessionModalOpen] = useState(false);
 
   // Phone checkout / OTP State
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
@@ -663,6 +664,21 @@ export const PublicTable: React.FC = () => {
   });
 
   const activeSessionId = tableData?.success ? tableData.data?.table?.activeSessionId : null;
+
+  const clearSessionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post(`/public/restaurants/${restaurantSlug}/tables/${tableToken}/clear-session`);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast('Session cleared successfully', 'success');
+      queryClient.invalidateQueries({ queryKey: ['publicTable'] });
+      queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Failed to clear session', 'error');
+    },
+  });
 
   // Fetch active session and its orders/rounds
   const { data: sessionDetailsData, isLoading: isSessionLoading } = useQuery({
@@ -1950,10 +1966,27 @@ export const PublicTable: React.FC = () => {
                            </div>
                        ))}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-800 font-bold text-sm">Grand Total (Incl. Taxes)</span>
-                      <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
-                    </div>
+                    {sessionDetailsData?.data?.session ? (
+                      <div className="flex flex-col gap-1 border-t border-slate-200 pt-3 mt-1">
+                         <div className="flex justify-between text-slate-500 text-sm">
+                            <span>Current Session Total</span>
+                            <span className="font-mono">{formatPrice(sessionDetailsData.data.session.total, currency)}</span>
+                         </div>
+                         <div className="flex justify-between text-slate-500 text-sm">
+                            <span>This Order Total</span>
+                            <span className="font-mono">{formatPrice(cartGrandTotal, currency)}</span>
+                         </div>
+                         <div className="flex justify-between text-slate-900 font-bold text-sm mt-1 border-t border-slate-200 pt-2">
+                            <span>Expected Final Bill</span>
+                            <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(sessionDetailsData.data.session.total + cartGrandTotal, currency)}</span>
+                         </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-800 font-bold text-sm">Grand Total (Incl. Taxes)</span>
+                        <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
+                      </div>
+                    )}
 
                     <button
                       onClick={handleCheckoutTrigger}
@@ -2010,6 +2043,15 @@ export const PublicTable: React.FC = () => {
                 const orders = sessionDetailsData.data.orders || [];
                 return (
                   <div className="space-y-5">
+                    <div className="flex justify-center pb-2">
+                      <button
+                        onClick={() => setIsClearSessionModalOpen(true)}
+                        className="text-xs font-semibold text-slate-500 hover:text-red-500 flex items-center gap-1.5 transition-colors"
+                      >
+                        Not your orders? Start a new session
+                      </button>
+                    </div>
+
                     {/* Top Session Summary Card */}
                     <div className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-4 text-left">
                       <div className="flex justify-between items-start">
@@ -2256,6 +2298,22 @@ export const PublicTable: React.FC = () => {
         cancelText="Cancel"
         onConfirm={handleCallWaiterConfirm}
         onCancel={() => setIsWaiterConfirmOpen(false)}
+      />
+
+      {/* ==========================================
+          CLEAR SESSION CONFIRM MODAL
+          ========================================== */}
+      <ConfirmModal
+        isOpen={isClearSessionModalOpen}
+        title="Start New Session?"
+        message="Are you sure you want to clear these orders and start a fresh session for this table? This cannot be undone."
+        confirmText="Clear & Start New"
+        cancelText="Cancel"
+        onConfirm={() => {
+          clearSessionMutation.mutate();
+          setIsClearSessionModalOpen(false);
+        }}
+        onCancel={() => setIsClearSessionModalOpen(false)}
       />
 
       {/* ==========================================

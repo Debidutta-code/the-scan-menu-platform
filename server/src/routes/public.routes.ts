@@ -64,6 +64,7 @@ router.get('/restaurants/:restaurantId/taxes', publicGetLimiter, publicControlle
 
 // Public Order Creation & Getters (Order placing limited to 5 orders/10 mins)
 router.post('/restaurants/:restaurantSlug/tables/:tableToken/orders', orderCreationLimiter, publicController.createOrder);
+router.post('/restaurants/:restaurantSlug/tables/:tableToken/clear-session', orderCreationLimiter, publicController.clearTableSession);
 router.get('/orders/:orderId', publicGetLimiter, publicController.getOrder);
 router.get('/orders/:orderId/status', publicGetLimiter, publicController.getOrderStatus);
 router.get('/table-sessions/:sessionId', publicGetLimiter, publicController.getTableSession);
