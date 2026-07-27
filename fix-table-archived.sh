@@ -1,0 +1,1 @@
+sed -i 's/const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) }).sort({ tableNumber: 1 });/const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: false }).sort({ tableNumber: 1 }).populate("zoneId");/' server/src/controllers/restaurant.controller.ts
