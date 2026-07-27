@@ -17,6 +17,7 @@ export interface ITable extends Document {
 const tableSchema = new Schema<ITable>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    zoneId: { type: Schema.Types.ObjectId, ref: 'TableZone' },
     tableNumber: { type: String, required: true, trim: true },
     displayName: { type: String, required: true, trim: true },
     token: { type: String, required: true, unique: true },

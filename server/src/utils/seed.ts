@@ -226,6 +226,10 @@ export const seedDatabase = async () => {
           isActive: true,
         });
         logger.info(`Table ${t.num} seeded.`);
+      } else if (t.zoneId && !existingTable.zoneId) {
+        existingTable.zoneId = t.zoneId;
+        await existingTable.save();
+        logger.info(`Updated Table ${t.num} with zoneId.`);
       }
     }
 

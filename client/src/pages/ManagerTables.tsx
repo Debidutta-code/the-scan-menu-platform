@@ -449,7 +449,9 @@ export const ManagerTables: React.FC = () => {
             .map(zone => {
               const zoneTables = tables.filter(t => {
                 const tableZoneId = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
-                return zone!._id === null ? !tableZoneId : tableZoneId === zone!._id;
+                return zone!._id === null
+                  ? (!tableZoneId || !zones.some(z => z._id === tableZoneId))
+                  : tableZoneId === zone!._id;
               });
 
               if (zoneTables.length === 0) return null;

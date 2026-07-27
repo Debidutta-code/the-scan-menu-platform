@@ -219,7 +219,7 @@ export class RestaurantController {
   async listTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: false }).sort({ tableNumber: 1 }).populate("zoneId");
+      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: { $ne: true } }).sort({ tableNumber: 1 }).populate("zoneId");
 
       sendSuccess(res, tables, 'Tables listed successfully');
     } catch (error) {
@@ -244,7 +244,7 @@ export class RestaurantController {
       }
 
       // Check duplicate tableNumber
-      const duplicate = await Table.findOne({ isArchived: false,
+      const duplicate = await Table.findOne({ isArchived: { $ne: true },
         restaurantId: restaurant.id,
         tableNumber: tableNumber.trim(),
       });
@@ -287,7 +287,7 @@ export class RestaurantController {
 
       if (tableNumber && tableNumber.trim() !== table.tableNumber) {
         // Check duplicates
-        const duplicate = await Table.findOne({ isArchived: false,
+        const duplicate = await Table.findOne({ isArchived: { $ne: true },
           restaurantId,
           tableNumber: tableNumber.trim(),
           _id: { $ne: tableId },

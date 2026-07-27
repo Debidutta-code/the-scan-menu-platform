@@ -60,7 +60,13 @@ export class AuthController {
       });
 
       const staffRecords = await RestaurantStaff.find({ userId: user.id, isActive: true });
-      const assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
+      let assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
+
+      if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
+        const { Restaurant } = await import('../models/Restaurant');
+        const allRestaurants = await Restaurant.find({ isActive: true });
+        assignedRestaurants = allRestaurants.map((r) => r.id.toString());
+      }
 
       sendSuccess(
         res,
@@ -178,7 +184,13 @@ export class AuthController {
       }
 
       const staffRecords = await RestaurantStaff.find({ userId: user.id, isActive: true });
-      const assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
+      let assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
+
+      if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
+        const { Restaurant } = await import('../models/Restaurant');
+        const allRestaurants = await Restaurant.find({ isActive: true });
+        assignedRestaurants = allRestaurants.map((r) => r.id.toString());
+      }
 
       sendSuccess(
         res,
