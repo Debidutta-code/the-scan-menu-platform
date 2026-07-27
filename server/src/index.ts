@@ -94,6 +94,33 @@ app.use('/api/v1/restaurants', restaurantRoutes);
 
 app.use('/api/v1/public', publicRoutes);
 
+// Health check route
+app.get('/health', (_req, res) => {
+  const mongoState = mongoose.connection.readyState;
+  // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+  const mongoStateMap: Record<number, string> = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+  };
+  const isHealthy = mongoState === 1;
+
+  res.status(isHealthy ? 200 : 503).json({
+    success: isHealthy,
+    data: {
+      status: isHealthy ? 'ok' : 'degraded',
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString(),
+      services: {
+        mongodb: mongoStateMap[mongoState] ?? 'unknown',
+      },
+    },
+    message: isHealthy ? 'Server is healthy' : 'Server is degraded',
+  });
+});
+
 // Global Error Handler
 app.use(errorHandler);
 
