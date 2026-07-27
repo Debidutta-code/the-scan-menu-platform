@@ -474,12 +474,16 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({
                       <span>{t.name} ({t.percentage}%)</span>
                       <span className="font-mono">{formatPrice(t.amount, currency)}</span>
                     </div>
-                    {t.subTaxes && t.subTaxes.length > 0 && t.subTaxes.map((st: any, j: number) => (
-                       <div key={j} className="flex justify-between font-normal text-xs text-slate-500 pl-4">
-                         <span>{st.name} ({st.percentage}%)</span>
-                         <span className="font-mono">{formatPrice(st.amount, currency)}</span>
-                       </div>
-                    ))}
+                    {t.subTaxes && t.subTaxes.length > 0 && (
+                      <div className="pl-3 border-l-2 border-slate-200 ml-1 space-y-0.5 my-0.5">
+                        {t.subTaxes.map((st: any, j: number) => (
+                          <div key={j} className="flex justify-between text-slate-400 text-[11px]">
+                            <span>{st.name} ({st.percentage}%)</span>
+                            <span className="font-mono text-slate-400">({formatPrice(st.amount, currency)})</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               ) : (
@@ -1937,28 +1941,27 @@ export const PublicTable: React.FC = () => {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                      <span>Subtotal</span>
-                      <span className="font-mono">{formatPrice(cartSubtotal, currency)}</span>
-                    </div>
-
                     <div className="flex flex-col gap-1 mb-2 border-b border-slate-200 pb-2">
-                       <div className="flex justify-between text-slate-500 text-sm">
+                       <div className="flex justify-between text-slate-500 text-sm font-medium">
                           <span>Subtotal</span>
                           <span className="font-mono">{formatPrice(cartSubtotal, currency)}</span>
                        </div>
                        {cartTaxBreakdown.map((t: any, idx: number) => (
-                           <div key={idx} className="flex flex-col">
-                               <div className="flex justify-between text-slate-500 text-sm">
+                           <div key={idx} className="flex flex-col gap-0.5">
+                               <div className="flex justify-between text-slate-500 text-sm font-medium">
                                   <span>{t.name} ({t.percentage}%)</span>
                                   <span className="font-mono">{formatPrice(t.amount, currency)}</span>
                                </div>
-                               {t.subTaxes && t.subTaxes.length > 0 && t.subTaxes.map((st: any, i: number) => (
-                                   <div key={i} className="flex justify-between text-slate-400 text-xs pl-4">
-                                      <span>{st.name} ({st.percentage}%)</span>
-                                      <span className="font-mono">{formatPrice(st.amount, currency)}</span>
+                               {t.subTaxes && t.subTaxes.length > 0 && (
+                                   <div className="pl-3 border-l-2 border-slate-200 ml-1 space-y-0.5 my-0.5">
+                                       {t.subTaxes.map((st: any, i: number) => (
+                                           <div key={i} className="flex justify-between text-slate-400 text-xs">
+                                              <span>{st.name} ({st.percentage}%)</span>
+                                              <span className="font-mono text-slate-400">({formatPrice(st.amount, currency)})</span>
+                                           </div>
+                                       ))}
                                    </div>
-                               ))}
+                               )}
                            </div>
                        ))}
                     </div>

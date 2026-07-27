@@ -253,7 +253,7 @@ export const ManagerLayout: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen max-h-screen flex flex-col md:flex-row bg-[#FAF9F6] text-slate-900 font-sans select-none">
+    <div className="h-screen flex flex-col md:flex-row bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
 
       {/* ----------------- SIDEBAR (TABLET/DESKTOP) ----------------- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-150 shrink-0 h-full">

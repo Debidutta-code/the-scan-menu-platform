@@ -466,7 +466,7 @@ export const ManagerOrders: React.FC = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full flex flex-col overflow-hidden select-none">
+    <div className="flex flex-col select-none">
 
       {/* ── Mobile Status Tab Bar ── */}
       <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-3 bg-white border-b border-slate-150 shrink-0 scrollbar-none">
@@ -493,14 +493,14 @@ export const ManagerOrders: React.FC = () => {
       </div>
 
       {/* ── Main Order Columns ── */}
-      <div className="flex-1 overflow-auto p-4 md:p-6 bg-slate-100/60 flex flex-col gap-6">
+      <div className="p-4 md:p-6 bg-slate-100/60 flex flex-col gap-6">
         <div className="overflow-x-auto pb-4 custom-scrollbar">
           <div
             className={`h-full grid grid-cols-1 gap-4 min-w-[320px]`}
             style={{
               gridTemplateColumns: `repeat(${workflowSteps.length}, minmax(260px, 1fr))`,
               minWidth: `${workflowSteps.length * 280}px`,
-              minHeight: '60vh'
+              minHeight: '90vh'
             }}
           >
           {workflowSteps.map((step) => {
@@ -633,7 +633,7 @@ export const ManagerOrders: React.FC = () => {
         </div>
 
         {/* ── All Orders History Section ── */}
-        <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-sm mt-2 shrink-0 max-w-6xl mx-auto w-full">
+        <div className="bg-white rounded-2xl border border-slate-200/60 p-5 shadow-sm shrink-0 mx-auto w-full">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <h3 className="text-lg font-display font-bold text-slate-800">Order History</h3>
 
@@ -673,55 +673,98 @@ export const ManagerOrders: React.FC = () => {
             </div>
           </div>
 
-          {/* History Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {historyOrders.map((order) => (
-              <div
-                key={order._id}
-                onClick={() => setSelectedOrder(order)}
-                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl p-4 cursor-pointer transition"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="font-mono text-xs font-bold bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-900 leading-none shadow-sm">
+          {/* History List — table-style rows */}
+          {isFetchingHistory && historyOrders.length === 0 ? (
+            <div className="py-10 flex justify-center">
+              <Loader className="w-5 h-5 animate-spin text-slate-400" strokeWidth={1.75} />
+            </div>
+          ) : historyOrders.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <Search className="w-8 h-8 mb-2 text-slate-300" strokeWidth={1.5} />
+              <p className="text-sm font-bold">No orders found</p>
+            </div>
+          ) : (
+            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+              {/* Table Header */}
+              <div className="hidden sm:grid grid-cols-[80px_1fr_1fr_100px_90px_80px] gap-3 px-4 py-2.5 bg-slate-100 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <span>#</span>
+                <span>Table</span>
+                <span>Customer</span>
+                <span>Date &amp; Time</span>
+                <span>Status</span>
+                <span className="text-right">Total</span>
+              </div>
+
+              {/* Rows */}
+              <div className="divide-y divide-slate-100">
+                {historyOrders.map((order, idx) => (
+                  <div
+                    key={order._id}
+                    onClick={() => setSelectedOrder(order)}
+                    className={`grid grid-cols-[56px_1fr_80px] sm:grid-cols-[80px_1fr_1fr_100px_90px_80px] gap-3 items-center px-4 py-3 cursor-pointer transition-colors hover:bg-amber-50/60 ${
+                      idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'
+                    }`}
+                  >
+                    {/* Order # */}
+                    <span className="font-mono text-xs font-extrabold text-slate-800">
                       #{order.orderNumber}
                     </span>
-                    <h4 className="text-xs font-extrabold text-slate-800 tracking-tight truncate mt-1.5">
-                      📍 Table {order.tableId?.displayName || order.tableId?.tableNumber || order.tableId}
-                    </h4>
+
+                    {/* Table */}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 truncate">
+                        {order.tableId?.displayName || order.tableId?.tableNumber || 'Table'}
+                      </p>
+                    </div>
+
+                    {/* Customer — hidden on mobile */}
+                    <div className="hidden sm:block min-w-0">
+                      {order.customerName ? (
+                        <p className="text-xs text-slate-500 truncate">
+                          {order.customerName}
+                          {order.customerPhone && <span className="text-slate-400 font-mono ml-1 text-[10px]">({order.customerPhone})</span>}
+                        </p>
+                      ) : (
+                        <span className="text-slate-300 text-xs">—</span>
+                      )}
+                    </div>
+
+                    {/* Date & Time — hidden on mobile */}
+                    <div className="hidden sm:block">
+                      <p className="text-[10px] text-slate-400 font-mono leading-tight">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono leading-tight">
+                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+
+                    {/* Status — hidden on mobile */}
+                    <div className="hidden sm:flex">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider border ${statusBadges[order.status]}`}>
+                        {statusIcons[order.status]}
+                        <span>{order.status}</span>
+                      </span>
+                    </div>
+
+                    {/* Total */}
+                    <div className="text-right">
+                      <span className="font-mono text-xs font-black text-slate-800">
+                        {formatAmount(order.total)}
+                      </span>
+                      {/* Mobile-only status badge */}
+                      <span className={`sm:hidden mt-0.5 inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold ${statusBadges[order.status]}`}>
+                        {order.status}
+                      </span>
+                    </div>
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider border ${statusBadges[order.status]} border-current/20`}>
-                    {order.status}
-                  </span>
-                </div>
-
-                {order.customerName && (
-                  <p className="text-[11px] text-slate-500 font-medium truncate mb-2">
-                    👤 {order.customerName} {order.customerPhone ? `(${order.customerPhone})` : ''}
-                  </p>
-                )}
-
-                <div className="flex justify-between items-end border-t border-slate-200 pt-2.5 mt-2">
-                   <p className="text-[10px] text-slate-400 font-mono">
-                     {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                   </p>
-                   <span className="font-mono text-sm font-black text-slate-800">
-                     {formatAmount(order.total)}
-                   </span>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-
-          {historyOrders.length === 0 && !isFetchingHistory && (
-             <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                <Search className="w-8 h-8 mb-2 text-slate-300" strokeWidth={1.5} />
-                <p className="text-sm font-bold">No orders found</p>
-             </div>
+            </div>
           )}
 
           {hasMoreHistory && (
-            <div className="mt-6 flex justify-center">
+            <div className="mt-4 flex justify-center">
               <button
                 onClick={() => setHistoryPage((p) => p + 1)}
                 disabled={isFetchingHistory}
@@ -884,12 +927,16 @@ export const ManagerOrders: React.FC = () => {
                             <span>{t.name} ({t.percentage}%)</span>
                             <span className="font-mono">{formatAmount(t.amount)}</span>
                           </div>
-                          {t.subTaxes && t.subTaxes.length > 0 && t.subTaxes.map((st: any, j: number) => (
-                              <div key={j} className="flex justify-between items-center text-[10px] text-slate-400 font-medium font-sans pl-2 border-l border-slate-200 ml-1">
-                                <span>{st.name} ({st.percentage}%)</span>
-                                <span className="font-mono">{formatAmount(st.amount)}</span>
-                              </div>
-                          ))}
+                          {t.subTaxes && t.subTaxes.length > 0 && (
+                            <div className="pl-2 border-l border-slate-200 ml-1 space-y-0.5 my-0.5">
+                              {t.subTaxes.map((st: any, j: number) => (
+                                <div key={j} className="flex justify-between items-center text-[10px] text-slate-400 font-medium font-sans">
+                                  <span>{st.name} ({st.percentage}%)</span>
+                                  <span className="font-mono text-slate-400">({formatAmount(st.amount)})</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                       </div>
                     ))
                   ) : (
