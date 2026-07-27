@@ -6,6 +6,7 @@ import { RestaurantStaff } from '../models/RestaurantStaff';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Table } from '../models/Table';
+import { TableZone } from '../models/TableZone';
 import { TableSession } from '../models/TableSession';
 import { Order, OrderCounter } from '../models/Order';
 import { WaiterCall } from '../models/WaiterCall';
@@ -28,6 +29,7 @@ export const cleanDatabase = async () => {
     console.log(`Categories: ${await Category.countDocuments()}`);
     console.log(`MenuItems: ${await MenuItem.countDocuments()}`);
     console.log(`Tables: ${await Table.countDocuments()}`);
+    console.log(`TableZones: ${await TableZone.countDocuments()}`);
     console.log(`TableSessions: ${await TableSession.countDocuments()}`);
     console.log(`Orders: ${await Order.countDocuments()}`);
     console.log(`OrderCounters: ${await OrderCounter.countDocuments()}`);
@@ -44,6 +46,7 @@ export const cleanDatabase = async () => {
     await MenuItem.deleteMany({});
     await Category.deleteMany({});
     await Table.deleteMany({});
+    await TableZone.deleteMany({});
     await WaiterCall.deleteMany({});
     await IntegrationSyncLog.deleteMany({});
     await RefreshToken.deleteMany({});
@@ -55,6 +58,7 @@ export const cleanDatabase = async () => {
     console.log(`Categories: ${await Category.countDocuments()}`);
     console.log(`MenuItems: ${await MenuItem.countDocuments()}`);
     console.log(`Tables: ${await Table.countDocuments()}`);
+    console.log(`TableZones: ${await TableZone.countDocuments()}`);
     console.log(`TableSessions: ${await TableSession.countDocuments()}`);
     console.log(`Orders: ${await Order.countDocuments()}`);
     console.log(`OrderCounters: ${await OrderCounter.countDocuments()}`);

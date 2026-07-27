@@ -219,7 +219,9 @@ export class RestaurantController {
   async listTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) }).sort({ tableNumber: 1 });
+      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) })
+        .populate('zoneId', 'name')
+        .sort({ tableNumber: 1 });
 
       sendSuccess(res, tables, 'Tables listed successfully');
     } catch (error) {
