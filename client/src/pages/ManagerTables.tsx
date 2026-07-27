@@ -9,8 +9,8 @@ import { managerService, Table, TableZone } from '../services/restaurant.service
 import { Plus, Edit2, Trash2, QrCode, Download, X, Loader, HelpCircle, Printer } from 'lucide-react';
 
 const tableSchema = z.object({
-  tableNumber: z.string().min(1, 'Table number is required'),
-  displayName: z.string().min(1, 'Display name is required'),
+  tableNumber: z.string().optional(),
+  displayName: z.string().optional(),
   zoneId: z.string().optional(),
 });
 
@@ -538,47 +538,13 @@ export const ManagerTables: React.FC = () => {
             <form onSubmit={tableForm.handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Table Number
-                </label>
-                <input
-                  type="text"
-                  placeholder="12"
-                  {...tableForm.register('tableNumber')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                />
-                {tableForm.formState.errors.tableNumber && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {tableForm.formState.errors.tableNumber.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Display Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Table 12 (Main Room)"
-                  {...tableForm.register('displayName')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                />
-                {tableForm.formState.errors.displayName && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {tableForm.formState.errors.displayName.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Zone (Optional)
+                  Zone
                 </label>
                 <select
                   {...tableForm.register('zoneId')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 bg-white"
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 bg-white font-medium text-slate-800"
                 >
-                  <option value="">No Zone</option>
+                  <option value="">No Zone (Unassigned)</option>
                   {zones.map((z) => (
                     <option key={z._id} value={z._id}>
                       {z.name}
@@ -586,6 +552,38 @@ export const ManagerTables: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {!editingTable ? (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200/60 rounded-xl text-xs text-amber-900 leading-relaxed">
+                  ✨ Table number and display name will be <strong>automatically assigned starting from 1</strong> for the selected zone.
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Table Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="1"
+                      {...tableForm.register('tableNumber')}
+                      className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Table 1"
+                      {...tableForm.register('displayName')}
+                      className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -597,9 +595,16 @@ export const ManagerTables: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition"
+                  disabled={createMutation.isPending || editMutation.isPending}
+                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition flex items-center justify-center gap-2"
                 >
-                  {editingTable ? 'Save' : 'Create'}
+                  {createMutation.isPending || editMutation.isPending ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : editingTable ? (
+                    'Save Changes'
+                  ) : (
+                    'Auto-Generate Table'
+                  )}
                 </button>
               </div>
             </form>

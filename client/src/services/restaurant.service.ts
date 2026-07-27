@@ -175,7 +175,7 @@ export const managerService = {
     return res.data;
   },
 
-  async createTable(restaurantId: string, data: { tableNumber: string; displayName: string }) {
+  async createTable(restaurantId: string, data: { tableNumber?: string; displayName?: string; zoneId?: string }) {
     const res = await apiClient.post(`/restaurants/${restaurantId}/tables`, data);
     return res.data;
   },

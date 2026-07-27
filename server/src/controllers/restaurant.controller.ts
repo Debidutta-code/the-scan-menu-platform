@@ -230,12 +230,8 @@ export class RestaurantController {
   async createTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { tableNumber, displayName } = req.body;
-
-      if (!tableNumber || !displayName) {
-        sendError(res, 'BAD_REQUEST', 'tableNumber and displayName are required', null, 400);
-        return;
-      }
+      const { zoneId } = req.body;
+      let { tableNumber, displayName } = req.body;
 
       const restaurant = await Restaurant.findById(restaurantId);
       if (!restaurant) {
@@ -243,13 +239,54 @@ export class RestaurantController {
         return;
       }
 
-      // Check duplicate tableNumber
-      const duplicate = await Table.findOne({ isArchived: { $ne: true },
+      const parsedZoneId = zoneId ? new mongoose.Types.ObjectId(zoneId) : undefined;
+
+      // Auto-generate sequential tableNumber if not explicitly provided
+      if (!tableNumber) {
+        const queryFilter: any = {
+          restaurantId: restaurant.id,
+          isArchived: { $ne: true },
+        };
+        if (parsedZoneId) {
+          queryFilter.zoneId = parsedZoneId;
+        } else {
+          queryFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
+        }
+
+        const existingTables = await Table.find(queryFilter);
+        let maxNum = 0;
+        for (const t of existingTables) {
+          const num = parseInt(t.tableNumber, 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+        tableNumber = (maxNum + 1).toString();
+      } else {
+        tableNumber = tableNumber.trim();
+      }
+
+      if (!displayName) {
+        displayName = `Table ${tableNumber}`;
+      } else {
+        displayName = displayName.trim();
+      }
+
+      // Check duplicate tableNumber within the same zone
+      const duplicateFilter: any = {
+        isArchived: { $ne: true },
         restaurantId: restaurant.id,
-        tableNumber: tableNumber.trim(),
-      });
+        tableNumber,
+      };
+      if (parsedZoneId) {
+        duplicateFilter.zoneId = parsedZoneId;
+      } else {
+        duplicateFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
+      }
+
+      const duplicate = await Table.findOne(duplicateFilter);
       if (duplicate) {
-        sendError(res, 'DUPLICATE_TABLE_NUMBER', `Table number ${tableNumber} already exists in this restaurant`, null, 400);
+        sendError(res, 'DUPLICATE_TABLE_NUMBER', `Table number ${tableNumber} already exists in this zone`, null, 400);
         return;
       }
 
@@ -258,9 +295,9 @@ export class RestaurantController {
 
       const table = new Table({
         restaurantId: restaurant.id,
-        tableNumber: tableNumber.trim(),
-        displayName: displayName.trim(),
-        zoneId: req.body.zoneId ? new mongoose.Types.ObjectId(req.body.zoneId) : undefined,
+        tableNumber,
+        displayName,
+        zoneId: parsedZoneId,
         token,
         qrCodeUrl,
         isActive: true,
@@ -285,15 +322,27 @@ export class RestaurantController {
         return;
       }
 
+      const targetZoneId = req.body.zoneId !== undefined
+        ? (req.body.zoneId ? new mongoose.Types.ObjectId(req.body.zoneId) : undefined)
+        : table.zoneId;
+
       if (tableNumber && tableNumber.trim() !== table.tableNumber) {
-        // Check duplicates
-        const duplicate = await Table.findOne({ isArchived: { $ne: true },
+        // Check duplicates within the zone
+        const duplicateFilter: any = {
+          isArchived: { $ne: true },
           restaurantId,
           tableNumber: tableNumber.trim(),
           _id: { $ne: tableId },
-        });
+        };
+        if (targetZoneId) {
+          duplicateFilter.zoneId = targetZoneId;
+        } else {
+          duplicateFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
+        }
+
+        const duplicate = await Table.findOne(duplicateFilter);
         if (duplicate) {
-          sendError(res, 'DUPLICATE_TABLE_NUMBER', 'Table number already exists', null, 400);
+          sendError(res, 'DUPLICATE_TABLE_NUMBER', 'Table number already exists in this zone', null, 400);
           return;
         }
         table.tableNumber = tableNumber.trim();

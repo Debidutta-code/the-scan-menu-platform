@@ -39,8 +39,8 @@ const tableSchema = new Schema<ITable>(
 
 // Indexes
 tableSchema.index({ restaurantId: 1 });
-// Compound index to prevent duplicate tableNumber within the same restaurant
-tableSchema.index({ restaurantId: 1, tableNumber: 1 }, { unique: true });
+// Compound index to prevent duplicate tableNumber within the same zone in a restaurant
+tableSchema.index({ restaurantId: 1, zoneId: 1, tableNumber: 1 }, { unique: true });
 
 export const Table = model<ITable>('Table', tableSchema);
 export default Table;

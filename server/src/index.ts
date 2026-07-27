@@ -110,6 +110,16 @@ export const startServer = async () => {
     await mongoose.connect(mongoURI);
     logger.info('Successfully connected to MongoDB.');
 
+    // Sync Mongoose models indexes (e.g. drop old table indexes)
+    try {
+      const { Table } = await import('./models/Table');
+      await Table.collection.dropIndex('restaurantId_1_tableNumber_1');
+    } catch (e) {
+      // Ignore if index doesn't exist
+    }
+    const { Table } = await import('./models/Table');
+    await Table.syncIndexes();
+
     // Startup safety check and auto-migration for unmigrated orders
     try {
       const unmigratedCount = await Order.countDocuments({

@@ -200,36 +200,46 @@ export const seedDatabase = async () => {
     const indoorZone = createdZones.find(z => z.name === 'Indoor Dining');
     const outdoorZone = createdZones.find(z => z.name === 'Outdoor Patio');
 
-    // 4. Seed 5 Tables idempotently
+    // 4. Seed Tables idempotently per zone (starting from 1 in each zone)
     logger.info('Seeding tables...');
+    try {
+      await Table.collection.dropIndex('restaurantId_1_tableNumber_1');
+      logger.info('Dropped legacy table index restaurantId_1_tableNumber_1.');
+    } catch (err) {
+      // Legacy index already dropped or missing
+    }
+    await Table.syncIndexes();
+
     const tablesData = [
       { num: '1', name: 'Table 1 (Window Side)', zoneId: indoorZone?._id },
       { num: '2', name: 'Table 2 (Lounge)', zoneId: indoorZone?._id },
-      { num: '3', name: 'Table 3 (Terrace)', zoneId: outdoorZone?._id },
-      { num: '4', name: 'Table 4 (Bar Side)', zoneId: indoorZone?._id },
-      { num: '5', name: 'Table 5 (VIP Cabin)', zoneId: outdoorZone?._id },
+      { num: '3', name: 'Table 3 (Bar Side)', zoneId: indoorZone?._id },
+      { num: '1', name: 'Table 1 (Terrace)', zoneId: outdoorZone?._id },
+      { num: '2', name: 'Table 2 (VIP Cabin)', zoneId: outdoorZone?._id },
     ];
 
     for (const t of tablesData) {
+      if (!t.zoneId) continue;
       const existingTable = await Table.findOne({
         restaurantId: restaurant._id,
+        zoneId: t.zoneId,
         tableNumber: t.num,
       });
       if (!existingTable) {
+        const token = `secureTableTokenDemoCafeZone${t.zoneId}Number${t.num}XYZ`;
         await Table.create({
           restaurantId: restaurant._id,
           zoneId: t.zoneId,
           tableNumber: t.num,
           displayName: t.name,
-          token: `secureTableTokenDemoCafeNumber${t.num}XYZ`,
-          qrCodeUrl: `/api/v1/restaurants/${restaurant._id}/tables/secureTableTokenDemoCafeNumber${t.num}XYZ/qr`,
+          token,
+          qrCodeUrl: `/api/v1/restaurants/${restaurant._id}/tables/${token}/qr`,
           isActive: true,
         });
-        logger.info(`Table ${t.num} seeded.`);
-      } else if (t.zoneId && !existingTable.zoneId) {
-        existingTable.zoneId = t.zoneId;
+        logger.info(`Table ${t.num} in zone seeded.`);
+      } else {
+        existingTable.displayName = t.name;
         await existingTable.save();
-        logger.info(`Updated Table ${t.num} with zoneId.`);
       }
     }
 
