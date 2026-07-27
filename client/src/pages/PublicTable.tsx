@@ -745,7 +745,7 @@ export const PublicTable: React.FC = () => {
     retry: false,
   });
 
-  const restaurantId = tableData?.data?.restaurant?._id;
+  const restaurantId = tableData?.data?.restaurant?.id;
   const { data: taxesData } = useQuery({
     queryKey: ['publicTaxes', restaurantId],
     queryFn: async () => {
