@@ -219,9 +219,7 @@ export class RestaurantController {
   async listTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) })
-        .populate('zoneId', 'name')
-        .sort({ tableNumber: 1 });
+      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: false }).sort({ tableNumber: 1 }).populate("zoneId");
 
       sendSuccess(res, tables, 'Tables listed successfully');
     } catch (error) {
@@ -246,7 +244,7 @@ export class RestaurantController {
       }
 
       // Check duplicate tableNumber
-      const duplicate = await Table.findOne({
+      const duplicate = await Table.findOne({ isArchived: false,
         restaurantId: restaurant.id,
         tableNumber: tableNumber.trim(),
       });
@@ -289,7 +287,7 @@ export class RestaurantController {
 
       if (tableNumber && tableNumber.trim() !== table.tableNumber) {
         // Check duplicates
-        const duplicate = await Table.findOne({
+        const duplicate = await Table.findOne({ isArchived: false,
           restaurantId,
           tableNumber: tableNumber.trim(),
           _id: { $ne: tableId },
@@ -324,14 +322,27 @@ export class RestaurantController {
   async deleteTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, tableId } = req.params;
-      const table = await Table.findOneAndDelete({ _id: tableId, restaurantId });
+      const orderCount = await mongoose.model('Order').countDocuments({ tableId });
+
+      let table;
+      let archived = false;
+      if (orderCount > 0) {
+        table = await Table.findOneAndUpdate(
+          { _id: tableId, restaurantId },
+          { isArchived: true, isActive: false },
+          { new: true }
+        );
+        archived = true;
+      } else {
+        table = await Table.findOneAndDelete({ _id: tableId, restaurantId });
+      }
 
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
         return;
       }
 
-      sendSuccess(res, {}, 'Table deleted successfully');
+      sendSuccess(res, { archived }, 'Table deleted successfully');
     } catch (error) {
       next(error);
     }
