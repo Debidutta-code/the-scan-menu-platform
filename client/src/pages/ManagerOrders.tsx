@@ -17,6 +17,8 @@ import {
   X,
   HelpCircle,
   Layers,
+  Search,
+  Filter
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -47,6 +49,8 @@ interface Order {
   tax: number;
   total: number;
   customerNote?: string;
+  customerName?: string;
+  customerPhone?: string;
   status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
   source: string;
   createdAt: string;
@@ -256,12 +260,33 @@ export const ManagerOrders: React.FC = () => {
   const [servedOrders, setServedOrders] = useState<Order[]>([]);
   const [hasMoreServed, setHasMoreServed] = useState(true);
 
+  // All Orders History States
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   // Modal / detail states
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
 
   // Live clock
   const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(historySearch);
+      setHistoryPage(1); // reset to page 1 on search change
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [historySearch]);
+
+  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setHistoryStatusFilter(e.target.value);
+    setHistoryPage(1); // reset to page 1 on filter change
+  };
 
   // 1. Fetch Active Orders
   const { data: activeOrdersResponse, isLoading: isLoadingActive } = useQuery({
@@ -302,6 +327,34 @@ export const ManagerOrders: React.FC = () => {
       setHasMoreServed(pagination ? servedPage < pagination.totalPages : false);
     }
   }, [servedOrdersData, servedPage]);
+
+  // 3. Fetch All Orders History (Paginated & Filtered)
+  const { data: historyOrdersData, isFetching: isFetchingHistory } = useQuery({
+    queryKey: ['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter],
+    queryFn: async () => {
+      const res = await apiClient.get(
+        `/restaurants/${activeRestaurantId}/orders?page=${historyPage}&limit=15&search=${encodeURIComponent(debouncedSearch)}&status=${historyStatusFilter}`
+      );
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+  });
+
+  useEffect(() => {
+    if (historyOrdersData?.success) {
+      const fetched = historyOrdersData.data.orders || [];
+      const pagination = historyOrdersData.data.pagination;
+      if (historyPage === 1) {
+        setHistoryOrders(fetched);
+      } else {
+        setHistoryOrders((prev) => {
+          const existingIds = new Set(prev.map((o) => o._id));
+          return [...prev, ...fetched.filter((o: Order) => !existingIds.has(o._id))];
+        });
+      }
+      setHasMoreHistory(pagination ? historyPage < pagination.totalPages : false);
+    }
+  }, [historyOrdersData, historyPage]);
 
   // Live clock timer
   useEffect(() => {
@@ -440,14 +493,16 @@ export const ManagerOrders: React.FC = () => {
       </div>
 
       {/* ── Main Order Columns ── */}
-      <div className="flex-1 overflow-x-auto p-4 md:p-6 bg-slate-100/60">
-        <div
-          className={`h-full grid grid-cols-1 gap-4 min-w-[320px]`}
-          style={{
-            gridTemplateColumns: `repeat(${workflowSteps.length}, minmax(260px, 1fr))`,
-            minWidth: `${workflowSteps.length * 280}px`,
-          }}
-        >
+      <div className="flex-1 overflow-auto p-4 md:p-6 bg-slate-100/60 flex flex-col gap-6">
+        <div className="overflow-x-auto pb-4 custom-scrollbar">
+          <div
+            className={`h-full grid grid-cols-1 gap-4 min-w-[320px]`}
+            style={{
+              gridTemplateColumns: `repeat(${workflowSteps.length}, minmax(260px, 1fr))`,
+              minWidth: `${workflowSteps.length * 280}px`,
+              minHeight: '60vh'
+            }}
+          >
           {workflowSteps.map((step) => {
             const ordersInColumn = getOrdersByStatus(step.status);
             const isMobileHidden = mobileStatusTab !== step.status;
@@ -517,6 +572,13 @@ export const ManagerOrders: React.FC = () => {
                             📍 Table {order.tableId?.displayName || order.tableId?.tableNumber || order.tableId}
                           </h4>
 
+                          {/* Customer Details Preview */}
+                          {order.customerName && (
+                            <p className="text-[11px] text-slate-500 font-medium truncate mt-[-4px]">
+                              👤 {order.customerName} {order.customerPhone ? `(${order.customerPhone})` : ''}
+                            </p>
+                          )}
+
                           {/* Progress Bar */}
                           <OrderProgressBar
                             currentStatus={order.status}
@@ -567,7 +629,114 @@ export const ManagerOrders: React.FC = () => {
               </div>
             );
           })}
+          </div>
         </div>
+
+        {/* ── All Orders History Section ── */}
+        <div className="bg-white rounded-3xl border border-slate-200/60 p-5 shadow-sm mt-2 shrink-0 max-w-6xl mx-auto w-full">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <h3 className="text-lg font-display font-bold text-slate-800">Order History</h3>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              {/* Search */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
+                <input
+                  type="text"
+                  placeholder="Search order ID, phone, name..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div className="relative w-full sm:w-40 shrink-0">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
+                <select
+                  value={historyStatusFilter}
+                  onChange={handleStatusFilterChange}
+                  className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 appearance-none bg-white font-bold text-slate-700"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="PENDING">New (Pending)</option>
+                  <option value="ACCEPTED">Accepted</option>
+                  <option value="PREPARING">Preparing</option>
+                  <option value="READY">Ready</option>
+                  <option value="SERVED">Served</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* History Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {historyOrders.map((order) => (
+              <div
+                key={order._id}
+                onClick={() => setSelectedOrder(order)}
+                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl p-4 cursor-pointer transition"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <span className="font-mono text-xs font-bold bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-900 leading-none shadow-sm">
+                      #{order.orderNumber}
+                    </span>
+                    <h4 className="text-xs font-extrabold text-slate-800 tracking-tight truncate mt-1.5">
+                      📍 Table {order.tableId?.displayName || order.tableId?.tableNumber || order.tableId}
+                    </h4>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider border ${statusBadges[order.status]} border-current/20`}>
+                    {order.status}
+                  </span>
+                </div>
+
+                {order.customerName && (
+                  <p className="text-[11px] text-slate-500 font-medium truncate mb-2">
+                    👤 {order.customerName} {order.customerPhone ? `(${order.customerPhone})` : ''}
+                  </p>
+                )}
+
+                <div className="flex justify-between items-end border-t border-slate-200 pt-2.5 mt-2">
+                   <p className="text-[10px] text-slate-400 font-mono">
+                     {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                   </p>
+                   <span className="font-mono text-sm font-black text-slate-800">
+                     {formatAmount(order.total)}
+                   </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {historyOrders.length === 0 && !isFetchingHistory && (
+             <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <Search className="w-8 h-8 mb-2 text-slate-300" strokeWidth={1.5} />
+                <p className="text-sm font-bold">No orders found</p>
+             </div>
+          )}
+
+          {hasMoreHistory && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setHistoryPage((p) => p + 1)}
+                disabled={isFetchingHistory}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-sm"
+              >
+                {isFetchingHistory ? (
+                  <Loader className="w-4 h-4 animate-spin" strokeWidth={2} />
+                ) : (
+                  'Load More Orders'
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* ══════════════════════════════════════════════
@@ -626,15 +795,28 @@ export const ManagerOrders: React.FC = () => {
                 <OrderProgressBar currentStatus={selectedOrder.status} workflowMode={workflowMode} />
 
                 {/* Location + Round */}
-                <div className="bg-slate-50 border border-slate-150 rounded-2xl p-3 flex items-center justify-between font-bold text-xs text-slate-700">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base leading-none">📍</span>
-                    <span>Table {selectedOrder.tableId?.displayName || selectedOrder.tableId?.tableNumber || selectedOrder.tableId}</span>
+                <div className="bg-slate-50 border border-slate-150 rounded-2xl p-3 flex flex-col gap-2 font-bold text-xs text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base leading-none">📍</span>
+                      <span>Table {selectedOrder.tableId?.displayName || selectedOrder.tableId?.tableNumber || selectedOrder.tableId}</span>
+                    </div>
+                    {selectedOrder.roundNumber && (
+                      <span className="bg-slate-200 text-slate-800 font-mono text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        Round {selectedOrder.roundNumber}
+                      </span>
+                    )}
                   </div>
-                  {selectedOrder.roundNumber && (
-                    <span className="bg-slate-200 text-slate-800 font-mono text-[10px] px-2 py-0.5 rounded-full font-bold">
-                      Round {selectedOrder.roundNumber}
-                    </span>
+                  {selectedOrder.customerName && (
+                    <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200/60 text-[11px] text-slate-500 font-medium">
+                      <span className="text-base leading-none">👤</span>
+                      <span>
+                        {selectedOrder.customerName}
+                        {selectedOrder.customerPhone && (
+                           <span className="ml-1 text-slate-400 font-mono">({selectedOrder.customerPhone})</span>
+                        )}
+                      </span>
+                    </div>
                   )}
                 </div>
 

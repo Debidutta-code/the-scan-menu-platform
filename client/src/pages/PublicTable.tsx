@@ -591,6 +591,7 @@ export const PublicTable: React.FC = () => {
 
   // Phone checkout / OTP State
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -947,6 +948,10 @@ export const PublicTable: React.FC = () => {
   };
 
   const handleSendOtp = () => {
+    if (!customerName || customerName.trim().length === 0) {
+      toast('Please enter your name', 'error');
+      return;
+    }
     if (!phoneNumber || phoneNumber.length < 10) {
       toast('Please enter a valid mobile number', 'error');
       return;
@@ -977,6 +982,7 @@ export const PublicTable: React.FC = () => {
           specialInstructions: item.specialInstructions || '',
         })),
         customerNote: customerNote.trim() || undefined,
+        customerName: customerName.trim(),
         customerPhone: phoneNumber.trim(),
         paymentStatus: 'PENDING',
       };
@@ -2500,8 +2506,22 @@ export const PublicTable: React.FC = () => {
               {!otpSent ? (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500 leading-normal">
-                    Enter your mobile number to complete authentication and place your secure kitchen order.
+                    Enter your name and mobile number to complete authentication and place your secure kitchen order.
                   </p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Your Name</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="E.g., John Doe"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Mobile Number</label>
                     <div className="relative">

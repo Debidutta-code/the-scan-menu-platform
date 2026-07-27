@@ -112,6 +112,7 @@ export class PublicController {
           logoUrl: restaurant.logoUrl,
           coverImageUrl: restaurant.coverImageUrl,
           description: restaurant.description,
+          googleReviewUrl: restaurant.googleReviewUrl,
           theme: restaurant.theme,
           currency: restaurant.currency,
           timezone: restaurant.timezone,
@@ -192,7 +193,7 @@ export class PublicController {
   async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantSlug, tableToken } = req.params;
-      const { items, customerNote, customerPhone, paymentStatus } = req.body;
+      const { items, customerNote, customerName, customerPhone, paymentStatus } = req.body;
 
       if (!restaurantSlug || !tableToken) {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
@@ -474,6 +475,7 @@ export class PublicController {
           customerNote: customerNote || '',
           status: 'PENDING',
           source: 'QR',
+          customerName: customerName || undefined,
           customerPhone: customerPhone || undefined,
           paymentStatus: paymentStatus || 'PENDING',
           integrationMetadata: {},

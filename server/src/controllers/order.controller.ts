@@ -176,6 +176,7 @@ export class OrderController {
     try {
       const { restaurantId } = req.params;
       const statusFilter = req.query.status as string;
+      const search = req.query.search as string;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
@@ -184,8 +185,24 @@ export class OrderController {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
       };
 
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== 'ALL') {
         query.status = statusFilter;
+      }
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        const numSearch = parseInt(search);
+
+        const orConditions: any[] = [
+          { customerName: searchRegex },
+          { customerPhone: searchRegex }
+        ];
+
+        if (!isNaN(numSearch)) {
+           orConditions.push({ orderNumber: numSearch });
+        }
+
+        query.$or = orConditions;
       }
 
       const total = await Order.countDocuments(query);

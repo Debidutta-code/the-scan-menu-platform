@@ -72,6 +72,7 @@ export interface IOrder extends Document {
   customerNote?: string;
   status: OrderStatus;
   source: OrderSource;
+  customerName?: string;
   customerPhone?: string;
   paymentStatus: 'PENDING' | 'PAID';
   integrationMetadata: Record<string, any>;
@@ -146,6 +147,7 @@ const orderSchema = new Schema<IOrder>(
       enum: ['QR', 'POS', 'API', 'MANUAL'],
       default: 'QR',
     },
+    customerName: { type: String, trim: true },
     customerPhone: { type: String, trim: true },
     paymentStatus: {
       type: String,
