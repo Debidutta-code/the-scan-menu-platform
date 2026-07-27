@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { managerService, Table, TableZone } from '../services/restaurant.service';
-import { Plus, Edit2, Trash2, RefreshCw, QrCode, Download, X, Loader, HelpCircle, Printer } from 'lucide-react';
+import { Plus, Edit2, Trash2, QrCode, Download, X, Loader, HelpCircle, Printer } from 'lucide-react';
 
 const tableSchema = z.object({
   tableNumber: z.string().min(1, 'Table number is required'),
@@ -433,7 +433,7 @@ export const ManagerTables: React.FC = () => {
         </div>
       )}
 
-      {/* Grid list of Tables */}
+      {/* Movie Hall Seats style list of Tables */}
       {tables.filter(t => !activeZoneFilter || (typeof t.zoneId === 'string' ? t.zoneId === activeZoneFilter : t.zoneId?._id === activeZoneFilter)).length === 0 ? (
         <div className="text-center py-20 bg-slate-50/50 border border-slate-150 rounded-2xl">
           <QrCode className="w-10 h-10 text-slate-300 mx-auto mb-3 animate-pulse" strokeWidth={1.75} />
@@ -441,74 +441,73 @@ export const ManagerTables: React.FC = () => {
           <p className="text-xs text-slate-400 mt-1">Click "Add Table" to set up your first table QR.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tables.filter(t => !activeZoneFilter || (typeof t.zoneId === 'string' ? t.zoneId === activeZoneFilter : t.zoneId?._id === activeZoneFilter)).map((table) => (
-            <div
-              key={table._id}
-              className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-bold text-lg text-slate-900">{table.displayName}</h3>
-                    <p className="text-xs text-slate-400">Table Number: {table.tableNumber}</p>
-                    {table.zoneId && (
-                      <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        {typeof table.zoneId === 'string' ? zones.find(z => z._id === table.zoneId)?.name : table.zoneId.name}
-                      </span>
-                    )}
+        <div className="space-y-8">
+          {(activeZoneFilter
+              ? [zones.find(z => z._id === activeZoneFilter), { _id: null, name: 'Unassigned' }]
+              : [...zones, { _id: null, name: 'Unassigned' }])
+            .filter(zone => zone) // Handle undefined from find
+            .map(zone => {
+              const zoneTables = tables.filter(t => {
+                const tableZoneId = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
+                return zone!._id === null ? !tableZoneId : tableZoneId === zone!._id;
+              });
+
+              if (zoneTables.length === 0) return null;
+
+              return (
+                <div key={zone!._id || 'unassigned'} className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
+                    {zone!.name}
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                    {zoneTables.map(table => (
+                      <div
+                        key={table._id}
+                        className={`relative group bg-white border-2 rounded-xl p-3 flex flex-col items-center text-center hover:shadow-md transition cursor-default
+                          ${table.isActive ? 'border-amber-400/50 hover:border-amber-500' : 'border-slate-200 opacity-60'}
+                        `}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                           <span className="font-bold text-slate-700 text-sm">{table.tableNumber}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-slate-800 truncate w-full" title={table.displayName}>
+                          {table.displayName}
+                        </span>
+
+                        {/* Hover Overlay Actions */}
+                        <div className="absolute inset-0 bg-white/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex flex-col items-center justify-center gap-2 p-2 border-2 border-primary">
+                          <button
+                            onClick={() => setShowQrModal(table)}
+                            className="w-full bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 transition"
+                          >
+                            <QrCode className="w-3 h-3" /> View QR
+                          </button>
+                          <div className="flex w-full gap-1">
+                            <button
+                               onClick={() => handleEditClick(table)}
+                               className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold py-1.5 rounded-lg transition"
+                            >
+                               Edit
+                            </button>
+                            <button
+                               onClick={() => {
+                                 if (confirm('Are you sure you want to delete this table? Tables with order history will be soft-archived.')) {
+                                   deleteMutation.mutate(table._id);
+                                 }
+                               }}
+                               className="bg-red-50 hover:bg-red-100 text-red-600 p-1.5 rounded-lg transition"
+                               title="Delete"
+                            >
+                               <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <span
-                    className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
-                      table.isActive
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-red-50 text-red-700'
-                    }`}
-                  >
-                    {table.isActive ? 'Active' : 'Inactive'}
-                  </span>
                 </div>
-                <p className="text-xs text-slate-500 font-mono mb-4 break-all">Token: {table.token}</p>
-              </div>
-
-              <div className="border-t border-slate-50 pt-4 mt-auto flex flex-wrap items-center justify-between gap-2 gap-y-3">
-                <button
-                  onClick={() => handleEditClick(table)}
-                  className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-primary hover:underline transition animate-none"
-                >
-                  <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  <span>Edit</span>
-                </button>
-
-                <button
-                  onClick={() => setShowQrModal(table)}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition"
-                >
-                  <QrCode className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  <span>View QR</span>
-                </button>
-
-                <button
-                  onClick={() => setConfirmRegenTable(table)}
-                  className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-1 rounded-lg transition"
-                >
-                  <RefreshCw className="w-3 h-3" strokeWidth={1.75} />
-                  <span>Rotate</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete this table? Tables with order history will be soft-archived.')) {
-                      deleteMutation.mutate(table._id);
-                    }
-                  }}
-                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition"
-                >
-                  <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                </button>
-              </div>
-            </div>
-          ))}
+              );
+            })}
         </div>
       )}
 

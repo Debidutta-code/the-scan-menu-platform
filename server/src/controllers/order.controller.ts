@@ -190,7 +190,8 @@ export class OrderController {
       }
 
       if (search) {
-        const searchRegex = new RegExp(search, 'i');
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(escapedSearch, 'i');
         const numSearch = parseInt(search);
 
         const orConditions: any[] = [
