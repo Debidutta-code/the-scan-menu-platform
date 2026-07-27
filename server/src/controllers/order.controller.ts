@@ -208,6 +208,7 @@ export class OrderController {
       const total = await Order.countDocuments(query);
       const orders = await Order.find(query)
         .sort({ createdAt: -1 })
+        .populate('tableId', 'displayName tableNumber')
         .skip(skip)
         .limit(limit);
 
@@ -237,7 +238,9 @@ export class OrderController {
         status: { $nin: ['SERVED', 'CANCELLED'] },
       };
 
-      const orders = await Order.find(query).sort({ createdAt: 1 }); // Oldest first for kitchen prep queues
+      const orders = await Order.find(query)
+        .sort({ createdAt: 1 })
+        .populate('tableId', 'displayName tableNumber'); // Oldest first for kitchen prep queues
       sendSuccess(res, orders, 'Active orders retrieved successfully');
     } catch (error) {
       next(error);
