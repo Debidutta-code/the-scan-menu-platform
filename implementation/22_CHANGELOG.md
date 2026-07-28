@@ -81,3 +81,30 @@ This release completes Phase 1 of the implementation plan, focusing on repositor
 
 **Breaking Changes:**
 *   *None.*
+
+### Version 0.3.0 - Phase 2 Complete (Feature Flag System)
+*Date: 2026-07-28*
+
+**Summary:**
+Implemented a comprehensive, database-backed Feature Flag system (Phase 2). This system allows granular enabling and disabling of application modules per tenant.
+
+**Architecture Changes:**
+*   Created a backend `FeatureFlagService` and `FeatureFlagController` for querying and bulk-updating flags.
+*   Introduced a `requireFeature` Express middleware to securely restrict endpoint access based on active flags.
+*   Implemented a frontend `FeatureFlagProvider` with a `useFeatureFlags` context hook.
+*   Integrated a Super Admin UI to toggle feature flags directly within the `ManagerSettings` dashboard.
+
+**Database Changes:**
+*   Added `FeatureFlag` model bridging `restaurantId` to specific feature `key`s with an `enabled` boolean.
+*   Updated seed scripts to default-populate 16 core feature flags.
+
+**API Changes:**
+*   **New**: `GET /api/v1/restaurants/:restaurantId/feature-flags` - Retrieves all feature flags for a tenant.
+*   **New**: `PATCH /api/v1/restaurants/:restaurantId/feature-flags` - Bulk updates feature flag states.
+
+**Feature Changes:**
+*   Frontend sidebar and bottom navigation automatically hide the 'Analytics', 'Menu Management', 'Tables Management', and 'Waiter Calls' modules based on feature toggles.
+
+**Tests:**
+*   Added comprehensive Vitest suites for `FeatureFlagService` and middleware isolation.
+*   Added Frontend React Testing Library tests for `useFeatureFlags` hook logic.

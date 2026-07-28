@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from './ConnectionIndicator';
@@ -27,6 +28,7 @@ export const ManagerLayout: React.FC = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isEnabled } = useFeatureFlags();
 
   // Sound/notification toggles
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -290,7 +292,8 @@ export const ManagerLayout: React.FC = () => {
           </button>
 
           {/* Waiter Calls tab */}
-          <button
+          {isEnabled('waiter_call') && (
+            <button
             onClick={() => navigate('/manager/waiter-calls')}
             className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'waiter-calls'
@@ -307,10 +310,11 @@ export const ManagerLayout: React.FC = () => {
                 {activeWaiterCallsCount}
               </span>
             )}
-          </button>
+            </button>
+          )}
 
           {/* Menu tab (Manager/Super Admin only) */}
-          {!isStaff && (
+          {!isStaff && isEnabled('qr_menu') && (
             <button
               onClick={() => navigate('/manager/menu')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -325,7 +329,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Tables tab (Manager/Super Admin only) */}
-          {!isStaff && (
+          {!isStaff && isEnabled('qr_menu') && (
             <button
               onClick={() => navigate('/manager/tables')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -385,7 +389,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Analytics tab (Manager/Super Admin only) */}
-          {!isStaff && (
+          {!isStaff && isEnabled('analytics') && (
             <button
               onClick={() => navigate('/manager/analytics')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -460,8 +464,9 @@ export const ManagerLayout: React.FC = () => {
         </button>
 
         {/* Waiter Calls */}
-        <button
-          onClick={() => navigate('/manager/waiter-calls')}
+        {isEnabled('waiter_call') && (
+          <button
+            onClick={() => navigate('/manager/waiter-calls')}
           className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all min-w-0 ${
             activeTab === 'waiter-calls' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
           }`}
@@ -474,9 +479,10 @@ export const ManagerLayout: React.FC = () => {
             </span>
           )}
         </button>
+        )}
 
         {/* Menu (Manager only) */}
-        {!isStaff && (
+        {!isStaff && isEnabled('qr_menu') && (
           <button
             onClick={() => navigate('/manager/menu')}
             className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
@@ -489,7 +495,7 @@ export const ManagerLayout: React.FC = () => {
         )}
 
         {/* Tables (Manager only) */}
-        {!isStaff && (
+        {!isStaff && isEnabled('qr_menu') && (
           <button
             onClick={() => navigate('/manager/tables')}
             className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
@@ -541,7 +547,7 @@ export const ManagerLayout: React.FC = () => {
         )}
 
         {/* Analytics (Manager only) */}
-        {!isStaff && (
+        {!isStaff && isEnabled('analytics') && (
           <button
             onClick={() => navigate('/manager/analytics')}
             className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${

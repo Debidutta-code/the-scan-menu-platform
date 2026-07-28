@@ -7,6 +7,7 @@ import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Table } from '../models/Table';
 import { TableZone } from '../models/TableZone';
+import { featureFlagService } from '../services/featureFlag.service';
 import { Tax } from '../models/Tax';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { logger } from './logger';
@@ -331,6 +332,11 @@ export const seedDatabase = async () => {
         logger.info(`Menu Item "${item.name}" seeded.`);
       }
     }
+
+    // Seed Feature Flags
+    logger.info('Seeding Feature Flags...');
+    await featureFlagService.getRestaurantFlags(restaurant._id);
+    logger.info('Feature Flags Seeded.');
 
     logger.info('--------------------------------------------------');
     logger.info('IDEMPOTENT SEED DATA CREATED SUCCESSFULLY!');

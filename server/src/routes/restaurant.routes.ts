@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { RestaurantController } from '../controllers/restaurant.controller';
+import featureFlagController from '../controllers/featureFlag.controller';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
 
 const router = Router({ mergeParams: true });
@@ -7,6 +8,10 @@ const restaurantController = new RestaurantController();
 
 // Require auth at the router level
 router.use(requireAuth as any);
+
+// Feature Flag routes (Manager/Super Admin only)
+router.get('/:restaurantId/feature-flags', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, featureFlagController.getFeatureFlags);
+router.patch('/:restaurantId/feature-flags', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, featureFlagController.updateFeatureFlags);
 
 // Profile routes (Staff can view, Managers/Super Admins can edit)
 router.get('/:restaurantId', requireRestaurantAccess as any, restaurantController.getRestaurantProfile);

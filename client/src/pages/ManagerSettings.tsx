@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
-import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer } from 'lucide-react';
+import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft } from 'lucide-react';
 import apiClient from '../lib/api';
 
 interface RestaurantTheme {
@@ -45,6 +46,14 @@ interface RestaurantProfile {
 
 export const ManagerSettings: React.FC = () => {
   const { user } = useAuth();
+  const { flags, refreshFlags } = useFeatureFlags();
+  const [localFlags, setLocalFlags] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (flags) {
+      setLocalFlags(flags);
+    }
+  }, [flags]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const activeRestaurantId = user?.restaurants?.[0];
@@ -159,6 +168,35 @@ export const ManagerSettings: React.FC = () => {
     },
   });
 
+
+  const updateFlagsMutation = useMutation({
+    mutationFn: async (updatedFlags: { key: string; enabled: boolean }[]) => {
+      const { data } = await apiClient.patch(`/restaurants/${(user as any)?.restaurantId}/feature-flags`, {
+        flags: updatedFlags,
+      });
+      return data.data;
+    },
+    onSuccess: () => {
+      toast('Feature flags updated successfully!', 'success');
+      refreshFlags(); // Refresh context
+    },
+    onError: (error: any) => {
+      toast(error.response?.data?.message || 'Failed to update feature flags', 'error');
+    },
+  });
+
+  const handleFlagChange = (key: string, enabled: boolean) => {
+      setLocalFlags(prev => ({ ...prev, [key]: enabled }));
+  };
+
+  const handleSaveFlags = () => {
+      const updatedFlagsArray = Object.keys(localFlags).map(key => ({
+          key,
+          enabled: localFlags[key]
+      }));
+      updateFlagsMutation.mutate(updatedFlagsArray);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -239,7 +277,62 @@ export const ManagerSettings: React.FC = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+
+        {/* Feature Flags Section */}
+        {user?.role === 'SUPER_ADMIN' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+            <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3 text-slate-800">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <ToggleLeft className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Feature Flags</h2>
+                  <p className="text-sm text-slate-500">Enable or disable platform features (Super Admin only)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveFlags}
+                disabled={updateFlagsMutation.isPending}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+              >
+                {updateFlagsMutation.isPending ? (
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                Save Flags
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 bg-slate-50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Object.keys(localFlags).map((key) => (
+                  <label key={key} className="relative flex items-start p-4 cursor-pointer rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center h-5">
+                      <input
+                        type="checkbox"
+                        checked={localFlags[key] || false}
+                        onChange={(e) => handleFlagChange(key, e.target.checked)}
+                        className="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500 cursor-pointer"
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <span className="font-medium text-slate-900 block truncate" title={key}>
+                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </span>
+                      <span className="text-slate-500 text-xs mt-1 block font-mono bg-slate-100 px-1 py-0.5 rounded truncate" title={key}>
+                        {key}
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-6">
         {/* Profile Card */}
         <div className="bg-white rounded-3xl border border-slate-150 p-6 shadow-sm space-y-4">
           <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-1.5">
