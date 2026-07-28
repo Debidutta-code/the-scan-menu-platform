@@ -1003,25 +1003,38 @@ export const ManagerOrders: React.FC = () => {
                 </div>
 
                 {/* Settle Table */}
-                {selectedOrder.sessionId && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await apiClient.post(
-                          `/restaurants/${activeRestaurantId}/table-sessions/${selectedOrder.sessionId}/close`
-                        );
-                        toast('Table settled and session closed!', 'success');
-                        setSelectedOrder(null);
-                        queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-                      } catch (err: any) {
-                        toast(err.response?.data?.error?.message || 'Failed to settle table', 'error');
-                      }
-                    }}
-                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-2xl transition shadow-md active:scale-[0.98]"
-                  >
-                    Close Table / Settle Bill
-                  </button>
-                )}
+                {selectedOrder.sessionId && selectedOrder.status === 'SERVED' && (() => {
+                  const hasPendingRounds = activeOrders.some(
+                    (o) =>
+                      o.sessionId === selectedOrder.sessionId &&
+                      o.status !== 'SERVED' &&
+                      o.status !== 'CANCELLED'
+                  );
+                  return (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await apiClient.post(
+                            `/restaurants/${activeRestaurantId}/table-sessions/${selectedOrder.sessionId}/close`
+                          );
+                          toast('Table settled and session closed!', 'success');
+                          setSelectedOrder(null);
+                          queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+                        } catch (err: any) {
+                          toast(err.response?.data?.error?.message || 'Failed to settle table', 'error');
+                        }
+                      }}
+                      disabled={hasPendingRounds}
+                      className={`w-full py-3.5 text-white text-xs font-extrabold rounded-2xl transition shadow-md ${
+                        hasPendingRounds
+                          ? 'bg-slate-400 cursor-not-allowed'
+                          : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]'
+                      }`}
+                    >
+                      {hasPendingRounds ? 'Finish Active Rounds to Settle' : 'Close Table / Settle Bill'}
+                    </button>
+                  );
+                })()}
               </div>
             </motion.div>
           </div>
