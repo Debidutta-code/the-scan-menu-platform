@@ -28,3 +28,7 @@ These documents are meant to provide a comprehensive understanding of the projec
 * **[19_PRODUCT_SPEC.md](./19_PRODUCT_SPEC.md)**: The single source of truth for the product vision, features, and commercial modules.
 * **[20_MODULE_MATRIX.md](./20_MODULE_MATRIX.md)**: Defines the commercial architecture, mapping modules to subscription plans and operating modes.
 * **[21_USER_FLOWS.md](./21_USER_FLOWS.md)**: Documents all core business and operational flows across the platform.
+* **[22_CHANGELOG.md](./22_CHANGELOG.md)**: Living, append-only historical record of significant changes and releases.
+* **[23_DECISIONS.md](./23_DECISIONS.md)**: Architecture Decision Records (ADR) detailing technical choices and trade-offs.
+* **[24_BACKLOG.md](./24_BACKLOG.md)**: Official product backlog organized by priority and derived from the roadmap.
+* **[25_IMPLEMENTATION_RULES.md](./25_IMPLEMENTATION_RULES.md)**: Strict development workflow rules and pre-commit checklists for contributors and AI.
