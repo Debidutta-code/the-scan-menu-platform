@@ -97,3 +97,7 @@ npm run --workspace=server seed
 - [x] **Role Gating test:** Integration tests prove that a non-`SUPER_ADMIN` user is rejected on a `SUPER_ADMIN`-only route.
 - [x] **Linter Cleanliness:** Root `npm run lint` compiles cleanly with zero warnings/errors.
 - [x] **Compilation:** Both client and server packages build without any errors.
+
+
+## Implementation Documents
+- [Progress Tracker](implementation/26_PROGRESS.md)
