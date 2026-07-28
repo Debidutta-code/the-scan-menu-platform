@@ -1,163 +1,275 @@
 # Implementation Plan (Phased Roadmap)
 
-This document outlines a structured, phased approach to implementing remaining features and resolving technical debt. It contains 20 distinct implementation phases.
+This document outlines a structured, 16-phase approach to implementing the Restaurant OS vision. The roadmap prioritizes commercial readiness, modularity, and rapid customer acquisition over premature infrastructure optimization.
 
-## Phase 1: Setup E2E Testing Framework
-* **Goal**: Introduce End-to-End testing to ensure critical user flows are covered.
-* **Why this phase exists**: E2E tests catch integration issues that unit tests might miss.
-* **Files likely affected**: package.json, playwright.config.ts, tests/e2e/
+## Phase 1: Repository Cleanup & Architecture Freeze
+* **Goal**: Ensure the codebase is stable, documented, and strictly follows architectural rules before new feature development.
+* **Business Value**: Reduces technical debt, speeds up future onboarding of developers, and ensures a solid foundation for scale.
+* **Technical Objective**: Enforce coding standards, validate all existing documentation, and write critical acceptance tests for existing flows.
 * **Dependencies**: None
-* **Risks**: Flaky tests might slow down CI/CD pipelines.
-* **Acceptance Criteria**: Playwright is installed and a basic smoke test passes.
+* **Files Expected to Change**: package.json, eslintrc, vitest.config.ts, tests/acceptance/*
+* **Database Impact**: None
+* **API Impact**: None
+* **Frontend Impact**: Refactoring for linting compliance.
+* **Backend Impact**: Refactoring for linting compliance.
+* **Risks**: Over-refactoring might introduce subtle bugs in currently working code.
+* **Migration Notes**: None
+* **Rollback Strategy**: Git revert.
+* **Acceptance Criteria**: Zero lint errors, all tests pass, architecture rules are enforced in CI.
+* **Testing Requirements**: Unit and Acceptance tests must pass.
+* **Estimated Complexity**: Low
 
-## Phase 2: Implement Custom Error Classes
-* **Goal**: Standardize error handling across the backend API.
-* **Why this phase exists**: Provides consistent error structures and simplifies controller logic.
-* **Files likely affected**: server/src/utils/errors.ts, server/src/middleware/errorHandler.ts
+## Phase 2: Restaurant Feature Flag System
+* **Goal**: Implement a system where modules (Menu, Ordering, Waiter Call, KDS, etc.) can be toggled per restaurant.
+* **Business Value**: Allows selling different feature combinations to different restaurants without maintaining multiple codebases.
+* **Technical Objective**: Create a scalable feature flag evaluation engine.
+* **Dependencies**: Phase 1
+* **Files Expected to Change**: server/src/models/FeatureFlag.ts, server/src/services/featureFlag.service.ts, client/src/hooks/useFeatureFlags.ts
+* **Database Impact**: New `FeatureFlags` collection.
+* **API Impact**: New `GET /restaurants/:id/features` endpoint.
+* **Frontend Impact**: Wrap major UI components in conditional renders based on flags.
+* **Backend Impact**: Add flag checks in operational services.
+* **Risks**: Complex UI state management if flags change dynamically.
+* **Migration Notes**: Seed script needs to grant default flags to existing restaurants.
+* **Rollback Strategy**: Disable flag evaluation middleware and default to 'true'.
+* **Acceptance Criteria**: A feature can be turned off for Restaurant A but remain on for Restaurant B.
+* **Testing Requirements**: Integration tests verifying flag evaluation logic.
+* **Estimated Complexity**: Medium
+
+## Phase 3: Subscription Plan System
+* **Goal**: Tie feature flags to commercial subscription plans (Free, Starter, Professional, Enterprise).
+* **Business Value**: Creates a clear upgrade path and directly drives MRR (Monthly Recurring Revenue).
+* **Technical Objective**: Map subscription tiers to specific arrays of allowed feature flags.
+* **Dependencies**: Phase 2
+* **Files Expected to Change**: server/src/models/SubscriptionPlan.ts, server/src/models/Restaurant.ts
+* **Database Impact**: New `SubscriptionPlans` collection, update `Restaurant.subscription`.
+* **API Impact**: Update `/admin/restaurants` to assign plans.
+* **Frontend Impact**: Show 'Upgrade required' UI for gated features.
+* **Backend Impact**: Automate feature flag assignment based on plan.
+* **Risks**: Locking existing users out of features they currently use.
+* **Migration Notes**: Backfill existing tenants to 'Enterprise' to prevent disruption.
+* **Rollback Strategy**: Revert plan assignment logic.
+* **Acceptance Criteria**: Changing a restaurant's plan automatically updates their available feature flags.
+* **Testing Requirements**: Unit tests mapping plans to flags.
+* **Estimated Complexity**: Medium
+
+## Phase 4: Restaurant Configuration Module
+* **Goal**: Expose all branding and operational settings to the Manager dashboard.
+* **Business Value**: Reduces onboarding support overhead by making the product self-serve.
+* **Technical Objective**: Build a comprehensive settings UI for Tax, Timings, Branding, and Localization.
 * **Dependencies**: None
-* **Risks**: Missed error catching in older controllers.
-* **Acceptance Criteria**: All custom errors extend a base AppError and return correct HTTP statuses.
+* **Files Expected to Change**: client/src/pages/ManagerSettings.tsx, server/src/controllers/restaurant.controller.ts
+* **Database Impact**: Expand `Restaurant` schema with localization and operational fields.
+* **API Impact**: Expand `PATCH /restaurants/:id` validation schema.
+* **Frontend Impact**: Large form creation with Zod validation.
+* **Backend Impact**: Ensure validation handles complex nested config objects.
+* **Risks**: Form complexity leading to poor UX.
+* **Migration Notes**: Ensure default values for new config fields.
+* **Rollback Strategy**: Revert UI changes.
+* **Acceptance Criteria**: Managers can update all branding and operational settings without engineering intervention.
+* **Testing Requirements**: Form validation and submission tests.
+* **Estimated Complexity**: Medium
 
-## Phase 3: Redis Integration for Socket.IO
-* **Goal**: Allow Socket.IO events to be broadcast across multiple server instances.
-* **Why this phase exists**: Necessary for horizontal scalability of the real-time features.
-* **Files likely affected**: server/src/sockets/socket.service.ts, server/package.json
-* **Dependencies**: Redis server available.
-* **Risks**: Potential latency in event broadcasting.
-* **Acceptance Criteria**: Socket events are successfully propagated through the Redis adapter.
-
-## Phase 4: Background Job Queue (BullMQ)
-* **Goal**: Offload asynchronous tasks like emails and integrations to a background queue.
-* **Why this phase exists**: Improves API response times and adds retry capabilities for failed tasks.
-* **Files likely affected**: server/src/jobs/, server/src/services/email.service.ts
-* **Dependencies**: Phase 3 (Redis)
-* **Risks**: Job failures need monitoring.
-* **Acceptance Criteria**: Emails are sent via background jobs instead of inline processing.
-
-## Phase 5: Feature Flags Schema & Service
-* **Goal**: Create the foundational data models and services for feature flags.
-* **Why this phase exists**: Enables safe rollouts and trunk-based development.
-* **Files likely affected**: server/src/models/FeatureFlag.ts, server/src/services/featureFlag.service.ts
-* **Dependencies**: None
-* **Risks**: Performance overhead if not cached properly.
-* **Acceptance Criteria**: Feature flags can be created, updated, and queried via backend services.
-
-## Phase 6: Feature Flags Admin UI
-* **Goal**: Build the frontend interface for Super Admins to manage feature flags.
-* **Why this phase exists**: Allows non-technical staff to control feature rollouts.
-* **Files likely affected**: client/src/pages/AdminFeatureFlags.tsx, client/src/services/admin.service.ts
-* **Dependencies**: Phase 5
-* **Risks**: Accidental toggling of critical features.
-* **Acceptance Criteria**: Super Admins can view and toggle flags; changes reflect in the backend.
-
-## Phase 7: Payment Provider Interface
-* **Goal**: Define the core interfaces for payment processing adapters.
-* **Why this phase exists**: Prepares the system to support multiple payment gateways.
-* **Files likely affected**: server/src/integrations/payments/PaymentProvider.ts
-* **Dependencies**: None
-* **Risks**: Interface might not cover all future gateway requirements.
-* **Acceptance Criteria**: A clear interface with createIntent, capture, and refund methods exists.
-
-## Phase 8: Razorpay Integration Core
-* **Goal**: Implement the Razorpay payment adapter.
-* **Why this phase exists**: Provides digital payment capabilities for the Indian market.
-* **Files likely affected**: server/src/integrations/payments/RazorpayAdapter.ts, server/package.json
-* **Dependencies**: Phase 7
-* **Risks**: API key exposure.
-* **Acceptance Criteria**: Razorpay adapter successfully creates order intents.
-
-## Phase 9: Payment Webhook Handlers
-* **Goal**: Create secure endpoints to receive payment status updates from gateways.
-* **Why this phase exists**: Ensures accurate payment status even if the client disconnects.
-* **Files likely affected**: server/src/routes/webhook.routes.ts, server/src/controllers/webhook.controller.ts
-* **Dependencies**: Phase 8
-* **Risks**: Webhook replay attacks.
-* **Acceptance Criteria**: Valid webhooks update order payment status; invalid webhooks are rejected.
-
-## Phase 10: Frontend Payment Checkout Flow
-* **Goal**: Integrate the Razorpay SDK into the customer cart.
-* **Why this phase exists**: Allows customers to complete digital payments from their devices.
-* **Files likely affected**: client/src/pages/PublicTable.tsx, client/src/components/Checkout.tsx
-* **Dependencies**: Phase 9
-* **Risks**: Complex state management during payment processing.
-* **Acceptance Criteria**: Customers can successfully pay and see real-time status updates.
-
-## Phase 11: POS Integration - Petpooja Adapter
-* **Goal**: Implement the actual API calls for Petpooja POS.
-* **Why this phase exists**: Replaces stubs with real integration for a major POS vendor.
-* **Files likely affected**: server/src/integrations/adapters/PetpoojaIntegration.ts
-* **Dependencies**: None
-* **Risks**: Third-party API rate limits and downtime.
-* **Acceptance Criteria**: Orders are successfully pushed to Petpooja API.
-
-## Phase 12: POS Sync Queueing
-* **Goal**: Move POS sync logic to the background job queue.
-* **Why this phase exists**: Prevents POS API latency from blocking customer checkouts.
-* **Files likely affected**: server/src/jobs/posSync.job.ts, server/src/controllers/order.controller.ts
-* **Dependencies**: Phase 4, Phase 11
-* **Risks**: Stale data if queue falls behind.
-* **Acceptance Criteria**: Orders sync to POS asynchronously with retry logic.
-
-## Phase 13: POS Integration Error UI
-* **Goal**: Display POS sync failures to restaurant managers.
-* **Why this phase exists**: Managers need visibility when orders fail to reach the POS.
-* **Files likely affected**: client/src/pages/ManagerOrders.tsx, client/src/components/SyncStatusBadge.tsx
-* **Dependencies**: Phase 12
-* **Risks**: Cluttered UI if errors are frequent.
-* **Acceptance Criteria**: Failed syncs are visible, with an option to manually retry.
-
-## Phase 14: Kitchen Display System (KDS) Data Routing
-* **Goal**: Add station routing logic to menu items.
-* **Why this phase exists**: Allows directing drinks to the bar and food to the kitchen.
-* **Files likely affected**: server/src/models/MenuItem.ts, server/src/models/Station.ts
-* **Dependencies**: None
-* **Risks**: Increased complexity in order processing.
-* **Acceptance Criteria**: Menu items can be assigned to specific stations.
-
-## Phase 15: KDS Role and Authorization
-* **Goal**: Introduce a KITCHEN role with restricted access.
-* **Why this phase exists**: Kitchen staff should only see the KDS, not management settings.
-* **Files likely affected**: server/src/models/User.ts, server/src/middleware/requireRole.ts
-* **Dependencies**: None
-* **Risks**: Role conflicts for users with multiple responsibilities.
-* **Acceptance Criteria**: KITCHEN role exists and restricts access appropriately.
-
-## Phase 16: KDS Frontend View
-* **Goal**: Build the Kitchen Display System UI.
-* **Why this phase exists**: Provides a high-contrast, optimized view for back-of-house staff.
-* **Files likely affected**: client/src/pages/ManagerKDS.tsx, client/src/components/KDSItem.tsx
-* **Dependencies**: Phase 14, Phase 15
-* **Risks**: Socket event overload on busy nights.
-* **Acceptance Criteria**: KDS accurately displays items routed to the specific station.
-
-## Phase 17: Subdomain Routing Architecture
-* **Goal**: Configure frontend routing to handle wildcard subdomains.
-* **Why this phase exists**: First step towards white-labeling for restaurants.
-* **Files likely affected**: client/vite.config.ts, client/src/App.tsx
-* **Dependencies**: None
-* **Risks**: Local development complexity.
-* **Acceptance Criteria**: Subdomains successfully resolve to the correct restaurant context.
-
-## Phase 18: Enhanced Analytics Queries
-* **Goal**: Implement advanced aggregation pipelines for deeper insights.
-* **Why this phase exists**: Provides managers with data on peak times and item popularity.
-* **Files likely affected**: server/src/services/analytics.service.ts
-* **Dependencies**: None
-* **Risks**: Slow queries impacting database performance.
-* **Acceptance Criteria**: New analytics endpoints return accurate historical data.
-
-## Phase 19: Analytics Frontend Charts
-* **Goal**: Visualize the enhanced analytics data on the manager dashboard.
-* **Why this phase exists**: Makes data easily consumable for restaurant owners.
-* **Files likely affected**: client/src/pages/ManagerAnalytics.tsx, client/src/components/Charts.tsx
-* **Dependencies**: Phase 18
-* **Risks**: Performance issues rendering large datasets.
-* **Acceptance Criteria**: Charts accurately reflect analytics data.
-
-## Phase 20: Webhook Subscriptions (Plugins)
-* **Goal**: Allow tenants to subscribe to platform events.
-* **Why this phase exists**: Enables external systems (e.g., custom loyalty apps) to react to orders.
-* **Files likely affected**: server/src/models/Webhook.ts, server/src/services/webhook.service.ts
+## Phase 5: Subdomain Architecture
+* **Goal**: Support tenant-specific URLs (e.g., `cafe.thescanmenu.com`).
+* **Business Value**: Provides a premium, white-label feel for professional and enterprise clients.
+* **Technical Objective**: Configure DNS wildcard and implement frontend middleware to parse subdomains.
 * **Dependencies**: Phase 4
-* **Risks**: Security vulnerabilities with external requests.
-* **Acceptance Criteria**: Tenants can register URLs and receive payloads on order creation.
+* **Files Expected to Change**: client/vite.config.ts, client/src/App.tsx
+* **Database Impact**: None
+* **API Impact**: None
+* **Frontend Impact**: Routing logic must extract subdomain and map to `restaurantSlug`.
+* **Backend Impact**: Ensure CORS supports wildcard subdomains.
+* **Risks**: DNS propagation issues, local development complexity.
+* **Migration Notes**: None
+* **Rollback Strategy**: Revert routing middleware.
+* **Acceptance Criteria**: Visiting `subdomain.domain.com` loads the correct restaurant context.
+* **Testing Requirements**: E2E tests mocking subdomain headers.
+* **Estimated Complexity**: High
+
+## Phase 6: Payment Abstraction Framework
+* **Goal**: Create a generic, provider-agnostic framework for processing payments.
+* **Business Value**: Allows rapid onboarding of restaurants globally by easily swapping payment providers.
+* **Technical Objective**: Implement an Adapter pattern for payments supporting Prepaid, Postpaid, and Hybrid flows.
+* **Dependencies**: None
+* **Files Expected to Change**: server/src/integrations/payments/PaymentProvider.ts, server/src/services/payment.service.ts
+* **Database Impact**: New `Transactions` collection.
+* **API Impact**: New internal payment routing endpoints.
+* **Frontend Impact**: Abstracted checkout flow.
+* **Backend Impact**: Core logic for intent creation, capture, and webhooks.
+* **Risks**: Financial data discrepancies.
+* **Migration Notes**: None
+* **Rollback Strategy**: Revert to session-only billing.
+* **Acceptance Criteria**: System supports a generic 'Cash' adapter successfully.
+* **Testing Requirements**: Unit tests for the adapter factory and interfaces.
+* **Estimated Complexity**: High
+
+## Phase 7: Razorpay Adapter Implementation
+* **Goal**: Integrate Razorpay using the Payment Framework.
+* **Business Value**: Unlocks the Indian market for digital payments.
+* **Technical Objective**: Implement the Razorpay SDK and secure webhook handlers.
+* **Dependencies**: Phase 6
+* **Files Expected to Change**: server/src/integrations/payments/RazorpayAdapter.ts, client/src/components/RazorpayCheckout.tsx
+* **Database Impact**: Store Razorpay specific transaction IDs in the `Transactions` collection.
+* **API Impact**: New webhook endpoint `/webhooks/razorpay`.
+* **Frontend Impact**: Inject Razorpay JS SDK dynamically.
+* **Backend Impact**: Verify webhook signatures.
+* **Risks**: API key leaks, missed webhooks.
+* **Migration Notes**: None
+* **Rollback Strategy**: Disable Razorpay in the Payment Factory.
+* **Acceptance Criteria**: A customer can successfully pay via Razorpay and the order status updates.
+* **Testing Requirements**: Mock Razorpay API responses and webhook payloads.
+* **Estimated Complexity**: High
+
+## Phase 8: Ordering Modes Expansion
+* **Goal**: Support Dine-In, Takeaway, Delivery, and Counter ordering.
+* **Business Value**: Expands the Total Addressable Market (TAM) beyond just dine-in restaurants.
+* **Technical Objective**: Decouple ordering logic from `TableSession` to support session-less orders.
+* **Dependencies**: None
+* **Files Expected to Change**: server/src/models/Order.ts, client/src/pages/PublicCart.tsx
+* **Database Impact**: Make `tableId` and `sessionId` optional on `Order`.
+* **API Impact**: Update order creation endpoint to accept `orderMode`.
+* **Frontend Impact**: UI flow changes based on selected mode (e.g., ask for address if Delivery).
+* **Backend Impact**: Complex validation based on mode.
+* **Risks**: Breaking existing Dine-In analytics or tracking.
+* **Migration Notes**: Backfill existing orders with `orderMode: 'DINE_IN'`.
+* **Rollback Strategy**: Revert validation schemas.
+* **Acceptance Criteria**: Customer can place a Takeaway order without scanning a table QR code.
+* **Testing Requirements**: Integration tests for all 4 ordering modes.
+* **Estimated Complexity**: High
+
+## Phase 9: POS Adapter Framework
+* **Goal**: Create a generic, provider-agnostic framework for POS integration.
+* **Business Value**: A core USP; allows the platform to sit on top of any legacy system.
+* **Technical Objective**: Refine the existing adapter pattern to ensure asynchronous, non-blocking execution.
+* **Dependencies**: None
+* **Files Expected to Change**: server/src/integrations/core/RestaurantIntegration.ts
+* **Database Impact**: Enhance `IntegrationSyncLog`.
+* **API Impact**: None
+* **Frontend Impact**: None
+* **Backend Impact**: Establish event-driven patterns for POS sync.
+* **Risks**: Performance degradation if sync blocks the main thread.
+* **Migration Notes**: None
+* **Rollback Strategy**: Revert to NoOpIntegration.
+* **Acceptance Criteria**: Framework defines clear `syncMenu` and `pushOrder` contracts.
+* **Testing Requirements**: Unit tests for the Adapter Factory.
+* **Estimated Complexity**: Medium
+
+## Phase 10: Petpooja Integration
+* **Goal**: Implement the specific adapter for Petpooja POS.
+* **Business Value**: Captures a significant portion of the Indian restaurant market.
+* **Technical Objective**: Map internal data structures to Petpooja's API payloads.
+* **Dependencies**: Phase 9
+* **Files Expected to Change**: server/src/integrations/adapters/PetpoojaIntegration.ts
+* **Database Impact**: Store external Petpooja IDs on `MenuItem` and `Order`.
+* **API Impact**: Webhook endpoints for Petpooja status updates.
+* **Frontend Impact**: Sync error visibility.
+* **Backend Impact**: Payload transformation logic.
+* **Risks**: Third-party API changes breaking the integration.
+* **Migration Notes**: None
+* **Rollback Strategy**: Disable the adapter.
+* **Acceptance Criteria**: Orders flow successfully into a Petpooja test environment.
+* **Testing Requirements**: Mock Petpooja API responses extensively.
+* **Estimated Complexity**: High
+
+## Phase 11: Kitchen Display System (KDS)
+* **Goal**: Provide a specialized digital display for the kitchen.
+* **Business Value**: Replaces paper tickets, increasing kitchen efficiency and reducing errors.
+* **Technical Objective**: Build a high-performance, real-time routing view for specific menu items.
+* **Dependencies**: None
+* **Files Expected to Change**: client/src/pages/ManagerKDS.tsx, server/src/models/MenuItem.ts
+* **Database Impact**: Add `stationId` to `MenuItem`.
+* **API Impact**: New KDS specific aggregation endpoints.
+* **Frontend Impact**: New, touch-optimized, high-contrast UI.
+* **Backend Impact**: Broadcast socket events specifically to KDS rooms.
+* **Risks**: Socket overload in high-volume environments.
+* **Migration Notes**: None
+* **Rollback Strategy**: Hide KDS route.
+* **Acceptance Criteria**: Kitchen staff see only items routed to their specific station.
+* **Testing Requirements**: E2E testing of the KDS socket updates.
+* **Estimated Complexity**: High
+
+## Phase 12: Inventory Module
+* **Goal**: Track stock depletion based on order volume.
+* **Business Value**: Provides basic ERP functionality, increasing stickiness of the platform.
+* **Technical Objective**: Link `MenuItem` orders to stock counts and trigger low-stock alerts.
+* **Dependencies**: None
+* **Files Expected to Change**: server/src/models/Inventory.ts, server/src/services/inventory.service.ts
+* **Database Impact**: New `Inventory` collection.
+* **API Impact**: CRUD endpoints for Inventory.
+* **Frontend Impact**: Inventory management dashboard.
+* **Backend Impact**: Order completion triggers inventory decrement.
+* **Risks**: Race conditions during high concurrency depletion.
+* **Migration Notes**: None
+* **Rollback Strategy**: Disable inventory decrement logic.
+* **Acceptance Criteria**: Ordering an item reduces its associated inventory count.
+* **Testing Requirements**: Concurrency tests for stock depletion.
+* **Estimated Complexity**: Medium
+
+## Phase 13: Analytics Module Expansion
+* **Goal**: Provide deep, actionable business intelligence.
+* **Business Value**: Empowers owners with data, proving the platform's ROI.
+* **Technical Objective**: Build complex MongoDB aggregation pipelines for time-series data.
+* **Dependencies**: None
+* **Files Expected to Change**: server/src/services/analytics.service.ts, client/src/components/Charts.tsx
+* **Database Impact**: Ensure indexes are optimized for analytical queries.
+* **API Impact**: New reporting endpoints.
+* **Frontend Impact**: Integration of charting libraries (or custom SVGs).
+* **Backend Impact**: Complex data transformation.
+* **Risks**: Database performance degradation from heavy queries.
+* **Migration Notes**: None
+* **Rollback Strategy**: Revert to basic analytics.
+* **Acceptance Criteria**: Managers can view revenue by hour, top items, and staff performance.
+* **Testing Requirements**: Unit tests verifying aggregation pipeline output against known datasets.
+* **Estimated Complexity**: Medium
+
+## Phase 14: White Label Capabilities
+* **Goal**: Allow enterprise clients to completely rebrand the application.
+* **Business Value**: Unlocks high-ticket enterprise sales.
+* **Technical Objective**: Dynamic CSS injection and custom domain routing.
+* **Dependencies**: Phase 5
+* **Files Expected to Change**: client/src/App.tsx, server/src/models/Restaurant.ts
+* **Database Impact**: Add extensive branding fields to `Restaurant`.
+* **API Impact**: None
+* **Frontend Impact**: Heavy reliance on CSS variables for dynamic theming.
+* **Backend Impact**: None
+* **Risks**: UI breaking under unexpected color combinations.
+* **Migration Notes**: None
+* **Rollback Strategy**: Revert to default theme.
+* **Acceptance Criteria**: Enterprise tenant shows zero 'TheScanMenu' branding and uses full custom colors.
+* **Testing Requirements**: Visual regression tests.
+* **Estimated Complexity**: Medium
+
+## Phase 15: Plugin Framework (Public API & Webhooks)
+* **Goal**: Allow third parties to build on top of TheScanMenu.
+* **Business Value**: Creates an ecosystem, reducing the need to build every niche feature internally.
+* **Technical Objective**: Secure API key generation and webhook dispatch system.
+* **Dependencies**: None
+* **Files Expected to Change**: server/src/routes/openapi.routes.ts, server/src/models/ApiKey.ts
+* **Database Impact**: New `ApiKeys` and `Webhooks` collections.
+* **API Impact**: New `v1/openapi` namespace with distinct auth middleware.
+* **Frontend Impact**: Developer dashboard to generate keys.
+* **Backend Impact**: Implement HMAC signing for outgoing webhooks.
+* **Risks**: Security vulnerabilities and data leaks.
+* **Migration Notes**: None
+* **Rollback Strategy**: Disable open API routes.
+* **Acceptance Criteria**: Third party can retrieve menu and receive order creation webhooks.
+* **Testing Requirements**: Extensive security and authorization testing.
+* **Estimated Complexity**: High
+
+## Phase 16: Production Hardening & Infrastructure
+* **Goal**: Ensure the platform can scale to thousands of concurrent restaurants securely.
+* **Business Value**: Prevents churn due to downtime or slow performance.
+* **Technical Objective**: Implement Redis, BullMQ, advanced rate limiting, and caching.
+* **Dependencies**: Phases 1-15
+* **Files Expected to Change**: server/src/utils/cache.ts, server/src/jobs/*
+* **Database Impact**: Offload read-heavy queries to Redis cache.
+* **API Impact**: Faster response times.
+* **Frontend Impact**: None directly.
+* **Backend Impact**: Major infrastructure additions.
+* **Risks**: Cache invalidation bugs showing stale data.
+* **Migration Notes**: Infrastructure provisioning (Redis).
+* **Rollback Strategy**: Disable caching layer.
+* **Acceptance Criteria**: System handles 10x current load in load testing.
+* **Testing Requirements**: Load testing and stress testing.
+* **Estimated Complexity**: High

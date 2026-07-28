@@ -25,3 +25,4 @@ These documents are meant to provide a comprehensive understanding of the projec
 * **[16_FUTURE_ROADMAP.md](./16_FUTURE_ROADMAP.md)**: The long-term vision for the platform, including major features like Kitchen Display and Subdomains.
 * **[17_AI_CONTEXT.md](./17_AI_CONTEXT.md)**: Crucial context and guidelines designed specifically for AI assistants working on this codebase.
 * **[18_REPOSITORY_RULES.md](./18_REPOSITORY_RULES.md)**: Hard rules and conventions that must be followed to maintain code quality and architectural integrity.
+* **[19_PRODUCT_SPEC.md](./19_PRODUCT_SPEC.md)**: The single source of truth for the product vision, features, and commercial modules.
