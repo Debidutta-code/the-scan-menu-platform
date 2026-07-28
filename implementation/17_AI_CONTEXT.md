@@ -34,3 +34,23 @@ TheScanMenu is a modular, multi-tenant SaaS platform for restaurants. Its primar
 ## 5. State Management Rule
 *   Do not put everything in Zustand. Use it only for cross-cutting concerns (Cart, Auth, Theme).
 *   Use React Query (or local component state) for data fetching and server-state caching.
+
+## 6. Development Rules For AI
+
+The AI must always follow these principles when writing or proposing code:
+
+1. **Single frontend**: Do not create separate frontend apps. Use feature flags and routing.
+2. **Single backend**: Do not create separate backend services or microservices.
+3. **Single database**: Do not propose spinning up separate database instances per tenant.
+4. **Never duplicate code**: Abstract reusable logic into utilities, hooks, or components.
+5. **Always use Feature Flags**: New UI or logic should be gated by a flag check.
+6. **Always use Subscription Plans**: Features must tie back to commercial reality.
+7. **Never break multi-tenancy**: Every operational database query MUST include `restaurantId`.
+8. **Always use adapters for third-party integrations**: Never hardcode vendor-specific logic in core services.
+9. **Keep controllers thin**: Controllers only parse requests and format responses.
+10. **Business logic belongs in services**: All database mutations and orchestration happen here.
+11. **Use composition over duplication**: Build UI from existing design system components.
+12. **Prefer configuration over hardcoding**: Use `.env` or database config for operational variables.
+13. **Every feature must work independently as a module**: Modules should not tightly couple to each other unnecessarily.
+14. **Every new feature must be documented before implementation**: Update architectural docs first.
+15. **All code must remain production-ready**: No messy "TODO" implementations or bypassing security for speed.

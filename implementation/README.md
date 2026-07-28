@@ -26,3 +26,5 @@ These documents are meant to provide a comprehensive understanding of the projec
 * **[17_AI_CONTEXT.md](./17_AI_CONTEXT.md)**: Crucial context and guidelines designed specifically for AI assistants working on this codebase.
 * **[18_REPOSITORY_RULES.md](./18_REPOSITORY_RULES.md)**: Hard rules and conventions that must be followed to maintain code quality and architectural integrity.
 * **[19_PRODUCT_SPEC.md](./19_PRODUCT_SPEC.md)**: The single source of truth for the product vision, features, and commercial modules.
+* **[20_MODULE_MATRIX.md](./20_MODULE_MATRIX.md)**: Defines the commercial architecture, mapping modules to subscription plans and operating modes.
+* **[21_USER_FLOWS.md](./21_USER_FLOWS.md)**: Documents all core business and operational flows across the platform.
