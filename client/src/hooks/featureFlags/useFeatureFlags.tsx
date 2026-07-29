@@ -20,19 +20,21 @@ const FeatureFlagContext = createContext<FeatureFlagContextType | undefined>(und
 
 interface FeatureFlagProviderProps {
   children: ReactNode;
-  restaurantId?: string; // Optional: If provided, fetches flags for this restaurant. Useful for Manager/Admin views.
 }
 
-export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ children, restaurantId }) => {
+export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ children }) => {
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { user } = useAuth(); // Assume we need a user to fetch flags, or handle public routes differently
+  const { user } = useAuth();
+
+  // Extract restaurantId from authenticated user context, avoiding TS type errors on missing properties
+  const activeRestaurantId = (user as any)?.restaurantId; // Assume we need a user to fetch flags, or handle public routes differently
 
   const fetchFlags = useCallback(async () => {
     // If no restaurantId is provided, we might be in a context where flags aren't needed yet, or it's a global public view
     // For this implementation, we assume we need a restaurantId to fetch specific flags.
-    if (!restaurantId) {
+    if (!activeRestaurantId) {
       setIsLoading(false);
       return;
     }
@@ -41,7 +43,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ childr
       setIsLoading(true);
       setError(null);
       // Fetch flags from the backend
-      const response = await api.get(`/restaurants/${restaurantId}/feature-flags`);
+      const response = await api.get(`/restaurants/${activeRestaurantId}/feature-flags`);
 
       const flagsMap: Record<string, boolean> = {};
 
@@ -58,7 +60,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ childr
     } finally {
       setIsLoading(false);
     }
-  }, [restaurantId]);
+  }, [activeRestaurantId]);
 
   useEffect(() => {
     fetchFlags();

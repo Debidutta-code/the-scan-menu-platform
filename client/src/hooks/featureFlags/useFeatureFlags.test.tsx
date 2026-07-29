@@ -20,8 +20,8 @@ describe('useFeatureFlags', () => {
     vi.clearAllMocks();
   });
 
-  const createWrapper = (restaurantId?: string) => ({ children }: { children: ReactNode }) => (
-    <FeatureFlagProvider restaurantId={restaurantId}>
+  const createWrapper = () => ({ children }: { children: ReactNode }) => (
+    <FeatureFlagProvider>
       {children}
     </FeatureFlagProvider>
   );
@@ -48,7 +48,7 @@ describe('useFeatureFlags', () => {
     });
 
     const { result } = renderHook(() => useFeatureFlags(), {
-      wrapper: createWrapper('rest_123'),
+      wrapper: createWrapper(),
     });
 
     expect(result.current.isLoading).toBe(true);

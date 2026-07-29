@@ -1,3 +1,4 @@
+import { FeatureFlagProvider } from './hooks/featureFlags/useFeatureFlags';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './hooks/useToast';
@@ -31,7 +32,8 @@ export const App = () => {
     <Router>
       <AuthProvider>
         <ToastProvider>
-          <Routes>
+          <FeatureFlagProvider>
+            <Routes>
             {/* Public customer dining view */}
             <Route path="/r/:restaurantSlug/t/:tableToken" element={<PublicTable />} />
             <Route path="/r/:restaurantSlug/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
@@ -71,6 +73,7 @@ export const App = () => {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </FeatureFlagProvider>
         </ToastProvider>
       </AuthProvider>
     </Router>

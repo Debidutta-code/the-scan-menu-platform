@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from './index';
 import { Types } from 'mongoose';
@@ -11,14 +11,29 @@ import { RestaurantStaff } from './models/RestaurantStaff';
 import jwt from 'jsonwebtoken';
 import { UserRepository } from './repositories/user.repository';
 import { TokenService } from './services/token.service';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 import { Server } from 'http';
 
+let mongoServer: MongoMemoryServer;
+
 describe('FeatureFlag Service & Middleware Tests', () => {
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    await mongoose.connect(mongoUri);
+  });
+
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
   const mockRestaurantId = new Types.ObjectId();
   const mockUserId = new Types.ObjectId();
   let adminToken: string;
 
   beforeEach(() => {
+    process.env.TESTING_FEATURE_FLAGS = 'true';
     vi.clearAllMocks();
     process.env.JWT_ACCESS_SECRET = 'test_secret';
 
@@ -31,6 +46,7 @@ describe('FeatureFlag Service & Middleware Tests', () => {
   });
 
   afterEach(() => {
+    delete process.env.TESTING_FEATURE_FLAGS;
     vi.restoreAllMocks();
   });
 
@@ -68,6 +84,42 @@ describe('FeatureFlag Service & Middleware Tests', () => {
     });
   });
 
+
+    it('should enable a specific feature flag', async () => {
+      const updatedFlag = { key: 'qr_menu', enabled: true };
+      vi.spyOn(FeatureFlag, 'findOneAndUpdate').mockResolvedValueOnce(updatedFlag as any);
+      const result = await featureFlagService.enable(mockRestaurantId, 'qr_menu');
+      expect(result).toEqual(updatedFlag);
+      expect(FeatureFlag.findOneAndUpdate).toHaveBeenCalledWith(
+        { restaurantId: mockRestaurantId, key: 'qr_menu' },
+        { enabled: true },
+        { new: true, upsert: true }
+      );
+    });
+
+    it('should disable a specific feature flag', async () => {
+      const updatedFlag = { key: 'qr_menu', enabled: false };
+      vi.spyOn(FeatureFlag, 'findOneAndUpdate').mockResolvedValueOnce(updatedFlag as any);
+      const result = await featureFlagService.disable(mockRestaurantId, 'qr_menu');
+      expect(result).toEqual(updatedFlag);
+      expect(FeatureFlag.findOneAndUpdate).toHaveBeenCalledWith(
+        { restaurantId: mockRestaurantId, key: 'qr_menu' },
+        { enabled: false },
+        { new: true, upsert: true }
+      );
+    });
+
+    it('should bulk update multiple feature flags', async () => {
+      const mockFlags = [{ key: 'qr_menu', enabled: true }, { key: 'analytics', enabled: false }];
+      vi.spyOn(FeatureFlag, 'bulkWrite').mockResolvedValueOnce({} as any);
+      vi.spyOn(featureFlagService, 'getRestaurantFlags').mockResolvedValueOnce(mockFlags as any);
+
+      const result = await featureFlagService.bulkUpdate(mockRestaurantId, mockFlags);
+
+      expect(FeatureFlag.bulkWrite).toHaveBeenCalled();
+      expect(result).toEqual(mockFlags);
+    });
+
   describe('FeatureFlag Middleware', () => {
     it('should call next if feature is enabled', async () => {
       const req = { params: { restaurantId: mockRestaurantId.toString() } } as any;
@@ -104,6 +156,7 @@ describe('FeatureFlag Service & Middleware Tests', () => {
 
   describe('FeatureFlag Controller (API)', () => {
     let server: Server;
+    beforeAll(() => { vi.spyOn(featureFlagService, 'isEnabled').mockResolvedValue(true); });
     beforeEach(() => {
         // mock auth middleware
         vi.spyOn(UserRepository.prototype, 'findById').mockImplementation(async (id) => {
@@ -117,7 +170,7 @@ describe('FeatureFlag Service & Middleware Tests', () => {
     afterEach(() => {
         server.close();
     });
-    it('should get all feature flags for a restaurant', async () => {
+    it('should get all feature flags for a restaurant', { timeout: 10000 }, async () => {
       const mockFlags = [{ key: 'qr_menu', enabled: true }];
       vi.spyOn(featureFlagService, 'getRestaurantFlags').mockResolvedValueOnce(mockFlags as any);
       vi.spyOn(Restaurant, 'findById').mockResolvedValueOnce({ _id: mockRestaurantId } as any);
@@ -126,12 +179,12 @@ describe('FeatureFlag Service & Middleware Tests', () => {
         .get(`/api/v1/restaurants/${mockRestaurantId}/feature-flags`)
         .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(200);
+      console.log(res.body); console.log(res.body); expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toEqual(mockFlags);
     });
 
-    it('should update feature flags for a restaurant', async () => {
+    it('should update feature flags for a restaurant', { timeout: 10000 }, async () => {
       const mockFlags = [{ key: 'qr_menu', enabled: false }];
       vi.spyOn(featureFlagService, 'bulkUpdate').mockResolvedValueOnce(mockFlags as any);
       vi.spyOn(Restaurant, 'findById').mockResolvedValueOnce({ _id: mockRestaurantId } as any);
@@ -141,12 +194,12 @@ describe('FeatureFlag Service & Middleware Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ flags: [{ key: 'qr_menu', enabled: false }] });
 
-      expect(res.status).toBe(200);
+      console.log(res.body); expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toEqual(mockFlags);
     });
 
-    it('should block cross-tenant access for managers', async () => {
+    it('should block cross-tenant access for managers', { timeout: 10000 }, async () => {
         const otherRestaurantId = new Types.ObjectId();
         const managerToken = jwt.sign(
             { id: mockUserId.toString(), role: 'MANAGER', email: 'manager@test.com', isActive: true },

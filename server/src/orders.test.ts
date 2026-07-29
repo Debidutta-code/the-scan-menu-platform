@@ -17,7 +17,7 @@ import { runMigration } from '../src/utils/migrateSessions';
 let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
+    mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
 
   if (mongoose.connection.readyState !== 0) {

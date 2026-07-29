@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { MenuController } from '../controllers/menu.controller';
+import { requireFeature } from '../middleware/featureFlag';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import {
@@ -16,7 +17,7 @@ const menuController = new MenuController();
 router.use(requireAuth as any, requireRole('MANAGER', 'SUPER_ADMIN'));
 
 // Categories
-router.get('/:restaurantId/categories', requireRestaurantAccess as any, menuController.listCategories);
+router.get('/:restaurantId/categories', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.listCategories);
 router.post(
   '/:restaurantId/categories',
   requireRestaurantAccess as any,
@@ -29,11 +30,11 @@ router.patch(
   validateBody(updateCategorySchema),
   menuController.editCategory
 );
-router.delete('/:restaurantId/categories/:categoryId', requireRestaurantAccess as any, menuController.deleteCategory);
-router.patch('/:restaurantId/categories-reorder', requireRestaurantAccess as any, menuController.reorderCategories);
+router.delete('/:restaurantId/categories/:categoryId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.deleteCategory);
+router.patch('/:restaurantId/categories-reorder', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.reorderCategories);
 
 // Menu Items
-router.get('/:restaurantId/menu-items', requireRestaurantAccess as any, menuController.listMenuItems);
+router.get('/:restaurantId/menu-items', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.listMenuItems);
 router.post(
   '/:restaurantId/menu-items',
   requireRestaurantAccess as any,
@@ -46,12 +47,12 @@ router.patch(
   validateBody(updateMenuItemSchema),
   menuController.editMenuItem
 );
-router.delete('/:restaurantId/menu-items/:itemId', requireRestaurantAccess as any, menuController.deleteMenuItem);
-router.patch('/:restaurantId/menu-items/:itemId/availability', requireRestaurantAccess as any, menuController.toggleAvailability);
-router.patch('/:restaurantId/menu-items-bulk-availability', requireRestaurantAccess as any, menuController.bulkAvailability);
-router.patch('/:restaurantId/menu-items-reorder', requireRestaurantAccess as any, menuController.reorderMenuItems);
+router.delete('/:restaurantId/menu-items/:itemId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.deleteMenuItem);
+router.patch('/:restaurantId/menu-items/:itemId/availability', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.toggleAvailability);
+router.patch('/:restaurantId/menu-items-bulk-availability', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.bulkAvailability);
+router.patch('/:restaurantId/menu-items-reorder', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.reorderMenuItems);
 
 // Uploads
-router.post('/:restaurantId/uploads/signature', requireRestaurantAccess as any, menuController.getUploadSignature);
+router.post('/:restaurantId/uploads/signature', requireFeature('qr_menu') as any, requireRestaurantAccess as any, menuController.getUploadSignature);
 
 export default router;

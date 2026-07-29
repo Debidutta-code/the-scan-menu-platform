@@ -2,6 +2,8 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
+import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import {
   CheckCircle2,
@@ -61,6 +63,7 @@ const getRequestTypeDetails = (type: string) => {
 };
 
 export const ManagerWaiterCalls: React.FC = () => {
+  const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -125,6 +128,14 @@ export const ManagerWaiterCalls: React.FC = () => {
         </p>
       </div>
     );
+  }
+
+  if (!flagsLoading && !isEnabled('waiter_call')) {
+    return <Navigate to="/manager/orders" replace />;
+  }
+
+  if (!flagsLoading && !isEnabled('waiter_call')) {
+    return <Navigate to="/manager/orders" replace />;
   }
 
   return (

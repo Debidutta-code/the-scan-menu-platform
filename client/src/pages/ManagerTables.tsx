@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
+import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { managerService, Table, TableZone } from '../services/restaurant.service';
 import { Plus, Edit2, Trash2, QrCode, Download, X, Loader, HelpCircle, Printer } from 'lucide-react';
@@ -22,6 +24,7 @@ const zoneSchema = z.object({
 type ZoneFormValues = z.infer<typeof zoneSchema>;
 
 export const ManagerTables: React.FC = () => {
+  const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -333,6 +336,14 @@ export const ManagerTables: React.FC = () => {
         <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
       </div>
     );
+  }
+
+  if (!flagsLoading && !isEnabled('qr_menu')) {
+    return <Navigate to="/manager/orders" replace />;
+  }
+
+  if (!flagsLoading && !isEnabled('qr_menu')) {
+    return <Navigate to="/manager/orders" replace />;
   }
 
   return (

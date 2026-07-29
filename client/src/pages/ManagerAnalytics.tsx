@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
+import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import {
   TrendingUp,
@@ -56,6 +58,7 @@ const getRangeDates = (rangeType: string, customStart?: string, customEnd?: stri
 };
 
 export const ManagerAnalytics: React.FC = () => {
+  const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { user } = useAuth();
   const { toast } = useToast();
   const activeRestaurantId = user?.restaurants?.[0];
@@ -357,6 +360,14 @@ export const ManagerAnalytics: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  if (!flagsLoading && !isEnabled('analytics')) {
+    return <Navigate to="/manager/orders" replace />;
+  }
+
+  if (!flagsLoading && !isEnabled('analytics')) {
+    return <Navigate to="/manager/orders" replace />;
   }
 
   return (

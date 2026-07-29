@@ -4,6 +4,8 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
+import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
@@ -75,6 +77,8 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, children }) => {
     transition,
   };
 
+
+
   return (
     <div ref={setNodeRef} style={style}>
       {children({ dragHandleProps: { ...attributes, ...listeners } })}
@@ -83,6 +87,9 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, children }) => {
 };
 
 export const ManagerMenu: React.FC = () => {
+  const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
+
+
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -425,6 +432,10 @@ export const ManagerMenu: React.FC = () => {
       prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
     );
   };
+
+  if (!flagsLoading && !isEnabled('qr_menu')) {
+    return <Navigate to="/manager/orders" replace />;
+  }
 
   if (!activeRestaurantId) {
     return (

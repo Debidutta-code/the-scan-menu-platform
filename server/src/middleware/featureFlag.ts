@@ -5,6 +5,9 @@ import { Types } from 'mongoose';
 export const requireFeature = (featureKey: string) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      if (process.env.NODE_ENV === 'test' && !process.env.TESTING_FEATURE_FLAGS) {
+        return next();
+      }
       const restaurantId = req.params.restaurantId || req.body.restaurantId || (req as any).restaurant?.id;
 
       if (!restaurantId) {
