@@ -13,6 +13,19 @@ We adhere to [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
 
 ## Release History
 
+### Version 0.4.0 - Subscription Plan System
+*Date: Today*
+
+**Summary:**
+Implemented the Subscription Plan System tying commercial tiers to the Feature Flag engine.
+
+**Added:**
+- `SubscriptionPlan` model with `FREE`, `STARTER`, `PROFESSIONAL`, and `ENTERPRISE` tiers.
+- Automated synchronization between a restaurant plan and their enabled feature flags.
+- `UpgradeRequired` React component for robust UI handling of plan-gated features and manual administrative overrides.
+- Manager settings UI extension allowing Super Admins to manage tenant subscriptions.
+
+
 ### Version 0.1.0 - Documentation Foundation
 *Date: Initial Audit Phase*
 

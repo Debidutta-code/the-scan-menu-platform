@@ -53,7 +53,7 @@ export interface IRestaurant extends Document {
   };
   subscription?: {
     status: 'ACTIVE' | 'EXPIRED' | 'TRIAL';
-    planType: 'STARTER' | 'PREMIUM' | 'ENTERPRISE';
+    planKey: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
     expiresAt: Date;
   };
   orderWorkflowMode?: 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP';
@@ -115,7 +115,7 @@ const restaurantSchema = new Schema<IRestaurant>(
     },
     subscription: {
       status: { type: String, enum: ['ACTIVE', 'EXPIRED', 'TRIAL'], default: 'TRIAL' },
-      planType: { type: String, enum: ['STARTER', 'PREMIUM', 'ENTERPRISE'], default: 'STARTER' },
+      planKey: { type: String, enum: ['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'], default: 'FREE' },
       expiresAt: { type: Date, default: () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) }, // 14-day default trial
     },
     orderWorkflowMode: {
