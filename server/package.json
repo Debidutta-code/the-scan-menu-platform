@@ -12,7 +12,8 @@
     "migrate:sessions": "ts-node-dev --transpile-only src/utils/migrateSessions.ts",
     "migrate:phase4": "ts-node-dev --transpile-only src/utils/migratePhase4.ts",
     "test": "vitest run",
-    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
+    "migrate:payments": "ts-node-dev --transpile-only src/utils/migratePhase6.ts"
   },
   "dependencies": {
     "@types/cookie-parser": "^1.4.10",

@@ -67,3 +67,9 @@ Within this namespace, sub-routers handle specific domains:
 ## Security & Validation
 *   Incoming request payloads (body, query params) are validated against Zod schemas in the route definitions before reaching controllers.
 *   Public endpoints have stricter rate-limiting configurations applied to prevent abuse (e.g., order creation).
+
+### Payments (Phase 6)
+*   `POST /api/v1/restaurants/:restaurantId/payments/intent` - Create a payment intent (Manager/Staff/Public)
+*   `GET /api/v1/restaurants/:restaurantId/payments/transactions` - List transactions
+*   `GET /api/v1/restaurants/:restaurantId/payments/transactions/:id` - Get transaction details
+*   `PATCH /api/v1/restaurants/:restaurantId/payments/config` - Update active payment provider and mode (Manager/Super Admin)

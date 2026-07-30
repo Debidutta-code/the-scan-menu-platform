@@ -30,6 +30,8 @@ export interface IRestaurantSettingsWorkflow {
 }
 
 export interface IRestaurantSettingsPayment {
+  activeProvider: 'CASH' | 'RAZORPAY' | 'STRIPE' | 'SQUARE';
+  activeMode: 'PREPAID' | 'POSTPAID' | 'HYBRID';
   taxRatePercent: number;
   paymentMethods: {
     cash: boolean;
@@ -123,6 +125,8 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       },
     },
     paymentConfig: {
+      activeProvider: { type: String, enum: ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE'], default: 'CASH' },
+      activeMode: { type: String, enum: ['PREPAID', 'POSTPAID', 'HYBRID'], default: 'POSTPAID' },
       taxRatePercent: { type: Number, required: true, default: 0 },
       paymentMethods: {
         cash: { type: Boolean, default: true },

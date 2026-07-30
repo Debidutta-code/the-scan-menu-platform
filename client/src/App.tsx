@@ -14,6 +14,7 @@ import ManagerTaxes from './pages/ManagerTaxes';
 import ManagerSettings from './pages/ManagerSettings';
 import ManagerAnalytics from './pages/ManagerAnalytics';
 import ManagerProfile from './pages/ManagerProfile';
+import ManagerTransactions from './pages/ManagerTransactions';
 import ManagerLayout from './components/ManagerLayout';
 import PublicTable from './pages/PublicTable';
 import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
@@ -57,6 +58,7 @@ export const App = () => {
                 <Route path="/manager/orders" element={<ManagerOrders />} />
                 <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                 <Route path="/manager/profile" element={<ManagerProfile />} />
+                <Route path="/manager/transactions" element={<ManagerTransactions />} />
 
                 {/* Manager/Super Admin only routes inside layout */}
                 <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'SUPER_ADMIN']} />}>

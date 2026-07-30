@@ -11,13 +11,13 @@ Currently, the platform does not process live digital transactions. It acts as a
 3.  **Bill Settlement**: When a manager or staff member hits "Settle Bill", the `TableSession` is marked `CLOSED`, and all associated `Order`s have their `paymentStatus` updated from `PENDING` to `PAID`.
 4.  **Taxes**: The system calculates taxes based on the active `Tax` models associated with the restaurant, summing them up for a total bill view in the cart and on the manager's dashboard.
 
-## Future Architecture: Gateway Integrations
+## Current Architecture: Gateway Integrations & Abstraction Framework
 
 The database schema (`Restaurant.paymentOptions`) already anticipates integrations with gateways like Razorpay, Stripe, or Square.
 
 ### Implementation Strategy
 
-1.  **Adapter Pattern**: Similar to POS integrations, payment processing should be abstracted behind a `PaymentProvider` interface.
+1.  **Adapter Pattern**: Similar to POS integrations, payment processing is abstracted behind a `PaymentProvider` interface and a `PaymentProviderFactory`. Phase 6 introduced the `CashAdapter` as the default ledger-based implementation.
 2.  **Checkout Flow**:
     *   Customer initiates checkout.
     *   Backend creates a transaction intent with the selected provider (e.g., a Razorpay Order ID) and returns it to the client.

@@ -7,7 +7,9 @@ import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from './ConnectionIndicator';
 import {
+  Lock,
   Receipt,
+  CreditCard,
   Bell,
   BookOpen,
   TableProperties,
@@ -45,6 +47,8 @@ export const ManagerLayout: React.FC = () => {
   const currentPath = location.pathname;
   const activeTab = currentPath.startsWith('/manager/orders')
     ? 'orders'
+    : currentPath.startsWith('/manager/transactions')
+    ? 'transactions'
     : currentPath.startsWith('/manager/waiter-calls')
     ? 'waiter-calls'
     : currentPath.startsWith('/manager/menu')
@@ -291,6 +295,25 @@ export const ManagerLayout: React.FC = () => {
             )}
           </button>
 
+
+          {/* Transactions tab (Sidebar) */}
+          <button
+            onClick={() => navigate('/manager/transactions')}
+            className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'transactions'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <CreditCard className="w-4 h-4" strokeWidth={1.75} />
+              <span>Transactions</span>
+            </div>
+            {!isEnabled('payments') && (
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+            )}
+          </button>
+
           {/* Waiter Calls tab */}
           {isEnabled('waiter_call') && (
             <button
@@ -461,6 +484,25 @@ export const ManagerLayout: React.FC = () => {
               {activeOrdersCount}
             </span>
           )}
+        </button>
+
+
+        {/* Transactions Bottom Nav */}
+        <button
+          onClick={() => navigate('/manager/transactions')}
+          className={`flex flex-col items-center justify-center flex-1 h-full pt-1 pb-1 relative ${
+            activeTab === 'transactions' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <div className="relative mb-0.5 mt-0.5">
+            <CreditCard className={`w-[18px] h-[18px] min-[375px]:w-5 min-[375px]:h-5 ${activeTab === 'transactions' ? 'fill-amber-50 stroke-amber-500' : ''}`} strokeWidth={activeTab === 'transactions' ? 2 : 1.75} />
+            {!isEnabled('payments') && (
+              <span className="absolute -top-1 -right-2 bg-slate-100 text-slate-400 rounded-full p-0.5 shadow-sm border border-slate-200">
+                <Lock className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </div>
+          <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Payments</span>
         </button>
 
         {/* Waiter Calls */}

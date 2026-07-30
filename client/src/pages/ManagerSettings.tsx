@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
-import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft } from 'lucide-react';
+import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft, CreditCard, Lock } from 'lucide-react';
 import apiClient from '../lib/api';
 
 interface RestaurantTheme {
@@ -46,7 +46,7 @@ interface RestaurantProfile {
 
 export const ManagerSettings: React.FC = () => {
   const { user } = useAuth();
-  const { flags, refreshFlags } = useFeatureFlags();
+  const { flags, refreshFlags, isEnabled } = useFeatureFlags();
   const [localFlags, setLocalFlags] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -277,6 +277,73 @@ export const ManagerSettings: React.FC = () => {
         </p>
       </div>
 
+
+
+        {/* Payments Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+          <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center space-x-3 text-slate-800">
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Payments</h2>
+              <p className="text-sm text-slate-500">Configure payment gateways and active modes</p>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-6 bg-slate-50 relative">
+            {!isEnabled('payments') && (
+              <div className="absolute inset-0 z-10 bg-slate-50/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center border-t border-slate-200 rounded-b-xl">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-3">
+                  <Lock className="w-6 h-6 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Upgrade Required</h3>
+                <p className="text-slate-600 max-w-sm">
+                  The Payment Abstraction Framework is not included in your current plan. Please upgrade to unlock digital payments and advanced ledger modes.
+                </p>
+              </div>
+            )}
+
+            <div className={`${!isEnabled('payments') ? 'opacity-30 pointer-events-none filter blur-[1px]' : ''}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">
+                    Active Payment Provider
+                  </label>
+                  <select
+                    className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                    value="CASH"
+                    disabled
+                  >
+                    <option value="CASH">Cash (Manual Ledger)</option>
+                    <option value="RAZORPAY">Razorpay (Coming Soon)</option>
+                    <option value="STRIPE">Stripe (Coming Soon)</option>
+                  </select>
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Currently limited to Cash mode. Digital providers will be unlocked in later phases.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">
+                    Active Payment Mode
+                  </label>
+                  <select
+                    className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                    value="POSTPAID"
+                    disabled
+                  >
+                    <option value="POSTPAID">Postpaid (Pay at the end)</option>
+                    <option value="PREPAID">Prepaid (Pay before order)</option>
+                    <option value="HYBRID">Hybrid (Open Tab)</option>
+                  </select>
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Determines when the customer is prompted for payment during their visit.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Feature Flags Section */}
         {user?.role === 'SUPER_ADMIN' && (
