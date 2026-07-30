@@ -12,7 +12,7 @@ import bcrypt from 'bcrypt';
 let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
 
   if (mongoose.connection.readyState !== 0) {
@@ -175,6 +175,59 @@ describe('Phase 2 Restaurants & Tables Multi-tenancy Tests', () => {
     const publicNewRes = await request(app)
       .get(`/api/v1/public/restaurants/${restaurant.slug}/tables/${newTableToken}`);
     expect(publicNewRes.status).toBe(200);
+  });
+
+  it('should bulk create tables properly with prefixes', async () => {
+    const passwordHash = await bcrypt.hash('PixoraDemo123!', 10);
+    const manager = await User.create({
+      email: 'manager_bulk@pixora.dev',
+      passwordHash,
+      role: 'MANAGER',
+      name: 'Manager Bulk',
+      isActive: true,
+    });
+
+    const restaurant = await Restaurant.create({
+      code: 'RST-000005',
+      name: 'Bulk Test Rest',
+      slug: 'bulk-test-rest',
+      status: 'ACTIVE',
+    });
+
+    await RestaurantStaff.create({
+      userId: manager.id,
+      restaurantId: restaurant.id,
+      role: 'MANAGER',
+      isActive: true,
+    });
+
+    const loginRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'manager_bulk@pixora.dev', password: 'PixoraDemo123!' });
+    const token = loginRes.body.data.accessToken;
+
+    const bulkRes = await request(app)
+      .post(`/api/v1/restaurants/${restaurant.id}/tables/bulk`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ count: 5, prefix: 'T-' });
+
+    if (bulkRes.status !== 201) {
+      console.error(bulkRes.body);
+    }
+    expect(bulkRes.status).toBe(201);
+    expect(bulkRes.body.success).toBe(true);
+    expect(bulkRes.body.data.count).toBe(5);
+
+    const listRes = await request(app)
+      .get(`/api/v1/restaurants/${restaurant.id}/tables`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(listRes.status).toBe(200);
+    const tables = listRes.body.data;
+    expect(tables.length).toBe(5);
+
+    const tableNumbers = tables.map((t: any) => t.tableNumber).sort();
+    expect(tableNumbers).toEqual(['T-1', 'T-2', 'T-3', 'T-4', 'T-5']);
   });
 
   it('should return unavailable/TABLE_NOT_FOUND state on suspended restaurant public route', async () => {

@@ -23,6 +23,13 @@ const zoneSchema = z.object({
 });
 type ZoneFormValues = z.infer<typeof zoneSchema>;
 
+const bulkTableSchema = z.object({
+  count: z.number().min(1, 'Count must be at least 1').max(100, 'Cannot create more than 100 tables at once'),
+  prefix: z.string().optional(),
+  zoneId: z.string().optional(),
+});
+type BulkTableFormValues = z.infer<typeof bulkTableSchema>;
+
 export const ManagerTables: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { user } = useAuth();
@@ -37,6 +44,8 @@ export const ManagerTables: React.FC = () => {
   const [isZoneFormOpen, setIsZoneFormOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
+
+  const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
 
   // Active restaurant ID for this manager (from useAuth list)
   const activeRestaurantId = user?.restaurants?.[0];
@@ -76,6 +85,19 @@ export const ManagerTables: React.FC = () => {
     },
     onError: (err: any) => {
       setErrorMsg(err.response?.data?.error?.message || 'Error creating table');
+    },
+  });
+
+  const bulkCreateMutation = useMutation({
+    mutationFn: (data: BulkTableFormValues) => managerService.bulkCreateTables(activeRestaurantId!, data),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
+      setIsBulkFormOpen(false);
+      bulkForm.reset();
+      toast(`${res.data.count} tables generated!`, 'success');
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.response?.data?.error?.message || 'Error creating tables');
     },
   });
 
@@ -127,6 +149,16 @@ export const ManagerTables: React.FC = () => {
   const tableForm = useForm<TableFormValues>({
     resolver: zodResolver(tableSchema),
   });
+
+  const bulkForm = useForm<BulkTableFormValues>({
+    resolver: zodResolver(bulkTableSchema),
+    defaultValues: { count: 10, prefix: '', zoneId: undefined },
+  });
+
+  const onBulkSubmit = (values: BulkTableFormValues) => {
+    setErrorMsg(null);
+    bulkCreateMutation.mutate(values);
+  };
 
   const onSubmit = (values: TableFormValues) => {
     setErrorMsg(null);
@@ -378,6 +410,17 @@ export const ManagerTables: React.FC = () => {
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Add Table</span>
           </button>
+          <button
+            onClick={() => {
+              setErrorMsg(null);
+              bulkForm.reset({ count: 10, prefix: '', zoneId: activeZoneFilter || undefined });
+              setIsBulkFormOpen(true);
+            }}
+            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
+          >
+            <Plus className="w-4 h-4" strokeWidth={1.75} />
+            <span>Bulk Create</span>
+          </button>
         </div>
       </div>
 
@@ -521,6 +564,96 @@ export const ManagerTables: React.FC = () => {
                 </div>
               );
             })}
+        </div>
+      )}
+
+      {/* Bulk Create Modal */}
+      {isBulkFormOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-800">Bulk Create Tables</h2>
+              <button
+                onClick={() => setIsBulkFormOpen(false)}
+                className="p-2 hover:bg-slate-50 rounded-full transition"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <form onSubmit={bulkForm.handleSubmit(onBulkSubmit)} className="p-6 space-y-5">
+              {errorMsg && (
+                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100">
+                  {errorMsg}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    {...bulkForm.register('count', { valueAsNumber: true })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                    placeholder="e.g. 20"
+                  />
+                  {bulkForm.formState.errors.count && (
+                    <span className="text-xs text-red-500 mt-1 block">{bulkForm.formState.errors.count.message}</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Prefix (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    {...bulkForm.register('prefix')}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                    placeholder="e.g. T or Out-"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Zone (Optional)
+                  </label>
+                  <select
+                    {...bulkForm.register('zoneId')}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                  >
+                    <option value="">No Zone (Unassigned)</option>
+                    {zones.map((z) => (
+                      <option key={z._id} value={z._id}>{z.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkFormOpen(false)}
+                  className="w-1/2 py-2.5 text-slate-600 font-semibold hover:bg-slate-50 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={bulkCreateMutation.isPending}
+                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition flex items-center justify-center gap-2"
+                >
+                  {bulkCreateMutation.isPending ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Generate Tables'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

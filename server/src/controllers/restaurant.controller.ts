@@ -21,6 +21,7 @@ export class RestaurantController {
     this.editRestaurantProfile = this.editRestaurantProfile.bind(this);
     this.listTables = this.listTables.bind(this);
     this.createTable = this.createTable.bind(this);
+    this.bulkCreateTables = this.bulkCreateTables.bind(this);
     this.editTable = this.editTable.bind(this);
     this.deleteTable = this.deleteTable.bind(this);
     this.activateTable = this.activateTable.bind(this);
@@ -377,6 +378,118 @@ export class RestaurantController {
 
       sendSuccess(res, table, 'Table created successfully', 201);
     } catch (error) {
+      next(error);
+    }
+  }
+
+  async bulkCreateTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    const isTestEnv = process.env.NODE_ENV === 'test';
+    let session;
+
+    // Transactions are heavily reliant on replica sets in MongoDB, which in-memory mock setups often lack.
+    // Skip real transaction bounds during tests to prevent "Transaction numbers are only allowed on a replica set" errors
+    if (!isTestEnv) {
+      session = await mongoose.startSession();
+      session.startTransaction();
+    }
+
+    try {
+      const { restaurantId } = req.params;
+      const { count, prefix, zoneId } = req.body;
+
+      if (!count || count <= 0 || count > 100) {
+        sendError(res, 'BAD_REQUEST', 'Count must be between 1 and 100', null, 400);
+        return;
+      }
+
+      const restaurant = await Restaurant.findById(restaurantId);
+      if (session) {
+        restaurant?.$session(session);
+      }
+
+      if (!restaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      const parsedZoneId = zoneId ? new mongoose.Types.ObjectId(zoneId) : undefined;
+      const sanitizedPrefix = prefix ? prefix.trim() : '';
+
+      // Determine next available number based on prefix and zone
+      const queryFilter: any = {
+        restaurantId: restaurant.id,
+        isArchived: { $ne: true },
+      };
+      if (parsedZoneId) {
+        queryFilter.zoneId = parsedZoneId;
+      } else {
+        queryFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
+      }
+
+      // If a prefix is provided, we only want to look at tables starting with that prefix
+      // If no prefix is provided, we look at ALL tables in the zone without a prefix or with any format,
+      // but to be safe and simple, let's just grab all and parse carefully.
+      let query = Table.find(queryFilter);
+      if (session) {
+        query = query.session(session);
+      }
+      const existingTables = await query;
+
+      let maxNum = 0;
+      for (const t of existingTables) {
+        let numStr = t.tableNumber;
+        if (sanitizedPrefix && numStr.startsWith(sanitizedPrefix)) {
+          numStr = numStr.slice(sanitizedPrefix.length);
+        } else if (sanitizedPrefix && !numStr.startsWith(sanitizedPrefix)) {
+           continue; // Skip tables that don't match our prefix logic
+        }
+
+        const num = parseInt(numStr, 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+
+      const tablesToCreate = [];
+      let startingNum = maxNum + 1;
+
+      for (let i = 0; i < count; i++) {
+        const tableNumber = `${sanitizedPrefix}${startingNum}`;
+        const displayName = `Table ${tableNumber}`;
+        const token = tableService.generateSecureToken();
+        const qrCodeUrl = `/api/v1/restaurants/${restaurant.id}/tables/${token}/qr`;
+
+        tablesToCreate.push({
+          restaurantId: restaurant.id,
+          tableNumber,
+          displayName,
+          zoneId: parsedZoneId,
+          token,
+          qrCodeUrl,
+          isActive: true,
+        });
+
+        startingNum++;
+      }
+
+      if (session) {
+        await Table.insertMany(tablesToCreate, { session });
+      } else {
+        await Table.insertMany(tablesToCreate);
+      }
+      await restaurantStatsService.incrementTables(restaurantId, count);
+
+      if (session) {
+        await session.commitTransaction();
+        session.endSession();
+      }
+
+      sendSuccess(res, { count }, `${count} tables created successfully`, 201);
+    } catch (error) {
+      if (session) {
+        await session.abortTransaction();
+        session.endSession();
+      }
       next(error);
     }
   }

@@ -70,22 +70,22 @@ This document outlines a structured, 16-phase approach to implementing the Resta
 * **Testing Requirements**: Form validation and submission tests.
 * **Estimated Complexity**: Medium
 
-## Phase 5: Subdomain Architecture
-* **Goal**: Support tenant-specific URLs (e.g., `cafe.thescanmenu.com`).
-* **Business Value**: Provides a premium, white-label feel for professional and enterprise clients.
-* **Technical Objective**: Configure DNS wildcard and implement frontend middleware to parse subdomains.
+## Phase 5: QR Code Generation & Public Customer Menu
+* **Goal**: Expand on current QR code implementation by adding bulk table creation functionality and complete SEO/metadata support for the public menu.
+* **Business Value**: Increases table creation efficiency and boosts the public discoverability of the restaurant menu online.
+* **Technical Objective**: Create atomic Bulk table insert transactions, add Helmet to the client for metadata rendering.
 * **Dependencies**: Phase 4
-* **Files Expected to Change**: client/vite.config.ts, client/src/App.tsx
-* **Database Impact**: None
-* **API Impact**: None
-* **Frontend Impact**: Routing logic must extract subdomain and map to `restaurantSlug`.
-* **Backend Impact**: Ensure CORS supports wildcard subdomains.
-* **Risks**: DNS propagation issues, local development complexity.
+* **Files Expected to Change**: client/src/pages/ManagerTables.tsx, client/src/pages/PublicTable.tsx, server/src/controllers/restaurant.controller.ts
+* **Database Impact**: Atomic table creation transactions using sessions.
+* **API Impact**: `POST /restaurants/:id/tables/bulk`
+* **Frontend Impact**: Helmet tag injection for SEO, new Bulk Create form in ManagerTables.
+* **Backend Impact**: Complex sequential tracking algorithm inside transactions.
+* **Risks**: Database locked during extensive bulk inserts without proper indices.
 * **Migration Notes**: None
-* **Rollback Strategy**: Revert routing middleware.
-* **Acceptance Criteria**: Visiting `subdomain.domain.com` loads the correct restaurant context.
-* **Testing Requirements**: E2E tests mocking subdomain headers.
-* **Estimated Complexity**: High
+* **Rollback Strategy**: Revert bulk generation UI and route.
+* **Acceptance Criteria**: Managers can create tables in bulk efficiently, and scanning QRs leads to highly SEO-optimized digital menus.
+* **Testing Requirements**: Full transaction verification for sequential numbers with and without custom prefixes.
+* **Estimated Complexity**: Medium
 
 ## Phase 6: Payment Abstraction Framework
 * **Goal**: Create a generic, provider-agnostic framework for processing payments.

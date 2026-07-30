@@ -180,6 +180,11 @@ export const managerService = {
     return res.data;
   },
 
+  async bulkCreateTables(restaurantId: string, data: { count: number; prefix?: string; zoneId?: string }) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/tables/bulk`, data);
+    return res.data;
+  },
+
   async editTable(restaurantId: string, tableId: string, data: Partial<Table>) {
     const res = await apiClient.patch(`/restaurants/${restaurantId}/tables/${tableId}`, data);
     return res.data;

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import {
   Search as SearchIcon,
   Loader,
@@ -848,6 +849,8 @@ export const PublicTable: React.FC = () => {
     '--theme-accent': theme.accentColor || '#F59E0B',
   } as React.CSSProperties;
 
+  const publicUrl = typeof window !== 'undefined' ? window.location.href : '';
+
   const rawCategories: PublicCategory[] = menuData?.success ? menuData.data : [];
 
   // Filter and sort items dynamically for menu and search tabs
@@ -1131,6 +1134,19 @@ export const PublicTable: React.FC = () => {
 
   return (
     <div style={cssVariables} className="min-h-screen bg-slate-50 font-sans antialiased pb-28 relative">
+      <Helmet>
+        <title>{restaurant.name} - Digital Menu & Ordering</title>
+        <meta name="description" content={restaurant.description || `View the digital menu and place your order at ${restaurant.name}.`} />
+
+        {/* Open Graph Tags for SEO & Social Sharing */}
+        <meta property="og:title" content={`${restaurant.name} - Digital Menu`} />
+        <meta property="og:description" content={restaurant.description || `View the digital menu and place your order at ${restaurant.name}.`} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={publicUrl} />
+        {restaurant.logoUrl && <meta property="og:image" content={restaurant.logoUrl} />}
+
+        <link rel="canonical" href={publicUrl} />
+      </Helmet>
 
       {/* ==================== SCREEN WRAPPERS ==================== */}
 
