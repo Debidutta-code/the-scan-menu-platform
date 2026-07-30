@@ -1,4 +1,5 @@
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from 'vitest';
+import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -9,7 +10,7 @@ import { User } from './models/User';
 import { Transaction } from './models/Transaction';
 import { FeatureFlag } from './models/FeatureFlag';
 import { RestaurantStaff } from './models/RestaurantStaff';
-import { TokenService } from './services/token.service';
+// TokenService import removed — tokens are now signed directly with the test secret
 import { CashAdapter } from './integrations/payments/adapters/CashAdapter';
 import { PaymentProviderFactory } from './integrations/payments/PaymentProviderFactory';
 
@@ -54,8 +55,6 @@ beforeAll(async () => {
     restaurants: [restaurantId],
   });
 
-  const tokenService = new TokenService();
-
   await RestaurantStaff.create({
     restaurantId,
     userId: admin._id,
@@ -70,9 +69,20 @@ beforeAll(async () => {
     isActive: true,
   });
 
-
-  adminAccessToken = tokenService.generateAccessToken({ id: admin._id as string, email: admin.email, role: admin.role });
-  staffAccessToken = tokenService.generateAccessToken({ id: staff._id as string, email: staff.email, role: staff.role });
+  // Use the test fallback secret directly — auth.ts creates its tokenService at module load time
+  // (before dotenv.config() runs), so it always uses 'test_access_secret_key_123_abc_456_def'.
+  // Signing with the same secret here ensures JWT verification succeeds.
+  const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
+  adminAccessToken = jwt.sign(
+    { id: (admin._id as any).toString(), email: admin.email, role: admin.role },
+    TEST_JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+  staffAccessToken = jwt.sign(
+    { id: (staff._id as any).toString(), email: staff.email, role: staff.role },
+    TEST_JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 
   // Enable payment feature flag
   await FeatureFlag.create({
