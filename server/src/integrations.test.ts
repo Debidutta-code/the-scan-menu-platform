@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { app, httpServer } from '../src/index';
 import { Restaurant } from '../src/models/Restaurant';
+import { RestaurantSettings } from '../src/models/RestaurantSettings';
 import { Category } from '../src/models/Category';
 import { MenuItem } from '../src/models/MenuItem';
 import { Table } from '../src/models/Table';
@@ -42,13 +43,15 @@ describe('Phase 12 POS Integration Seam & Sync Logs Tests', () => {
   it('should successfully factory-resolve NoOp integration and write an ORDER_SYNCED log on order placement', async () => {
     // 1. Setup restaurant with integrationConfig provider 'NONE'
     const restaurant = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Integration Diner',
       slug: 'integration-diner',
-      isActive: true,
-      integrationConfig: {
-        provider: 'NONE',
-        config: {},
-      },
+      status: 'ACTIVE',
+    });
+
+    await RestaurantSettings.create({
+      restaurantId: restaurant._id,
+      paymentConfig: { taxRatePercent: 0, paymentMethods: { cash: true, card: true, upi: true, razorpay: false }, integrationConfig: { provider: 'NONE', config: {} } },
     });
 
     const table = await Table.create({

@@ -1,12 +1,14 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { Restaurant } from '../models/Restaurant';
+import { RestaurantSettings } from '../models/RestaurantSettings';
 import { Table } from '../models/Table';
 import { TableZone } from '../models/TableZone';
 import { Tax } from '../models/Tax';
 import { User } from '../models/User';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
+import { restaurantStatsService } from '../services/restaurantStats.service';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
@@ -70,6 +72,7 @@ export class RestaurantController {
         isActive: true,
       });
       await staffJoin.save();
+      await restaurantStatsService.incrementStaff(restaurantId, 1);
 
       sendSuccess(res, { id: staffUser._id, email: staffUser.email, name: staffUser.name, role: staffUser.role, pin: staffUser.pin }, 'Staff created and associated successfully', 201);
     } catch (error) {
@@ -100,7 +103,7 @@ export class RestaurantController {
   async updateStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, staffId } = req.params;
-      const { name, email, password, pin, isActive } = req.body;
+      const { name, email, password, pin } = req.body;
 
       const staffJoin = await RestaurantStaff.findOne({
         userId: new mongoose.Types.ObjectId(staffId),
@@ -118,15 +121,18 @@ export class RestaurantController {
         return;
       }
 
+      if (email && email.toLowerCase().trim() !== user.email) {
+        const existing = await User.findOne({ email: email.toLowerCase().trim() });
+        if (existing) {
+          sendError(res, 'USER_ALREADY_EXISTS', 'Email already in use', null, 400);
+          return;
+        }
+        user.email = email.toLowerCase().trim();
+      }
+
       if (name) user.name = name.trim();
-      if (email) user.email = email.toLowerCase().trim();
       if (password) user.passwordHash = await bcrypt.hash(password, 10);
       if (pin !== undefined) user.pin = pin ? pin.trim() : undefined;
-      if (isActive !== undefined) {
-        user.isActive = !!isActive;
-        staffJoin.isActive = !!isActive;
-        await staffJoin.save();
-      }
 
       await user.save();
 
@@ -152,6 +158,7 @@ export class RestaurantController {
 
       // Soft-archive user by deactivating
       await User.findByIdAndUpdate(staffId, { isActive: false });
+      await restaurantStatsService.incrementStaff(restaurantId, -1);
 
       sendSuccess(res, {}, 'Staff association removed successfully');
     } catch (error) {
@@ -169,7 +176,30 @@ export class RestaurantController {
         return;
       }
 
-      sendSuccess(res, restaurant, 'Restaurant profile retrieved successfully');
+      let settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+      if (!settings) {
+        settings = new RestaurantSettings({ restaurantId: restaurant._id });
+      }
+
+      const responseData = {
+        ...restaurant.toObject(),
+        theme: settings.theme,
+        currency: settings.currency,
+        timezone: settings.timezone,
+        taxRatePercent: settings.paymentConfig?.taxRatePercent || 0,
+        paymentMethods: settings.paymentConfig?.paymentMethods || { cash: true, card: true, upi: true, razorpay: false },
+        razorpayConfig: settings.paymentConfig?.razorpayConfig || { keyId: '', keySecret: '' },
+        integrationConfig: settings.paymentConfig?.integrationConfig || { provider: 'NONE', config: {} },
+        gstNumber: settings.paymentConfig?.gstNumber || '',
+        orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
+        autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+        timings: settings.timings || { open: '09:00', close: '23:00' },
+        googleReviewUrl: settings.branding?.googleReviewUrl || '',
+        whatsapp: settings.branding?.whatsapp || '',
+        socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
+      };
+
+      sendSuccess(res, responseData, 'Restaurant profile retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -183,7 +213,6 @@ export class RestaurantController {
       // Prevent managers from editing system-only fields
       delete updateData.slug;
       delete updateData.isActive;
-      delete updateData.integrationConfig;
 
       // Validate orderWorkflowMode if provided
       if (updateData.orderWorkflowMode && !['FIVE_STEP', 'FOUR_STEP', 'THREE_STEP'].includes(updateData.orderWorkflowMode)) {
@@ -210,7 +239,47 @@ export class RestaurantController {
         return;
       }
 
-      sendSuccess(res, restaurant, 'Restaurant profile updated successfully');
+      let settings = await RestaurantSettings.findOne({ restaurantId });
+      if (!settings) {
+        settings = new RestaurantSettings({ restaurantId });
+      }
+
+      if (updateData.theme) settings.theme = { ...settings.theme, ...updateData.theme };
+      if (updateData.currency) settings.currency = updateData.currency;
+      if (updateData.timezone) settings.timezone = updateData.timezone;
+      if (updateData.taxRatePercent !== undefined) settings.paymentConfig.taxRatePercent = updateData.taxRatePercent;
+      if (updateData.paymentMethods) settings.paymentConfig.paymentMethods = { ...settings.paymentConfig.paymentMethods, ...updateData.paymentMethods };
+      if (updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
+      if (updateData.integrationConfig) settings.paymentConfig.integrationConfig = updateData.integrationConfig;
+      if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
+      if (updateData.orderWorkflowMode) settings.workflow.orderWorkflowMode = updateData.orderWorkflowMode;
+      if (updateData.autoAcceptConfig) settings.workflow.autoAcceptConfig = updateData.autoAcceptConfig;
+      if (updateData.timings) settings.timings = updateData.timings;
+      if (updateData.googleReviewUrl !== undefined) settings.branding.googleReviewUrl = updateData.googleReviewUrl;
+      if (updateData.whatsapp !== undefined) settings.branding.whatsapp = updateData.whatsapp;
+      if (updateData.socialLinks) settings.branding.socialLinks = { ...settings.branding.socialLinks, ...updateData.socialLinks };
+
+      await settings.save();
+
+      const responseData = {
+        ...restaurant.toObject(),
+        theme: settings.theme,
+        currency: settings.currency,
+        timezone: settings.timezone,
+        taxRatePercent: settings.paymentConfig?.taxRatePercent || 0,
+        paymentMethods: settings.paymentConfig?.paymentMethods || { cash: true, card: true, upi: true, razorpay: false },
+        razorpayConfig: settings.paymentConfig?.razorpayConfig || { keyId: '', keySecret: '' },
+        integrationConfig: settings.paymentConfig?.integrationConfig || { provider: 'NONE', config: {} },
+        gstNumber: settings.paymentConfig?.gstNumber || '',
+        orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
+        autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+        timings: settings.timings || { open: '09:00', close: '23:00' },
+        googleReviewUrl: settings.branding?.googleReviewUrl || '',
+        whatsapp: settings.branding?.whatsapp || '',
+        socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
+      };
+
+      sendSuccess(res, responseData, 'Restaurant profile updated successfully');
     } catch (error) {
       next(error);
     }
@@ -304,6 +373,7 @@ export class RestaurantController {
       });
 
       await table.save();
+      await restaurantStatsService.incrementTables(restaurantId, 1);
 
       sendSuccess(res, table, 'Table created successfully', 201);
     } catch (error) {
@@ -390,6 +460,8 @@ export class RestaurantController {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
         return;
       }
+
+      await restaurantStatsService.incrementTables(restaurantId, -1);
 
       sendSuccess(res, { archived }, 'Table deleted successfully');
     } catch (error) {

@@ -38,7 +38,7 @@ export class WaiterCallController {
       }
 
       const restaurant = await Restaurant.findById(table.restaurantId);
-      if (!restaurant || !restaurant.isActive) {
+      if (!restaurant || restaurant.status === 'SUSPENDED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }

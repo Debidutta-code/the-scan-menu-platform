@@ -40,9 +40,10 @@ beforeEach(async () => {
 describe('Phase 7 Waiter Call Integration Tests', () => {
   it('should successfully place a waiter call, check active status, and perform deduplication rate-limiting', async () => {
     const restaurant = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Eatery Pizza',
       slug: 'eatery-pizza',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     const table = await Table.create({
@@ -104,9 +105,10 @@ describe('Phase 7 Waiter Call Integration Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
-      name: 'Eatery Pizza',
-      slug: 'eatery-pizza',
-      isActive: true,
+      code: 'RST-000002',
+      name: 'Eatery Pizza 2',
+      slug: 'eatery-pizza-2',
+      status: 'ACTIVE',
     });
 
     await RestaurantStaff.create({

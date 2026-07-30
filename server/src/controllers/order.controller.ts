@@ -2,7 +2,8 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { Order, OrderStatus } from '../models/Order';
 import { TableSession } from '../models/TableSession';
-import { Restaurant } from '../models/Restaurant';
+import { RestaurantSettings } from '../models/RestaurantSettings';
+import { restaurantStatsService } from '../services/restaurantStats.service';
 import { validateStatusTransition } from '../utils/orderStateMachine';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
@@ -299,9 +300,9 @@ export class OrderController {
         return;
       }
 
-      // Fetch restaurant's orderWorkflowMode
-      const restaurant = await Restaurant.findById(restaurantId).select('orderWorkflowMode');
-      const workflowMode = restaurant?.orderWorkflowMode || 'FIVE_STEP';
+      // Fetch restaurant's orderWorkflowMode from settings
+      const settings = await RestaurantSettings.findOne({ restaurantId }).select('workflow');
+      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
       // Check transition validity using central state machine logic
       const validation = validateStatusTransition(
@@ -320,8 +321,16 @@ export class OrderController {
         return;
       }
 
+      const prevStatus = order.status;
       order.status = nextStatus as OrderStatus;
       await order.save();
+
+      // Update statistics explicitly on terminal status transitions
+      if (nextStatus === 'SERVED' && prevStatus !== 'SERVED') {
+        await restaurantStatsService.recordOrderCompleted(restaurantId, order.total);
+      } else if (nextStatus === 'CANCELLED' && prevStatus !== 'CANCELLED') {
+        await restaurantStatsService.recordOrderCancelled(restaurantId);
+      }
 
       // Emit order:status_updated via central NotificationService
       try {
@@ -367,9 +376,9 @@ export class OrderController {
         return;
       }
 
-      // Fetch restaurant's orderWorkflowMode
-      const restaurant = await Restaurant.findById(restaurantId).select('orderWorkflowMode');
-      const workflowMode = restaurant?.orderWorkflowMode || 'FIVE_STEP';
+      // Fetch restaurant's orderWorkflowMode from RestaurantSettings
+      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
       // Run status transition validator to check if cancelling from current state is allowed
       const validation = validateStatusTransition(order.status, 'CANCELLED', user.role, workflowMode);

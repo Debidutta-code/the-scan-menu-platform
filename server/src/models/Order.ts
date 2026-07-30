@@ -1,7 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose';
 import { getOrderStatusRollup } from '../utils/orderStateMachine';
 import { TableSession } from './TableSession';
-import { Restaurant } from './Restaurant';
+import { RestaurantSettings } from './RestaurantSettings';
 
 // ==========================================
 // ORDER COUNTER MODEL (for atomic order numbering)
@@ -205,8 +205,8 @@ orderSchema.pre('validate', async function (this: any, next) {
 // Pre-save hook to automatically compute and update aggregate status
 orderSchema.pre('save', async function (this: any, next) {
   try {
-    const restaurant = await Restaurant.findById(this.restaurantId).select('orderWorkflowMode');
-    const workflowMode = restaurant?.orderWorkflowMode || 'FIVE_STEP';
+    const settings = await RestaurantSettings.findOne({ restaurantId: this.restaurantId });
+    const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
     // Advanced Logic: If aggregate status was manually moved, sync item-level statuses
     if (this.isModified('status')) {

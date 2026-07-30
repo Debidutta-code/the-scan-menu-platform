@@ -9,12 +9,15 @@ const adminController = new AdminController();
 router.use(requireAuth as any, requireRole('SUPER_ADMIN'));
 
 router.get('/stats', adminController.getPlatformStats);
+router.post('/restaurants/provision', adminController.provisionRestaurant);
+router.get('/restaurants/:id/onboarding', adminController.getOnboardingProgress);
 router.post('/restaurants', adminController.createRestaurant);
 router.get('/restaurants', adminController.listRestaurants);
 router.get('/restaurants/:id', adminController.getRestaurant);
 router.patch('/restaurants/:id', adminController.editRestaurant);
 router.patch('/restaurants/:id/suspend', adminController.suspendRestaurant);
 router.patch('/restaurants/:id/activate', adminController.activateRestaurant);
+router.delete('/restaurants/:id', adminController.deleteRestaurant);
 router.post('/restaurants/:id/managers', adminController.assignManager);
 
 export default router;

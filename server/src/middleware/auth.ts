@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { TokenService, TokenUserPayload } from '../services/token.service';
 import { UserRepository } from '../repositories/user.repository';
 import { RestaurantStaff } from '../models/RestaurantStaff';
+import { Restaurant } from '../models/Restaurant';
 import { sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -113,6 +114,23 @@ export const requireRestaurantAccess = async (
 
     if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
       sendError(res, 'BAD_REQUEST', 'Invalid restaurantId format', null, 400);
+      return;
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+      return;
+    }
+
+    if (['SUSPENDED', 'EXPIRED', 'ARCHIVED'].includes(restaurant.status)) {
+      sendError(
+        res,
+        'RESTAURANT_SUSPENDED',
+        `Access denied. Restaurant account status is ${restaurant.status}.`,
+        null,
+        403
+      );
       return;
     }
 

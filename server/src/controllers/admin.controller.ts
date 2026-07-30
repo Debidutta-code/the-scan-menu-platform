@@ -6,6 +6,8 @@ import { User } from '../models/User';
 import { Order } from '../models/Order';
 import { sendSuccess, sendError } from '../utils/response';
 import { EmailService } from '../services/email.service';
+import { restaurantProvisioningService } from '../services/restaurantProvisioning.service';
+import { counterService } from '../services/counter.service';
 import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
 
@@ -21,25 +23,67 @@ function slugify(text: string): string {
 
 export class AdminController {
   constructor() {
+    this.provisionRestaurant = this.provisionRestaurant.bind(this);
+    this.getOnboardingProgress = this.getOnboardingProgress.bind(this);
     this.createRestaurant = this.createRestaurant.bind(this);
     this.listRestaurants = this.listRestaurants.bind(this);
     this.getRestaurant = this.getRestaurant.bind(this);
     this.editRestaurant = this.editRestaurant.bind(this);
     this.suspendRestaurant = this.suspendRestaurant.bind(this);
     this.activateRestaurant = this.activateRestaurant.bind(this);
+    this.deleteRestaurant = this.deleteRestaurant.bind(this);
     this.assignManager = this.assignManager.bind(this);
     this.getPlatformStats = this.getPlatformStats.bind(this);
+  }
+
+  async provisionRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { name, slug, logoUrl, coverImageUrl, description, phone, email, address, currency, timezone, manager, settings } = req.body;
+
+      if (!name) {
+        sendError(res, 'BAD_REQUEST', 'Restaurant name is required', null, 400);
+        return;
+      }
+
+      if (!manager || !manager.email || !manager.name || !manager.password) {
+        sendError(res, 'BAD_REQUEST', 'Manager details (name, email, password) are required', null, 400);
+        return;
+      }
+
+      const result = await restaurantProvisioningService.provisionRestaurant({
+        restaurant: { name, slug, logoUrl, coverImageUrl, description, phone, email, address, currency, timezone },
+        manager,
+        settings,
+      });
+
+      sendSuccess(res, result, 'Restaurant provisioned successfully', 201);
+    } catch (error: any) {
+      if (error.message && error.message.startsWith('SLUG_CONFLICT')) {
+        sendError(res, 'SLUG_CONFLICT', error.message, null, 400);
+        return;
+      }
+      next(error);
+    }
+  }
+
+  async getOnboardingProgress(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const onboarding = await restaurantProvisioningService.getOnboardingProgress(id);
+      sendSuccess(res, onboarding, 'Restaurant onboarding progress retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
   }
 
   async getPlatformStats(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const totalRestaurants = await Restaurant.countDocuments();
-      const activeRestaurants = await Restaurant.countDocuments({ isActive: true });
-      const suspendedRestaurants = await Restaurant.countDocuments({ isActive: false });
+      const activeRestaurants = await Restaurant.countDocuments({ status: { $in: ['ACTIVE', 'TRIAL'] } });
+      const suspendedRestaurants = await Restaurant.countDocuments({ status: 'SUSPENDED' });
 
       const totalOrders = await Order.countDocuments();
 
-      // Recent platform activity feed (last 10 orders and/or restaurants)
       const recentRestaurants = await Restaurant.find().sort({ createdAt: -1 }).limit(5);
       const recentOrders = await Order.find().sort({ createdAt: -1 }).limit(5).populate('restaurantId', 'name');
 
@@ -48,7 +92,7 @@ export class AdminController {
       for (const rest of recentRestaurants) {
         activityFeed.push({
           type: 'RESTAURANT_CREATED',
-          message: `New restaurant tenant "${rest.name}" was registered on the platform.`,
+          message: `New restaurant tenant "${rest.name}" (${rest.code || 'NO_CODE'}) was registered on the platform.`,
           timestamp: rest.createdAt,
         });
       }
@@ -61,7 +105,6 @@ export class AdminController {
         });
       }
 
-      // Sort combined activity feed chronologically descending
       activityFeed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
       const stats = {
@@ -80,7 +123,7 @@ export class AdminController {
 
   async createRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, slug, logoUrl, coverImageUrl, description, phone, email, address, googleReviewUrl, currency, timezone, theme } = req.body;
+      const { name, slug, logoUrl, coverImageUrl, description, phone, email, address } = req.body;
 
       if (!name) {
         sendError(res, 'BAD_REQUEST', 'Restaurant name is required', null, 400);
@@ -89,10 +132,8 @@ export class AdminController {
 
       let finalSlug = slug ? slugify(slug) : slugify(name);
 
-      // Verify slug is unique
       const existing = await Restaurant.findOne({ slug: finalSlug });
       if (existing) {
-        // If autogenerated conflicted, append a short random suffix
         if (!slug) {
           finalSlug = `${finalSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
         } else {
@@ -101,19 +142,19 @@ export class AdminController {
         }
       }
 
+      const code = await counterService.getNextSequence('restaurant_code', 'RST-', 6);
+
       const restaurant = new Restaurant({
+        code,
         name,
         slug: finalSlug,
+        status: 'TRIAL',
         logoUrl,
         coverImageUrl,
         description,
         phone,
         email,
         address,
-        googleReviewUrl,
-        currency: currency || 'INR',
-        timezone: timezone || 'Asia/Kolkata',
-        theme,
       });
 
       await restaurant.save();
@@ -196,12 +237,14 @@ export class AdminController {
   async suspendRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findByIdAndUpdate(id, { isActive: false }, { new: true });
+      const restaurant = await Restaurant.findByIdAndUpdate(id, { status: 'SUSPENDED' }, { new: true });
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
+
+      logger.info(`[AUDIT] Restaurant Suspended: ${restaurant.name} (${restaurant.code})`);
 
       sendSuccess(res, restaurant, 'Restaurant suspended successfully');
     } catch (error) {
@@ -212,12 +255,14 @@ export class AdminController {
   async activateRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findByIdAndUpdate(id, { isActive: true }, { new: true });
+      const restaurant = await Restaurant.findByIdAndUpdate(id, { status: 'ACTIVE' }, { new: true });
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
+
+      logger.info(`[AUDIT] Restaurant Activated: ${restaurant.name} (${restaurant.code})`);
 
       sendSuccess(res, restaurant, 'Restaurant activated successfully');
     } catch (error) {
@@ -225,9 +270,27 @@ export class AdminController {
     }
   }
 
+  async deleteRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const restaurant = await Restaurant.findByIdAndUpdate(id, { status: 'ARCHIVED' }, { new: true });
+
+      if (!restaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      logger.info(`[AUDIT] Restaurant Deleted: ${restaurant.name} (${restaurant.code})`);
+
+      sendSuccess(res, restaurant, 'Restaurant archived successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async assignManager(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params; // restaurantId
+      const { id } = req.params;
       const { userId, email, name, password } = req.body;
 
       const restaurant = await Restaurant.findById(id);
@@ -246,10 +309,8 @@ export class AdminController {
         }
         targetUserId = existingUser.id;
       } else if (email && name && password) {
-        // Create user inline
         const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
         if (existingUser) {
-          // If already exists, just use their ID or fail
           sendError(res, 'USER_ALREADY_EXISTS', 'A user with this email already exists', null, 400);
           return;
         }
@@ -259,13 +320,12 @@ export class AdminController {
           email: email.toLowerCase().trim(),
           passwordHash,
           name,
-          role: 'MANAGER', // Assign generic platform manager role
+          role: 'MANAGER',
           isActive: true,
         });
         await newUser.save();
         targetUserId = newUser.id;
 
-        // Dispatch invite email asynchronously
         try {
           const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
           await EmailService.getInstance().sendManagerInvite(
@@ -288,7 +348,6 @@ export class AdminController {
         return;
       }
 
-      // Check if they are already assigned to this restaurant
       const existingStaff = await RestaurantStaff.findOne({
         userId: targetUserId,
         restaurantId: restaurant.id,

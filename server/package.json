@@ -10,6 +10,7 @@
     "seed": "ts-node-dev src/utils/seed.ts",
     "clean": "ts-node-dev --transpile-only src/utils/cleanDatabase.ts",
     "migrate:sessions": "ts-node-dev --transpile-only src/utils/migrateSessions.ts",
+    "migrate:phase4": "ts-node-dev --transpile-only src/utils/migratePhase4.ts",
     "test": "vitest run",
     "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0"
   },

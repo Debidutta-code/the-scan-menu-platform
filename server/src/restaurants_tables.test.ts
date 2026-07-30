@@ -60,15 +60,17 @@ describe('Phase 2 Restaurants & Tables Multi-tenancy Tests', () => {
 
     // 2. Create two restaurants
     const restaurantA = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Restaurant A',
       slug: 'restaurant-a',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     const restaurantB = await Restaurant.create({
+      code: 'RST-000002',
       name: 'Restaurant B',
       slug: 'restaurant-b',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     // 3. Associate manager A with restaurant A and manager B with restaurant B
@@ -119,9 +121,10 @@ describe('Phase 2 Restaurants & Tables Multi-tenancy Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
+      code: 'RST-000003',
       name: 'Regen Test Rest',
       slug: 'regen-test-rest',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     await RestaurantStaff.create({
@@ -177,9 +180,10 @@ describe('Phase 2 Restaurants & Tables Multi-tenancy Tests', () => {
   it('should return unavailable/TABLE_NOT_FOUND state on suspended restaurant public route', async () => {
     // 1. Create suspended restaurant and table
     const restaurant = await Restaurant.create({
+      code: 'RST-000004',
       name: 'Suspended Rest',
       slug: 'suspended-rest',
-      isActive: false, // Suspended
+      status: 'SUSPENDED',
     });
 
     const table = await Table.create({

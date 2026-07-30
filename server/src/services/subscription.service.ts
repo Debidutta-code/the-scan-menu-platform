@@ -1,7 +1,7 @@
 import { SubscriptionPlan, ISubscriptionPlan } from '../models/SubscriptionPlan';
 import { Restaurant } from '../models/Restaurant';
 import { featureFlagService, DEFAULT_FLAGS } from './featureFlag.service';
-import { Types } from 'mongoose';
+import { Types, ClientSession } from 'mongoose';
 
 export class SubscriptionService {
   /**
@@ -32,18 +32,22 @@ export class SubscriptionService {
   /**
    * Assigns a new subscription plan to a restaurant and strictly syncs its feature flags.
    */
-  async assignPlanToRestaurant(restaurantId: string | Types.ObjectId, planKey: string): Promise<void> {
+  async assignPlanToRestaurant(restaurantId: string | Types.ObjectId, planKey: string, session?: ClientSession): Promise<void> {
     const plan = await this.getPlanByKey(planKey);
     if (!plan) {
       throw new Error(`Subscription plan ${planKey} not found`);
     }
 
     // 1. Update the Restaurant's subscription plan
-    await Restaurant.findByIdAndUpdate(restaurantId, {
-      $set: {
-        'subscription.planKey': planKey,
+    await Restaurant.findByIdAndUpdate(
+      restaurantId,
+      {
+        $set: {
+          'subscription.planKey': planKey,
+        },
       },
-    });
+      { session }
+    );
 
     // 2. Sync Feature Flags
     // Create an array of updates for all DEFAULT_FLAGS
@@ -54,8 +58,9 @@ export class SubscriptionService {
       enabled: includedFlagsSet.has(flag.key),
     }));
 
-    await featureFlagService.bulkUpdate(restaurantId, flagUpdates);
+    await featureFlagService.bulkUpdate(restaurantId, flagUpdates, session);
   }
 }
 
 export const subscriptionService = new SubscriptionService();
+

@@ -141,9 +141,10 @@ describe('Phase 6 Socket.IO Authentication & Room Authorization Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Socket Eatery',
       slug: 'socket-eatery',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     // Create staff connection row

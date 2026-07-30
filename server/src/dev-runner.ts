@@ -1,6 +1,7 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { Restaurant } from './models/Restaurant';
+import { RestaurantSettings } from './models/RestaurantSettings';
 import { Table } from './models/Table';
 import { Category } from './models/Category';
 import { MenuItem } from './models/MenuItem';
@@ -26,12 +27,17 @@ async function run() {
 
   // Create Restaurant (with 12% GST/tax)
   const restaurant = await Restaurant.create({
+    code: 'RST-000001',
     name: 'Woodfired Pizza Place',
     slug: 'woodfired-pizza',
     description: 'Authentic sourdough pizzas cooked in a wood-fired brick oven.',
+    status: 'ACTIVE',
+  });
+
+  await RestaurantSettings.create({
+    restaurantId: restaurant._id,
     currency: 'INR',
-    taxRatePercent: 12.0,
-    isActive: true,
+    paymentConfig: { taxRatePercent: 12.0, paymentMethods: { cash: true, card: true, upi: true, razorpay: false }, integrationConfig: { provider: 'NONE', config: {} } },
     theme: {
       primaryColor: '#111827',
       secondaryColor: '#FFFFFF',

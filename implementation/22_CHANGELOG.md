@@ -13,6 +13,29 @@ We adhere to [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
 
 ## Release History
 
+### Version 0.5.0 - Phase 4 Complete (Restaurant Provisioning & Multi-Tenant Foundation)
+*Date: 2026-07-30*
+
+**Summary:**
+Implemented the complete Restaurant Provisioning architecture, transforming restaurant creation into an atomic transaction workflow. Decoupled configuration and statistics into `RestaurantSettings`, `RestaurantStats`, and `RestaurantOnboarding` models. Added atomic sequential restaurant code generation via `Counter` (`RST-XXXXXX`) and updated `Restaurant` to use status (`TRIAL`, `ACTIVE`, `SUSPENDED`, `EXPIRED`, `ARCHIVED`).
+
+**Added:**
+- `Counter` model and `CounterService` for atomic, zero-collision sequential restaurant code generation (`RST-000001`, `RST-000002`).
+- `RestaurantSettings` model holding theme, branding, currency, timezone, workflow, payment configuration, notification preferences, order configuration, and UI settings.
+- `RestaurantStats` model holding cached metrics (`menuItemsCount`, `tablesCount`, `staffCount`, `ordersCount`, `activeOrders`, `completedOrders`, `cancelledOrders`, `revenue`, `todayRevenue`, `todayOrders`).
+- `RestaurantOnboarding` model tracking milestone progress.
+- `RestaurantProvisioningService` executing all 10 creation steps inside a single MongoDB transaction (`session.startTransaction()`).
+- `RestaurantStatsService` for explicit statistics tracking without Mongoose hooks.
+- Admin APIs: `POST /api/v1/admin/restaurants/provision` and `GET /api/v1/admin/restaurants/:id/onboarding`.
+- Idempotent Phase 4 migration script (`migratePhase4.ts`).
+
+**Refactored:**
+- `Restaurant` schema: added required unique `code` and `status` enum (`TRIAL`, `ACTIVE`, `SUSPENDED`, `EXPIRED`, `ARCHIVED`). Removed legacy `isActive` field and configuration properties.
+- `public.controller.ts`, `restaurant.controller.ts`, `menu.controller.ts`, `order.controller.ts`, `admin.controller.ts` updated to fetch configuration from `RestaurantSettings` and update `RestaurantStatsService`.
+
+**Tests:**
+- Created `provisioning.test.ts` covering transaction success, transaction rollback, counter generation, uniqueness, settings, stats, onboarding, and admin endpoints.
+
 ### Version 0.4.0 - Subscription Plan System
 *Date: Today*
 

@@ -52,9 +52,10 @@ describe('Phase 3 Categories & Menu Items Integration Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Pizza Palace',
       slug: 'pizza-palace',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     await RestaurantStaff.create({
@@ -127,9 +128,10 @@ describe('Phase 3 Categories & Menu Items Integration Tests', () => {
       isActive: true,
     });
     const restaurantA = await Restaurant.create({
+      code: 'RST-000002',
       name: 'Restaurant A',
       slug: 'restaurant-a',
-      isActive: true,
+      status: 'ACTIVE',
     });
     await RestaurantStaff.create({
       userId: managerA.id,
@@ -140,9 +142,10 @@ describe('Phase 3 Categories & Menu Items Integration Tests', () => {
 
     // Create Restaurant B
     const restaurantB = await Restaurant.create({
+      code: 'RST-000003',
       name: 'Restaurant B',
       slug: 'restaurant-b',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     // Create Category in Restaurant B (different tenant!)
@@ -186,9 +189,10 @@ describe('Phase 3 Categories & Menu Items Integration Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
+      code: 'RST-000004',
       name: 'Pizza Palace',
       slug: 'pizza-palace',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     await RestaurantStaff.create({
@@ -230,9 +234,10 @@ describe('Phase 3 Categories & Menu Items Integration Tests', () => {
   it('should successfully retrieve the nested public menu for a valid restaurant slug and table token', async () => {
     // 1. Setup restaurant
     const restaurant = await Restaurant.create({
+      code: 'RST-000005',
       name: 'Gourmet Pizza',
       slug: 'gourmet-pizza',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     // 2. Setup table

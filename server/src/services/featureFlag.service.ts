@@ -1,5 +1,5 @@
 import { FeatureFlag } from '../models/FeatureFlag';
-import { Types } from 'mongoose';
+import { Types, ClientSession } from 'mongoose';
 
 export const DEFAULT_FLAGS = [
   { key: 'qr_menu', description: 'Enable QR Code Menu functionality' },
@@ -25,12 +25,16 @@ export class FeatureFlagService {
    * Retrieves all feature flags for a given restaurant.
    * If they do not exist, it seeds the default flags and returns them.
    */
-  async getRestaurantFlags(restaurantId: string | Types.ObjectId) {
-    let flags = await FeatureFlag.find({ restaurantId });
+  async getRestaurantFlags(restaurantId: string | Types.ObjectId, session?: ClientSession) {
+    const query = FeatureFlag.find({ restaurantId });
+    if (session) query.session(session);
+    let flags = await query;
 
     if (flags.length === 0) {
-      await this.seedDefaultFlags(restaurantId);
-      flags = await FeatureFlag.find({ restaurantId });
+      await this.seedDefaultFlags(restaurantId, session);
+      const reQuery = FeatureFlag.find({ restaurantId });
+      if (session) reQuery.session(session);
+      flags = await reQuery;
     }
 
     return flags;
@@ -69,7 +73,7 @@ export class FeatureFlagService {
   /**
    * Bulk updates multiple feature flags for a given restaurant.
    */
-  async bulkUpdate(restaurantId: string | Types.ObjectId, updates: { key: string; enabled: boolean }[]) {
+  async bulkUpdate(restaurantId: string | Types.ObjectId, updates: { key: string; enabled: boolean }[], session?: ClientSession) {
     const operations = updates.map((update) => ({
       updateOne: {
         filter: { restaurantId, key: update.key },
@@ -79,25 +83,26 @@ export class FeatureFlagService {
     }));
 
     if (operations.length > 0) {
-      await FeatureFlag.bulkWrite(operations);
+      await FeatureFlag.bulkWrite(operations as any, { session });
     }
 
-    return this.getRestaurantFlags(restaurantId);
+    return this.getRestaurantFlags(restaurantId, session);
   }
 
   /**
    * Seeds the default flags for a given restaurant.
    */
-  private async seedDefaultFlags(restaurantId: string | Types.ObjectId) {
+  public async seedDefaultFlags(restaurantId: string | Types.ObjectId, session?: ClientSession) {
     const flagsToInsert = DEFAULT_FLAGS.map((flag) => ({
       restaurantId,
       key: flag.key,
       description: flag.description,
-      enabled: false, // Defaulting to false, or change to true for core features if needed
+      enabled: false, // Defaulting to false
     }));
 
-    await FeatureFlag.insertMany(flagsToInsert);
+    await FeatureFlag.insertMany(flagsToInsert, { session });
   }
 }
 
 export const featureFlagService = new FeatureFlagService();
+

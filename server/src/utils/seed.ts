@@ -3,6 +3,10 @@ import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import { User } from '../models/User';
 import { Restaurant } from '../models/Restaurant';
+import { RestaurantSettings } from '../models/RestaurantSettings';
+import { RestaurantStats } from '../models/RestaurantStats';
+import { RestaurantOnboarding } from '../models/RestaurantOnboarding';
+import { Counter } from '../models/Counter';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Table } from '../models/Table';
@@ -51,31 +55,69 @@ export const seedDatabase = async () => {
       logger.info(`SUPER_ADMIN already exists: ${superAdmin.email}.`);
     }
 
+    // Initialize Counter if not exists
+    let counter = await Counter.findOne({ name: 'restaurant_code' });
+    if (!counter) {
+      counter = new Counter({ name: 'restaurant_code', seq: 1 });
+      await counter.save();
+    }
+
     // 2. Seed "Demo Cafe" Restaurant idempotently
     logger.info('Checking for existing "Demo Cafe" restaurant...');
     let restaurant = await Restaurant.findOne({ slug: 'demo-cafe' });
     if (!restaurant) {
       restaurant = new Restaurant({
+        code: 'RST-000001',
         name: 'Demo Cafe',
         slug: 'demo-cafe',
+        status: 'ACTIVE',
         description: 'A charming, high-performance coffee and dining spot.',
         phone: '+91 9999999999',
         email: 'info@democafe.com',
         address: '123 Espresso Boulevard, Bangalore, Karnataka',
-        currency: 'INR',
-        timezone: 'Asia/Kolkata',
-        taxRatePercent: 5.0, // 5% tax
-        theme: {
-          primaryColor: '#111827',
-          secondaryColor: '#FFFFFF',
-          accentColor: '#F59E0B',
-          fontFamily: 'Plus Jakarta Sans',
-        },
       });
       await restaurant.save();
       logger.info('Restaurant "Demo Cafe" created successfully.');
     } else {
+      if (!restaurant.code) {
+        restaurant.code = 'RST-000001';
+        await restaurant.save();
+      }
       logger.info('"Demo Cafe" restaurant already exists.');
+    }
+
+    // Seed RestaurantSettings, Stats, Onboarding
+    let settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+    if (!settings) {
+      settings = new RestaurantSettings({
+        restaurantId: restaurant._id,
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+        paymentConfig: { taxRatePercent: 5.0, paymentMethods: { cash: true, card: true, upi: true, razorpay: false }, integrationConfig: { provider: 'NONE', config: {} } },
+        theme: { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
+      });
+      await settings.save();
+    }
+
+    let stats = await RestaurantStats.findOne({ restaurantId: restaurant._id });
+    if (!stats) {
+      stats = new RestaurantStats({ restaurantId: restaurant._id });
+      await stats.save();
+    }
+
+    let onboarding = await RestaurantOnboarding.findOne({ restaurantId: restaurant._id });
+    if (!onboarding) {
+      onboarding = new RestaurantOnboarding({
+        restaurantId: restaurant._id,
+        restaurantCreated: true,
+        managerCreated: true,
+        tablesCreated: true,
+        menuImported: true,
+        paymentsConfigured: true,
+        subscriptionAssigned: true,
+        completed: true,
+      });
+      await onboarding.save();
     }
 
     // 3. Seed Manager & Staff users idempotently

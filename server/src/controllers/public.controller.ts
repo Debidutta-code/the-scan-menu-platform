@@ -1,6 +1,7 @@
 import { Tax } from '../models/Tax';
 import { Request, Response, NextFunction } from 'express';
 import { Restaurant } from '../models/Restaurant';
+import { RestaurantSettings } from '../models/RestaurantSettings';
 import { Table } from '../models/Table';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
@@ -10,6 +11,7 @@ import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
 import { IntegrationFactory } from '../integrations/core/IntegrationFactory';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
+import { restaurantStatsService } from '../services/restaurantStats.service';
 import mongoose from 'mongoose';
 
 export class PublicController {
@@ -34,7 +36,7 @@ export class PublicController {
       }
 
       const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || !restaurant.isActive) {
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
@@ -82,43 +84,43 @@ export class PublicController {
         return;
       }
 
-      // 1. Fetch restaurant by slug
       const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || !restaurant.isActive) {
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
 
-      // 2. Fetch table by token
       const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
       if (!table || !table.isActive) {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
 
-      // Look up active OPEN table session if any
+      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+
       const activeSession = await TableSession.findOne({
         restaurantId: restaurant._id,
         tableId: table._id,
         status: 'OPEN',
       });
 
-      // Success payload
       const responseData = {
         restaurant: {
           id: restaurant.id,
           name: restaurant.name,
           slug: restaurant.slug,
-          logoUrl: restaurant.logoUrl,
-          coverImageUrl: restaurant.coverImageUrl,
+          code: restaurant.code,
+          status: restaurant.status,
+          logoUrl: settings?.branding?.logoUrl || restaurant.logoUrl,
+          coverImageUrl: settings?.branding?.coverImageUrl || restaurant.coverImageUrl,
           description: restaurant.description,
-          googleReviewUrl: restaurant.googleReviewUrl,
-          theme: restaurant.theme,
-          currency: restaurant.currency,
-          timezone: restaurant.timezone,
-          taxRatePercent: restaurant.taxRatePercent,
-          orderWorkflowMode: restaurant.orderWorkflowMode || 'FIVE_STEP',
-          autoAcceptConfig: restaurant.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+          googleReviewUrl: settings?.branding?.googleReviewUrl,
+          theme: settings?.theme || { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
+          currency: settings?.currency || 'INR',
+          timezone: settings?.timezone || 'Asia/Kolkata',
+          taxRatePercent: settings?.paymentConfig?.taxRatePercent || 0,
+          orderWorkflowMode: settings?.workflow?.orderWorkflowMode || 'FIVE_STEP',
+          autoAcceptConfig: settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
         },
         table: {
           id: table.id,
@@ -144,32 +146,27 @@ export class PublicController {
         return;
       }
 
-      // 1. Fetch restaurant by slug
       const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || !restaurant.isActive) {
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
 
-      // 2. Fetch table by token (to verify the table is valid/active)
       const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
       if (!table || !table.isActive) {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
 
-      // 3. Fetch active categories for this restaurant
       const categories = await Category.find({
         restaurantId: restaurant._id,
         isActive: true,
       }).sort({ sortOrder: 1 });
 
-      // 4. Fetch all menu items for this restaurant
       const menuItems = await MenuItem.find({
         restaurantId: restaurant._id,
       }).sort({ sortOrder: 1 });
 
-      // 5. Group menu items inside categories
       const categoriesWithItems = categories.map((category) => {
         const items = menuItems.filter(
           (item) => item.categoryId.toString() === category._id.toString()
@@ -200,9 +197,8 @@ export class PublicController {
         return;
       }
 
-      // 1. Resolve table & restaurant
       const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || !restaurant.isActive) {
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
@@ -213,16 +209,16 @@ export class PublicController {
         return;
       }
 
+      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+
       if (!items || !Array.isArray(items) || items.length === 0) {
         sendError(res, 'BAD_REQUEST', 'Order items are required and must be a non-empty array', null, 400);
         return;
       }
 
-      // 2. Preload categories to verify active state quickly
       const categories = await Category.find({ restaurantId: restaurant._id });
       const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
 
-      // 3. Validate items
       const failedItems: { menuItemId: string; name: string; reason: 'unavailable' | 'category_inactive' }[] = [];
       const validatedItems = [];
 
@@ -244,7 +240,6 @@ export class PublicController {
 
         const category = categoryMap.get(menuItem.categoryId.toString());
 
-        // Check isAvailable
         if (!menuItem.isAvailable) {
           failedItems.push({
             menuItemId: item.itemId,
@@ -254,7 +249,6 @@ export class PublicController {
           continue;
         }
 
-        // Check Category isActive
         if (!category || !category.isActive) {
           failedItems.push({
             menuItemId: item.itemId,
@@ -264,7 +258,6 @@ export class PublicController {
           continue;
         }
 
-        // 4. Re-calculate prices server-side
         let unitPriceSnapshot = menuItem.price;
         const selectedAddOns = [];
 
@@ -293,7 +286,6 @@ export class PublicController {
         });
       }
 
-      // If any item failed validation, reject the whole order with ITEMS_UNAVAILABLE
       if (failedItems.length > 0) {
         sendError(
           res,
@@ -305,10 +297,8 @@ export class PublicController {
         return;
       }
 
-      // 5. Calculate Subtotal, Tax Breakdown, Tax, Total
       const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
 
-      // Fetch active taxes for this restaurant
       const activeTaxes: any[] = await Tax.find({ restaurantId: restaurant._id, isActive: true });
 
       let tax = 0;
@@ -316,45 +306,42 @@ export class PublicController {
       const groups = activeTaxes.filter(t => t.type === 'GROUP');
       const standardTaxes = activeTaxes.filter(t => t.type === 'TAX');
 
-      // Process Groups
       for (const group of groups) {
-          const subTaxes = standardTaxes.filter(t => t.groupId?.toString() === group._id.toString());
-          if (subTaxes.length === 0) continue;
+        const subTaxes = standardTaxes.filter(t => t.groupId?.toString() === group._id.toString());
+        if (subTaxes.length === 0) continue;
 
-          let groupAmount = 0;
-          let groupPercentage = 0;
-          const subTaxesBreakdown = subTaxes.map(st => {
-             const amt = Math.round(subtotal * (st.percentage / 100));
-             groupAmount += amt;
-             groupPercentage += st.percentage;
-             return { name: st.name, percentage: st.percentage, amount: amt };
-          });
+        let groupAmount = 0;
+        let groupPercentage = 0;
+        const subTaxesBreakdown = subTaxes.map(st => {
+          const amt = Math.round(subtotal * (st.percentage / 100));
+          groupAmount += amt;
+          groupPercentage += st.percentage;
+          return { name: st.name, percentage: st.percentage, amount: amt };
+        });
 
-          tax += groupAmount;
-          taxBreakdown.push({
-             name: group.name,
-             percentage: groupPercentage,
-             amount: groupAmount,
-             subTaxes: subTaxesBreakdown
-          });
+        tax += groupAmount;
+        taxBreakdown.push({
+          name: group.name,
+          percentage: groupPercentage,
+          amount: groupAmount,
+          subTaxes: subTaxesBreakdown,
+        });
       }
 
-      // Process Standalone Taxes
       const standaloneTaxes = standardTaxes.filter(t => !t.groupId);
       for (const st of standaloneTaxes) {
-          const amount = Math.round(subtotal * (st.percentage / 100));
-          tax += amount;
-          taxBreakdown.push({
-             name: st.name,
-             percentage: st.percentage,
-             amount,
-             subTaxes: []
-          });
+        const amount = Math.round(subtotal * (st.percentage / 100));
+        tax += amount;
+        taxBreakdown.push({
+          name: st.name,
+          percentage: st.percentage,
+          amount,
+          subTaxes: [],
+        });
       }
 
       const total = subtotal + tax;
 
-      // 5b. Resolve or create TableSession
       let session = await TableSession.findOne({
         restaurantId: restaurant._id,
         tableId: table._id,
@@ -386,10 +373,8 @@ export class PublicController {
           isMerge = true;
           order = mostRecentOrder;
 
-          // Append new validated items to existing order items
           order.items.push(...validatedItems);
 
-          // Recompute order totals
           order.subtotal = order.items.reduce((sum: number, item: any) => sum + item.unitPriceSnapshot * item.quantity, 0);
 
           let mergedTax = 0;
@@ -397,44 +382,41 @@ export class PublicController {
           const groups = activeTaxes.filter(t => t.type === 'GROUP');
           const standardTaxes = activeTaxes.filter(t => t.type === 'TAX');
 
-          // Process Groups
           for (const group of groups) {
-              const subTaxes = standardTaxes.filter(t => t.groupId?.toString() === group._id.toString());
-              if (subTaxes.length === 0) continue;
+            const subTaxes = standardTaxes.filter(t => t.groupId?.toString() === group._id.toString());
+            if (subTaxes.length === 0) continue;
 
-              let groupAmount = 0;
-              let groupPercentage = 0;
-              const subTaxesBreakdown = subTaxes.map(st => {
-                 const amt = Math.round(order.subtotal * (st.percentage / 100));
-                 groupAmount += amt;
-                 groupPercentage += st.percentage;
-                 return { name: st.name, percentage: st.percentage, amount: amt };
-              });
+            let groupAmount = 0;
+            let groupPercentage = 0;
+            const subTaxesBreakdown = subTaxes.map(st => {
+              const amt = Math.round(order.subtotal * (st.percentage / 100));
+              groupAmount += amt;
+              groupPercentage += st.percentage;
+              return { name: st.name, percentage: st.percentage, amount: amt };
+            });
 
-              mergedTax += groupAmount;
-              mergedTaxBreakdown.push({
-                 name: group.name,
-                 percentage: groupPercentage,
-                 amount: groupAmount,
-                 subTaxes: subTaxesBreakdown
-              });
+            mergedTax += groupAmount;
+            mergedTaxBreakdown.push({
+              name: group.name,
+              percentage: groupPercentage,
+              amount: groupAmount,
+              subTaxes: subTaxesBreakdown,
+            });
           }
 
-          // Process Standalone Taxes
           const standaloneTaxes = standardTaxes.filter(t => !t.groupId);
           for (const st of standaloneTaxes) {
-              const amount = Math.round(order.subtotal * (st.percentage / 100));
-              mergedTax += amount;
-              mergedTaxBreakdown.push({
-                 name: st.name,
-                 percentage: st.percentage,
-                 amount,
-                 subTaxes: []
-              });
+            const amount = Math.round(order.subtotal * (st.percentage / 100));
+            mergedTax += amount;
+            mergedTaxBreakdown.push({
+              name: st.name,
+              percentage: st.percentage,
+              amount,
+              subTaxes: [],
+            });
           }
 
           order.taxBreakdown = mergedTaxBreakdown;
-
           order.tax = mergedTax;
           order.total = order.subtotal + order.tax;
           order.isMerged = true;
@@ -447,7 +429,6 @@ export class PublicController {
       }
 
       if (!isMerge) {
-        // New round / order needed
         if (!isNewSession) {
           session.roundCount += 1;
           await session.save();
@@ -482,18 +463,17 @@ export class PublicController {
         });
 
         await order.save();
+        await restaurantStatsService.recordOrderCreated(restaurant._id);
       }
 
-      // Update session totals based on sum of all orders in this session
       const allOrdersInSession = await Order.find({ sessionId: session._id });
       session.subtotal = allOrdersInSession.reduce((sum, o) => sum + o.subtotal, 0);
       session.tax = allOrdersInSession.reduce((sum, o) => sum + o.tax, 0);
       session.total = allOrdersInSession.reduce((sum, o) => sum + o.total, 0);
       await session.save();
 
-      // Trigger POS integration push as an asynchronous, non-blocking side-effect
       try {
-        const providerName = restaurant.integrationConfig?.provider || 'NONE';
+        const providerName = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
         const syncLog = new IntegrationSyncLog({
           restaurantId: restaurant._id,
           orderId: order._id,
@@ -518,10 +498,8 @@ export class PublicController {
         console.error('Failed to trigger POS integration sync:', integrationErr);
       }
 
-      // Emit central socket events
       try {
         if (isMerge) {
-          // Emit order:status_updated and session:updated
           NotificationService.getInstance().notifyOrderStatusUpdated(
             order.restaurantId.toString(),
             order._id.toString(),
@@ -529,7 +507,6 @@ export class PublicController {
             order.updatedAt
           );
         } else {
-          // Emit order:created and session:updated
           const orderSummary = {
             _id: order._id,
             restaurantId: order.restaurantId,
@@ -555,7 +532,6 @@ export class PublicController {
           NotificationService.getInstance().notifyOrderCreated(order.restaurantId.toString(), orderSummary);
         }
 
-        // Notify that table session was updated
         NotificationService.getInstance().notifySessionUpdated(restaurant._id.toString(), session._id.toString(), session);
       } catch (err) {
         console.error('Failed to notify order changes:', err);
@@ -563,19 +539,19 @@ export class PublicController {
 
       sendSuccess(res, order, isMerge ? 'Order merged into pending round' : 'Order placed successfully', isMerge ? 200 : 201);
 
-      // Auto-accept timer: if restaurant has autoAcceptConfig.enabled, schedule auto-transition
-      if (!isMerge && restaurant.autoAcceptConfig?.enabled) {
-        const delayMs = (restaurant.autoAcceptConfig.delaySeconds || 10) * 1000;
+      const autoAcceptConfig = settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 };
+      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
+
+      if (!isMerge && autoAcceptConfig.enabled) {
+        const delayMs = (autoAcceptConfig.delaySeconds || 10) * 1000;
         const orderId = order._id.toString();
         const restaurantIdStr = restaurant._id.toString();
-        const workflowMode = restaurant.orderWorkflowMode || 'FIVE_STEP';
 
         setTimeout(async () => {
           try {
             const freshOrder = await Order.findById(orderId);
             if (!freshOrder || freshOrder.status !== 'PENDING') return;
 
-            // For 5-step: PENDING -> ACCEPTED; for 3/4-step: PENDING -> PREPARING
             const nextStatus = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
             freshOrder.status = nextStatus as any;
             await freshOrder.save();

@@ -37,22 +37,18 @@ describe('Subscription System', () => {
     ]);
 
     const res = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Test Rest',
       slug: 'test-rest',
-      currency: 'USD',
-      timezone: 'UTC',
-      theme: { primaryColor: '#000', secondaryColor: '#fff', accentColor: '#111', fontFamily: 'Arial' },
-      integrationConfig: { provider: 'NONE', config: {} },
+      status: 'ACTIVE',
     });
     restaurantId = res._id as mongoose.Types.ObjectId;
 
     const res2 = await Restaurant.create({
+      code: 'RST-000002',
       name: 'Test Rest 2',
       slug: 'test-rest-2',
-      currency: 'USD',
-      timezone: 'UTC',
-      theme: { primaryColor: '#000', secondaryColor: '#fff', accentColor: '#111', fontFamily: 'Arial' },
-      integrationConfig: { provider: 'NONE', config: {} },
+      status: 'ACTIVE',
     });
     restaurantId2 = res2._id as mongoose.Types.ObjectId;
   });
@@ -92,12 +88,10 @@ describe('Subscription System', () => {
 
   it('4. new restaurant provisioning defaults to Free plan', async () => {
     const res3 = new Restaurant({
+      code: 'RST-000003',
       name: 'Test Rest 3',
       slug: 'test-rest-3',
-      currency: 'USD',
-      timezone: 'UTC',
-      theme: { primaryColor: '#000', secondaryColor: '#fff', accentColor: '#111', fontFamily: 'Arial' },
-      integrationConfig: { provider: 'NONE', config: {} },
+      status: 'ACTIVE',
     });
 
     await res3.save();

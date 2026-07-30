@@ -6,6 +6,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { app, httpServer } from '../src/index';
 import { User } from '../src/models/User';
 import { Restaurant } from '../src/models/Restaurant';
+import { RestaurantSettings } from '../src/models/RestaurantSettings';
 import { RestaurantStaff } from '../src/models/RestaurantStaff';
 import { Category } from '../src/models/Category';
 import { MenuItem } from '../src/models/MenuItem';
@@ -46,10 +47,15 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
   it('should place an order with server-recomputed pricing and tax calculations', async () => {
     // 1. Setup Restaurant (with 5% tax rate) and Table
     const restaurant = await Restaurant.create({
+      code: 'RST-000001',
       name: 'Tasty Bites',
       slug: 'tasty-bites',
-      taxRatePercent: 5.0,
-      isActive: true,
+      status: 'ACTIVE',
+    });
+
+    await RestaurantSettings.create({
+      restaurantId: restaurant._id,
+      paymentConfig: { taxRatePercent: 5.0, paymentMethods: { cash: true, card: true, upi: true, razorpay: false }, integrationConfig: { provider: 'NONE', config: {} } },
     });
 
     await Tax.create({
@@ -126,9 +132,10 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
 
   it('should reject the entire order with ITEMS_UNAVAILABLE if any item becomes unavailable or its category inactive', async () => {
     const restaurant = await Restaurant.create({
-      name: 'Tasty Bites',
-      slug: 'tasty-bites',
-      isActive: true,
+      code: 'RST-000002',
+      name: 'Tasty Bites 2',
+      slug: 'tasty-bites-2',
+      status: 'ACTIVE',
     });
 
     const table = await Table.create({
@@ -193,9 +200,10 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
 
   it('should generate orderNumbers sequentially and concurrently handle requests without duplicates', async () => {
     const restaurant = await Restaurant.create({
-      name: 'Tasty Bites',
-      slug: 'tasty-bites',
-      isActive: true,
+      code: 'RST-000003',
+      name: 'Tasty Bites 3',
+      slug: 'tasty-bites-3',
+      status: 'ACTIVE',
     });
 
     const table = await Table.create({
@@ -264,9 +272,10 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
+      code: 'RST-000004',
       name: 'Bakehouse',
       slug: 'bakehouse',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     // Link both staff and manager to restaurant staff mapping
@@ -369,9 +378,10 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
     });
 
     const restaurant = await Restaurant.create({
+      code: 'RST-000005',
       name: 'Analytics Grill',
       slug: 'analytics-grill',
-      isActive: true,
+      status: 'ACTIVE',
     });
 
     await RestaurantStaff.create({ userId: staff.id, restaurantId: restaurant.id, role: 'STAFF' });
@@ -405,10 +415,15 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
   it('should handle table sessions, rounds, merging, item status updates, and session closing', async () => {
     // 1. Setup Restaurant, Table, Category, and Item
     const restaurant = await Restaurant.create({
+      code: 'RST-000006',
       name: 'Session Bistro',
       slug: 'session-bistro',
-      taxRatePercent: 10.0,
-      isActive: true,
+      status: 'ACTIVE',
+    });
+
+    await RestaurantSettings.create({
+      restaurantId: restaurant._id,
+      paymentConfig: { taxRatePercent: 10.0, paymentMethods: { cash: true, card: true, upi: true, razorpay: false }, integrationConfig: { provider: 'NONE', config: {} } },
     });
 
     const table = await Table.create({
@@ -526,10 +541,15 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
   it('should successfully and idempotently run the session migration script for legacy orders', async () => {
     // 1. Setup Restaurant and Table
     const restaurant = await Restaurant.create({
+      code: 'RST-000007',
       name: 'Migration Bistro',
       slug: 'migration-bistro',
-      taxRatePercent: 10.0,
-      isActive: true,
+      status: 'ACTIVE',
+    });
+
+    await RestaurantSettings.create({
+      restaurantId: restaurant._id,
+      paymentConfig: { taxRatePercent: 10.0, paymentMethods: { cash: true, card: true, upi: true, razorpay: false }, integrationConfig: { provider: 'NONE', config: {} } },
     });
 
     const table = await Table.create({
@@ -642,10 +662,15 @@ describe('Phase 5 Orders & State Machine Integration Tests', () => {
   it('should support dynamic state transitions and rollup based on orderWorkflowMode (3-step and 4-step)', async () => {
     // 1. Create a restaurant configured with 3-step workflow (New -> Preparing -> Served)
     const restaurant = await Restaurant.create({
+      code: 'RST-000008',
       name: 'Express 3Step Cafe',
       slug: 'express-3step',
-      orderWorkflowMode: 'THREE_STEP',
-      isActive: true,
+      status: 'ACTIVE',
+    });
+
+    await RestaurantSettings.create({
+      restaurantId: restaurant._id,
+      workflow: { orderWorkflowMode: 'THREE_STEP', autoAcceptConfig: { enabled: false, delaySeconds: 10 } },
     });
 
     const table = await Table.create({

@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { CloudinaryService } from '../services/cloudinary.service';
+import { restaurantStatsService } from '../services/restaurantStats.service';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -118,10 +119,9 @@ export class MenuController {
         return;
       }
 
-      // Check if there are any associated menu items inside this category
       const itemCount = await MenuItem.countDocuments({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        categoryId: category.id,
+        categoryId: category._id,
       });
 
       if (itemCount > 0) {
@@ -145,20 +145,20 @@ export class MenuController {
   async reorderCategories(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { categoryIds } = req.body;
+      const categoryOrder = req.body.categoryOrder || req.body.categoryIds;
 
-      if (!Array.isArray(categoryIds)) {
-        sendError(res, 'BAD_REQUEST', 'categoryIds must be an array of category IDs', null, 400);
+      if (!Array.isArray(categoryOrder)) {
+        sendError(res, 'BAD_REQUEST', 'categoryOrder or categoryIds must be an array of category IDs', null, 400);
         return;
       }
 
-      const bulkOps = categoryIds.map((id: string, index: number) => ({
+      const bulkOps = categoryOrder.map((id: string, index: number) => ({
         updateOne: {
           filter: {
             _id: new mongoose.Types.ObjectId(id),
             restaurantId: new mongoose.Types.ObjectId(restaurantId),
           },
-          update: { sortOrder: index },
+          update: { $set: { sortOrder: index } },
         },
       }));
 
@@ -263,6 +263,7 @@ export class MenuController {
       });
 
       await menuItem.save();
+      await restaurantStatsService.incrementMenuItems(restaurantId, 1);
       sendSuccess(res, menuItem, 'Menu item created successfully', 201);
     } catch (error) {
       next(error);
@@ -348,6 +349,8 @@ export class MenuController {
         sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
         return;
       }
+
+      await restaurantStatsService.incrementMenuItems(restaurantId, -1);
 
       sendSuccess(res, {}, 'Menu item deleted successfully');
     } catch (error) {
