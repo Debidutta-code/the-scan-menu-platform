@@ -234,11 +234,18 @@ export class OrderController {
     try {
       const { restaurantId } = req.params;
 
+      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const isPrepaid = settings?.paymentConfig?.activeMode === 'PREPAID';
+
       // Active orders are defined as anything not SERVED and not CANCELLED
-      const query = {
+      const query: any = {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         status: { $nin: ['SERVED', 'CANCELLED'] },
       };
+
+      if (isPrepaid) {
+        query.paymentStatus = { $ne: 'PENDING' };
+      }
 
       const orders = await Order.find(query)
         .sort({ createdAt: 1 })

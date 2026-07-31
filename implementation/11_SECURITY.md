@@ -19,6 +19,10 @@ Security is a primary concern for TheScanMenu, particularly given its multi-tena
 *   **Role-Based Access**: Vertical authorization (`requireRole`) ensures STAFF cannot access MANAGER settings.
 *   **MongoDB Injection Prevention**: Using Mongoose ODMs with typed schemas, combined with Zod payload validation, neutralizes NoSQL injection vectors.
 
+## 3b. Webhook & Secret Security
+*   **Encrypted Secrets**: Provider credentials like Razorpay API Key Secrets and Webhook Secrets are encrypted using an app-wide AES-256-GCM `ENCRYPTION_KEY` before saving to the database to ensure they are never stored in plaintext.
+*   **Webhook Verification**: Incoming webhooks from payment providers MUST verify their HMAC signatures using the decrypted tenant webhook secret before processing. Strict idempotency checking is applied, and IPs producing repetitive invalid signatures are temporarily blocked.
+
 ## 4. WebSocket Security
 *   **CORS**: Socket.IO is configured with the same strict CORS origins as the REST API.
 *   **Room Validation**: When a client requests to join a specific room (e.g., an order tracking room), the backend validates that the requested entity actually exists (`Order.exists`) before allowing the subscription, preventing arbitrary data snooping.

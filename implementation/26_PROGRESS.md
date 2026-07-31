@@ -27,3 +27,4 @@ This is a living document tracking the progress of the 16 implementation phases.
 
 ## Phase 7: Razorpay Adapter Implementation
 - **Status**: Not Started
+- [x] Phase 7 – Razorpay Adapter Implementation

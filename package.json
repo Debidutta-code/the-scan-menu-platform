@@ -18,5 +18,8 @@
     "saas"
   ],
   "author": "Pixora Studios",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "razorpay": "^2.9.8"
+  }
 }

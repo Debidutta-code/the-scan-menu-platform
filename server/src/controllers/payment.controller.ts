@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { paymentService } from '../services/payment.service';
 import { RestaurantSettings } from '../models/RestaurantSettings';
+import { encrypt } from '../utils/encryption';
+
 class CustomError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -8,6 +10,11 @@ class CustomError extends Error {
     this.status = status;
   }
 }
+
+// In-memory tracker for consecutive invalid signature failures per IP
+const invalidSignatureTracker: Record<string, { count: number; expiresAt: number }> = {};
+const BLOCK_THRESHOLD = 10;
+const BLOCK_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 export class PaymentController {
   async createIntent(req: Request, res: Response, next: NextFunction) {
@@ -60,7 +67,7 @@ export class PaymentController {
   async updateConfig(req: Request, res: Response, next: NextFunction) {
     try {
       const { restaurantId } = req.params;
-      const { activeProvider, activeMode } = req.body;
+      const { activeProvider, activeMode, razorpayConfig } = req.body;
 
       if (!activeProvider || !activeMode) {
         throw new CustomError('activeProvider and activeMode are required', 400);
@@ -83,11 +90,81 @@ export class PaymentController {
 
       settings.paymentConfig.activeProvider = activeProvider;
       settings.paymentConfig.activeMode = activeMode;
+
+      if (razorpayConfig) {
+        if (!settings.paymentConfig.razorpayConfig) {
+          settings.paymentConfig.razorpayConfig = {};
+        }
+
+        if (razorpayConfig.keyId !== undefined) {
+          settings.paymentConfig.razorpayConfig.keyId = razorpayConfig.keyId;
+        }
+
+        if (razorpayConfig.keySecret !== undefined) {
+          settings.paymentConfig.razorpayConfig.keySecret = encrypt(razorpayConfig.keySecret);
+        }
+
+        if (razorpayConfig.webhookSecret !== undefined) {
+          (settings.paymentConfig.razorpayConfig as any).webhookSecret = encrypt(razorpayConfig.webhookSecret);
+        }
+      }
+
       await settings.save();
 
-      res.status(200).json({ success: true, data: settings.paymentConfig });
+      const safeConfig = {
+        activeProvider: settings.paymentConfig.activeProvider,
+        activeMode: settings.paymentConfig.activeMode,
+        razorpayConfig: {
+          keyId: settings.paymentConfig.razorpayConfig?.keyId,
+        }
+      };
+
+      res.status(200).json({ success: true, data: safeConfig });
     } catch (error) {
       next(error);
+    }
+  }
+
+  async handleRazorpayWebhook(req: Request, res: Response) {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+
+    if (invalidSignatureTracker[ip] && invalidSignatureTracker[ip].expiresAt < now) {
+      delete invalidSignatureTracker[ip];
+    }
+
+    if (invalidSignatureTracker[ip] && invalidSignatureTracker[ip].count >= BLOCK_THRESHOLD) {
+      console.warn(`Blocked webhook from IP ${ip} due to consecutive invalid signature failures.`);
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
+    try {
+      const signature = req.headers['x-razorpay-signature'] as string;
+      if (!signature) {
+        throw new CustomError('Missing signature', 400);
+      }
+
+      const result = await paymentService.handleRazorpayWebhook(req.body, signature);
+
+      if (!result.isValid) {
+        if (!invalidSignatureTracker[ip]) {
+          invalidSignatureTracker[ip] = { count: 1, expiresAt: now + BLOCK_WINDOW_MS };
+        } else {
+          invalidSignatureTracker[ip].count += 1;
+        }
+        console.warn(`Invalid Razorpay webhook signature from IP ${ip}. Failures: ${invalidSignatureTracker[ip].count}`);
+        res.status(400).json({ success: false, message: 'Invalid signature' });
+        return;
+      }
+
+      delete invalidSignatureTracker[ip];
+
+      res.status(200).json({ success: true, message: 'Webhook processed successfully' });
+    } catch (error) {
+      console.error('Razorpay Webhook Error:', error);
+      const status = error instanceof CustomError ? error.status : 500;
+      res.status(status).json({ success: false, message: error instanceof CustomError ? error.message : 'Error processing webhook' });
     }
   }
 }

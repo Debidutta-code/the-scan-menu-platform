@@ -1,0 +1,24 @@
+import { Router } from 'express';
+import { paymentController } from '../controllers/payment.controller';
+import rateLimit from 'express-rate-limit';
+
+const router = Router();
+
+const webhookLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'test' ? 10000 : 300,
+  message: {
+    success: false,
+    error: {
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Too many requests.',
+      details: null,
+    },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/razorpay', webhookLimiter, paymentController.handleRazorpayWebhook);
+
+export default router;

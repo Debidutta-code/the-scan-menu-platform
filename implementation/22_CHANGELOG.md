@@ -20,3 +20,10 @@ All notable changes to this project will be documented in this file.
 ---
 
 *(Historical entries omitted for brevity)*
+
+## [Unreleased]
+### Added
+- Phase 7: Razorpay Adapter Implementation
+- New Security Convention: Introduced `ENCRYPTION_KEY` app-wide symmetric AES-256-GCM encryption for storing third-party secrets (e.g. Razorpay `keySecret`, `webhookSecret`) inside `RestaurantSettings`.
+- Razorpay Webhook endpoint (`POST /api/v1/webhooks/razorpay`) with idempotency and DoS protection (300 req/min + auto-ban for consecutive invalid signatures).
+- Razorpay Checkout UI integrated into public menu order placement (`PublicTable.tsx`).
