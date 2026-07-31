@@ -68,6 +68,7 @@ The system is compartmentalized into the following toggleable modules:
 The Payment Framework abstracts all transactions, supporting:
 
 * **Prepaid**: Customer must pay before the kitchen receives the ticket (e.g., QSR).
+    *   *Implementation Note:* For PREPAID digital orders, the order is created with a `PENDING` paymentStatus. The order does not appear in active kitchen/staff queues until the payment gateway's webhook fully confirms the payment.
 * **Postpaid**: Customer pays at the end of the table session (e.g., Fine Dining).
 * **Hybrid**: Customer can open a tab and pay via card tokenization at the end.
 * **Cash**: Handled manually by waiters/managers; system acts as a ledger.

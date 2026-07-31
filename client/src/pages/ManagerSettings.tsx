@@ -82,6 +82,8 @@ export const ManagerSettings: React.FC = () => {
   const [razorpayKeyId, setRazorpayKeyId] = useState('');
   const [razorpayKeySecret, setRazorpayKeySecret] = useState('');
   const [razorpayWebhookSecret, setRazorpayWebhookSecret] = useState('');
+  const [activePaymentProvider, setActivePaymentProvider] = useState<'CASH' | 'RAZORPAY'>('CASH');
+  const [activePaymentMode, setActivePaymentMode] = useState<'POSTPAID' | 'PREPAID'>('POSTPAID');
 
   // Theme states
   const [primaryColor, setPrimaryColor] = useState('#111827');
@@ -246,23 +248,18 @@ export const ManagerSettings: React.FC = () => {
       },
     } as any;
 
-    if (isEnabled('payments') && razorpayEnabled) {
+    if (isEnabled('payments')) {
       apiClient.patch(`/restaurants/${activeRestaurantId}/payments/config`, {
-        activeProvider: 'RAZORPAY',
-        activeMode: orderWorkflowMode === 'FIVE_STEP' ? 'POSTPAID' : 'PREPAID',
-        razorpayConfig: {
+        activeProvider: activePaymentProvider,
+        activeMode: activePaymentMode,
+        razorpayConfig: razorpayEnabled ? {
            keyId: razorpayKeyId,
            keySecret: razorpayKeySecret || undefined,
            webhookSecret: razorpayWebhookSecret || undefined
-        }
+        } : undefined
       }).catch(err => {
          console.error('Failed to update payment config separately', err);
       });
-    } else if (isEnabled('payments') && !razorpayEnabled) {
-      apiClient.patch(`/restaurants/${activeRestaurantId}/payments/config`, {
-        activeProvider: 'CASH',
-        activeMode: orderWorkflowMode === 'FIVE_STEP' ? 'POSTPAID' : 'PREPAID'
-      }).catch(err => console.error('Failed to update payment config', err));
     }
 
     updateMutation.mutate(payload);
@@ -332,15 +329,14 @@ export const ManagerSettings: React.FC = () => {
                   </label>
                   <select
                     className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
-                    value="CASH"
-                    disabled
+                    value={activePaymentProvider}
+                    onChange={(e) => setActivePaymentProvider(e.target.value as 'CASH' | 'RAZORPAY')}
                   >
                     <option value="CASH">Cash (Manual Ledger)</option>
-                    <option value="RAZORPAY">Razorpay (Coming Soon)</option>
-                    <option value="STRIPE">Stripe (Coming Soon)</option>
+                    <option value="RAZORPAY" disabled={!razorpayEnabled}>Razorpay (Digital Gateway)</option>
                   </select>
                   <p className="mt-1.5 text-xs text-slate-500">
-                    Currently limited to Cash mode. Digital providers will be unlocked in later phases.
+                    Enable Razorpay in the settings below to unlock the digital gateway.
                   </p>
                 </div>
                 <div>
@@ -349,12 +345,11 @@ export const ManagerSettings: React.FC = () => {
                   </label>
                   <select
                     className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
-                    value="POSTPAID"
-                    disabled
+                    value={activePaymentMode}
+                    onChange={(e) => setActivePaymentMode(e.target.value as 'POSTPAID' | 'PREPAID')}
                   >
-                    <option value="POSTPAID">Postpaid (Pay at the end)</option>
-                    <option value="PREPAID">Prepaid (Pay before order)</option>
-                    <option value="HYBRID">Hybrid (Open Tab)</option>
+                    <option value="POSTPAID">Postpaid (Pay after visit)</option>
+                    <option value="PREPAID">Prepaid (Pay upfront)</option>
                   </select>
                   <p className="mt-1.5 text-xs text-slate-500">
                     Determines when the customer is prompted for payment during their visit.

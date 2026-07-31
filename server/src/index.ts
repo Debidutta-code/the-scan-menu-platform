@@ -60,6 +60,9 @@ import { runMigration } from './utils/migrateSessions';
 const app = express();
 const httpServer = createServer(app);
 
+// Trust Proxy (required for accurate rate-limiting behind load balancers)
+app.set('trust proxy', 1);
+
 // Security configuration
 app.use(helmet());
 app.use(

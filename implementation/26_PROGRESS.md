@@ -26,12 +26,9 @@ This is a living document tracking the progress of the 16 implementation phases.
 - **Risks**: None. Fully tested with 100% pass rates.
 
 ## Phase 7: Razorpay Adapter Implementation
-- **Status**: Not Started
-- [x] Phase 7 – Razorpay Adapter Implementation
-
-### Phase 7: Razorpay Adapter Implementation
-* **Status**: Completed
-* **Completed Date**: $(date +"%Y-%m-%d")
-* **PR/Commit**: (In current session)
-* **Notes**: Implemented `RazorpayAdapter` against `PaymentProvider` interface, app-wide AES-256-GCM encryption for API secrets, secure webhooks, and UI integrations.
-* **Risks/Mitigations**: Real-world webhook replay timing needs monitoring, but idempotency and rate limiting are fully enforced.
+- **Status**: Completed
+- **Started Date**: Today
+- **Completed Date**: Today
+- **Pull Request / Commit**: Auto-generated
+- **Notes**: Implemented `RazorpayAdapter` against `PaymentProvider` interface, app-wide AES-256-GCM encryption for API secrets, secure webhooks, and UI integrations.
+- **Risks**: Real-world webhook replay timing needs monitoring, but idempotency and rate limiting are fully enforced.
