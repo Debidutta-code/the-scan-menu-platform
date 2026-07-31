@@ -45,6 +45,20 @@ import ConnectionIndicator from '../components/ConnectionIndicator';
 // HELPERS
 // ==========================================
 
+const loadRazorpay = () => {
+  return new Promise((resolve) => {
+    if ((window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 const formatPrice = (amountInPaise: number, currency: string) => {
   const amount = amountInPaise / 100;
   return new Intl.NumberFormat(undefined, {
@@ -1000,24 +1014,76 @@ export const PublicTable: React.FC = () => {
       );
 
       if (res.data.success) {
-        toast('Order verified and placed successfully!', 'success');
+        const finalizeOrderSuccess = (orderId: string) => {
+          const key = `pixora_orders_${restaurantSlug}_${tableToken}`;
+          const stored = JSON.parse(localStorage.getItem(key) || '[]');
+          stored.push(orderId);
+          localStorage.setItem(key, JSON.stringify(stored));
 
-        // Save order ID to localStorage
-        const key = `pixora_orders_${restaurantSlug}_${tableToken}`;
-        const stored = JSON.parse(localStorage.getItem(key) || '[]');
-        stored.push(res.data.data._id);
-        localStorage.setItem(key, JSON.stringify(stored));
+          clearCart();
+          queryClient.invalidateQueries({ queryKey: ['publicTable'] });
+          setIsOtpModalOpen(false);
+          setCustomerNote('');
+          setPhoneNumber('');
+          setOtpCode('');
+          setOtpSent(false);
+          setIsPlacingOrder(false);
+          updateNavigationState('cart-orders', 'orders', orderId);
+        };
 
-        clearCart();
-        queryClient.invalidateQueries({ queryKey: ['publicTable'] });
-        setIsOtpModalOpen(false);
-        setCustomerNote('');
-        setPhoneNumber('');
-        setOtpCode('');
-        setOtpSent(false);
+        const activeProvider = tableData?.data?.restaurant?.settings?.paymentConfig?.activeProvider;
 
-        // Switch inline immediately instead of routing away
-        updateNavigationState('cart-orders', 'orders', res.data.data._id);
+        if (activeProvider === 'RAZORPAY') {
+            setIsPlacingOrder(true);
+
+            const isScriptLoaded = await loadRazorpay();
+            if (!isScriptLoaded) {
+              toast('Failed to load Razorpay SDK. Please check your connection.', 'error');
+              setIsPlacingOrder(false);
+              return;
+            }
+
+            try {
+               const intentRes = await apiClient.post(`/public/restaurants/${restaurantSlug}/tables/${tableToken}/payments/intent`, {
+                 amount: res.data.data.total,
+                 currency: 'INR',
+                 metadata: { orderId: res.data.data._id }
+               });
+
+               const { providerReferenceId, amount, currency, razorpayKeyId } = intentRes.data.data;
+
+               const options = {
+                 key: razorpayKeyId,
+                 amount: amount,
+                 currency: currency,
+                 name: tableData?.data?.restaurant?.name,
+                 description: `Order #${res.data.data.orderNumber || ''}`,
+                 order_id: providerReferenceId,
+                 handler: function () {
+                    toast('Payment processing... Please wait a moment while we confirm your order.', 'info');
+                    finalizeOrderSuccess(res.data.data._id);
+                 },
+                 prefill: { name: customerName, contact: phoneNumber },
+                 theme: { color: tableData?.data?.restaurant?.settings?.theme?.primaryColor || '#111827' },
+                 modal: {
+                    ondismiss: function() {
+                       setIsPlacingOrder(false);
+                       toast('Payment cancelled.', 'error');
+                    }
+                 }
+               };
+
+               const rzp = new (window as any).Razorpay(options);
+               rzp.open();
+            } catch (err) {
+                console.error("Intent error", err);
+                toast("Failed to initiate payment", "error");
+                setIsPlacingOrder(false);
+            }
+        } else {
+            toast('Order verified and placed successfully!', 'success');
+            finalizeOrderSuccess(res.data.data._id);
+        }
       }
     } catch (err: any) {
       console.error('Order placement error:', err);

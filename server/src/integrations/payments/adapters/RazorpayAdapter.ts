@@ -76,6 +76,13 @@ export class RazorpayAdapter implements PaymentProvider {
     };
   }
 
+  /**
+   * Manual capture is intentionally inert in Phase 7.
+   * Razorpay handles capture automatically on checkout success or via webhook.
+   * Implementing manual capture via API requires capturing the `payment_id` (not just `order_id`),
+   * which would necessitate significant changes to the webhook/checkout payload tracking.
+   * For now, this simply verifies if the transaction is already captured.
+   */
   async capture(transactionId: string, _amount: number): Promise<boolean> {
     const tx = await Transaction.findById(transactionId);
     if (!tx || tx.provider !== 'RAZORPAY') return false;
@@ -87,9 +94,27 @@ export class RazorpayAdapter implements PaymentProvider {
   }
 
   async verifyWebhook(payload: any, signature: string): Promise<WebhookVerificationResult> {
-    const paymentEntity = payload?.payload?.payment?.entity;
+    // payload is expected to be a raw Buffer containing the JSON string from express.raw()
+    let rawString = '';
+    if (Buffer.isBuffer(payload)) {
+      rawString = payload.toString('utf8');
+    } else if (typeof payload === 'string') {
+      rawString = payload;
+    } else {
+      // If it's already an object, someone upstream parsed it (test environment fallback)
+      rawString = JSON.stringify(payload);
+    }
+
+    let parsedPayload;
+    try {
+      parsedPayload = JSON.parse(rawString);
+    } catch (e) {
+      return { isValid: false, rawPayload: rawString };
+    }
+
+    const paymentEntity = parsedPayload?.payload?.payment?.entity;
     if (!paymentEntity || !paymentEntity.order_id) {
-      return { isValid: false, rawPayload: payload };
+      return { isValid: false, rawPayload: parsedPayload };
     }
 
     const razorpayOrderId = paymentEntity.order_id;
@@ -111,7 +136,7 @@ export class RazorpayAdapter implements PaymentProvider {
 
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
-      .update(JSON.stringify(payload))
+      .update(rawString)
       .digest('hex');
 
     if (expectedSignature !== signature) {
@@ -119,9 +144,9 @@ export class RazorpayAdapter implements PaymentProvider {
     }
 
     let status: 'CAPTURED' | 'FAILED' | undefined;
-    if (payload.event === 'payment.captured') {
+    if (parsedPayload.event === 'payment.captured') {
       status = 'CAPTURED';
-    } else if (payload.event === 'payment.failed') {
+    } else if (parsedPayload.event === 'payment.failed') {
       status = 'FAILED';
     }
 
@@ -129,7 +154,7 @@ export class RazorpayAdapter implements PaymentProvider {
       isValid: true,
       transactionId: transaction._id.toString(),
       status,
-      rawPayload: payload
+      rawPayload: parsedPayload
     };
   }
 }

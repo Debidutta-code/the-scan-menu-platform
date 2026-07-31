@@ -12,6 +12,10 @@ Currently, the platform does not process live digital transactions. It acts as a
 4.  **Taxes**: The system calculates taxes based on the active `Tax` models associated with the restaurant, summing them up for a total bill view in the cart and on the manager's dashboard.
 
 ## Current Architecture: Gateway Integrations & Abstraction Framework
+### Phase 7: Razorpay Implementation
+We have integrated a real payment pathway using Razorpay via the `PaymentProvider` framework.
+*   **Checkout Flow**: The public UI dynamically fetches a payment intent and loads Razorpay's Checkout JS script.
+*   **Webhook Security**: A secure endpoint receives webhook confirmations, verifies the HMAC-SHA256 signature using an encrypted tenant `webhookSecret`, and performs idempotency checks. If an IP fails signature checks consecutively, it is automatically throttled with a `403 Forbidden` block.
 
 The database schema (`Restaurant.paymentOptions`) already anticipates integrations with gateways like Razorpay, Stripe, or Square.
 

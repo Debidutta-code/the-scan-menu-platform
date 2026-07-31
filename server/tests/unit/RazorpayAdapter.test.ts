@@ -80,10 +80,11 @@ describe('RazorpayAdapter', () => {
       }
     } as any);
 
-    const payload = { event: 'payment.captured', payload: { payment: { entity: { order_id: 'order_test1' } } } };
-    const signature = crypto.createHmac('sha256', webhookSecret).update(JSON.stringify(payload)).digest('hex');
+    const payloadObj = { event: 'payment.captured', payload: { payment: { entity: { order_id: 'order_test1' } } } };
+    const rawBody = Buffer.from(JSON.stringify(payloadObj));
+    const signature = crypto.createHmac('sha256', webhookSecret).update(rawBody.toString('utf8')).digest('hex');
 
-    const result = await adapter.verifyWebhook(payload, signature);
+    const result = await adapter.verifyWebhook(rawBody, signature);
     expect(result.isValid).toBe(true);
     expect(result.status).toBe('CAPTURED');
   });
@@ -105,9 +106,10 @@ describe('RazorpayAdapter', () => {
       }
     } as any);
 
-    const payload = { event: 'payment.captured', payload: { payment: { entity: { order_id: 'order_test1' } } } };
+    const payloadObj = { event: 'payment.captured', payload: { payment: { entity: { order_id: 'order_test1' } } } };
+    const rawBody = Buffer.from(JSON.stringify(payloadObj));
 
-    const result = await adapter.verifyWebhook(payload, 'wrong_signature');
+    const result = await adapter.verifyWebhook(rawBody, 'wrong_signature');
     expect(result.isValid).toBe(false);
   });
 });

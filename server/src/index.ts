@@ -50,6 +50,7 @@ import orderRoutes from './routes/order.routes';
 import waiterCallRoutes from './routes/waiterCall.routes';
 import publicRoutes from './routes/public.routes';
 import paymentRoutes from './routes/payment.routes';
+import webhookRoutes from './routes/webhook.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { SocketService } from './sockets/socket.service';
 import { logger } from './utils/logger';
@@ -78,6 +79,9 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Express parser configuration
+// Mount webhook routes BEFORE the global JSON parser so they can access the raw body for signature verification
+app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

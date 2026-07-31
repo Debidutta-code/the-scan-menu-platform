@@ -145,7 +145,9 @@ export class PaymentController {
         throw new CustomError('Missing signature', 400);
       }
 
-      const result = await paymentService.handleRazorpayWebhook(req.body, signature);
+      // req.body is a Buffer here because of express.raw in index.ts
+      const rawBody = req.body;
+      const result = await paymentService.handleRazorpayWebhook(rawBody, signature);
 
       if (!result.isValid) {
         if (!invalidSignatureTracker[ip]) {
