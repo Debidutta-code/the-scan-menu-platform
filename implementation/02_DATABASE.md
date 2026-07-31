@@ -1,6 +1,9 @@
 # Database Schema
 
-[Output truncated for brevity, I will actually append to it instead of fully replacing it.]
+Refer to docs/DATABASE.md for the full schema.
+
+## Security & Credentials
+App-wide AES-256-GCM encryption (via `ENCRYPTION_KEY`) is used to store sensitive tenant configuration secrets like `keySecret` and `webhookSecret` in `RestaurantSettings`.
 
 ## Transactions
 The `Transaction` collection is the ledger for all payments, decoupled from `TableSession` and `Order`.

@@ -10,7 +10,7 @@ The platform is divided into discrete modules that can be toggled via Feature Fl
 *   **Ordering**: Cart creation and ticket submission.
 *   **Waiter Call**: Customer assistance requests (Water, Bill, etc.).
 *   **Kitchen Display (KDS)**: Back-of-house digital routing screens.
-*   **Payment**: Digital checkout and gateway integrations.
+*   **Payment**: Digital checkout and gateway integrations (Payment Abstraction Framework & Razorpay Integration Phase 7).
 *   **POS Integration**: Synchronization with legacy systems (e.g., Petpooja).
 *   **Inventory**: Stock depletion tracking tied to menu items.
 *   **Analytics**: Financial, operational, and staff dashboards.

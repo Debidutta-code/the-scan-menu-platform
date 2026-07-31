@@ -68,8 +68,10 @@ Within this namespace, sub-routers handle specific domains:
 *   Incoming request payloads (body, query params) are validated against Zod schemas in the route definitions before reaching controllers.
 *   Public endpoints have stricter rate-limiting configurations applied to prevent abuse (e.g., order creation).
 
-### Payments (Phase 6)
+### Payments (Phase 6 & 7)
 *   `POST /api/v1/restaurants/:restaurantId/payments/intent` - Create a payment intent (Manager/Staff/Public)
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions` - List transactions
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions/:id` - Get transaction details
 *   `PATCH /api/v1/restaurants/:restaurantId/payments/config` - Update active payment provider and mode (Manager/Super Admin)
+*   `POST /api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/payments/intent`: Public endpoint to generate checkout details.
+*   `POST /api/v1/webhooks/razorpay`: Webhook listener for async capture verification. Rate limited with IP-based invalid-signature blocking.

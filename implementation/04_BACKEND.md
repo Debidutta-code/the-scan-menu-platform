@@ -39,3 +39,7 @@ An adapter pattern implementation for connecting to external systems (primarily 
 
 ### 7. Real-time (`src/sockets/`)
 A `SocketService` singleton manages the Socket.IO server. It handles authentication handshakes, manages client connections into specific rooms (e.g., `restaurant_123`, `session_456`), and provides methods for the REST API services to broadcast events to these rooms when state changes.
+
+## Express Application Pipeline
+-   **express.raw() for Webhooks**: Payment gateway webhooks require raw bytes for HMAC signature verification. Routes like `/api/v1/webhooks` must be mounted *before* `express.json()`.
+-   **Trust Proxy**: The backend is configured with `app.set('trust proxy', 1)` to allow rate limiting middlewares to correctly identify IP addresses through a load balancer.

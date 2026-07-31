@@ -142,6 +142,14 @@ export const ManagerSettings: React.FC = () => {
         setRazorpayKeySecret(p.razorpayConfig.keySecret || '');
       }
 
+      // Read active provider and mode directly from the raw API response settings block
+      // as they are nested inside settings.paymentConfig
+      const paymentConfig = (restaurantResponse.data as any)?.settings?.paymentConfig;
+      if (paymentConfig) {
+        setActivePaymentProvider(paymentConfig.activeProvider || 'CASH');
+        setActivePaymentMode(paymentConfig.activeMode || 'POSTPAID');
+      }
+
       if (p.theme) {
         setPrimaryColor(p.theme.primaryColor || '#111827');
         setSecondaryColor(p.theme.secondaryColor || '#FFFFFF');
@@ -350,6 +358,7 @@ export const ManagerSettings: React.FC = () => {
                   >
                     <option value="POSTPAID">Postpaid (Pay after visit)</option>
                     <option value="PREPAID">Prepaid (Pay upfront)</option>
+                    <option value="HYBRID" disabled>Hybrid (Open Tab - Coming Soon)</option>
                   </select>
                   <p className="mt-1.5 text-xs text-slate-500">
                     Determines when the customer is prompted for payment during their visit.
