@@ -14,7 +14,7 @@ import { FeatureFlag } from '../src/models/FeatureFlag';
 import { IntegrationSyncLog } from '../src/models/IntegrationSyncLog';
 import { IntegrationFactory } from '../src/integrations/core/IntegrationFactory';
 import { NoOpIntegration } from '../src/integrations/adapters/NoOpIntegration';
-import { NotImplementedError } from '../src/integrations/core/NotImplementedError';
+import { PetpoojaIntegration } from '../src/integrations/adapters/PetpoojaIntegration';
 import { posIntegrationService } from '../src/services/posIntegration.service';
 import jwt from 'jsonwebtoken';
 
@@ -71,9 +71,9 @@ describe('Phase 9 POS Adapter Framework & Integration Tests', () => {
       expect(IntegrationFactory.getAdapter('UNKNOWN_PROVIDER')).toBeInstanceOf(NoOpIntegration);
     });
 
-    it('IntegrationFactory resolves PETPOOJA stub and throws NotImplementedError', async () => {
+    it('IntegrationFactory resolves PETPOOJA adapter', () => {
       const adapter = IntegrationFactory.getAdapter('PETPOOJA');
-      await expect(adapter.pushOrder({})).rejects.toThrow(NotImplementedError);
+      expect(adapter).toBeInstanceOf(PetpoojaIntegration);
     });
   });
 

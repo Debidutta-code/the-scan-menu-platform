@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
-import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft, CreditCard, Lock } from 'lucide-react';
+import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft, CreditCard, Lock, RefreshCw, CheckCircle } from 'lucide-react';
 import apiClient from '../lib/api';
 
 interface RestaurantTheme {
@@ -95,6 +95,65 @@ export const ManagerSettings: React.FC = () => {
   const [orderWorkflowMode, setOrderWorkflowMode] = useState<'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP'>('FIVE_STEP');
   const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
   const [autoAcceptDelay, setAutoAcceptDelay] = useState(10);
+
+  // Petpooja Integration State
+  const [petpoojaEnabled, setPetpoojaEnabled] = useState(false);
+  const [petpoojaAppKey, setPetpoojaAppKey] = useState('');
+  const [petpoojaAppSecret, setPetpoojaAppSecret] = useState('');
+  const [petpoojaAccessToken, setPetpoojaAccessToken] = useState('');
+  const [petpoojaOutletId, setPetpoojaOutletId] = useState('');
+  const [petpoojaIsConfigured, setPetpoojaIsConfigured] = useState(false);
+
+  // Fetch Petpooja Integration Config
+  const { data: petpoojaConfigData, refetch: refetchPetpoojaConfig } = useQuery({
+    queryKey: ['petpoojaConfig', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/integrations/config`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId && isEnabled('pos_integration'),
+  });
+
+  useEffect(() => {
+    if (petpoojaConfigData?.success && petpoojaConfigData?.data) {
+      const d = petpoojaConfigData.data;
+      setPetpoojaEnabled(d.provider === 'PETPOOJA' && d.enabled);
+      setPetpoojaOutletId(d.outletId || '');
+      setPetpoojaIsConfigured(!!d.isConfigured);
+    }
+  }, [petpoojaConfigData]);
+
+  // Petpooja Config Mutation
+  const petpoojaMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/integrations/petpooja/config`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast('Petpooja POS integration configured successfully!', 'success');
+      refetchPetpoojaConfig();
+      setPetpoojaAppKey('');
+      setPetpoojaAppSecret('');
+      setPetpoojaAccessToken('');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error updating Petpooja configuration', 'error');
+    },
+  });
+
+  // Menu Sync Mutation
+  const syncMenuMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/integrations/petpooja/sync-menu`);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast('Petpooja menu synchronization initiated in background!', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error initiating menu sync', 'error');
+    },
+  });
 
   // Fetch restaurant details
   const { data: restaurantResponse, isLoading } = useQuery({
@@ -667,6 +726,117 @@ export const ManagerSettings: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Petpooja POS Integration Card */}
+        {isEnabled('pos_integration') && (
+          <div className="bg-white rounded-3xl border border-slate-150 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <GitBranch className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+                <span>Petpooja POS Integration</span>
+              </h4>
+              <div className="flex items-center gap-2">
+                {petpoojaIsConfigured && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <CheckCircle className="w-3 h-3" /> Configured
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => syncMenuMutation.mutate()}
+                  disabled={syncMenuMutation.isPending || !petpoojaIsConfigured}
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncMenuMutation.isPending ? 'animate-spin' : ''}`} />
+                  Sync Menu
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-2.5 p-3.5 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={petpoojaEnabled}
+                  onChange={(e) => setPetpoojaEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded text-amber-500 focus:ring-amber-500 border-slate-300"
+                />
+                <span className="text-xs font-bold text-slate-700">Enable Petpooja POS Adapter</span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Outlet ID / Rest ID</label>
+                  <input
+                    type="text"
+                    value={petpoojaOutletId}
+                    onChange={(e) => setPetpoojaOutletId(e.target.value)}
+                    placeholder="e.g. rest_12345"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">App Key (Write-Only Secret)</label>
+                  <input
+                    type="password"
+                    value={petpoojaAppKey}
+                    onChange={(e) => setPetpoojaAppKey(e.target.value)}
+                    placeholder={petpoojaIsConfigured ? '••••••••••••••••' : 'Enter Petpooja App Key'}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">App Secret (Write-Only Secret)</label>
+                  <input
+                    type="password"
+                    value={petpoojaAppSecret}
+                    onChange={(e) => setPetpoojaAppSecret(e.target.value)}
+                    placeholder={petpoojaIsConfigured ? '••••••••••••••••' : 'Enter Petpooja App Secret'}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Access Token (Write-Only Secret)</label>
+                  <input
+                    type="password"
+                    value={petpoojaAccessToken}
+                    onChange={(e) => setPetpoojaAccessToken(e.target.value)}
+                    placeholder={petpoojaIsConfigured ? '••••••••••••••••' : 'Enter Petpooja Access Token'}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    petpoojaMutation.mutate({
+                      enabled: petpoojaEnabled,
+                      outletId: petpoojaOutletId,
+                      ...(petpoojaAppKey ? { appKey: petpoojaAppKey } : {}),
+                      ...(petpoojaAppSecret ? { appSecret: petpoojaAppSecret } : {}),
+                      ...(petpoojaAccessToken ? { accessToken: petpoojaAccessToken } : {}),
+                      provider: 'PETPOOJA',
+                    })
+                  }
+                  disabled={petpoojaMutation.isPending}
+                  className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {petpoojaMutation.isPending ? (
+                    <Loader className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  Save Petpooja Credentials
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Branding Theme Card */}
         <div className="bg-white rounded-3xl border border-slate-150 p-6 shadow-sm space-y-4">

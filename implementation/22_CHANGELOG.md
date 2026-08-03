@@ -19,7 +19,21 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-*(Historical entries omitted for brevity)*
+## [Phase 10] - Petpooja POS Integration
+
+### Added
+- Concrete `PetpoojaIntegration` adapter implementing `RestaurantIntegration` interface (`syncMenu`, `pushOrder`, `updateOrderStatus`, `syncOrder`).
+- Updated `IntegrationFactory` to resolve `PetpoojaIntegration` for `PETPOOJA` provider while maintaining default `NoOpIntegration` for `NONE`.
+- Extended `MenuItem` schema with `externalIds` field (e.g. `externalIds.petpooja`) for third-party item mapping.
+- Added encrypted Petpooja configuration endpoint `PATCH /api/v1/restaurants/:restaurantId/integrations/petpooja/config` using AES-256-GCM encryption with write-only response discipline.
+- Added manual menu sync endpoint `POST /api/v1/restaurants/:restaurantId/integrations/petpooja/sync-menu`.
+- Added inbound webhook endpoint `POST /api/v1/webhooks/petpooja` for receiving status updates from Petpooja POS terminals.
+- Added Petpooja POS configuration card and manual menu sync controls in `ManagerSettings.tsx`.
+- Added real-time POS Sync status indicators (`[Synced]`, `[Sync Failed]`) on staff order cards in `ManagerOrders.tsx`.
+- Created idempotent migration script `migratePhase10.ts` (`npm run migrate:phase10`).
+- Comprehensive unit, integration, webhook, and zero-regression test suite in `petpoojaIntegration.test.ts`.
+
+---
 
 ## [Phase 8] - Ordering Modes Expansion
 

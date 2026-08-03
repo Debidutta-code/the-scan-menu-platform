@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller';
+import { petpoojaWebhookController } from '../controllers/petpoojaWebhook.controller';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();
@@ -20,5 +21,6 @@ const webhookLimiter = rateLimit({
 });
 
 router.post('/razorpay', webhookLimiter, paymentController.handleRazorpayWebhook);
+router.post('/petpooja', webhookLimiter, petpoojaWebhookController.handleWebhook);
 
 export default router;

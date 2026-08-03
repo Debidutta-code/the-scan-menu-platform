@@ -79,6 +79,10 @@ Within this namespace, sub-routers handle specific domains:
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions/:id` - Get transaction details
 *   `PATCH /api/v1/restaurants/:restaurantId/payments/config` - Update active payment provider and mode (Manager/Super Admin)
 *   `GET /api/v1/restaurants/:restaurantId/integrations/sync-logs` - View POS integration sync logs (Manager/Super Admin, `pos_integration` flag required)
+*   `GET /api/v1/restaurants/:restaurantId/integrations/config` - View safe write-only integration config metadata (Manager/Super Admin, `pos_integration` flag required)
+*   `PATCH /api/v1/restaurants/:restaurantId/integrations/petpooja/config` - Configure Petpooja API credentials with AES-256-GCM encryption (Manager/Super Admin, `pos_integration` flag required)
+*   `POST /api/v1/restaurants/:restaurantId/integrations/petpooja/sync-menu` - Trigger background menu sync with Petpooja (Manager/Super Admin, `pos_integration` flag required)
 *   `POST /api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/payments/intent`: Public endpoint to generate checkout details for Dine-In.
 *   `POST /api/v1/public/restaurants/:restaurantSlug/payments/intent`: Public endpoint to generate checkout details for sessionless Delivery/Takeaway.
 *   `POST /api/v1/webhooks/razorpay`: Webhook listener for async capture verification. Rate limited with IP-based invalid-signature blocking.
+*   `POST /api/v1/webhooks/petpooja`: Webhook listener for inbound order status updates from Petpooja POS.

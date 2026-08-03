@@ -1,6 +1,6 @@
 import { RestaurantIntegration } from './RestaurantIntegration';
 import { NoOpIntegration } from '../adapters/NoOpIntegration';
-import { FuturePetpoojaIntegration } from '../adapters/FuturePetpoojaIntegration';
+import { PetpoojaIntegration } from '../adapters/PetpoojaIntegration';
 import { FutureRistaIntegration } from '../adapters/FutureRistaIntegration';
 import { FutureUrbanPiperIntegration } from '../adapters/FutureUrbanPiperIntegration';
 
@@ -9,7 +9,7 @@ export class IntegrationFactory {
     const name = (providerName || '').toUpperCase().trim();
     switch (name) {
       case 'PETPOOJA':
-        return new FuturePetpoojaIntegration();
+        return new PetpoojaIntegration();
       case 'RISTA':
         return new FutureRistaIntegration();
       case 'URBANPIPER':

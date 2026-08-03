@@ -53,6 +53,7 @@ interface Order {
   customerPhone?: string;
   status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
   source: string;
+  integrationMetadata?: Record<string, any>;
   createdAt: string;
 }
 
@@ -559,9 +560,21 @@ export const ManagerOrders: React.FC = () => {
                         >
                           {/* Order Header */}
                           <div className="flex items-center justify-between">
-                            <span className="font-mono text-xs font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-900 leading-none">
-                              #{order.orderNumber}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-900 leading-none">
+                                #{order.orderNumber}
+                              </span>
+                              {order.integrationMetadata?.petpoojaOrderId && (
+                                <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                                  Synced
+                                </span>
+                              )}
+                              {order.integrationMetadata?.petpoojaStatus === 'FAILED' && (
+                                <span className="text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded-md">
+                                  Sync Failed
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] font-bold text-slate-400 font-mono">
                               {getElapsedTimeLabel(order.createdAt, now)}
                             </span>

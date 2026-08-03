@@ -79,11 +79,11 @@ POS integration is never hardcoded. It utilizes a strict Adapter Pattern. The co
 
 Standalone
 ↓
-Petpooja (Adapter)
+Petpooja (Adapter - Phase 10 Completed)
 ↓
-Square (Adapter)
+Square (Adapter - Planned)
 ↓
-UrbanPiper (Adapter)
+UrbanPiper (Adapter - Planned)
 ↓
 Future Providers (Adapter)
 

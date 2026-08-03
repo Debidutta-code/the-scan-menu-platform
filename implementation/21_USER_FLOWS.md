@@ -36,3 +36,12 @@ This document details the step-by-step user interaction flows across the Pixora 
 2. **Item Selection**: Staff selects menu items, enters optional customer name/phone.
 3. **Rapid Punch**: Staff clicks "Punch Counter Order".
 4. **Direct Activation**: Order is created via `POST /api/v1/restaurants/:restaurantId/orders/counter` with `orderMode: 'COUNTER'`, `paymentStatus: 'PAID'`, `source: 'POS'`, and immediately appears active on the kitchen prep queue.
+
+---
+
+## 5. POS Integration & Sync Observability Flow (Phase 10 New)
+1. **Manager Configuration**: Manager accesses `/manager/settings` -> POS Integration section -> enters encrypted Petpooja API credentials (`appKey`, `appSecret`, `accessToken`, `outletId`) -> clicks **Save Petpooja Credentials** (`PATCH /api/v1/restaurants/:restaurantId/integrations/petpooja/config`).
+2. **Catalog Synchronization**: Manager clicks **Sync Menu** (`POST /api/v1/restaurants/:restaurantId/integrations/petpooja/sync-menu`) -> background process synchronizes items and sets `externalIds.petpooja`.
+3. **Automated Non-Blocking Ticket Push**: Upon any order placement (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`), `posIntegrationService.pushOrderAsync` dispatches the order to Petpooja asynchronously.
+4. **Staff & Kitchen Observability**: Staff order cards in `/manager/orders` render real-time sync indicators (`[Synced]` in green or `[Sync Failed]` in red).
+5. **Inbound Webhook Sync**: Status updates from Petpooja POS terminals hit `POST /api/v1/webhooks/petpooja` to reflect status changes directly on the staff dashboard.

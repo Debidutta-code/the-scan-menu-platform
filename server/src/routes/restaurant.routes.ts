@@ -49,7 +49,10 @@ router.delete('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, req
 router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);
 router.get('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listStaff);
 router.patch('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateStaff);
-// POS Integration Sync Logs Route (Manager/Super Admin only)
+// POS Integration Routes (Manager/Super Admin only)
 router.get('/:restaurantId/integrations/sync-logs', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.getSyncLogs);
+router.get('/:restaurantId/integrations/config', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.getIntegrationConfig);
+router.patch('/:restaurantId/integrations/petpooja/config', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.updatePetpoojaConfig);
+router.post('/:restaurantId/integrations/petpooja/sync-menu', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.triggerMenuSync);
 
 export default router;

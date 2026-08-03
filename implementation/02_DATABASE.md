@@ -25,12 +25,12 @@ This document details the MongoDB database architecture, indexing strategies, en
 - **Table**: Physical table entity associated with an unguessable token and generated QR code.
 - **TableZone**: Logical area grouping for tables (e.g. Patio, Main Hall, Bar).
 - **Category**: Menu category grouping items with sort order.
-- **MenuItem**: Catalog item with price in paise/cents, availability, diet badges, and add-on options.
+- **MenuItem**: Catalog item with price in paise/cents, availability, diet badges, add-on options, and `externalIds` (e.g. `externalIds.petpooja`) for third-party POS item mapping.
 - **Tax**: Individual tax definitions and compound tax group configurations.
 
-### 3. Order Engine (Phase 8 Ordering Modes Expansion)
+### 3. Order Engine (Phase 8 Ordering Modes Expansion & Phase 10 POS Metadata)
 - **TableSession**: Active dining session at a physical table accumulating multi-round orders for Dine-In.
-- **Order**: Primary ordering ticket entity supporting four distinct modes:
+- **Order**: Primary ordering ticket entity supporting four distinct modes (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`) and `integrationMetadata` storing external POS ticket IDs (`petpoojaOrderId`, sync timestamps, POS status).
   1. `DINE_IN`: Requires `tableId` & `sessionId`. Integrated with physical table QR scan.
   2. `TAKEAWAY`: Session-less. Requires `customerName` & `customerPhone`. Follows restaurant's `activeMode` (`PREPAID` or `POSTPAID`).
   3. `DELIVERY`: Session-less. Requires `customerName`, `customerPhone`, & `deliveryAddress`. Effectively prepaid by default when digital payment (Razorpay) is configured; marked as "Cash on Delivery" when on `CASH`.
