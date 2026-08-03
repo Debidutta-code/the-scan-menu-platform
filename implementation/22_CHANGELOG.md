@@ -17,6 +17,17 @@ All notable changes to this project will be documented in this file.
 - Extended `RestaurantSettings.paymentConfig` to include `activeProvider` and `activeMode`.
 - Fixed a top-level routing issue where `menuRoutes`'s global `requireRole('MANAGER')` was terminating downstream `staff` requests for unrelated controllers, by hoisting `paymentRoutes` above it in the `index.ts` routing stack.
 
+## [Phase 11] - Kitchen Display System (KDS)
+
+### Added
+- Created `KDSController` (`server/src/controllers/kds.controller.ts`) handling active tickets retrieval, item status advancement, and full ticket bumping.
+- Mounted KDS REST endpoints in `server/src/routes/restaurant.routes.ts`: `GET /:restaurantId/kds/tickets`, `PATCH /:restaurantId/kds/tickets/:orderId/items/:itemIndex/status`, `POST /:restaurantId/kds/tickets/:orderId/bump` (accessible by STAFF, MANAGER, SUPER_ADMIN, guarded by `kds` feature flag).
+- Implemented touch- and tablet-optimized `ManagerKDS.tsx` page (`/manager/kds`) featuring real-time Socket.io tickets ingestion, one-tap item status progression (`Start Prep` ➔ `Mark Ready` ➔ `Serve Item`), station/category filters, order mode pills, elapsed aging timers (Green < 5m, Amber 5-15m, Red > 15m), and visual offline fallback state.
+- Integrated KDS item status advancement with `getOrderStatusRollup` and Phase 10 Petpooja POS relay (`posIntegrationService.updateOrderStatusAsync`).
+- Hoisted `restaurantRoutes` above `menuRoutes` in `server/src/index.ts` to prevent router-level `requireRole('MANAGER')` middleware from blocking `STAFF` requests to KDS endpoints.
+- Created `12_KDS.md` specification document detailing KDS architecture, state machine, socket contracts, and UI guidelines.
+- Comprehensive Vitest test suite in `server/src/kds.test.ts` covering ticket queries, forward status transitions, invalid backward rejection, Petpooja POS relay integration, socket room security, feature flag gating, and tenant isolation.
+
 ---
 
 ## [Phase 10] - Petpooja POS Integration

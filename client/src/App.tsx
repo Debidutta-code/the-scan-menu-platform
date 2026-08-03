@@ -16,6 +16,7 @@ import ManagerAnalytics from './pages/ManagerAnalytics';
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerTransactions from './pages/ManagerTransactions';
 import ManagerCounter from './pages/ManagerCounter';
+import ManagerKDS from './pages/ManagerKDS';
 import ManagerLayout from './components/ManagerLayout';
 import PublicTable from './pages/PublicTable';
 import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
@@ -60,6 +61,7 @@ export const App = () => {
               <Route element={<ManagerLayout />}>
                 <Route path="/manager/orders" element={<ManagerOrders />} />
                 <Route path="/manager/counter" element={<ManagerCounter />} />
+                <Route path="/manager/kds" element={<ManagerKDS />} />
                 <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                 <Route path="/manager/profile" element={<ManagerProfile />} />
                 <Route path="/manager/transactions" element={<ManagerTransactions />} />

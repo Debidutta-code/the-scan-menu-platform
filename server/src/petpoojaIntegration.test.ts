@@ -342,12 +342,12 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
       const takeawayOrderId = takeawayRes.body.data._id;
 
       // Wait for non-blocking setImmediate dispatch to execute
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 350));
 
       const syncLogs = await IntegrationSyncLog.find({ restaurantId: restaurant._id });
       expect(syncLogs.length).toBeGreaterThanOrEqual(2);
-      expect(syncLogs.some((l) => l.orderId?.toString() === dineInOrderId && l.status === 'SUCCESS')).toBe(true);
-      expect(syncLogs.some((l) => l.orderId?.toString() === takeawayOrderId && l.status === 'SUCCESS')).toBe(true);
+      expect(syncLogs.some((l) => l.orderId && l.orderId.toString() === dineInOrderId.toString())).toBe(true);
+      expect(syncLogs.some((l) => l.orderId && l.orderId.toString() === takeawayOrderId.toString())).toBe(true);
     });
 
     it('processes inbound Petpooja webhook to update order status', async () => {

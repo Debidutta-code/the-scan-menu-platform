@@ -86,3 +86,8 @@ Within this namespace, sub-routers handle specific domains:
 *   `POST /api/v1/public/restaurants/:restaurantSlug/payments/intent`: Public endpoint to generate checkout details for sessionless Delivery/Takeaway.
 *   `POST /api/v1/webhooks/razorpay`: Webhook listener for async capture verification. Rate limited with IP-based invalid-signature blocking.
 *   `POST /api/v1/webhooks/petpooja`: Webhook listener for inbound order status updates from Petpooja POS.
+
+### Kitchen Display System (Phase 11)
+*   `GET /api/v1/restaurants/:restaurantId/kds/tickets` - Retrieve active kitchen prep tickets (Staff/Manager/Super Admin, `kds` flag required). Supports `category` & `orderMode` query params.
+*   `PATCH /api/v1/restaurants/:restaurantId/kds/tickets/:orderId/items/:itemIndex/status` - Advance item-level preparation status (Staff/Manager/Super Admin, `kds` flag required).
+*   `POST /api/v1/restaurants/:restaurantId/kds/tickets/:orderId/bump` - Bump/resolve entire kitchen ticket (Staff/Manager/Super Admin, `kds` flag required).

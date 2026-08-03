@@ -21,6 +21,7 @@ import {
   BellRing,
   Users,
   Calculator,
+  Flame,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -49,6 +50,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'orders'
     : currentPath.startsWith('/manager/counter')
     ? 'counter'
+    : currentPath.startsWith('/manager/kds')
+    ? 'kds'
     : currentPath.startsWith('/manager/transactions')
     ? 'transactions'
     : currentPath.startsWith('/manager/waiter-calls')
@@ -311,6 +314,23 @@ export const ManagerLayout: React.FC = () => {
               <span>Counter POS</span>
             </div>
           </button>
+
+          {/* Kitchen (KDS) tab */}
+          {isEnabled('kds') && (
+            <button
+              onClick={() => navigate('/manager/kds')}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'kds'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Flame className="w-4 h-4 text-amber-600" strokeWidth={2} />
+                <span>Kitchen (KDS)</span>
+              </div>
+            </button>
+          )}
 
           {/* Transactions tab (Sidebar) */}
           <button

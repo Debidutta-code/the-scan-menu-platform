@@ -37,7 +37,7 @@ The platform is divided into discrete modules that can be toggled via Feature Fl
 | **Analytics (Basic)** | Not Available | Included | Included | Included |
 | **Analytics (Advanced)** | Not Available | Not Available | Included | Included |
 | **Coupons & Feedback** | Not Available | Not Available | Included | Included |
-| **Kitchen Display (KDS)** | Not Available | Not Available | Optional Add-on | Included |
+| **Kitchen Display (KDS)** | Not Available | Not Available | Optional Add-on | Included (Phase 11 Completed) |
 | **POS Integration** | Not Available | Not Available | Optional Add-on | Included |
 | **Inventory** | Not Available | Not Available | Optional Add-on | Included |
 | **CRM & Loyalty** | Not Available | Not Available | Not Available | Included |

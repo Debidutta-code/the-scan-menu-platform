@@ -631,7 +631,7 @@ export class OrderController {
         console.error('Failed to notify item status update:', err);
       }
 
-      // If aggregate status changed as a result of item update, emit order:status_updated
+      // If aggregate status changed as a result of item update, emit order:status_updated and relay to POS
       if (order.status !== previousAggregateStatus) {
         try {
           NotificationService.getInstance().notifyOrderStatusUpdated(
@@ -643,6 +643,8 @@ export class OrderController {
         } catch (err) {
           console.error('Failed to notify order status update from item status update:', err);
         }
+
+        posIntegrationService.updateOrderStatusAsync(restaurantId, orderId, order.status);
       }
 
       // Also notify session updated (as totals / rounds progress)

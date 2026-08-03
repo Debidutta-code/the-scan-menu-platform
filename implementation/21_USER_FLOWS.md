@@ -45,3 +45,13 @@ This document details the step-by-step user interaction flows across the Pixora 
 3. **Automated Non-Blocking Ticket Push**: Upon any order placement (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`), `posIntegrationService.pushOrderAsync` dispatches the order to Petpooja asynchronously.
 4. **Staff & Kitchen Observability**: Staff order cards in `/manager/orders` render real-time sync indicators (`[Synced]` in green or `[Sync Failed]` in red).
 5. **Inbound Webhook Sync**: Status updates from Petpooja POS terminals hit `POST /api/v1/webhooks/petpooja` to reflect status changes directly on the staff dashboard.
+
+---
+
+## 6. Kitchen Display Operations Flow (Phase 11 New)
+1. **Kitchen Terminal Access**: Kitchen staff opens `/manager/kds` on a kitchen tablet or display screen.
+2. **Real-Time Ticket Ingestion**: Newly placed orders across all four modes (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`) appear as ticket cards via Socket.io `order:created` room events.
+3. **Station Filtering**: Line cooks can filter display tickets by station/category (e.g. Hot Mains, Grill, Beverages) or view all stations.
+4. **Touch Item Progression**: Kitchen staff taps item action buttons (`Start Prep` ➔ `Mark Ready` ➔ `Serve Item`) to advance item statuses (`PENDING` ➔ `PREPARING` ➔ `READY` ➔ `SERVED`).
+5. **Real-Time Synchronized Observability**: Item status updates broadcast to staff dashboards (`/manager/orders`). When item updates cause aggregate order status to change, `posIntegrationService.updateOrderStatusAsync` automatically relays the status update to Petpooja POS non-blockingly.
+6. **Ticket Bump Resolution**: Staff taps **Bump Entire Ticket** to resolve all items on a ticket to `SERVED`, removing the completed ticket from active kitchen view.

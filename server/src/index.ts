@@ -98,9 +98,8 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/restaurants/:restaurantId/payments', paymentRoutes);
 app.use('/api/v1/restaurants', orderRoutes);
 app.use('/api/v1/restaurants', waiterCallRoutes);
-app.use('/api/v1/restaurants', menuRoutes);
-
 app.use('/api/v1/restaurants', restaurantRoutes);
+app.use('/api/v1/restaurants', menuRoutes);
 
 app.use('/api/v1/public', publicRoutes);
 

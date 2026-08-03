@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { RestaurantController } from '../controllers/restaurant.controller';
 import featureFlagController from '../controllers/featureFlag.controller';
 import integrationController from '../controllers/integration.controller';
+import kdsController from '../controllers/kds.controller';
 import { requireFeature } from '../middleware/featureFlag';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
 
@@ -54,5 +55,10 @@ router.get('/:restaurantId/integrations/sync-logs', requireFeature('pos_integrat
 router.get('/:restaurantId/integrations/config', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.getIntegrationConfig);
 router.patch('/:restaurantId/integrations/petpooja/config', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.updatePetpoojaConfig);
 router.post('/:restaurantId/integrations/petpooja/sync-menu', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.triggerMenuSync);
+
+// Kitchen Display System (KDS) Routes (Staff, Manager, Super Admin)
+router.get('/:restaurantId/kds/tickets', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.getActiveTickets);
+router.patch('/:restaurantId/kds/tickets/:orderId/items/:itemIndex/status', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.updateItemStatus);
+router.post('/:restaurantId/kds/tickets/:orderId/bump', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.bumpTicket);
 
 export default router;
