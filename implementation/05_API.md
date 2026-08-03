@@ -49,7 +49,10 @@ Platform-wide operations restricted to users with the `SUPER_ADMIN` role.
 Endpoints used by the customer-facing application. They do not require authentication but rely on public identifiers (slugs, tokens). Heavily rate-limited.
 *   `GET /restaurants/:slug/tables/:tableToken`
 *   `GET /restaurants/:slug/tables/:tableToken/menu`
-*   `POST /restaurants/:slug/tables/:tableToken/orders`
+*   `GET /restaurants/:slug/menu` (Sessionless Takeaway/Delivery menu)
+*   `POST /restaurants/:slug/tables/:tableToken/orders` (Dine-In order placement)
+*   `POST /restaurants/:slug/orders` (Sessionless Takeaway & Delivery order placement)
+*   `POST /restaurants/:slug/payments/intent` (Sessionless payment intent)
 *   `POST /restaurants/:slug/tables/:tableToken/waiter-call`
 *   `POST /restaurants/:slug/tables/:tableToken/clear-session`
 
@@ -60,6 +63,7 @@ Within this namespace, sub-routers handle specific domains:
 *   `/menu`: CRUD operations for Categories and MenuItems. (Requires MANAGER for mutations).
 *   `/tables`: CRUD operations for TableZones and Tables. (Requires MANAGER for mutations).
 *   `/orders`: Fetching, filtering, and updating the status of customer orders. (Accessible by STAFF).
+*   `/orders/counter`: Rapid Counter Order Entry for walk-in cash customers. (Accessible by STAFF and MANAGER).
 *   `/waiter-calls`: Managing customer assistance requests. (Accessible by STAFF).
 *   `/staff`: Managing staff access to the tenant. (Requires MANAGER).
 *   `/analytics`: Reporting and metrics endpoints. (Requires MANAGER).
@@ -68,10 +72,11 @@ Within this namespace, sub-routers handle specific domains:
 *   Incoming request payloads (body, query params) are validated against Zod schemas in the route definitions before reaching controllers.
 *   Public endpoints have stricter rate-limiting configurations applied to prevent abuse (e.g., order creation).
 
-### Payments (Phase 6 & 7)
+### Payments (Phase 6, 7 & 8)
 *   `POST /api/v1/restaurants/:restaurantId/payments/intent` - Create a payment intent (Manager/Staff/Public)
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions` - List transactions
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions/:id` - Get transaction details
 *   `PATCH /api/v1/restaurants/:restaurantId/payments/config` - Update active payment provider and mode (Manager/Super Admin)
-*   `POST /api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/payments/intent`: Public endpoint to generate checkout details.
+*   `POST /api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/payments/intent`: Public endpoint to generate checkout details for Dine-In.
+*   `POST /api/v1/public/restaurants/:restaurantSlug/payments/intent`: Public endpoint to generate checkout details for sessionless Delivery/Takeaway.
 *   `POST /api/v1/webhooks/razorpay`: Webhook listener for async capture verification. Rate limited with IP-based invalid-signature blocking.

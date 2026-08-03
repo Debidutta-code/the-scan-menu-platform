@@ -12,13 +12,17 @@ import { IntegrationFactory } from '../integrations/core/IntegrationFactory';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
+import { paymentService } from '../services/payment.service';
 import mongoose from 'mongoose';
 
 export class PublicController {
   constructor() {
     this.resolveTable = this.resolveTable.bind(this);
     this.getMenu = this.getMenu.bind(this);
+    this.getSessionlessMenu = this.getSessionlessMenu.bind(this);
     this.createOrder = this.createOrder.bind(this);
+    this.createSessionlessOrder = this.createSessionlessOrder.bind(this);
+    this.createPaymentIntent = this.createPaymentIntent.bind(this);
     this.getOrder = this.getOrder.bind(this);
     this.getOrderStatus = this.getOrderStatus.bind(this);
     this.getTableSession = this.getTableSession.bind(this);
@@ -445,6 +449,7 @@ export class PublicController {
           restaurantId: restaurant._id,
           tableId: table._id,
           sessionId: session._id,
+          orderMode: 'DINE_IN',
           roundNumber: session.roundCount,
           isMerged: false,
           orderNumber,
@@ -648,6 +653,364 @@ export class PublicController {
       const orders = await Order.find({ sessionId: session._id }).sort({ roundNumber: 1 });
 
       sendSuccess(res, { session, orders }, 'Session retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getSessionlessMenu(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantSlug } = req.params;
+
+      if (!restaurantSlug) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant slug is required', null, 404);
+        return;
+      }
+
+      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+
+      const categories = await Category.find({
+        restaurantId: restaurant._id,
+        isActive: true,
+      }).sort({ sortOrder: 1 });
+
+      const menuItems = await MenuItem.find({
+        restaurantId: restaurant._id,
+      }).sort({ sortOrder: 1 });
+
+      const categoriesWithItems = categories.map((category) => {
+        const items = menuItems.filter(
+          (item) => item.categoryId.toString() === category._id.toString()
+        );
+        return {
+          _id: category._id,
+          name: category.name,
+          description: category.description,
+          imageUrl: category.imageUrl,
+          sortOrder: category.sortOrder,
+          menuItems: items,
+        };
+      });
+
+      const responseData = {
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.name,
+          slug: restaurant.slug,
+          code: restaurant.code,
+          status: restaurant.status,
+          logoUrl: settings?.branding?.logoUrl || restaurant.logoUrl,
+          coverImageUrl: settings?.branding?.coverImageUrl || restaurant.coverImageUrl,
+          description: restaurant.description,
+          theme: settings?.theme || { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
+          currency: settings?.currency || 'INR',
+          timezone: settings?.timezone || 'Asia/Kolkata',
+          paymentConfig: settings?.paymentConfig || { activeProvider: 'CASH', activeMode: 'POSTPAID' },
+        },
+        categories: categoriesWithItems,
+      };
+
+      sendSuccess(res, responseData, 'Public menu retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createSessionlessOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantSlug } = req.params;
+      const { orderMode, items, customerNote, customerName, customerPhone, deliveryAddress, paymentStatus } = req.body;
+
+      if (!restaurantSlug) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant slug is required', null, 400);
+        return;
+      }
+
+      if (!orderMode || !['TAKEAWAY', 'DELIVERY'].includes(orderMode)) {
+        sendError(res, 'BAD_REQUEST', 'orderMode must be TAKEAWAY or DELIVERY', null, 400);
+        return;
+      }
+
+      if (!customerName || typeof customerName !== 'string' || customerName.trim() === '') {
+        sendError(res, 'BAD_REQUEST', 'Customer name is required', null, 400);
+        return;
+      }
+
+      if (!customerPhone || typeof customerPhone !== 'string' || customerPhone.trim() === '') {
+        sendError(res, 'BAD_REQUEST', 'Customer phone number is required', null, 400);
+        return;
+      }
+
+      if (orderMode === 'DELIVERY') {
+        if (
+          !deliveryAddress ||
+          (typeof deliveryAddress === 'string' && deliveryAddress.trim() === '') ||
+          (typeof deliveryAddress === 'object' && !deliveryAddress.street && !deliveryAddress.fullAddress)
+        ) {
+          sendError(res, 'BAD_REQUEST', 'Delivery address is required for Delivery orders', null, 400);
+          return;
+        }
+      }
+
+      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        sendError(res, 'BAD_REQUEST', 'Order items are required and must be a non-empty array', null, 400);
+        return;
+      }
+
+      const categories = await Category.find({ restaurantId: restaurant._id });
+      const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
+
+      const failedItems: { menuItemId: string; name: string; reason: 'unavailable' | 'category_inactive' }[] = [];
+      const validatedItems = [];
+
+      for (const item of items) {
+        if (!item.itemId) {
+          sendError(res, 'BAD_REQUEST', 'Each order item must specify an itemId', null, 400);
+          return;
+        }
+
+        const menuItem = await MenuItem.findById(item.itemId);
+        if (!menuItem || menuItem.restaurantId.toString() !== restaurant._id.toString()) {
+          failedItems.push({
+            menuItemId: item.itemId,
+            name: item.name || 'Unknown Item',
+            reason: 'unavailable',
+          });
+          continue;
+        }
+
+        const category = categoryMap.get(menuItem.categoryId.toString());
+
+        if (!menuItem.isAvailable) {
+          failedItems.push({
+            menuItemId: item.itemId,
+            name: menuItem.name,
+            reason: 'unavailable',
+          });
+          continue;
+        }
+
+        if (!category || !category.isActive) {
+          failedItems.push({
+            menuItemId: item.itemId,
+            name: menuItem.name,
+            reason: 'category_inactive',
+          });
+          continue;
+        }
+
+        let unitPriceSnapshot = menuItem.price;
+        const selectedAddOns = [];
+
+        if (item.selectedAddOns && Array.isArray(item.selectedAddOns)) {
+          for (const selected of item.selectedAddOns) {
+            const match = menuItem.addOns?.find((addon) => addon.name === selected.name);
+            if (match) {
+              unitPriceSnapshot += match.priceDelta;
+              selectedAddOns.push({
+                name: match.name,
+                priceDelta: match.priceDelta,
+              });
+            }
+          }
+        }
+
+        validatedItems.push({
+          menuItemId: menuItem._id,
+          nameSnapshot: menuItem.name,
+          unitPriceSnapshot,
+          quantity: item.quantity || 1,
+          selectedAddOns,
+          specialInstructions: item.specialInstructions || '',
+          prepTimeMinutesSnapshot: menuItem.prepTimeMinutes,
+          itemStatus: 'PENDING',
+        });
+      }
+
+      if (failedItems.length > 0) {
+        sendError(
+          res,
+          'ITEMS_UNAVAILABLE',
+          'Some items in your basket are currently unavailable.',
+          failedItems,
+          400
+        );
+        return;
+      }
+
+      const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
+      const activeTaxes: any[] = await Tax.find({ restaurantId: restaurant._id, isActive: true });
+
+      let tax = 0;
+      const taxBreakdown: any[] = [];
+      const groups = activeTaxes.filter((t) => t.type === 'GROUP');
+      const standardTaxes = activeTaxes.filter((t) => t.type === 'TAX');
+
+      for (const group of groups) {
+        const subTaxes = standardTaxes.filter((t) => t.groupId?.toString() === group._id.toString());
+        if (subTaxes.length === 0) continue;
+
+        let groupAmount = 0;
+        let groupPercentage = 0;
+        const subTaxesBreakdown = subTaxes.map((st) => {
+          const amt = Math.round(subtotal * (st.percentage / 100));
+          groupAmount += amt;
+          groupPercentage += st.percentage;
+          return { name: st.name, percentage: st.percentage, amount: amt };
+        });
+
+        tax += groupAmount;
+        taxBreakdown.push({
+          name: group.name,
+          percentage: groupPercentage,
+          amount: groupAmount,
+          subTaxes: subTaxesBreakdown,
+        });
+      }
+
+      const standaloneTaxes = standardTaxes.filter((t) => !t.groupId);
+      for (const st of standaloneTaxes) {
+        const amount = Math.round(subtotal * (st.percentage / 100));
+        tax += amount;
+        taxBreakdown.push({
+          name: st.name,
+          percentage: st.percentage,
+          amount,
+          subTaxes: [],
+        });
+      }
+
+      const total = subtotal + tax;
+
+      const counter = await OrderCounter.findOneAndUpdate(
+        { restaurantId: restaurant._id },
+        { $inc: { seq: 1 } },
+        { upsert: true, new: true }
+      );
+      const orderNumber = counter.seq;
+
+      const formattedAddress = typeof deliveryAddress === 'string'
+        ? { fullAddress: deliveryAddress.trim() }
+        : deliveryAddress;
+
+      const order = new Order({
+        restaurantId: restaurant._id,
+        orderMode,
+        deliveryAddress: orderMode === 'DELIVERY' ? formattedAddress : undefined,
+        isMerged: false,
+        orderNumber,
+        items: validatedItems,
+        subtotal,
+        tax,
+        taxBreakdown,
+        total,
+        customerNote: customerNote || '',
+        status: 'PENDING',
+        source: 'QR',
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        paymentStatus: paymentStatus || 'PENDING',
+        integrationMetadata: {},
+      });
+
+      await order.save();
+      await restaurantStatsService.recordOrderCreated(restaurant._id);
+
+      try {
+        const providerName = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
+        const syncLog = new IntegrationSyncLog({
+          restaurantId: restaurant._id,
+          orderId: order._id,
+          provider: providerName,
+          status: 'ORDER_SYNC_PENDING',
+          syncAttempts: 1,
+        });
+        await syncLog.save();
+
+        const adapter = IntegrationFactory.getAdapter(providerName);
+        adapter.pushOrder(order)
+          .then(async () => {
+            syncLog.status = 'ORDER_SYNCED';
+            await syncLog.save();
+          })
+          .catch(async (err: any) => {
+            syncLog.status = 'ORDER_SYNC_FAILED';
+            syncLog.errorLog = err.message || 'Unknown integration error';
+            await syncLog.save();
+          });
+      } catch (integrationErr) {
+        console.error('Failed to trigger POS integration sync:', integrationErr);
+      }
+
+      try {
+        const orderSummary = {
+          _id: order._id,
+          restaurantId: order.restaurantId,
+          orderMode: order.orderMode,
+          deliveryAddress: order.deliveryAddress,
+          orderNumber: order.orderNumber,
+          items: order.items,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          taxBreakdown: order.taxBreakdown,
+          total: order.total,
+          customerNote: order.customerNote,
+          status: order.status,
+          source: order.source,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          createdAt: order.createdAt,
+        };
+        NotificationService.getInstance().notifyOrderCreated(restaurant._id.toString(), orderSummary);
+      } catch (err) {
+        console.error('Failed to notify order changes:', err);
+      }
+
+      sendSuccess(res, order, 'Order placed successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createPaymentIntent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantSlug } = req.params;
+      const { amount, currency, metadata } = req.body;
+
+      if (!amount || amount <= 0) {
+        sendError(res, 'BAD_REQUEST', 'Invalid amount', null, 400);
+        return;
+      }
+
+      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      const intent = await paymentService.createIntent(restaurant._id, amount, currency || 'INR', metadata);
+
+      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+      let razorpayKeyId: string | undefined;
+      if (settings?.paymentConfig?.activeProvider === 'RAZORPAY') {
+        razorpayKeyId = settings.paymentConfig.razorpayConfig?.keyId;
+      }
+
+      sendSuccess(res, { ...intent, razorpayKeyId }, 'Payment intent created successfully', 201);
     } catch (error) {
       next(error);
     }

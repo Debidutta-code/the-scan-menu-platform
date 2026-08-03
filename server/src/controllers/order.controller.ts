@@ -1,8 +1,10 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Order, OrderStatus } from '../models/Order';
+import { Order, OrderStatus, OrderCounter } from '../models/Order';
 import { TableSession } from '../models/TableSession';
 import { RestaurantSettings } from '../models/RestaurantSettings';
+import { MenuItem } from '../models/MenuItem';
+import { Tax } from '../models/Tax';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { validateStatusTransition } from '../utils/orderStateMachine';
 import { sendSuccess, sendError } from '../utils/response';
@@ -13,6 +15,7 @@ export class OrderController {
   constructor() {
     this.listOrders = this.listOrders.bind(this);
     this.listActiveOrders = this.listActiveOrders.bind(this);
+    this.createCounterOrder = this.createCounterOrder.bind(this);
     this.getOrderDetails = this.getOrderDetails.bind(this);
     this.updateOrderStatus = this.updateOrderStatus.bind(this);
     this.cancelOrder = this.cancelOrder.bind(this);
@@ -236,6 +239,7 @@ export class OrderController {
 
       const settings = await RestaurantSettings.findOne({ restaurantId });
       const isPrepaid = settings?.paymentConfig?.activeMode === 'PREPAID';
+      const hasDigitalPayment = settings?.paymentConfig?.activeProvider && settings.paymentConfig.activeProvider !== 'CASH';
 
       // Active orders are defined as anything not SERVED and not CANCELLED
       const query: any = {
@@ -243,7 +247,7 @@ export class OrderController {
         status: { $nin: ['SERVED', 'CANCELLED'] },
       };
 
-      if (isPrepaid) {
+      if (isPrepaid || hasDigitalPayment) {
         query.paymentStatus = { $ne: 'PENDING' };
       }
 
@@ -251,6 +255,142 @@ export class OrderController {
         .sort({ createdAt: 1 })
         .populate('tableId', 'displayName tableNumber'); // Oldest first for kitchen prep queues
       sendSuccess(res, orders, 'Active orders retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createCounterOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { items, customerNote, customerName, customerPhone, paymentStatus } = req.body;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        sendError(res, 'BAD_REQUEST', 'Order items are required and must be a non-empty array', null, 400);
+        return;
+      }
+
+      const validatedItems = [];
+      for (const item of items) {
+        if (!item.itemId) {
+          sendError(res, 'BAD_REQUEST', 'Each order item must specify an itemId', null, 400);
+          return;
+        }
+
+        const menuItem = await MenuItem.findById(item.itemId);
+        if (!menuItem || menuItem.restaurantId.toString() !== restaurantId) {
+          sendError(res, 'BAD_REQUEST', `Item ${item.itemId} not found`, null, 400);
+          return;
+        }
+
+        let unitPriceSnapshot = menuItem.price;
+        const selectedAddOns = [];
+
+        if (item.selectedAddOns && Array.isArray(item.selectedAddOns)) {
+          for (const selected of item.selectedAddOns) {
+            const match = menuItem.addOns?.find((addon: any) => addon.name === selected.name);
+            if (match) {
+              unitPriceSnapshot += match.priceDelta;
+              selectedAddOns.push({
+                name: match.name,
+                priceDelta: match.priceDelta,
+              });
+            }
+          }
+        }
+
+        validatedItems.push({
+          menuItemId: menuItem._id,
+          nameSnapshot: menuItem.name,
+          unitPriceSnapshot,
+          quantity: item.quantity || 1,
+          selectedAddOns,
+          specialInstructions: item.specialInstructions || '',
+          prepTimeMinutesSnapshot: menuItem.prepTimeMinutes,
+          itemStatus: 'PENDING',
+        });
+      }
+
+      const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
+      const activeTaxes: any[] = await Tax.find({ restaurantId, isActive: true });
+
+      let tax = 0;
+      const taxBreakdown: any[] = [];
+      const groups = activeTaxes.filter((t) => t.type === 'GROUP');
+      const standardTaxes = activeTaxes.filter((t) => t.type === 'TAX');
+
+      for (const group of groups) {
+        const subTaxes = standardTaxes.filter((t) => t.groupId?.toString() === group._id.toString());
+        if (subTaxes.length === 0) continue;
+
+        let groupAmount = 0;
+        let groupPercentage = 0;
+        const subTaxesBreakdown = subTaxes.map((st) => {
+          const amt = Math.round(subtotal * (st.percentage / 100));
+          groupAmount += amt;
+          groupPercentage += st.percentage;
+          return { name: st.name, percentage: st.percentage, amount: amt };
+        });
+
+        tax += groupAmount;
+        taxBreakdown.push({
+          name: group.name,
+          percentage: groupPercentage,
+          amount: groupAmount,
+          subTaxes: subTaxesBreakdown,
+        });
+      }
+
+      const standaloneTaxes = standardTaxes.filter((t) => !t.groupId);
+      for (const st of standaloneTaxes) {
+        const amount = Math.round(subtotal * (st.percentage / 100));
+        tax += amount;
+        taxBreakdown.push({
+          name: st.name,
+          percentage: st.percentage,
+          amount,
+          subTaxes: [],
+        });
+      }
+
+      const total = subtotal + tax;
+
+      const counter = await OrderCounter.findOneAndUpdate(
+        { restaurantId },
+        { $inc: { seq: 1 } },
+        { upsert: true, new: true }
+      );
+      const orderNumber = counter.seq;
+
+      const order = new Order({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        orderMode: 'COUNTER',
+        isMerged: false,
+        orderNumber,
+        items: validatedItems,
+        subtotal,
+        tax,
+        taxBreakdown,
+        total,
+        customerNote: customerNote || '',
+        status: 'PENDING',
+        source: 'POS',
+        customerName: customerName ? customerName.trim() : 'Walk-in Customer',
+        customerPhone: customerPhone ? customerPhone.trim() : undefined,
+        paymentStatus: paymentStatus || 'PAID',
+        integrationMetadata: {},
+      });
+
+      await order.save();
+      await restaurantStatsService.recordOrderCreated(restaurantId);
+
+      try {
+        NotificationService.getInstance().notifyOrderCreated(restaurantId, order);
+      } catch (err) {
+        console.error('Failed to notify counter order creation:', err);
+      }
+
+      sendSuccess(res, order, 'Counter order created successfully', 201);
     } catch (error) {
       next(error);
     }

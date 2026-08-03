@@ -34,6 +34,7 @@ export const runMigration = async () => {
     // Group unmigrated orders by tableId
     const tableOrdersMap = new Map<string, any[]>();
     for (const order of unmigratedOrders) {
+      if (!order.tableId) continue;
       const tableIdStr = order.tableId.toString();
       if (!tableOrdersMap.has(tableIdStr)) {
         tableOrdersMap.set(tableIdStr, []);

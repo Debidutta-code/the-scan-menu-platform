@@ -32,3 +32,11 @@ This is a living document tracking the progress of the 16 implementation phases.
 - **Pull Request / Commit**: Auto-generated
 - **Notes**: Implemented `RazorpayAdapter` against `PaymentProvider` interface, app-wide AES-256-GCM encryption for API secrets, secure webhooks, and UI integrations.
 - **Risks**: Real-world webhook replay timing needs monitoring, but idempotency and rate limiting are fully enforced.
+
+## Phase 8: Ordering Modes Expansion
+- **Status**: Completed
+- **Started Date**: Today
+- **Completed Date**: Today
+- **Pull Request / Commit**: Auto-generated
+- **Notes**: Successfully implemented Ordering Modes Expansion (Dine-In, Takeaway, Delivery, Counter). Made `tableId`/`sessionId` optional on `Order` and added explicit `orderMode` enum. Implemented sessionless customer order creation and public payment intents for Takeaway/Delivery. Added authenticated staff-facing rapid Counter POS endpoint. Updated `listActiveOrders` with mode-aware prepaid gating. Implemented `PublicSessionlessOrder.tsx` and `ManagerCounter.tsx`. Added idempotent migration script `migratePhase8.ts`. Restored `docs/DATABASE.md` and `implementation/02_DATABASE.md` with full schema specs.
+- **Risks**: None. All 17 test files (91 tests) pass, 0 TypeScript errors, 0 ESLint warnings/errors.

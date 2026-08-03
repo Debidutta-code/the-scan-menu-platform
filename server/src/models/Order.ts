@@ -28,6 +28,16 @@ export const OrderCounter = model<IOrderCounter>('OrderCounter', orderCounterSch
 
 export type OrderStatus = 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 export type OrderSource = 'QR' | 'POS' | 'API' | 'MANUAL';
+export type OrderMode = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | 'COUNTER';
+
+export interface IDeliveryAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  fullAddress?: string;
+  notes?: string;
+}
 
 export interface IOrderAddOn {
   name: string;
@@ -59,9 +69,11 @@ export interface IOrderTaxBreakdown {
 
 export interface IOrder extends Document {
   restaurantId: Types.ObjectId;
-  tableId: Types.ObjectId;
-  sessionId: Types.ObjectId;
-  roundNumber: number;
+  tableId?: Types.ObjectId;
+  sessionId?: Types.ObjectId;
+  orderMode: OrderMode;
+  deliveryAddress?: IDeliveryAddress;
+  roundNumber?: number;
   isMerged: boolean;
   orderNumber: number; // sequential per restaurant
   items: IOrderItem[];
@@ -111,9 +123,23 @@ const orderItemSchema = new Schema<IOrderItem>(
 const orderSchema = new Schema<IOrder>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
-    tableId: { type: Schema.Types.ObjectId, ref: 'Table', required: true },
-    sessionId: { type: Schema.Types.ObjectId, ref: 'TableSession', required: true },
-    roundNumber: { type: Number, required: true },
+    tableId: { type: Schema.Types.ObjectId, ref: 'Table', required: false },
+    sessionId: { type: Schema.Types.ObjectId, ref: 'TableSession', required: false },
+    orderMode: {
+      type: String,
+      required: true,
+      enum: ['DINE_IN', 'TAKEAWAY', 'DELIVERY', 'COUNTER'],
+      default: 'DINE_IN',
+    },
+    deliveryAddress: {
+      street: { type: String, trim: true },
+      city: { type: String, trim: true },
+      state: { type: String, trim: true },
+      zipCode: { type: String, trim: true },
+      fullAddress: { type: String, trim: true },
+      notes: { type: String, trim: true },
+    },
+    roundNumber: { type: Number, required: false },
     isMerged: { type: Boolean, required: true, default: false },
     orderNumber: { type: Number, required: true },
     items: [orderItemSchema],
@@ -170,7 +196,7 @@ const orderSchema = new Schema<IOrder>(
 // Pre-validate hook to auto-heal missing sessionId and roundNumber for legacy or unmigrated orders
 orderSchema.pre('validate', async function (this: any, next) {
   try {
-    if ((!this.sessionId || !this.roundNumber) && this.restaurantId && this.tableId) {
+    if (this.tableId && (!this.sessionId || !this.roundNumber) && this.restaurantId) {
       let session = await TableSession.findOne({
         restaurantId: this.restaurantId,
         tableId: this.tableId,
@@ -249,6 +275,9 @@ orderSchema.index({ restaurantId: 1, status: 1 });
 
 // 3. Query compound index on restaurantId + createdAt (critical for paginated histories and reports)
 orderSchema.index({ restaurantId: 1, createdAt: -1 });
+
+// 4. Query compound index on restaurantId + orderMode + createdAt
+orderSchema.index({ restaurantId: 1, orderMode: 1, createdAt: -1 });
 
 export const Order = model<IOrder>('Order', orderSchema);
 export default Order;

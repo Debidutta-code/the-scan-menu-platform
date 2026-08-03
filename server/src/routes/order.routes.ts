@@ -17,6 +17,9 @@ router.get('/:restaurantId/orders/:orderId', requireFeature('ordering') as any, 
 router.patch('/:restaurantId/orders/:orderId/status', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.updateOrderStatus);
 router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.cancelOrder);
 
+// Rapid Counter Order Entry (Staff & Manager)
+router.post('/:restaurantId/orders/counter', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.createCounterOrder);
+
 // Item status tick transitions
 router.patch('/:restaurantId/orders/:orderId/items/:itemIndex/status', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.updateItemStatus);
 

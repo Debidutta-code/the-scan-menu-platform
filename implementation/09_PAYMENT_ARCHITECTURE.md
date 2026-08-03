@@ -28,3 +28,9 @@ The database schema (`Restaurant.paymentOptions`) already anticipates integratio
     *   Client uses the provider's SDK (e.g., Razorpay Checkout JS) to capture payment.
 3.  **Webhooks**: **Crucial.** The backend must expose secure webhook endpoints to receive asynchronous payment confirmations from the provider.
 4.  **Reconciliation**: The webhook handler will verify the signature, find the associated `TableSession` or `Order`, and update the `paymentStatus` to `PAID`, triggering Socket.IO events to update the staff dashboard automatically.
+
+## Phase 8: Ordering Modes Payment Interaction
+* **Dine-In**: Follows the restaurant's configured `activeMode` (`PREPAID` or `POSTPAID`). Integrated with `TableSession`.
+* **Takeaway**: Session-less. Follows the restaurant's configured `activeMode` (`PREPAID` or `POSTPAID`).
+* **Delivery**: Always effectively **Prepaid** when a digital payment provider (Razorpay) is configured. Checkout goes through the Phase 7 payment-intent -> webhook-confirmation flow before the order is treated as active/visible on the kitchen board. If the restaurant has no digital provider (`CASH`), orders are placed directly as active and labeled as "Cash on Delivery".
+* **Counter**: Staff-facing rapid entry for walk-in cash customers. Bypasses customer checkout and creates orders directly in an active state with `paymentStatus: 'PAID'`.

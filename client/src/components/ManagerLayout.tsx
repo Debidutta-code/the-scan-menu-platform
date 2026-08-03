@@ -47,6 +47,8 @@ export const ManagerLayout: React.FC = () => {
   const currentPath = location.pathname;
   const activeTab = currentPath.startsWith('/manager/orders')
     ? 'orders'
+    : currentPath.startsWith('/manager/counter')
+    ? 'counter'
     : currentPath.startsWith('/manager/transactions')
     ? 'transactions'
     : currentPath.startsWith('/manager/waiter-calls')
@@ -295,6 +297,20 @@ export const ManagerLayout: React.FC = () => {
             )}
           </button>
 
+          {/* Counter POS tab */}
+          <button
+            onClick={() => navigate('/manager/counter')}
+            className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'counter'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Calculator className="w-4 h-4" strokeWidth={1.75} />
+              <span>Counter POS</span>
+            </div>
+          </button>
 
           {/* Transactions tab (Sidebar) */}
           <button

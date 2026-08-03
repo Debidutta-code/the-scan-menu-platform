@@ -143,3 +143,73 @@ Changes password for the currently logged-in user.
 - **Error Responses:**
   - `400 Bad Request` (Invalid criteria or format)
   - `401 Unauthorized` (Invalid current password or token expired)
+
+---
+
+## Phase 8 Ordering Mode Endpoints
+
+### 6. Create Sessionless Order (Public Customer - Takeaway / Delivery)
+- **Method:** `POST`
+- **Path:** `/api/v1/public/restaurants/:restaurantSlug/orders`
+- **Auth:** Public (Rate-limited)
+- **Request Body (JSON):**
+  ```json
+  {
+    "orderMode": "TAKEAWAY",
+    "customerName": "John Doe",
+    "customerPhone": "9876543210",
+    "deliveryAddress": { "street": "123 Main St", "city": "Metropolis" },
+    "items": [{ "itemId": "60d0fe...", "quantity": 1 }]
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": { "_id": "...", "orderMode": "TAKEAWAY", "orderNumber": 101 },
+    "message": "Order placed successfully"
+  }
+  ```
+
+### 7. Create Counter Order (Staff / Manager)
+- **Method:** `POST`
+- **Path:** `/api/v1/restaurants/:restaurantId/orders/counter`
+- **Auth:** Required (`MANAGER`, `STAFF`)
+- **Request Body (JSON):**
+  ```json
+  {
+    "customerName": "Walk-in Customer",
+    "paymentStatus": "PAID",
+    "items": [{ "itemId": "60d0fe...", "quantity": 2 }]
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": { "_id": "...", "orderMode": "COUNTER", "paymentStatus": "PAID" },
+    "message": "Counter order created successfully"
+  }
+  ```
+
+### 8. Create Sessionless Payment Intent (Public Customer)
+- **Method:** `POST`
+- **Path:** `/api/v1/public/restaurants/:restaurantSlug/payments/intent`
+- **Auth:** Public
+- **Request Body (JSON):**
+  ```json
+  {
+    "amount": 1500,
+    "currency": "INR",
+    "metadata": { "orderId": "60d0fe..." }
+  }
+  ```
+- **Success Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": { "transactionId": "...", "providerReferenceId": "order_xyz", "razorpayKeyId": "rzp_test_..." },
+    "message": "Payment intent created successfully"
+  }
+  ```
+

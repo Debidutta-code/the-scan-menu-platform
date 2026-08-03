@@ -15,9 +15,11 @@ import ManagerSettings from './pages/ManagerSettings';
 import ManagerAnalytics from './pages/ManagerAnalytics';
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerTransactions from './pages/ManagerTransactions';
+import ManagerCounter from './pages/ManagerCounter';
 import ManagerLayout from './components/ManagerLayout';
 import PublicTable from './pages/PublicTable';
 import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
+import PublicSessionlessOrder from './pages/PublicSessionlessOrder';
 
 const DashboardRedirect = () => {
   const { user } = useAuth();
@@ -38,6 +40,7 @@ export const App = () => {
             {/* Public customer dining view */}
             <Route path="/r/:restaurantSlug/t/:tableToken" element={<PublicTable />} />
             <Route path="/r/:restaurantSlug/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
+            <Route path="/r/:restaurantSlug/order" element={<PublicSessionlessOrder />} />
 
             {/* Public login */}
             <Route path="/login" element={<Login />} />
@@ -56,6 +59,7 @@ export const App = () => {
             <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'STAFF', 'SUPER_ADMIN']} />}>
               <Route element={<ManagerLayout />}>
                 <Route path="/manager/orders" element={<ManagerOrders />} />
+                <Route path="/manager/counter" element={<ManagerCounter />} />
                 <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                 <Route path="/manager/profile" element={<ManagerProfile />} />
                 <Route path="/manager/transactions" element={<ManagerTransactions />} />
