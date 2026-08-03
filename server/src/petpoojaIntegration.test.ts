@@ -227,7 +227,7 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
 
       // Verify in DB that secrets were encrypted
       const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
-      const config = settings?.paymentConfig?.integrationConfig?.config;
+      const config = settings?.paymentConfig?.integrationConfig?.config || {};
       expect(config.appKey).not.toBe('raw_app_key_123');
       expect(decrypt(config.appKey)).toBe('raw_app_key_123');
     });
