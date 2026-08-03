@@ -13,6 +13,7 @@ import ManagerStaff from './pages/ManagerStaff';
 import ManagerTaxes from './pages/ManagerTaxes';
 import ManagerSettings from './pages/ManagerSettings';
 import ManagerAnalytics from './pages/ManagerAnalytics';
+import ManagerDeveloper from './pages/ManagerDeveloper';
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerTransactions from './pages/ManagerTransactions';
 import ManagerCounter from './pages/ManagerCounter';
@@ -74,6 +75,7 @@ export const App = () => {
                   <Route path="/manager/taxes" element={<ManagerTaxes />} />
                   <Route path="/manager/settings" element={<ManagerSettings />} />
                   <Route path="/manager/analytics" element={<ManagerAnalytics />} />
+                  <Route path="/manager/developer" element={<ManagerDeveloper />} />
                 </Route>
               </Route>
             </Route>

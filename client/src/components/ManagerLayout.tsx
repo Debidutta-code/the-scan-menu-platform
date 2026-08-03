@@ -22,6 +22,7 @@ import {
   Users,
   Calculator,
   Flame,
+  Code,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -68,6 +69,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'settings'
     : currentPath.startsWith('/manager/analytics')
     ? 'analytics'
+    : currentPath.startsWith('/manager/developer')
+    ? 'developer'
     : currentPath.startsWith('/manager/profile')
     ? 'profile'
     : '';
@@ -459,6 +462,21 @@ export const ManagerLayout: React.FC = () => {
             >
               <BarChart3 className="w-4 h-4" strokeWidth={1.75} />
               <span>Analytics & Insights</span>
+            </button>
+          )}
+
+          {/* Developer API & Webhooks tab (Manager/Super Admin only) */}
+          {!isStaff && isEnabled('api_webhooks') && (
+            <button
+              onClick={() => navigate('/manager/developer')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'developer'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Code className="w-4 h-4" strokeWidth={1.75} />
+              <span>Developer API & Webhooks</span>
             </button>
           )}
 

@@ -42,8 +42,8 @@ The platform is divided into discrete modules that can be toggled via Feature Fl
 | **Inventory** | Not Available | Not Available | Optional Add-on | Included (Phase 12 Completed) |
 | **CRM & Loyalty** | Not Available | Not Available | Not Available | Included |
 | **Reservations** | Not Available | Not Available | Not Available | Included |
-| **White Label** | Not Available | Not Available | Not Available | Included |
-| **API/Webhooks** | Not Available | Not Available | Not Available | Included |
+| **White Label** | Not Available | Not Available | Not Available | Included (Phase 14 Completed) |
+| **API/Webhooks** | Not Available | Not Available | Not Available | Included (Phase 15 Completed) |
 
 ---
 

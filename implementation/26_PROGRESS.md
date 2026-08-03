@@ -80,3 +80,21 @@ This is a living document tracking the progress of the 16 implementation phases.
 - **Notes**: Successfully implemented production-grade Analytics & Reporting. Created `AnalyticsService` (`server/src/services/analytics.service.ts`) with index-backed MongoDB aggregation pipelines for time-series revenue metrics, top-selling items with `isAvailable`/`isArchived` badges, and peak hours parameterized by restaurant local timezone. Enforced strict revenue exclusion for cancelled, unpaid, and failed orders. Verified Petpooja-relayed orders are counted exactly once. Created Zod validator `analyticsQuerySchema`, `AnalyticsController`, and `analytics.routes.ts` mounted at `/api/v1/restaurants/:restaurantId/analytics` (guarded by `requireAuth`, `requireFeature('analytics')`, `requireRestaurantAccess`, `requireRole('MANAGER', 'SUPER_ADMIN')`). Enhanced `ManagerAnalytics.tsx` frontend dashboard with status badges and CSV exporter. Created `14_ANALYTICS.md` technical specification. 100% passed Vitest test suite (`analytics.test.ts`).
 - **Risks**: Heavy multi-year queries across millions of order rows should eventually utilize read replicas in Phase 16 production hardening, but indexed live aggregations are optimal for current volume.
 
+## Phase 14: White Label Capabilities
+- **Status**: Completed
+- **Started Date**: Today
+- **Completed Date**: Today
+- **Pull Request / Commit**: Auto-generated
+- **Notes**: Successfully implemented production-grade White Label Capabilities for Enterprise tenants. Extended `RestaurantSettings` with `whiteLabelConfig` subdocument and sparse index on `whiteLabelConfig.customDomain`. Built `WhiteLabelService`, `WhiteLabelController`, and `whiteLabel.routes.ts` mounted at `/api/v1/restaurants/:restaurantId/white-label` and `GET /api/v1/public/white-label/domain/:domain` (guarded by `requireAuth`, `requireFeature('white_label')`, `requireRestaurantAccess`, `requireRole('MANAGER', 'SUPER_ADMIN')`). Created `useWhiteLabelTheme.ts` React hook for dynamic CSS variable injection (`--brand-primary`, `--brand-secondary`, `--brand-bg`, `--brand-text`, `--brand-font`), Google font loading, favicon replacement, and custom CSS overrides. Added White Label & Enterprise Branding card to `ManagerSettings.tsx`. Created `15_WHITE_LABEL.md` technical specification. Passed 100% of Vitest test suite (`whiteLabel.test.ts`).
+- **Risks**: Custom domain SSL termination and reverse proxy routing must be configured at the edge load balancer (Cloudflare/Netlify/Nginx) in production.
+
+## Phase 15: Plugin Framework (Public API & Webhooks)
+- **Status**: Completed
+- **Started Date**: Today
+- **Completed Date**: Today
+- **Pull Request / Commit**: Auto-generated
+- **Notes**: Successfully implemented production-grade Plugin Framework. Created `ApiKey` and `WebhookSubscription` database models with SHA-256 key hashing (`keyHash`) and key prefix masking. Built `ApiKeyService`, `WebhookDispatcherService`, `requireApiKey` middleware, `OpenApiController` mounted at `/api/v1/openapi`, and `DeveloperController` mounted at `/api/v1/restaurants/:restaurantId/developer` (guarded by `requireAuth`, `requireFeature('api_webhooks')`, `requireRestaurantAccess`, `requireRole('MANAGER', 'SUPER_ADMIN')`). Created `ManagerDeveloper.tsx` frontend portal for API key generation, scope selection, webhook subscription, test pings, and delivery log inspection. Created `16_PLUGIN_FRAMEWORK.md` technical specification. Passed 100% of Vitest test suite (`pluginFramework.test.ts`).
+- **Risks**: High-volume webhook endpoints should offload dispatch to Redis/BullMQ background queue worker in Phase 16 production hardening.
+
+
+

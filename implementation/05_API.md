@@ -101,3 +101,20 @@ Within this namespace, sub-routers handle specific domains:
 *   `GET /api/v1/restaurants/:restaurantId/analytics/top-items` - Retrieve top-selling menu items by quantity or revenue with item availability badges (Manager/Super Admin, `analytics` flag required).
 *   `GET /api/v1/restaurants/:restaurantId/analytics/peak-hours` - Retrieve hourly and daily order volume distribution in restaurant local timezone (Manager/Super Admin, `analytics` flag required).
 *   `GET /api/v1/restaurants/:restaurantId/analytics` - Composite analytics overview payload for Manager Dashboard UI (Manager/Super Admin, `analytics` flag required).
+
+### White Label Capabilities (Phase 14)
+*   `GET /api/v1/restaurants/:restaurantId/white-label` - Retrieve tenant white label configuration (Manager/Super Admin, `white_label` flag required).
+*   `PATCH /api/v1/restaurants/:restaurantId/white-label` - Update colors, fonts, logo, favicon, custom domain, and powered-by badge visibility (Manager/Super Admin, `white_label` flag required).
+*   `GET /api/v1/public/white-label/domain/:domain` - Resolve active tenant and public branding configuration by custom domain hostname (Public).
+
+### Plugin Framework - Public OpenAPI & Webhooks (Phase 15)
+*   `GET /api/v1/openapi/menu` - Fetch catalog menu categories and items (X-API-Key with `menu:read` scope).
+*   `GET /api/v1/openapi/orders` - Fetch tenant orders with status & date filters (X-API-Key with `orders:read` scope).
+*   `POST /api/v1/openapi/orders` - Place external order via API (X-API-Key with `orders:write` scope).
+*   `GET /api/v1/openapi/webhooks` - List active webhook subscriptions (X-API-Key with `webhooks:manage` scope).
+*   `POST /api/v1/openapi/webhooks` - Register new webhook target URL (X-API-Key with `webhooks:manage` scope).
+*   `DELETE /api/v1/openapi/webhooks/:webhookId` - Delete webhook subscription (X-API-Key with `webhooks:manage` scope).
+*   `GET /api/v1/restaurants/:restaurantId/developer/api-keys` - List API keys (Manager/Super Admin, `api_webhooks` flag required).
+*   `POST /api/v1/restaurants/:restaurantId/developer/api-keys` - Create API key (Manager/Super Admin, `api_webhooks` flag required).
+*   `DELETE /api/v1/restaurants/:restaurantId/developer/api-keys/:keyId` - Revoke API key (Manager/Super Admin, `api_webhooks` flag required).
+*   `POST /api/v1/restaurants/:restaurantId/developer/webhooks/:webhookId/test` - Trigger test ping webhook (Manager/Super Admin, `api_webhooks` flag required).

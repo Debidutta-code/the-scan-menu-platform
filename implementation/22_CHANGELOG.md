@@ -1,3 +1,34 @@
+## [Phase 15] - Plugin Framework (Public API & Webhooks)
+
+### Added
+- Created `ApiKey` database model (`server/src/models/ApiKey.ts`) with SHA-256 key hashing discipline (`keyHash`), key prefix masking (`tsm_live_...`), scopes (`menu:read`, `orders:read`, `orders:write`, `webhooks:manage`), and expiration handling.
+- Created `WebhookSubscription` database model (`server/src/models/WebhookSubscription.ts`) storing target URLs, event triggers (`order.created`, `order.status_updated`, `inventory.low_stock`, `table_session.closed`), HMAC secrets, failure counters, and delivery logs.
+- Created `ApiKeyService` (`server/src/services/apiKey.service.ts`) for raw key generation (`tsm_live_<32_random_bytes_hex>`) and SHA-256 hash verification.
+- Created `WebhookDispatcherService` (`server/src/services/webhookDispatcher.service.ts`) for non-blocking asynchronous event dispatch signed with HMAC-SHA256 headers (`X-TSM-Signature: t=timestamp,v1=hmac_hex`) and circuit breaking.
+- Created authentication middleware `requireApiKey` (`server/src/middleware/apiKey.middleware.ts`) enforcing API key header verification and scope entitlements.
+- Created OpenAPI namespace `OpenApiController` (`server/src/controllers/openapi.controller.ts`) and router mounted at `/api/v1/openapi`.
+- Created Developer Dashboard controller (`server/src/controllers/developer.controller.ts`) and router mounted at `/api/v1/restaurants/:restaurantId/developer` (gated by `api_webhooks` feature flag).
+- Created Manager Developer Portal page `ManagerDeveloper.tsx` for key management, scope selection, webhook subscription, test pings, and delivery log inspection.
+- Created `16_PLUGIN_FRAMEWORK.md` technical specification document.
+- Comprehensive Vitest test suite in `server/src/pluginFramework.test.ts` passing 8/8 tests (100%).
+
+---
+
+## [Phase 14] - White Label Capabilities
+
+### Added
+- Extended `RestaurantSettings` database model with `whiteLabelConfig` subdocument and sparse index on `whiteLabelConfig.customDomain` for tenant hostname resolution.
+- Created Zod validator `whiteLabelConfigSchema` (`server/src/validators/whiteLabel.validator.ts`) for color hex/hsl codes, logo/favicon URLs, custom domain hostnames, and custom CSS string limits.
+- Created `WhiteLabelService` (`server/src/services/whiteLabel.service.ts`), `WhiteLabelController` (`server/src/controllers/whiteLabel.controller.ts`), and router `whiteLabel.routes.ts` mounted at `/api/v1/restaurants/:restaurantId/white-label`.
+- Domain uniqueness constraint ensuring no two tenants can register the same custom domain (HTTP 409 `CUSTOM_DOMAIN_TAKEN`).
+- Public custom domain resolution endpoint `GET /api/v1/public/white-label/domain/:domain`.
+- React hook `useWhiteLabelTheme` (`client/src/hooks/useWhiteLabelTheme.ts`) for dynamic CSS variable injection (`--brand-primary`, `--brand-secondary`, `--brand-bg`, `--brand-text`, `--brand-font`), Google font stylesheet loading, dynamic favicon replacement, and custom CSS override injection.
+- Added White Label & Enterprise Branding card to `ManagerSettings.tsx` gated behind `white_label` feature flag.
+- Created `15_WHITE_LABEL.md` technical specification document.
+- Comprehensive Vitest test suite in `server/src/whiteLabel.test.ts` covering configuration management, custom domain uniqueness, public resolution, feature flag gating, role authorization, and tenant isolation (9 tests, 100% pass rate).
+
+---
+
 ## [Phase 13] - Analytics & Reporting
 
 ### Added

@@ -76,3 +76,24 @@ This document details the step-by-step user interaction flows across the Pixora 
 5. **Peak Hours & Local Timezone Insights**: Manager analyzes hourly (00:00 - 23:00) and daily sales volume distributions calculated in the restaurant's local timezone (`timezone` from `RestaurantSettings`, e.g. `'Asia/Kolkata'`).
 6. **Mode & Source Attribution**: Manager inspects revenue breakdowns by ordering mode (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`) and order source (`QR`, `POS`, `API`, `MANUAL`), verifying Petpooja-relayed orders are counted exactly once.
 7. **CSV Spreadsheet Export**: Manager clicks **Export CSV** to generate a downloadable spreadsheet containing detailed order breakdown records for offline accounting.
+
+---
+
+## 9. White Label & Enterprise Branding Flow (Phase 14 New)
+1. **Manager Branding Setup**: Authenticated Enterprise Manager accesses `/manager/settings` -> White Label card (`PATCH /api/v1/restaurants/:restaurantId/white-label`).
+2. **Customization Inputs**: Manager inputs custom domain hostname (e.g. `menu.gourmetbistro.com`), brand font family, custom logo/favicon URLs, brand primary/secondary/background/text hex colors, and checks **Hide "Powered by The Scan Menu" Badge**.
+3. **Domain Validation & Uniqueness**: Backend verifies domain uniqueness across all tenants before saving settings to `RestaurantSettings.whiteLabelConfig`.
+4. **Public Custom Domain Resolution**: When a customer accesses the menu via the custom domain hostname, the system resolves the active tenant (`GET /api/v1/public/white-label/domain/:domain`).
+5. **Dynamic CSS & Favicon Injection**: `useWhiteLabelTheme` hook dynamically applies CSS variables (`--brand-primary`, `--brand-secondary`, `--brand-bg`, `--brand-text`, `--brand-font`), injects custom Google font stylesheet links, updates `<head>` favicon, and injects custom CSS overrides.
+6. **Powered-By Badge Removal**: Customer menu renders full custom enterprise branding without platform attribution footers.
+
+---
+
+## 10. Developer API & Webhooks Integration Flow (Phase 15 New)
+1. **API Key Generation**: Authenticated Manager accesses `/manager/developer` (`POST /api/v1/restaurants/:restaurantId/developer/api-keys`), specifies key name and scope entitlements (`menu:read`, `orders:read`, `orders:write`, `webhooks:manage`).
+2. **One-Time Secret Copy**: System generates raw API key (`tsm_live_<32_random_bytes_hex>`), stores only SHA-256 hash in DB, and presents raw key ONCE to manager.
+3. **Open API Access**: External system sends HTTP request to `/api/v1/openapi/menu` or `/api/v1/openapi/orders` providing `X-API-Key: tsm_live_...` header.
+4. **Scope Verification**: `requireApiKey` middleware computes SHA-256 hash, validates key status, checks scope entitlements, and executes request.
+5. **Webhook Subscription Setup**: Manager registers target HTTPS webhook URL and trigger events (`order.created`, `order.status_updated`, `inventory.low_stock`).
+6. **HMAC-SHA256 Signed Event Dispatch**: When an event fires, `WebhookDispatcherService` dispatches HTTP POST payload signed with header `X-TSM-Signature: t=timestamp,v1=hmac_hex` and records delivery log.
+7. **Circuit Breaking & Logs**: High failure counts automatically deactivate malfunctioning webhooks; Manager inspects delivery logs in Developer Dashboard.

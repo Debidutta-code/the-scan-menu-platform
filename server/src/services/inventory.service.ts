@@ -1,6 +1,7 @@
 import { MenuItem, IMenuItem } from '../models/MenuItem';
 import { InventoryLog, ActorType } from '../models/InventoryLog';
 import { NotificationService } from './notification.service';
+import { webhookDispatcherService } from './webhookDispatcher.service';
 import mongoose, { Types } from 'mongoose';
 import { logger } from '../utils/logger';
 
@@ -252,6 +253,15 @@ export class InventoryService {
           newAvailability: false,
           orderId: orderId ? new mongoose.Types.ObjectId(orderId) : undefined,
           reason: 'Auto 86 on zero stock',
+        });
+      }
+
+      if (updatedItem.stockQuantity <= (updatedItem.lowStockThreshold || 5)) {
+        webhookDispatcherService.dispatchEvent(rId, 'inventory.low_stock', {
+          menuItemId: updatedItem._id.toString(),
+          name: updatedItem.name,
+          stockQuantity: updatedItem.stockQuantity,
+          isAvailable: updatedItem.isAvailable,
         });
       }
 
