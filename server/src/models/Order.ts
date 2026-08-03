@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 import { getOrderStatusRollup } from '../utils/orderStateMachine';
 import { TableSession } from './TableSession';
 import { RestaurantSettings } from './RestaurantSettings';
@@ -279,5 +279,5 @@ orderSchema.index({ restaurantId: 1, createdAt: -1 });
 // 4. Query compound index on restaurantId + orderMode + createdAt
 orderSchema.index({ restaurantId: 1, orderMode: 1, createdAt: -1 });
 
-export const Order = model<IOrder>('Order', orderSchema);
+export const Order = (mongoose.models.Order as any) || model<IOrder>('Order', orderSchema);
 export default Order;

@@ -95,3 +95,9 @@ Within this namespace, sub-routers handle specific domains:
 ### Inventory Management (Phase 12)
 *   `PATCH /api/v1/restaurants/:restaurantId/menu-items/:itemId/availability` - Toggle 86'd binary item availability status (Staff/Manager/Super Admin, `inventory` flag required).
 *   `PATCH /api/v1/restaurants/:restaurantId/menu-items/:itemId/stock` - Adjust stock tracking, quantity, and low stock threshold (Manager/Super Admin, `inventory` flag required).
+
+### Analytics & Reporting (Phase 13)
+*   `GET /api/v1/restaurants/:restaurantId/analytics/summary` - Retrieve revenue summary, paid/cancelled order counts, AOV, mode & source breakdowns for a date range (Manager/Super Admin, `analytics` flag required).
+*   `GET /api/v1/restaurants/:restaurantId/analytics/top-items` - Retrieve top-selling menu items by quantity or revenue with item availability badges (Manager/Super Admin, `analytics` flag required).
+*   `GET /api/v1/restaurants/:restaurantId/analytics/peak-hours` - Retrieve hourly and daily order volume distribution in restaurant local timezone (Manager/Super Admin, `analytics` flag required).
+*   `GET /api/v1/restaurants/:restaurantId/analytics` - Composite analytics overview payload for Manager Dashboard UI (Manager/Super Admin, `analytics` flag required).

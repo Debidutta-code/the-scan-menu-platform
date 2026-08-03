@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import mongoose, { Schema, model, Document } from 'mongoose';
 
 export type RestaurantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'ARCHIVED';
 
@@ -53,5 +53,5 @@ const restaurantSchema = new Schema<IRestaurant>(
   }
 );
 
-export const Restaurant = model<IRestaurant>('Restaurant', restaurantSchema);
+export const Restaurant = (mongoose.models.Restaurant as any) || model<IRestaurant>('Restaurant', restaurantSchema);
 export default Restaurant;

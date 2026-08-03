@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import mongoose, { Schema, model, Document } from 'mongoose';
 
 export type UserRole = 'SUPER_ADMIN' | 'MANAGER' | 'STAFF';
 
@@ -52,5 +52,5 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-export const User = model<IUser>('User', userSchema);
+export const User = (mongoose.models.User as any) || model<IUser>('User', userSchema);
 export default User;

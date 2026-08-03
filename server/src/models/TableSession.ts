@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 
 export interface ITableSession extends Document {
   restaurantId: Types.ObjectId;
@@ -38,5 +38,5 @@ const tableSessionSchema = new Schema<ITableSession>(
 // Index for fast lookup: "is there an open session for this table"
 tableSessionSchema.index({ restaurantId: 1, tableId: 1, status: 1 });
 
-export const TableSession = model<ITableSession>('TableSession', tableSessionSchema);
+export const TableSession = (mongoose.models.TableSession as any) || model<ITableSession>('TableSession', tableSessionSchema);
 export default TableSession;

@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 
 export interface IRestaurantSettingsTheme {
   primaryColor: string;
@@ -184,5 +184,5 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
   }
 );
 
-export const RestaurantSettings = model<IRestaurantSettings>('RestaurantSettings', restaurantSettingsSchema);
+export const RestaurantSettings = (mongoose.models.RestaurantSettings as any) || model<IRestaurantSettings>('RestaurantSettings', restaurantSettingsSchema);
 export default RestaurantSettings;

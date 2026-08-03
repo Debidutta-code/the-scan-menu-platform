@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 
 export type PaymentProviderType = 'CASH' | 'RAZORPAY' | 'STRIPE' | 'SQUARE';
 export type PaymentMode = 'PREPAID' | 'POSTPAID' | 'HYBRID';
@@ -41,5 +41,5 @@ const transactionSchema = new Schema<ITransaction>(
 transactionSchema.index({ restaurantId: 1, createdAt: -1 });
 transactionSchema.index({ restaurantId: 1, tableSessionId: 1 });
 
-export const Transaction = model<ITransaction>('Transaction', transactionSchema);
+export const Transaction = (mongoose.models.Transaction as any) || model<ITransaction>('Transaction', transactionSchema);
 export default Transaction;

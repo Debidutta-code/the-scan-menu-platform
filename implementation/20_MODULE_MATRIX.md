@@ -34,8 +34,8 @@ The platform is divided into discrete modules that can be toggled via Feature Fl
 | **Waiter Call** | Not Available | Included | Included | Included |
 | **Ordering** | Not Available | Included | Included | Included |
 | **Payment** | Not Available | Optional Add-on | Included | Included |
-| **Analytics (Basic)** | Not Available | Included | Included | Included |
-| **Analytics (Advanced)** | Not Available | Not Available | Included | Included |
+| **Analytics (Basic)** | Not Available | Included | Included | Included (Phase 13 Completed) |
+| **Analytics (Advanced)** | Not Available | Not Available | Included | Included (Phase 13 Completed) |
 | **Coupons & Feedback** | Not Available | Not Available | Included | Included |
 | **Kitchen Display (KDS)** | Not Available | Not Available | Optional Add-on | Included (Phase 11 Completed) |
 | **POS Integration** | Not Available | Not Available | Optional Add-on | Included |

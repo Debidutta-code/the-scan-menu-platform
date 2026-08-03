@@ -1,3 +1,19 @@
+## [Phase 13] - Analytics & Reporting
+
+### Added
+- Created `AnalyticsService` (`server/src/services/analytics.service.ts`) providing read-only, on-demand index-covered metrics aggregations (`getSummary`, `getTopItems`, `getPeakHours`, `getOverview`).
+- Created Zod validator `analyticsQuerySchema` (`server/src/validators/analytics.validator.ts`) for query parameter validation.
+- Created `AnalyticsController` (`server/src/controllers/analytics.controller.ts`) and router `analytics.routes.ts` mounted at `/api/v1/restaurants/:restaurantId/analytics`.
+- Revenue calculation rules strictly excluding cancelled orders (`status: 'CANCELLED'`), unpaid orders (`paymentStatus: 'PENDING'`), and failed payment transactions.
+- Best-selling items report with current availability (`isAvailable`) and archive (`isArchived`) status badges, resolving historical item ambiguity.
+- Peak hours and day-of-week volume aggregation parameterized with restaurant local timezone (`timezone` from `RestaurantSettings`, default `'Asia/Kolkata'`).
+- Mode (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`) and source (`QR`, `POS`, `API`, `MANUAL`) revenue breakdowns, counting Petpooja-relayed orders exactly once.
+- Enhanced `ManagerAnalytics.tsx` frontend dashboard with status badges for top items, mode/source breakdowns, revenue trends, and CSV spreadsheet exporter.
+- Created `14_ANALYTICS.md` technical specification document.
+- Comprehensive Vitest test suite in `server/src/analytics.test.ts` covering revenue exclusion rules, Petpooja single-counting, top items availability badges, timezone peak hours, tenant isolation, date range validation, role authorization, and feature flag gating.
+
+---
+
 ## [Phase 12] - Inventory Management
 
 ### Added

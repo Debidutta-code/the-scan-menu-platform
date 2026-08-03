@@ -71,3 +71,12 @@ This is a living document tracking the progress of the 16 implementation phases.
 - **Pull Request / Commit**: Auto-generated
 - **Notes**: Successfully implemented production-grade Inventory Management. Added `isAvailable`, `trackStock`, `stockQuantity`, and `lowStockThreshold` fields to `MenuItem` with compound index `{ restaurantId: 1, isAvailable: 1, trackStock: 1 }`. Added `inventoryConfig` to `RestaurantSettings`. Created `InventoryLog` audit collection and `InventoryService` with concurrency-safe atomic Mongo `$inc` stock decrements and auto-86 on zero stock. Hooked stock validation into all 4 ordering modes (Dine-In, Takeaway, Delivery, Counter POS) with HTTP 400 `ITEMS_UNAVAILABLE` rejection. Updated `ManagerMenu.tsx` with stock controls and badges. Updated `PublicTable.tsx` with real-time Socket.io 86'd status and stock updates. Created `13_INVENTORY.md` specification. Passed 100% of unit, integration, and parallel race condition test cases (20 test files, 122 tests total).
 - **Risks**: Petpooja API lacks an inbound stock push endpoint; Petpooja non-blocking POS behavior gap is documented in `13_INVENTORY.md`.
+
+## Phase 13: Analytics & Reporting
+- **Status**: Completed
+- **Started Date**: Today
+- **Completed Date**: Today
+- **Pull Request / Commit**: Auto-generated
+- **Notes**: Successfully implemented production-grade Analytics & Reporting. Created `AnalyticsService` (`server/src/services/analytics.service.ts`) with index-backed MongoDB aggregation pipelines for time-series revenue metrics, top-selling items with `isAvailable`/`isArchived` badges, and peak hours parameterized by restaurant local timezone. Enforced strict revenue exclusion for cancelled, unpaid, and failed orders. Verified Petpooja-relayed orders are counted exactly once. Created Zod validator `analyticsQuerySchema`, `AnalyticsController`, and `analytics.routes.ts` mounted at `/api/v1/restaurants/:restaurantId/analytics` (guarded by `requireAuth`, `requireFeature('analytics')`, `requireRestaurantAccess`, `requireRole('MANAGER', 'SUPER_ADMIN')`). Enhanced `ManagerAnalytics.tsx` frontend dashboard with status badges and CSV exporter. Created `14_ANALYTICS.md` technical specification. 100% passed Vitest test suite (`analytics.test.ts`).
+- **Risks**: Heavy multi-year queries across millions of order rows should eventually utilize read replicas in Phase 16 production hardening, but indexed live aggregations are optimal for current volume.
+

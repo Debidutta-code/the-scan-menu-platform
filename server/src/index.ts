@@ -51,6 +51,7 @@ import waiterCallRoutes from './routes/waiterCall.routes';
 import publicRoutes from './routes/public.routes';
 import paymentRoutes from './routes/payment.routes';
 import webhookRoutes from './routes/webhook.routes';
+import analyticsRoutes from './routes/analytics.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { SocketService } from './sockets/socket.service';
 import { logger } from './utils/logger';
@@ -95,6 +96,7 @@ app.use('/api/v1/admin', adminRoutes);
 
 // Mount orderRoutes first so STAFF role can access orders without being blocked by menuRoutes/restaurantRoutes top-level MANAGER checks.
 // Mount menuRoutes BEFORE restaurantRoutes to prevent wildcard param collision clashing (:restaurantId matches categories-reorder etc.)
+app.use('/api/v1/restaurants/:restaurantId/analytics', analyticsRoutes);
 app.use('/api/v1/restaurants/:restaurantId/payments', paymentRoutes);
 app.use('/api/v1/restaurants', orderRoutes);
 app.use('/api/v1/restaurants', waiterCallRoutes);

@@ -65,7 +65,7 @@ export class AuthController {
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
         const { Restaurant } = await import('../models/Restaurant');
         const allRestaurants = await Restaurant.find({ isActive: true });
-        assignedRestaurants = allRestaurants.map((r) => r.id.toString());
+        assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 
       sendSuccess(
@@ -189,7 +189,7 @@ export class AuthController {
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
         const { Restaurant } = await import('../models/Restaurant');
         const allRestaurants = await Restaurant.find({ isActive: true });
-        assignedRestaurants = allRestaurants.map((r) => r.id.toString());
+        assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 
       sendSuccess(

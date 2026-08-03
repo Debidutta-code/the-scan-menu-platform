@@ -118,7 +118,7 @@ export class RestaurantStatsService {
     const cancelledOrders = await Order.countDocuments({ restaurantId, status: 'CANCELLED' });
 
     const completedDocs = await Order.find({ restaurantId, status: 'SERVED' }, 'total createdAt');
-    const revenue = completedDocs.reduce((acc, curr) => acc + (curr.total || 0), 0);
+    const revenue = completedDocs.reduce((acc: number, curr: any) => acc + (curr.total || 0), 0);
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -126,8 +126,8 @@ export class RestaurantStatsService {
     const todayOrdersDocs = await Order.find({ restaurantId, createdAt: { $gte: startOfToday } });
     const todayOrders = todayOrdersDocs.length;
     const todayRevenue = todayOrdersDocs
-      .filter((o) => o.status === 'SERVED')
-      .reduce((acc, curr) => acc + (curr.total || 0), 0);
+      .filter((o: any) => o.status === 'SERVED')
+      .reduce((acc: number, curr: any) => acc + (curr.total || 0), 0);
 
     return await RestaurantStats.findOneAndUpdate(
       { restaurantId },

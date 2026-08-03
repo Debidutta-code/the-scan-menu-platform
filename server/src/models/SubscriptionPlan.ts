@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import mongoose, { Schema, model, Document } from 'mongoose';
 
 export interface ISubscriptionPlan extends Document {
   key: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
@@ -26,5 +26,5 @@ const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
   }
 );
 
-export const SubscriptionPlan = model<ISubscriptionPlan>('SubscriptionPlan', subscriptionPlanSchema);
+export const SubscriptionPlan = (mongoose.models.SubscriptionPlan as any) || model<ISubscriptionPlan>('SubscriptionPlan', subscriptionPlanSchema);
 export default SubscriptionPlan;

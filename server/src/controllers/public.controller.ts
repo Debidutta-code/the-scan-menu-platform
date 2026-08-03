@@ -492,9 +492,9 @@ export class PublicController {
       }
 
       const allOrdersInSession = await Order.find({ sessionId: session._id });
-      session.subtotal = allOrdersInSession.reduce((sum, o) => sum + o.subtotal, 0);
-      session.tax = allOrdersInSession.reduce((sum, o) => sum + o.tax, 0);
-      session.total = allOrdersInSession.reduce((sum, o) => sum + o.total, 0);
+      session.subtotal = allOrdersInSession.reduce((sum: number, o: any) => sum + o.subtotal, 0);
+      session.tax = allOrdersInSession.reduce((sum: number, o: any) => sum + o.tax, 0);
+      session.total = allOrdersInSession.reduce((sum: number, o: any) => sum + o.total, 0);
       await session.save();
 
       posIntegrationService.pushOrderAsync(restaurant._id, order);

@@ -64,7 +64,7 @@ export class KDSController {
         }
 
         if (targetCategoryIds.length > 0) {
-          filteredTickets = orders.map((order) => {
+          filteredTickets = orders.map((order: any) => {
             const doc = order.toObject();
             doc.items = (doc.items || []).filter((item: any) =>
               item.menuItemId ? targetCategoryIds.includes(item.menuItemId.toString()) : true

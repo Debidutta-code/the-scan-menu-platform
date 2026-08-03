@@ -612,7 +612,14 @@ export const ManagerAnalytics: React.FC = () => {
                     return (
                       <div key={idx} className="space-y-1.5 text-xs">
                         <div className="flex justify-between items-center text-slate-700 font-semibold">
-                          <span className="truncate pr-4 font-sans font-bold">{idx + 1}. {item.name}</span>
+                          <span className="truncate pr-4 font-sans font-bold flex items-center gap-1.5">
+                            <span>{idx + 1}. {item.name}</span>
+                            {item.isArchived ? (
+                              <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-slate-200 text-slate-600 rounded font-mono uppercase">Archived</span>
+                            ) : item.isAvailable === false ? (
+                              <span className="px-1.5 py-0.5 text-[9px] font-extrabold bg-amber-100 text-amber-800 rounded font-mono uppercase">86'd / Unavailable</span>
+                            ) : null}
+                          </span>
                           <span className="font-mono font-bold shrink-0">
                             {topSellersToggle === 'quantity'
                               ? `${item.quantity} sold`

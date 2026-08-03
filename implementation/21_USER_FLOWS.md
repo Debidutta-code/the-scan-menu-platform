@@ -65,3 +65,14 @@ This document details the step-by-step user interaction flows across the Pixora 
 4. **Auto-86 on Zero Stock**: When stock quantity reaches zero, system automatically sets `isAvailable = false`, emits `inventory:updated` socket event, and logs `AUTO_86` in `InventoryLog`.
 5. **Concurrency Protection**: If multiple orders compete for the last stock unit, exactly one order succeeds; subsequent requests are rejected with `HTTP 400 ITEMS_UNAVAILABLE` payload indicating exact item details.
 6. **Stock Restoration**: Manager edits item stock count in `/manager/menu` to restore stock, resetting availability to true and logging `STOCK_ADJUSTMENT`.
+
+---
+
+## 8. Operational Analytics & Reporting Flow (Phase 13 New)
+1. **Manager Dashboard Access**: Authenticated Manager or Super Admin accesses `/manager/analytics` (`GET /api/v1/restaurants/:restaurantId/analytics`).
+2. **Date Range Selection**: Manager chooses predefined date range pill (Today, 7 Days, 30 Days) or custom `startDate`/`endDate` pickers.
+3. **Summary Metrics Visualization**: Dashboard displays Net Revenue (excluding cancelled and unpaid orders), Paid Order Count, Cancelled Order Count, Average Order Value (AOV), and Average Fulfillment Time with comparison trends vs. the prior period.
+4. **Best-Selling Items Analysis**: Manager reviews top-selling menu items ordered by quantity sold or sales revenue. Items disabled (`86'd`) or archived display clear status badges (`86'd / Unavailable` or `Archived`) alongside historical sales totals.
+5. **Peak Hours & Local Timezone Insights**: Manager analyzes hourly (00:00 - 23:00) and daily sales volume distributions calculated in the restaurant's local timezone (`timezone` from `RestaurantSettings`, e.g. `'Asia/Kolkata'`).
+6. **Mode & Source Attribution**: Manager inspects revenue breakdowns by ordering mode (`DINE_IN`, `TAKEAWAY`, `DELIVERY`, `COUNTER`) and order source (`QR`, `POS`, `API`, `MANUAL`), verifying Petpooja-relayed orders are counted exactly once.
+7. **CSV Spreadsheet Export**: Manager clicks **Export CSV** to generate a downloadable spreadsheet containing detailed order breakdown records for offline accounting.
