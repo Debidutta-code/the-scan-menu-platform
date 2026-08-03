@@ -12,6 +12,7 @@ import { NotificationService } from '../services/notification.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { paymentService } from '../services/payment.service';
 import { posIntegrationService } from '../services/posIntegration.service';
+import { inventoryService } from '../services/inventory.service';
 import mongoose from 'mongoose';
 
 export class PublicController {
@@ -295,6 +296,26 @@ export class PublicController {
           'ITEMS_UNAVAILABLE',
           'Some items in your basket are currently unavailable.',
           failedItems,
+          400
+        );
+        return;
+      }
+
+      const stockResult = await inventoryService.validateAndDecrementStock(
+        restaurant._id,
+        validatedItems.map((vi) => ({
+          itemId: vi.menuItemId.toString(),
+          quantity: vi.quantity,
+          name: vi.nameSnapshot,
+        }))
+      );
+
+      if (!stockResult.success) {
+        sendError(
+          res,
+          'ITEMS_UNAVAILABLE',
+          'Some items in your basket are currently unavailable.',
+          stockResult.failedItems || [],
           400
         );
         return;
@@ -820,6 +841,26 @@ export class PublicController {
           'ITEMS_UNAVAILABLE',
           'Some items in your basket are currently unavailable.',
           failedItems,
+          400
+        );
+        return;
+      }
+
+      const stockResult = await inventoryService.validateAndDecrementStock(
+        restaurant._id,
+        validatedItems.map((vi) => ({
+          itemId: vi.menuItemId.toString(),
+          quantity: vi.quantity,
+          name: vi.nameSnapshot,
+        }))
+      );
+
+      if (!stockResult.success) {
+        sendError(
+          res,
+          'ITEMS_UNAVAILABLE',
+          'Some items in your basket are currently unavailable.',
+          stockResult.failedItems || [],
           400
         );
         return;

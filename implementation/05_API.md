@@ -91,3 +91,7 @@ Within this namespace, sub-routers handle specific domains:
 *   `GET /api/v1/restaurants/:restaurantId/kds/tickets` - Retrieve active kitchen prep tickets (Staff/Manager/Super Admin, `kds` flag required). Supports `category` & `orderMode` query params.
 *   `PATCH /api/v1/restaurants/:restaurantId/kds/tickets/:orderId/items/:itemIndex/status` - Advance item-level preparation status (Staff/Manager/Super Admin, `kds` flag required).
 *   `POST /api/v1/restaurants/:restaurantId/kds/tickets/:orderId/bump` - Bump/resolve entire kitchen ticket (Staff/Manager/Super Admin, `kds` flag required).
+
+### Inventory Management (Phase 12)
+*   `PATCH /api/v1/restaurants/:restaurantId/menu-items/:itemId/availability` - Toggle 86'd binary item availability status (Staff/Manager/Super Admin, `inventory` flag required).
+*   `PATCH /api/v1/restaurants/:restaurantId/menu-items/:itemId/stock` - Adjust stock tracking, quantity, and low stock threshold (Manager/Super Admin, `inventory` flag required).

@@ -1,8 +1,21 @@
-# Changelog
+## [Phase 12] - Inventory Management
 
-All notable changes to this project will be documented in this file.
+### Added
+- Added `isAvailable`, `trackStock`, `stockQuantity`, and `lowStockThreshold` fields to `MenuItem` model with compound index `{ restaurantId: 1, isAvailable: 1, trackStock: 1 }`.
+- Added `inventoryConfig` (`enableLowStockAlerts`, `defaultLowStockThreshold`, `auto86OnZeroStock`) to `RestaurantSettings` model.
+- Created `InventoryLog` database collection for audit logging all availability toggles, manual stock adjustments, order decrements, and system auto-86s with actor metadata (`MANAGER`, `STAFF`, `ORDER`, `SYSTEM`).
+- Created `InventoryService` (`server/src/services/inventory.service.ts`) providing `toggleItemAvailability`, `updateItemStock`, and `validateAndDecrementStock` with concurrency-safe atomic Mongo `$inc` decrements.
+- Added `notifyInventoryUpdated` Socket.io broadcast method to `NotificationService`.
+- Added REST endpoints: `PATCH /api/v1/restaurants/:restaurantId/menu-items/:itemId/availability` (Manager & Staff) and `PATCH /api/v1/restaurants/:restaurantId/menu-items/:itemId/stock` (Manager only).
+- Hooked `validateAndDecrementStock` into all 4 ordering modes (`createOrder` for Dine-In, `createPublicOrder` for Takeaway/Delivery, and `createCounterOrder` for Counter POS) returning HTTP 400 `ITEMS_UNAVAILABLE` payload on rejection.
+- Updated `ManagerMenu.tsx` with stock tracking form controls, stock count badges, low stock warning badges, and 86'd status badges.
+- Updated `PublicTable.tsx` and `restaurant.service.ts` to reflect real-time 86'd status and stock updates via WebSockets.
+- Created `13_INVENTORY.md` specification document detailing inventory architecture, atomic concurrency patterns, auto-86 behavior, and Petpooja non-blocking POS gap documentation.
+- Comprehensive Vitest test suite in `server/src/inventory.test.ts` covering availability toggling, role authorization, stock depletion, auto-86 on zero stock, order rejections across all 4 modes, 5-request parallel concurrency race condition protection, tenant isolation, and KDS non-re-decrement regression integrity.
 
-## [Unreleased] - Phase 6
+---
+
+## [Phase 11] - Kitchen Display System (KDS)
 
 ### Added
 - Generic `PaymentProvider` interface and `PaymentProviderFactory`.

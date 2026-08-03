@@ -13,6 +13,9 @@ export interface IMenuItem extends Document {
   price: number; // Stored as integer cents/paise
   imageUrl?: string;
   isAvailable: boolean;
+  trackStock: boolean;
+  stockQuantity: number;
+  lowStockThreshold: number;
   isVegetarian: boolean;
   isSpicy: boolean;
   prepTimeMinutes?: number;
@@ -41,6 +44,9 @@ const menuItemSchema = new Schema<IMenuItem>(
     price: { type: Number, required: true }, // positive integer validated via Zod
     imageUrl: { type: String, trim: true },
     isAvailable: { type: Boolean, required: true, default: true },
+    trackStock: { type: Boolean, required: true, default: false },
+    stockQuantity: { type: Number, required: true, default: 0 },
+    lowStockThreshold: { type: Number, required: true, default: 5 },
     isVegetarian: { type: Boolean, required: true, default: false },
     isSpicy: { type: Boolean, required: true, default: false },
     prepTimeMinutes: { type: Number },
@@ -60,6 +66,8 @@ const menuItemSchema = new Schema<IMenuItem>(
 menuItemSchema.index({ restaurantId: 1, categoryId: 1 });
 // 2. Critical for public customer menu filtration (always searches active, available items)
 menuItemSchema.index({ restaurantId: 1, isAvailable: 1 });
+// 3. Stock tracking index for fast availability & stock queries
+menuItemSchema.index({ restaurantId: 1, isAvailable: 1, trackStock: 1 });
 
 export const MenuItem = model<IMenuItem>('MenuItem', menuItemSchema);
 export default MenuItem;

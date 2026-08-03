@@ -55,3 +55,13 @@ This document details the step-by-step user interaction flows across the Pixora 
 4. **Touch Item Progression**: Kitchen staff taps item action buttons (`Start Prep` ➔ `Mark Ready` ➔ `Serve Item`) to advance item statuses (`PENDING` ➔ `PREPARING` ➔ `READY` ➔ `SERVED`).
 5. **Real-Time Synchronized Observability**: Item status updates broadcast to staff dashboards (`/manager/orders`). When item updates cause aggregate order status to change, `posIntegrationService.updateOrderStatusAsync` automatically relays the status update to Petpooja POS non-blockingly.
 6. **Ticket Bump Resolution**: Staff taps **Bump Entire Ticket** to resolve all items on a ticket to `SERVED`, removing the completed ticket from active kitchen view.
+
+---
+
+## 7. Inventory Operations & Real-Time Auto-86 Flow (Phase 12 New)
+1. **86ing Item (Manager / Staff)**: Staff or Manager toggles item switch in `/manager/menu`. System emits `inventory:updated` via Socket.io and logs entry to `InventoryLog`. Customer menus refetch immediately; item turns unavailable and displays "Sold Out".
+2. **Configuring Stock Tracking (Manager)**: Manager opens item edit modal in `/manager/menu`, checks **Track Stock Quantity**, sets `stockQuantity` (e.g., 10) and `lowStockThreshold` (e.g., 3).
+3. **Automated Atomic Depletion**: Customers or Counter POS place orders for tracked items. `InventoryService.validateAndDecrementStock` executes atomic Mongo `$inc` with guard condition `{ stockQuantity: { $gte: qty }, isAvailable: true }`.
+4. **Auto-86 on Zero Stock**: When stock quantity reaches zero, system automatically sets `isAvailable = false`, emits `inventory:updated` socket event, and logs `AUTO_86` in `InventoryLog`.
+5. **Concurrency Protection**: If multiple orders compete for the last stock unit, exactly one order succeeds; subsequent requests are rejected with `HTTP 400 ITEMS_UNAVAILABLE` payload indicating exact item details.
+6. **Stock Restoration**: Manager edits item stock count in `/manager/menu` to restore stock, resetting availability to true and logging `STOCK_ADJUSTMENT`.

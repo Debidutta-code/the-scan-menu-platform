@@ -51,6 +51,9 @@ const menuItemSchema = z.object({
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
   prepTimeMinutes: z.coerce.number().int().positive().optional(),
+  trackStock: z.boolean().default(false),
+  stockQuantity: z.coerce.number().int().min(0).default(0),
+  lowStockThreshold: z.coerce.number().int().min(0).default(5),
   addOns: z
     .array(
       z.object({
@@ -419,6 +422,9 @@ export const ManagerMenu: React.FC = () => {
       isVegetarian: item.isVegetarian,
       isSpicy: item.isSpicy,
       prepTimeMinutes: item.prepTimeMinutes || '',
+      trackStock: !!item.trackStock,
+      stockQuantity: item.stockQuantity !== undefined ? item.stockQuantity : 0,
+      lowStockThreshold: item.lowStockThreshold !== undefined ? item.lowStockThreshold : 5,
       addOns: item.addOns?.map((addon: any) => ({
         name: addon.name,
         priceDelta: addon.priceDelta / 100,
@@ -700,8 +706,20 @@ export const ManagerMenu: React.FC = () => {
                                       : 'bg-red-50 text-red-700 hover:bg-red-100/50'
                                   }`}
                                 >
-                                  {item.isAvailable ? 'Available' : 'Unavailable'}
+                                  {item.isAvailable ? 'Available' : '86\'d (Unavailable)'}
                                 </button>
+                                {item.trackStock && (
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
+                                      item.stockQuantity <= (item.lowStockThreshold || 5)
+                                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    Stock: {item.stockQuantity}
+                                    {item.stockQuantity <= (item.lowStockThreshold || 5) && ' ⚠️ Low'}
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-2">
@@ -907,6 +925,51 @@ export const ManagerMenu: React.FC = () => {
                   value={itemForm.watch('imageUrl')}
                   onChange={(url: string) => itemForm.setValue('imageUrl', url)}
                 />
+              </div>
+
+              {/* Stock / Inventory Section */}
+              <div className="border border-slate-100 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="trackStock"
+                    {...itemForm.register('trackStock')}
+                    className="rounded text-amber-500"
+                  />
+                  <label htmlFor="trackStock" className="text-xs font-bold text-slate-800">
+                    Enable Quantity-Based Stock Tracking
+                  </label>
+                </div>
+
+                {itemForm.watch('trackStock') && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Current Stock Quantity
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="50"
+                        {...itemForm.register('stockQuantity')}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Low Stock Alert Threshold
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="5"
+                        {...itemForm.register('lowStockThreshold')}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Repeater Add-On Sections */}

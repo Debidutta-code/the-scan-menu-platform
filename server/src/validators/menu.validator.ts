@@ -14,6 +14,10 @@ export const createMenuItemSchema = z.object({
   description: z.string().trim().optional(),
   price: z.number().int().positive('Price must be a positive integer (paise/cents)'),
   imageUrl: z.string().trim().optional(),
+  isAvailable: z.boolean().optional(),
+  trackStock: z.boolean().optional(),
+  stockQuantity: z.number().int().nonnegative('Stock quantity must be non-negative').optional(),
+  lowStockThreshold: z.number().int().nonnegative('Low stock threshold must be non-negative').optional(),
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
   prepTimeMinutes: z.number().int().positive().optional(),
@@ -28,3 +32,15 @@ export const createMenuItemSchema = z.object({
 });
 
 export const updateMenuItemSchema = createMenuItemSchema.partial();
+
+export const updateStockSchema = z.object({
+  trackStock: z.boolean().optional(),
+  stockQuantity: z.number().int().nonnegative('Stock quantity must be a non-negative integer').optional(),
+  lowStockThreshold: z.number().int().nonnegative('Low stock threshold must be a non-negative integer').optional(),
+  isAvailable: z.boolean().optional(),
+});
+
+export const toggleAvailabilitySchema = z.object({
+  isAvailable: z.boolean({ required_error: 'isAvailable boolean is required' }),
+});
+

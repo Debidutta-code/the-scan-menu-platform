@@ -70,5 +70,14 @@ export class NotificationService {
       console.error('NotificationService notifyWaiterCallResolved failed:', err);
     }
   }
+
+  public notifyInventoryUpdated(restaurantId: string, itemId: string, data: any): void {
+    try {
+      const payload = { itemId, ...data, updatedAt: new Date() };
+      this.getIO().to(`restaurant:${restaurantId}`).emit('inventory:updated', payload);
+    } catch (err) {
+      console.error('NotificationService notifyInventoryUpdated failed:', err);
+    }
+  }
 }
 export default NotificationService;

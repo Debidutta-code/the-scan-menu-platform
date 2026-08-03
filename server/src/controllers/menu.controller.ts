@@ -4,6 +4,7 @@ import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { CloudinaryService } from '../services/cloudinary.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
+import { inventoryService } from '../services/inventory.service';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -22,6 +23,7 @@ export class MenuController {
     this.editMenuItem = this.editMenuItem.bind(this);
     this.deleteMenuItem = this.deleteMenuItem.bind(this);
     this.toggleAvailability = this.toggleAvailability.bind(this);
+    this.updateStock = this.updateStock.bind(this);
     this.bulkAvailability = this.bulkAvailability.bind(this);
     this.reorderMenuItems = this.reorderMenuItems.bind(this);
 
@@ -207,6 +209,10 @@ export class MenuController {
         prepTimeMinutes,
         sortOrder,
         addOns,
+        trackStock,
+        stockQuantity,
+        lowStockThreshold,
+        isAvailable,
       } = req.body;
 
       if (!categoryId || !name || price === undefined) {
@@ -254,7 +260,10 @@ export class MenuController {
         description: description?.trim(),
         price,
         imageUrl: imageUrl?.trim(),
-        isAvailable: true,
+        isAvailable: isAvailable !== undefined ? !!isAvailable : true,
+        trackStock: !!trackStock,
+        stockQuantity: stockQuantity !== undefined ? stockQuantity : 0,
+        lowStockThreshold: lowStockThreshold !== undefined ? lowStockThreshold : 5,
         isVegetarian: !!isVegetarian,
         isSpicy: !!isSpicy,
         prepTimeMinutes: prepTimeMinutes ? parseInt(prepTimeMinutes) : undefined,
@@ -321,6 +330,9 @@ export class MenuController {
       if (updateData.description !== undefined) item.description = updateData.description.trim();
       if (updateData.imageUrl !== undefined) item.imageUrl = updateData.imageUrl.trim();
       if (updateData.isAvailable !== undefined) item.isAvailable = !!updateData.isAvailable;
+      if (updateData.trackStock !== undefined) item.trackStock = !!updateData.trackStock;
+      if (updateData.stockQuantity !== undefined) item.stockQuantity = updateData.stockQuantity;
+      if (updateData.lowStockThreshold !== undefined) item.lowStockThreshold = updateData.lowStockThreshold;
       if (updateData.isVegetarian !== undefined) item.isVegetarian = !!updateData.isVegetarian;
       if (updateData.isSpicy !== undefined) item.isSpicy = !!updateData.isSpicy;
       if (updateData.prepTimeMinutes !== undefined) {
@@ -361,21 +373,55 @@ export class MenuController {
   async toggleAvailability(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, itemId } = req.params;
+      const { isAvailable } = req.body || {};
 
-      const item = await MenuItem.findOne({
+      const currentItem = await MenuItem.findOne({
         _id: itemId,
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
       });
 
-      if (!item) {
+      if (!currentItem) {
         sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
         return;
       }
 
-      item.isAvailable = !item.isAvailable;
-      await item.save();
+      const targetState = isAvailable !== undefined ? !!isAvailable : !currentItem.isAvailable;
 
-      sendSuccess(res, item, 'Menu item availability toggled successfully');
+      const actorType = req.user?.role === 'STAFF' ? 'STAFF' : 'MANAGER';
+
+      const updatedItem = await inventoryService.toggleItemAvailability(
+        restaurantId,
+        itemId,
+        targetState,
+        { type: actorType, id: req.user?.id }
+      );
+
+      sendSuccess(res, updatedItem, 'Menu item availability toggled successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateStock(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, itemId } = req.params;
+      const { trackStock, stockQuantity, lowStockThreshold, isAvailable } = req.body;
+
+      const actorType = req.user?.role === 'STAFF' ? 'STAFF' : 'MANAGER';
+
+      const updatedItem = await inventoryService.updateItemStock(
+        restaurantId,
+        itemId,
+        { trackStock, stockQuantity, lowStockThreshold, isAvailable },
+        { type: actorType, id: req.user?.id }
+      );
+
+      if (!updatedItem) {
+        sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
+        return;
+      }
+
+      sendSuccess(res, updatedItem, 'Menu item stock updated successfully');
     } catch (error) {
       next(error);
     }

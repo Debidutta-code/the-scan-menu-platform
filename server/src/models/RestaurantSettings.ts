@@ -70,6 +70,12 @@ export interface IRestaurantSettingsUi {
   enableDarkMode: boolean;
 }
 
+export interface IRestaurantSettingsInventory {
+  enableLowStockAlerts: boolean;
+  defaultLowStockThreshold: number;
+  auto86OnZeroStock: boolean;
+}
+
 export interface IRestaurantSettings extends Document {
   restaurantId: Types.ObjectId;
   currency: string;
@@ -80,6 +86,7 @@ export interface IRestaurantSettings extends Document {
   paymentConfig: IRestaurantSettingsPayment;
   notificationPreferences: IRestaurantSettingsNotification;
   orderConfig: IRestaurantSettingsOrderConfig;
+  inventoryConfig: IRestaurantSettingsInventory;
   uiSettings: IRestaurantSettingsUi;
   timings?: {
     open: string;
@@ -155,6 +162,11 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       enableTableOrdering: { type: Boolean, default: true },
       enableTakeaway: { type: Boolean, default: true },
       enableDelivery: { type: Boolean, default: false },
+    },
+    inventoryConfig: {
+      enableLowStockAlerts: { type: Boolean, default: true },
+      defaultLowStockThreshold: { type: Number, default: 5 },
+      auto86OnZeroStock: { type: Boolean, default: true },
     },
     uiSettings: {
       defaultLanguage: { type: String, default: 'en' },

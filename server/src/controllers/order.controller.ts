@@ -10,6 +10,7 @@ import { validateStatusTransition } from '../utils/orderStateMachine';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
 import { posIntegrationService } from '../services/posIntegration.service';
+import { inventoryService } from '../services/inventory.service';
 import mongoose from 'mongoose';
 
 export class OrderController {
@@ -284,6 +285,11 @@ export class OrderController {
           return;
         }
 
+        if (!menuItem.isAvailable) {
+          sendError(res, 'ITEMS_UNAVAILABLE', `Item ${menuItem.name} is currently unavailable`, null, 400);
+          return;
+        }
+
         let unitPriceSnapshot = menuItem.price;
         const selectedAddOns = [];
 
@@ -310,6 +316,26 @@ export class OrderController {
           prepTimeMinutesSnapshot: menuItem.prepTimeMinutes,
           itemStatus: 'PENDING',
         });
+      }
+
+      const stockResult = await inventoryService.validateAndDecrementStock(
+        restaurantId,
+        validatedItems.map((vi) => ({
+          itemId: vi.menuItemId.toString(),
+          quantity: vi.quantity,
+          name: vi.nameSnapshot,
+        }))
+      );
+
+      if (!stockResult.success) {
+        sendError(
+          res,
+          'ITEMS_UNAVAILABLE',
+          'Some items in your order are currently unavailable.',
+          stockResult.failedItems || [],
+          400
+        );
+        return;
       }
 
       const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);

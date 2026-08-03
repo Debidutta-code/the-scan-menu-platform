@@ -94,6 +94,9 @@ export interface MenuItem {
   price: number; // in cents/paise
   imageUrl?: string;
   isAvailable: boolean;
+  trackStock?: boolean;
+  stockQuantity?: number;
+  lowStockThreshold?: number;
   isVegetarian: boolean;
   isSpicy: boolean;
   prepTimeMinutes?: number;

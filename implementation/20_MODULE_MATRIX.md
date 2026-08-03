@@ -39,7 +39,7 @@ The platform is divided into discrete modules that can be toggled via Feature Fl
 | **Coupons & Feedback** | Not Available | Not Available | Included | Included |
 | **Kitchen Display (KDS)** | Not Available | Not Available | Optional Add-on | Included (Phase 11 Completed) |
 | **POS Integration** | Not Available | Not Available | Optional Add-on | Included |
-| **Inventory** | Not Available | Not Available | Optional Add-on | Included |
+| **Inventory** | Not Available | Not Available | Optional Add-on | Included (Phase 12 Completed) |
 | **CRM & Loyalty** | Not Available | Not Available | Not Available | Included |
 | **Reservations** | Not Available | Not Available | Not Available | Included |
 | **White Label** | Not Available | Not Available | Not Available | Included |
