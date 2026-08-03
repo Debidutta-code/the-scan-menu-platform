@@ -9,6 +9,7 @@ import { restaurantStatsService } from '../services/restaurantStats.service';
 import { validateStatusTransition } from '../utils/orderStateMachine';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
+import { posIntegrationService } from '../services/posIntegration.service';
 import mongoose from 'mongoose';
 
 export class OrderController {
@@ -384,6 +385,8 @@ export class OrderController {
       await order.save();
       await restaurantStatsService.recordOrderCreated(restaurantId);
 
+      posIntegrationService.pushOrderAsync(restaurantId, order);
+
       try {
         NotificationService.getInstance().notifyOrderCreated(restaurantId, order);
       } catch (err) {
@@ -471,6 +474,8 @@ export class OrderController {
       const prevStatus = order.status;
       order.status = nextStatus as OrderStatus;
       await order.save();
+
+      posIntegrationService.updateOrderStatusAsync(restaurantId, orderId, nextStatus);
 
       // Update statistics explicitly on terminal status transitions
       if (nextStatus === 'SERVED' && prevStatus !== 'SERVED') {

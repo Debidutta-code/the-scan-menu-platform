@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { RestaurantController } from '../controllers/restaurant.controller';
 import featureFlagController from '../controllers/featureFlag.controller';
+import integrationController from '../controllers/integration.controller';
 import { requireFeature } from '../middleware/featureFlag';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
 
@@ -48,6 +49,7 @@ router.delete('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, req
 router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);
 router.get('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listStaff);
 router.patch('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateStaff);
-router.delete('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteStaff);
+// POS Integration Sync Logs Route (Manager/Super Admin only)
+router.get('/:restaurantId/integrations/sync-logs', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.getSyncLogs);
 
 export default router;

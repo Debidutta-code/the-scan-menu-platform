@@ -40,7 +40,7 @@ This document details the MongoDB database architecture, indexing strategies, en
 ### 4. Payments, Assistance & Integrations
 - **Transaction**: Ledger for all payment attempts (`CASH`, `RAZORPAY`, `STRIPE`, `SQUARE`).
 - **WaiterCall**: Table assistance requests (`CALL_WAITER`, `REQUEST_BILL`, `WATER`, `TISSUE`).
-- **IntegrationSyncLog**: Audit log for external POS order synchronization.
+- **IntegrationSyncLog**: Audit log for external POS synchronization containing `restaurantId`, optional `orderId`, `provider`, `operation` (`SYNC_MENU` | `PUSH_ORDER` | `UPDATE_STATUS`), `status` (`PENDING` | `SUCCESS` | `FAILED`), `errorMessage`, and `payloadSnapshot`.
 - **RestaurantOnboarding**: Multi-step onboarding progress tracker.
 - **RestaurantStats**: Aggregate counters for reporting and analytics.
 
@@ -53,3 +53,8 @@ This document details the MongoDB database architecture, indexing strategies, en
    - `{ restaurantId: 1, status: 1 }` (Kitchen active queue optimization)
    - `{ restaurantId: 1, createdAt: -1 }` (History pagination)
    - `{ restaurantId: 1, orderMode: 1, createdAt: -1 }` (Mode-filtered reporting)
+3. **POS Integration Logs**: `IntegrationSyncLog` features compound indexes:
+   - `{ restaurantId: 1, createdAt: -1 }` (Log audit history)
+   - `{ restaurantId: 1, status: 1 }` (Failed sync monitoring)
+   - `{ orderId: 1 }` (Order-specific sync lookups)
+

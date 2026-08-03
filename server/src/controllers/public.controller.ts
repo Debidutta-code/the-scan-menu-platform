@@ -7,12 +7,11 @@ import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Order, OrderCounter } from '../models/Order';
 import { TableSession } from '../models/TableSession';
-import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
-import { IntegrationFactory } from '../integrations/core/IntegrationFactory';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { paymentService } from '../services/payment.service';
+import { posIntegrationService } from '../services/posIntegration.service';
 import mongoose from 'mongoose';
 
 export class PublicController {
@@ -477,31 +476,7 @@ export class PublicController {
       session.total = allOrdersInSession.reduce((sum, o) => sum + o.total, 0);
       await session.save();
 
-      try {
-        const providerName = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
-        const syncLog = new IntegrationSyncLog({
-          restaurantId: restaurant._id,
-          orderId: order._id,
-          provider: providerName,
-          status: 'ORDER_SYNC_PENDING',
-          syncAttempts: 1,
-        });
-        await syncLog.save();
-
-        const adapter = IntegrationFactory.getAdapter(providerName);
-        adapter.pushOrder(order)
-          .then(async () => {
-            syncLog.status = 'ORDER_SYNCED';
-            await syncLog.save();
-          })
-          .catch(async (err: any) => {
-            syncLog.status = 'ORDER_SYNC_FAILED';
-            syncLog.errorLog = err.message || 'Unknown integration error';
-            await syncLog.save();
-          });
-      } catch (integrationErr) {
-        console.error('Failed to trigger POS integration sync:', integrationErr);
-      }
+      posIntegrationService.pushOrderAsync(restaurant._id, order);
 
       try {
         if (isMerge) {
@@ -764,8 +739,6 @@ export class PublicController {
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
-
       if (!items || !Array.isArray(items) || items.length === 0) {
         sendError(res, 'BAD_REQUEST', 'Order items are required and must be a non-empty array', null, 400);
         return;
@@ -930,31 +903,7 @@ export class PublicController {
       await order.save();
       await restaurantStatsService.recordOrderCreated(restaurant._id);
 
-      try {
-        const providerName = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
-        const syncLog = new IntegrationSyncLog({
-          restaurantId: restaurant._id,
-          orderId: order._id,
-          provider: providerName,
-          status: 'ORDER_SYNC_PENDING',
-          syncAttempts: 1,
-        });
-        await syncLog.save();
-
-        const adapter = IntegrationFactory.getAdapter(providerName);
-        adapter.pushOrder(order)
-          .then(async () => {
-            syncLog.status = 'ORDER_SYNCED';
-            await syncLog.save();
-          })
-          .catch(async (err: any) => {
-            syncLog.status = 'ORDER_SYNC_FAILED';
-            syncLog.errorLog = err.message || 'Unknown integration error';
-            await syncLog.save();
-          });
-      } catch (integrationErr) {
-        console.error('Failed to trigger POS integration sync:', integrationErr);
-      }
+      posIntegrationService.pushOrderAsync(restaurant._id, order);
 
       try {
         const orderSummary = {

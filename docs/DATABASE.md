@@ -257,11 +257,16 @@ POS and external integration synchronization audit log.
 - **Collection Name:** `integration_sync_logs`
 - **Fields:**
   - `restaurantId`: `ObjectId` (Required, ref: `Restaurant`)
-  - `orderId`: `ObjectId` (Required, ref: `Order`)
+  - `orderId`: `ObjectId` (Optional, ref: `Order`)
   - `provider`: `String` (Required)
-  - `status`: `String` (Required, enum: `'ORDER_SYNC_PENDING'` | `'ORDER_SYNCED'` | `'ORDER_SYNC_FAILED'`)
+  - `operation`: `String` (Required, enum: `'SYNC_MENU'` | `'PUSH_ORDER'` | `'UPDATE_STATUS'`, default: `'PUSH_ORDER'`)
+  - `status`: `String` (Required, enum: `'PENDING'` | `'SUCCESS'` | `'FAILED'` | `'ORDER_SYNC_PENDING'` | `'ORDER_SYNCED'` | `'ORDER_SYNC_FAILED'`, default: `'PENDING'`)
   - `syncAttempts`: `Number` (default: 1)
-  - `errorLog`: `String`
+  - `errorMessage`: `String` (Optional)
+  - `errorLog`: `String` (Optional)
+  - `payloadSnapshot`: `Mixed` (Optional)
+  - `createdAt`, `updatedAt`: `Date` (Automated timestamps)
+- **Indexes:** Compound index on `restaurantId + createdAt` (sort desc), `restaurantId + status`, and `orderId`
 
 ---
 

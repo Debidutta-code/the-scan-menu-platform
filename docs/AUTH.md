@@ -213,3 +213,36 @@ Changes password for the currently logged-in user.
   }
   ```
 
+---
+
+### 9. View Integration Sync Logs (Manager / Super Admin)
+- **Method:** `GET`
+- **Path:** `/api/v1/restaurants/:restaurantId/integrations/sync-logs`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`). Feature flag required: `pos_integration`.
+- **Query Params:** `page` (optional), `limit` (optional), `status` (optional: `PENDING` | `SUCCESS` | `FAILED`)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "logs": [
+        {
+          "_id": "60d0fe...",
+          "restaurantId": "60d0fe...",
+          "orderId": "60d0fe...",
+          "provider": "NONE",
+          "operation": "PUSH_ORDER",
+          "status": "SUCCESS",
+          "syncAttempts": 1,
+          "createdAt": "2026-08-03T17:20:00.000Z"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 20
+    },
+    "message": "Integration sync logs retrieved successfully"
+  }
+  ```
+
+

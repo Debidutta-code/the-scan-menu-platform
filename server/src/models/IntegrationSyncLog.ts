@@ -1,14 +1,18 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export type IntegrationSyncStatus = 'ORDER_SYNC_PENDING' | 'ORDER_SYNCED' | 'ORDER_SYNC_FAILED';
+export type IntegrationSyncOperation = 'SYNC_MENU' | 'PUSH_ORDER' | 'UPDATE_STATUS';
+export type IntegrationSyncStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'ORDER_SYNC_PENDING' | 'ORDER_SYNCED' | 'ORDER_SYNC_FAILED';
 
 export interface IIntegrationSyncLog extends Document {
   restaurantId: Types.ObjectId;
-  orderId: Types.ObjectId;
+  orderId?: Types.ObjectId;
   provider: string;
+  operation: IntegrationSyncOperation;
   status: IntegrationSyncStatus;
   syncAttempts: number;
+  errorMessage?: string;
   errorLog?: string;
+  payloadSnapshot?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,16 +20,24 @@ export interface IIntegrationSyncLog extends Document {
 const integrationSyncLogSchema = new Schema<IIntegrationSyncLog>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
-    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
+    orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
     provider: { type: String, required: true },
+    operation: {
+      type: String,
+      required: true,
+      enum: ['SYNC_MENU', 'PUSH_ORDER', 'UPDATE_STATUS'],
+      default: 'PUSH_ORDER',
+    },
     status: {
       type: String,
       required: true,
-      enum: ['ORDER_SYNC_PENDING', 'ORDER_SYNCED', 'ORDER_SYNC_FAILED'],
-      default: 'ORDER_SYNC_PENDING',
+      enum: ['PENDING', 'SUCCESS', 'FAILED', 'ORDER_SYNC_PENDING', 'ORDER_SYNCED', 'ORDER_SYNC_FAILED'],
+      default: 'PENDING',
     },
     syncAttempts: { type: Number, required: true, default: 1 },
+    errorMessage: { type: String, trim: true },
     errorLog: { type: String, trim: true },
+    payloadSnapshot: { type: Schema.Types.Mixed },
   },
   {
     timestamps: true,
@@ -34,6 +46,7 @@ const integrationSyncLogSchema = new Schema<IIntegrationSyncLog>(
 );
 
 // Indexes
+integrationSyncLogSchema.index({ restaurantId: 1, createdAt: -1 });
 integrationSyncLogSchema.index({ restaurantId: 1, status: 1 });
 integrationSyncLogSchema.index({ orderId: 1 });
 

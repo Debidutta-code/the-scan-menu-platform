@@ -67,16 +67,18 @@ Within this namespace, sub-routers handle specific domains:
 *   `/waiter-calls`: Managing customer assistance requests. (Accessible by STAFF).
 *   `/staff`: Managing staff access to the tenant. (Requires MANAGER).
 *   `/analytics`: Reporting and metrics endpoints. (Requires MANAGER).
+*   `/integrations/sync-logs`: Monitoring external POS synchronization audit logs. (Requires MANAGER, guarded by `pos_integration` feature flag).
 
 ## Security & Validation
 *   Incoming request payloads (body, query params) are validated against Zod schemas in the route definitions before reaching controllers.
 *   Public endpoints have stricter rate-limiting configurations applied to prevent abuse (e.g., order creation).
 
-### Payments (Phase 6, 7 & 8)
+### Payments & POS Integrations (Phase 6–9)
 *   `POST /api/v1/restaurants/:restaurantId/payments/intent` - Create a payment intent (Manager/Staff/Public)
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions` - List transactions
 *   `GET /api/v1/restaurants/:restaurantId/payments/transactions/:id` - Get transaction details
 *   `PATCH /api/v1/restaurants/:restaurantId/payments/config` - Update active payment provider and mode (Manager/Super Admin)
+*   `GET /api/v1/restaurants/:restaurantId/integrations/sync-logs` - View POS integration sync logs (Manager/Super Admin, `pos_integration` flag required)
 *   `POST /api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/payments/intent`: Public endpoint to generate checkout details for Dine-In.
 *   `POST /api/v1/public/restaurants/:restaurantSlug/payments/intent`: Public endpoint to generate checkout details for sessionless Delivery/Takeaway.
 *   `POST /api/v1/webhooks/razorpay`: Webhook listener for async capture verification. Rate limited with IP-based invalid-signature blocking.
