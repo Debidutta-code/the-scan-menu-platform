@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Order, OrderStatus, OrderCounter } from '../models/Order';
+import { Order, OrderStatus } from '../models/Order';
+import { getNextOrderNumber } from '../utils/orderCounter';
 import { TableSession } from '../models/TableSession';
 import { RestaurantSettings } from '../models/RestaurantSettings';
 import { MenuItem } from '../models/MenuItem';
@@ -246,12 +247,7 @@ export class OrderController {
 
       const total = subtotal + tax;
 
-      const counter = await OrderCounter.findOneAndUpdate(
-        { restaurantId },
-        { $inc: { seq: 1 } },
-        { upsert: true, new: true }
-      );
-      const orderNumber = counter.seq;
+      const orderNumber = await getNextOrderNumber(restaurantId);
 
       const order = new Order({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),

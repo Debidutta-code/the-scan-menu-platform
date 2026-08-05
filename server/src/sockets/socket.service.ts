@@ -19,10 +19,29 @@ export class SocketService {
     return SocketService.instance;
   }
 
-  public init(httpServer: HTTPServer, corsOrigin: string): SocketIOServer {
+  public init(httpServer: HTTPServer, corsOrigin: string | string[]): SocketIOServer {
+    // Normalize to an array for consistent matching
+    const allowedOrigins = Array.isArray(corsOrigin)
+      ? corsOrigin.map((o) => o.trim())
+      : corsOrigin.split(',').map((o) => o.trim());
+
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: corsOrigin,
+        // Dynamic origin: echo back the requesting origin if it's in the allowed list.
+        // A static comma-separated string causes browsers to reject the response because
+        // Access-Control-Allow-Origin must contain exactly one value.
+        origin: (requestOrigin, callback) => {
+          if (
+            !requestOrigin ||
+            allowedOrigins.includes(requestOrigin) ||
+            requestOrigin.includes('localhost') ||
+            process.env.NODE_ENV === 'test'
+          ) {
+            callback(null, requestOrigin || allowedOrigins[0]);
+          } else {
+            callback(new Error(`CORS: origin '${requestOrigin}' not allowed`));
+          }
+        },
         methods: ['GET', 'POST'],
         credentials: true,
       },

@@ -6,7 +6,7 @@ import { RestaurantSettings } from '../models/RestaurantSettings';
 import { Table } from '../models/Table';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
-import { Order, OrderCounter } from '../models/Order';
+import { Order } from '../models/Order';
 import { TableSession } from '../models/TableSession';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
@@ -16,6 +16,7 @@ import { posIntegrationService } from '../services/posIntegration.service';
 import { inventoryService } from '../services/inventory.service';
 import { cacheService } from '../utils/cacheService';
 import mongoose from 'mongoose';
+import { getNextOrderNumber } from '../utils/orderCounter';
 
 export class PublicController {
   constructor() {
@@ -507,12 +508,7 @@ export class PublicController {
           await session.save();
         }
 
-        const counter = await OrderCounter.findOneAndUpdate(
-          { restaurantId: restaurant._id },
-          { $inc: { seq: 1 } },
-          { upsert: true, new: true }
-        );
-        const orderNumber = counter.seq;
+        const orderNumber = await getNextOrderNumber(restaurant._id);
 
         order = new Order({
           restaurantId: restaurant._id,
@@ -959,12 +955,7 @@ export class PublicController {
 
       const total = subtotal + tax;
 
-      const counter = await OrderCounter.findOneAndUpdate(
-        { restaurantId: restaurant._id },
-        { $inc: { seq: 1 } },
-        { upsert: true, new: true }
-      );
-      const orderNumber = counter.seq;
+      const orderNumber = await getNextOrderNumber(restaurant._id);
 
       const formattedAddress = typeof deliveryAddress === 'string'
         ? { fullAddress: deliveryAddress.trim() }

@@ -60,7 +60,7 @@ export const AdminFeatureFlags: React.FC = () => {
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.slug?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const currentFlags = flagsResponse?.data?.flags || [];
+  const currentFlags: any[] = Array.isArray(flagsResponse?.data) ? flagsResponse.data : [];
 
   const handleToggleFlag = (flagKey: string, currentStatus: boolean) => {
     if (!selectedRestId) return;
@@ -155,35 +155,41 @@ export const AdminFeatureFlags: React.FC = () => {
                 <p className="text-xs text-slate-400 mt-0.5">Toggle active feature modules for this tenant.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentFlags.map((flag: any) => (
-                  <div
-                    key={flag.key}
-                    className={`p-4 rounded-2xl border flex items-center justify-between transition ${
-                      flag.enabled
-                        ? 'bg-emerald-50/40 border-emerald-200'
-                        : 'bg-slate-50 border-slate-200 opacity-60'
-                    }`}
-                  >
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900">{flag.name}</h4>
-                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">{flag.key}</p>
-                    </div>
-
-                    <button
-                      onClick={() => handleToggleFlag(flag.key, flag.enabled)}
-                      disabled={toggleMutation.isPending}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-xs font-mono transition ${
+              {currentFlags.length === 0 ? (
+                <div className="text-center py-16 text-xs text-slate-400">
+                  No feature flags found for this tenant. Run the seed script or provision the restaurant to generate default flags.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentFlags.map((flag: any) => (
+                    <div
+                      key={flag.key}
+                      className={`p-4 rounded-2xl border flex items-center justify-between transition ${
                         flag.enabled
-                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                          ? 'bg-emerald-50/40 border-emerald-200'
+                          : 'bg-slate-50 border-slate-200 opacity-60'
                       }`}
                     >
-                      {flag.enabled ? 'ENABLED' : 'DISABLED'}
-                    </button>
-                  </div>
-                ))}
-              </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900 capitalize">{flag.key.replace(/_/g, ' ')}</h4>
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{flag.description || flag.key}</p>
+                      </div>
+
+                      <button
+                        onClick={() => handleToggleFlag(flag.key, flag.enabled)}
+                        disabled={toggleMutation.isPending}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs font-mono transition ${
+                          flag.enabled
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                        }`}
+                      >
+                        {flag.enabled ? 'ENABLED' : 'DISABLED'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
