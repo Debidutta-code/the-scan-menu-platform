@@ -60,7 +60,13 @@ export const App = () => {
         <ToastProvider>
           <FeatureFlagProvider>
             <Routes>
-              {/* Public customer dining view */}
+              {/* Public customer dining view (Subdomain-aware) */}
+              <Route path="/t/:tableToken" element={<PublicTable />} />
+              <Route path="/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
+              <Route path="/menu" element={<PublicSessionlessOrder />} />
+              <Route path="/order" element={<PublicSessionlessOrder />} />
+
+              {/* Public customer dining view (Legacy path-based fallback) */}
               <Route path="/r/:restaurantSlug/t/:tableToken" element={<PublicTable />} />
               <Route path="/r/:restaurantSlug/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
               <Route path="/r/:restaurantSlug/order" element={<PublicSessionlessOrder />} />

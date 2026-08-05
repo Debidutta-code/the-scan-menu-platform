@@ -357,13 +357,19 @@ export const managerService = {
 };
 
 export const publicService = {
-  async resolveTable(restaurantSlug: string, tableToken: string) {
-    const res = await apiClient.get(`/public/restaurants/${restaurantSlug}/tables/${tableToken}`);
+  async resolveTable(restaurantSlug: string | undefined, tableToken: string) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}`
+      : `/public/table/${tableToken}`;
+    const res = await apiClient.get(url);
     return res.data;
   },
 
-  async getPublicMenu(restaurantSlug: string, tableToken: string) {
-    const res = await apiClient.get(`/public/restaurants/${restaurantSlug}/tables/${tableToken}/menu`);
+  async getPublicMenu(restaurantSlug: string | undefined, tableToken: string) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/menu`
+      : `/public/table/${tableToken}/menu`;
+    const res = await apiClient.get(url);
     return res.data;
   },
 };

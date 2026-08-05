@@ -127,17 +127,17 @@ const Timeline: React.FC<TimelineProps> = ({ currentStatus }) => {
 // ==========================================
 export const PublicOrderConfirmation: React.FC = () => {
   const { restaurantSlug, tableToken, orderId } = useParams<{
-    restaurantSlug: string;
-    tableToken: string;
-    orderId: string;
+    restaurantSlug?: string;
+    tableToken?: string;
+    orderId?: string;
   }>();
   const navigate = useNavigate();
 
   // 1. Fetch table and restaurant
   const { data: tableData, isLoading: isTableLoading } = useQuery({
     queryKey: ['publicTable', restaurantSlug, tableToken],
-    queryFn: () => publicService.resolveTable(restaurantSlug!, tableToken!),
-    enabled: !!restaurantSlug && !!tableToken,
+    queryFn: () => publicService.resolveTable(restaurantSlug, tableToken!),
+    enabled: !!tableToken,
     retry: false,
   });
 
@@ -187,7 +187,7 @@ export const PublicOrderConfirmation: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={() => navigate(`/r/${restaurantSlug}/t/${tableToken}`)}
+            onClick={() => navigate(restaurantSlug ? `/r/${restaurantSlug}/t/${tableToken}` : `/t/${tableToken}`)}
             className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors"
           >
             Back to Menu
@@ -265,7 +265,7 @@ export const PublicOrderConfirmation: React.FC = () => {
       {/* Back button and live connection indicator */}
       <div className="max-w-md mx-auto p-4 flex items-center justify-between">
         <button
-          onClick={() => navigate(`/r/${restaurantSlug}/t/${tableToken}`)}
+          onClick={() => navigate(restaurantSlug ? `/r/${restaurantSlug}/t/${tableToken}` : `/t/${tableToken}`)}
           className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 bg-white shadow-sm border border-slate-150 py-1.5 px-3 rounded-full transition-colors animate-none"
         >
           <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />

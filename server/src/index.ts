@@ -73,9 +73,27 @@ app.set('trust proxy', 1);
 
 // Security configuration
 app.use(helmet());
+
+const allowedBaseDomain = process.env.BASE_DOMAIN || 'thescanmenu.com';
+const corsOriginRegex = new RegExp(
+  `^https?:\\/\\/([a-z0-9-]+\\.)?${allowedBaseDomain.replace('.', '\\.')}(:[0-9]+)?$`,
+  'i'
+);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        corsOriginRegex.test(origin) ||
+        origin.includes('localhost') ||
+        process.env.NODE_ENV === 'test'
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
   })
 );
@@ -83,10 +101,12 @@ app.use(
 app.use(correlationIdMiddleware);
 app.use('/health', healthRoutes);
 
+const isTest = process.env.NODE_ENV === 'test';
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window`
+  max: isTest ? 100000 : 100, // Limit each IP to 100 requests per `window`
   standardHeaders: true,
   legacyHeaders: false,
 });

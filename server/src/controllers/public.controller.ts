@@ -35,21 +35,31 @@ export class PublicController {
     try {
       const { restaurantSlug, tableToken } = req.params;
 
-      if (!restaurantSlug || !tableToken) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let restaurant: any = req.restaurant;
+      if (!restaurant) {
+        if (!restaurantSlug) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
-      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
-      }
-
-      const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
-      if (!table || !table.isActive) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let table: any = req.table;
+      if (!table) {
+        const tokenToFind = tableToken || req.params.tableToken;
+        if (!tokenToFind) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        table = await Table.findOne({ token: tokenToFind, restaurantId: restaurant.id });
+        if (!table || !table.isActive) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
       const activeSession = await TableSession.findOne({
@@ -84,21 +94,31 @@ export class PublicController {
     try {
       const { restaurantSlug, tableToken } = req.params;
 
-      if (!restaurantSlug || !tableToken) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let restaurant: any = req.restaurant;
+      if (!restaurant) {
+        if (!restaurantSlug) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
-      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
-      }
-
-      const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
-      if (!table || !table.isActive) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let table: any = req.table;
+      if (!table) {
+        const tokenToFind = tableToken || req.params.tableToken;
+        if (!tokenToFind) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        table = await Table.findOne({ token: tokenToFind, restaurantId: restaurant.id });
+        if (!table || !table.isActive) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
       const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
@@ -146,21 +166,29 @@ export class PublicController {
     try {
       const { restaurantSlug, tableToken } = req.params;
 
-      if (!restaurantSlug || !tableToken) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let restaurant: any = req.restaurant;
+      if (!restaurant) {
+        if (!restaurantSlug) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
-      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
-      }
-
-      const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
-      if (!table || !table.isActive) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let table: any = req.table;
+      if (!table) {
+        const tokenToFind = tableToken || req.params.tableToken;
+        if (tokenToFind) {
+          table = await Table.findOne({ token: tokenToFind, restaurantId: restaurant.id });
+          if (!table || !table.isActive) {
+            sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+            return;
+          }
+        }
       }
 
       // Cache keyed by restaurantId so menu.controller can invalidate without slug lookup
@@ -206,21 +234,31 @@ export class PublicController {
       const { restaurantSlug, tableToken } = req.params;
       const { items, customerNote, customerName, customerPhone, paymentStatus } = req.body;
 
-      if (!restaurantSlug || !tableToken) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let restaurant: any = req.restaurant;
+      if (!restaurant) {
+        if (!restaurantSlug) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
-      const restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
-      if (!restaurant || restaurant.status === 'SUSPENDED' || restaurant.status === 'ARCHIVED' || restaurant.status === 'EXPIRED') {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
-      }
-
-      const table = await Table.findOne({ token: tableToken, restaurantId: restaurant.id });
-      if (!table || !table.isActive) {
-        sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
-        return;
+      let table: any = req.table;
+      if (!table) {
+        const tokenToFind = tableToken || req.params.tableToken;
+        if (!tokenToFind) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
+        table = await Table.findOne({ token: tokenToFind, restaurantId: restaurant.id });
+        if (!table || !table.isActive) {
+          sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+          return;
+        }
       }
 
       const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });

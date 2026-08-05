@@ -531,7 +531,7 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({
 // ==========================================
 
 export const PublicTable: React.FC = () => {
-  const { restaurantSlug, tableToken } = useParams<{ restaurantSlug: string; tableToken: string }>();
+  const { restaurantSlug, tableToken } = useParams<{ restaurantSlug?: string; tableToken?: string }>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -669,8 +669,8 @@ export const PublicTable: React.FC = () => {
   // Query table resolution (Theme and Core Details)
   const { data: tableData, error: tableError, isLoading: isTableLoading } = useQuery({
     queryKey: ['publicTable', restaurantSlug, tableToken],
-    queryFn: () => publicService.resolveTable(restaurantSlug!, tableToken!),
-    enabled: !!restaurantSlug && !!tableToken,
+    queryFn: () => publicService.resolveTable(restaurantSlug, tableToken!),
+    enabled: !!tableToken,
     retry: false,
   });
 
@@ -678,7 +678,10 @@ export const PublicTable: React.FC = () => {
 
   const clearSessionMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiClient.post(`/public/restaurants/${restaurantSlug}/tables/${tableToken}/clear-session`);
+      const url = restaurantSlug
+        ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/clear-session`
+        : `/public/table/${tableToken}/clear-session`;
+      const res = await apiClient.post(url);
       return res.data;
     },
     onSuccess: () => {
@@ -760,8 +763,8 @@ export const PublicTable: React.FC = () => {
   // Query public menu
   const { data: menuData, isLoading: isMenuLoading } = useQuery({
     queryKey: ['publicMenu', restaurantSlug, tableToken],
-    queryFn: () => publicService.getPublicMenu(restaurantSlug!, tableToken!),
-    enabled: !!restaurantSlug && !!tableToken,
+    queryFn: () => publicService.getPublicMenu(restaurantSlug, tableToken!),
+    enabled: !!tableToken,
     retry: false,
   });
 
@@ -1008,14 +1011,15 @@ export const PublicTable: React.FC = () => {
         paymentStatus: 'PENDING',
       };
 
-      const res = await apiClient.post(
-        `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders`,
-        payload
-      );
+      const orderUrl = restaurantSlug
+        ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders`
+        : `/public/table/${tableToken}/orders`;
+
+      const res = await apiClient.post(orderUrl, payload);
 
       if (res.data.success) {
         const finalizeOrderSuccess = (orderId: string) => {
-          const key = `pixora_orders_${restaurantSlug}_${tableToken}`;
+          const key = `pixora_orders_${restaurantSlug || 'subdomain'}_${tableToken}`;
           const stored = JSON.parse(localStorage.getItem(key) || '[]');
           stored.push(orderId);
           localStorage.setItem(key, JSON.stringify(stored));
@@ -1044,7 +1048,11 @@ export const PublicTable: React.FC = () => {
             }
 
             try {
-               const intentRes = await apiClient.post(`/public/restaurants/${restaurantSlug}/tables/${tableToken}/payments/intent`, {
+               const intentUrl = restaurantSlug
+                 ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/payments/intent`
+                 : `/public/table/${tableToken}/payments/intent`;
+
+               const intentRes = await apiClient.post(intentUrl, {
                  amount: res.data.data.total,
                  currency: 'INR',
                  metadata: { orderId: res.data.data._id }

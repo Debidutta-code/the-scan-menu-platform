@@ -8,10 +8,14 @@ export interface IRestaurantSubscription {
   expiresAt: Date;
 }
 
+export type CustomDomainStatus = 'PENDING' | 'ACTIVE' | 'FAILED';
+
 export interface IRestaurant extends Document {
   code: string;
   name: string;
   slug: string;
+  customDomain?: string;
+  customDomainStatus?: CustomDomainStatus;
   status: RestaurantStatus;
   logoUrl?: string;
   coverImageUrl?: string;
@@ -29,6 +33,12 @@ const restaurantSchema = new Schema<IRestaurant>(
     code: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    customDomain: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+    customDomainStatus: {
+      type: String,
+      enum: ['PENDING', 'ACTIVE', 'FAILED'],
+      default: 'PENDING',
+    },
     status: {
       type: String,
       required: true,

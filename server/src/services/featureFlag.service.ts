@@ -12,11 +12,13 @@ export const DEFAULT_FLAGS = [
   { key: 'customer_display', description: 'Enable Customer Display Screen' },
   { key: 'delivery', description: 'Enable Delivery module' },
   { key: 'takeaway', description: 'Enable Takeaway module' },
+  { key: 'pos', description: 'Enable POS (Point of Sale) functionality' },
   { key: 'pos_integration', description: 'Enable POS integration' },
   { key: 'coupons', description: 'Enable Coupons and Promotions' },
   { key: 'loyalty', description: 'Enable Loyalty Program' },
   { key: 'crm', description: 'Enable Customer Relationship Management' },
   { key: 'api_webhooks', description: 'Enable Developer API & Webhooks access' },
+  { key: 'api_access', description: 'Enable API access for third-party integrations' },
 ];
 
 export class FeatureFlagService {

@@ -44,7 +44,7 @@ const formatPrice = (amountInPaise: number, currency: string) => {
 };
 
 export const PublicSessionlessOrder: React.FC = () => {
-  const { restaurantSlug } = useParams<{ restaurantSlug: string }>();
+  const { restaurantSlug } = useParams<{ restaurantSlug?: string }>();
   const { toast } = useToast();
 
   const { items: cartItems, addItem, updateQuantity, clearCart } = useCartStore();
@@ -66,10 +66,11 @@ export const PublicSessionlessOrder: React.FC = () => {
   const { data: menuData, isLoading, error } = useQuery({
     queryKey: ['sessionlessMenu', restaurantSlug],
     queryFn: async () => {
-      const res = await apiClient.get(`/public/restaurants/${restaurantSlug}/menu`);
+      const url = restaurantSlug ? `/public/restaurants/${restaurantSlug}/menu` : `/public/menu`;
+      const res = await apiClient.get(url);
       return res.data;
     },
-    enabled: !!restaurantSlug,
+    enabled: true,
     retry: false,
   });
 
@@ -151,7 +152,8 @@ export const PublicSessionlessOrder: React.FC = () => {
         paymentStatus: 'PENDING',
       };
 
-      const orderRes = await apiClient.post(`/public/restaurants/${restaurantSlug}/orders`, payload);
+      const orderUrl = restaurantSlug ? `/public/restaurants/${restaurantSlug}/orders` : `/public/orders`;
+      const orderRes = await apiClient.post(orderUrl, payload);
 
       if (orderRes.data.success) {
         const newOrder = orderRes.data.data;
@@ -164,7 +166,8 @@ export const PublicSessionlessOrder: React.FC = () => {
             return;
           }
 
-          const intentRes = await apiClient.post(`/public/restaurants/${restaurantSlug}/payments/intent`, {
+          const intentUrl = restaurantSlug ? `/public/restaurants/${restaurantSlug}/payments/intent` : `/public/payments/intent`;
+          const intentRes = await apiClient.post(intentUrl, {
             amount: newOrder.total,
             currency: 'INR',
             metadata: { orderId: newOrder._id },
