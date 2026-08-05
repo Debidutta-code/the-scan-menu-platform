@@ -178,20 +178,20 @@ export const ManagerKDS: React.FC = () => {
 
     if (elapsedMins >= 15) {
       return (
-        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-rose-500 text-white animate-pulse flex items-center gap-1">
+        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-rose-50 border border-rose-200 text-rose-600 animate-pulse flex items-center gap-1">
           <Flame className="w-3.5 h-3.5" /> {elapsedMins}m AGED
         </span>
       );
     }
     if (elapsedMins >= 5) {
       return (
-        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-500 text-white flex items-center gap-1">
+        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-50 border border-amber-200 text-amber-700 flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" /> {elapsedMins}m
         </span>
       );
     }
     return (
-      <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500 text-white flex items-center gap-1">
+      <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
         <Clock className="w-3.5 h-3.5" /> {elapsedMins}m
       </span>
     );
@@ -199,40 +199,42 @@ export const ManagerKDS: React.FC = () => {
 
   if (!isEnabled('kds')) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center text-white">
-        <ShieldAlert className="w-12 h-12 text-amber-500 mb-4" />
-        <h2 className="text-2xl font-bold font-display">Kitchen Display System Locked</h2>
-        <p className="text-slate-400 max-w-md mt-2 text-sm">
-          KDS module is gated on your plan. Please upgrade to Enterprise or enable the KDS add-on in Manager Settings.
-        </p>
+      <div className="w-full space-y-8 font-sans">
+        <div className="bg-white rounded-3xl border border-slate-150 p-12 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mx-auto">
+            <ShieldAlert className="w-8 h-8" strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold font-display text-slate-900">Kitchen Display System Locked</h2>
+            <p className="text-slate-500 max-w-md mx-auto mt-1 text-xs leading-relaxed">
+              The KDS module is gated on your current subscription plan. Please upgrade to unlock kitchen display tickets.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* ── Top KDS Bar ── */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-            <Flame className="w-6 h-6 text-amber-500" strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="text-xl font-display font-extrabold tracking-tight text-white flex items-center gap-2">
-              Kitchen Display (KDS)
-            </h1>
-            <p className="text-xs text-slate-400 font-medium">Real-time station prep tickets</p>
-          </div>
+    <div className="w-full space-y-8 font-sans">
+      {/* ── Top Header & Controls ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+        <div>
+          <h1 className="font-display tracking-tight text-3xl font-bold text-slate-900 flex items-center gap-2">
+            <Flame className="w-8 h-8 text-amber-500" strokeWidth={1.75} />
+            <span>Kitchen Display (KDS)</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">Real-time station prep tickets & automated kitchen workflow.</p>
         </div>
 
-        {/* Filters & Socket Status */}
+        {/* Toolbar Controls */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Station / Category Filter */}
           {categories.length > 0 && (
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-slate-800 border border-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl focus:outline-none focus:border-amber-500"
+              className="bg-white border border-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
             >
               <option value="">All Stations / Categories</option>
               {categories.map((cat) => (
@@ -243,201 +245,206 @@ export const ManagerKDS: React.FC = () => {
             </select>
           )}
 
-          {/* Socket Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-800 border border-slate-700">
+          {/* Socket Live Indicator */}
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 shadow-sm">
             {isConnected ? (
               <>
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-emerald-400">Live Socket</span>
+                <span className="text-emerald-700 font-mono text-[11px]">Live Socket</span>
               </>
             ) : (
               <>
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span className="text-amber-400">Reconnecting...</span>
+                <span className="text-amber-700 font-mono text-[11px]">Connecting...</span>
               </>
             )}
             <button
               onClick={() => refetch()}
               disabled={isRefetching}
-              className="ml-1 p-1 hover:bg-slate-700 rounded transition text-slate-400 hover:text-white"
+              className="ml-1 p-1 hover:bg-slate-100 rounded transition text-slate-400 hover:text-slate-700"
+              title="Refresh tickets"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          {/* Mode Filter */}
-          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs font-bold">
-            {['ALL', 'DINE_IN', 'TAKEAWAY', 'DELIVERY', 'COUNTER'].map((mode) => (
+          {/* Order Mode Filter Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+            {['ALL', 'DINE_IN', 'TAKEAWAY', 'COUNTER'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setSelectedOrderMode(mode)}
-                className={`px-3 py-1 rounded-lg transition ${
-                  selectedOrderMode === mode ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg transition ${
+                  selectedOrderMode === mode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {mode}
+                {mode.replace('_', ' ')}
               </button>
             ))}
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* ── Main KDS Grid ── */}
-      <main className="flex-1 p-6 overflow-y-auto">
-        {isLoading ? (
-          <div className="h-64 flex items-center justify-center">
-            <Loader className="w-8 h-8 animate-spin text-amber-500" />
+      {/* ── Tickets Grid ── */}
+      {isLoading ? (
+        <div className="h-64 flex items-center justify-center">
+          <Loader className="w-8 h-8 animate-spin text-amber-500" />
+        </div>
+      ) : tickets.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-150 p-12 text-center space-y-3 shadow-sm flex flex-col items-center justify-center min-h-[360px]">
+          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+            <CheckCircle2 className="w-8 h-8" strokeWidth={1.75} />
           </div>
-        ) : tickets.length === 0 ? (
-          <div className="h-96 border-2 border-dashed border-slate-800 rounded-3xl flex flex-col items-center justify-center text-slate-500">
-            <CheckCircle2 className="w-12 h-12 text-slate-700 mb-3" />
-            <h3 className="text-lg font-bold text-slate-300">Kitchen Clear!</h3>
-            <p className="text-xs text-slate-500 mt-1">No pending preparation tickets right now.</p>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 font-display">Kitchen Clear!</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              No active prep tickets in queue right now. New orders will appear here automatically in real time.
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {tickets.map((ticket) => {
-              const allServed = ticket.items.every((i) => i.itemStatus === 'SERVED');
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {tickets.map((ticket) => {
+            const allServed = ticket.items.every((i) => i.itemStatus === 'SERVED');
 
-              return (
-                <div
-                  key={ticket._id}
-                  className={`bg-slate-900 border ${
-                    allServed ? 'border-emerald-500/50 opacity-75' : 'border-slate-800'
-                  } rounded-3xl p-5 flex flex-col justify-between shadow-lg relative overflow-hidden`}
-                >
-                  {/* Top Ticket Line */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl font-mono font-black bg-amber-500 text-slate-950 px-2.5 py-1 rounded-xl">
-                          #{ticket.orderNumber}
-                        </span>
-                        <span className="text-xs font-extrabold uppercase px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
-                          {ticket.orderMode}
-                        </span>
-                      </div>
-                      {getAgingBadge(ticket.createdAt)}
+            return (
+              <div
+                key={ticket._id}
+                className={`bg-white border ${
+                  allServed ? 'border-emerald-300 bg-emerald-50/30 opacity-75' : 'border-slate-200'
+                } rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition relative overflow-hidden`}
+              >
+                {/* Header Row */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-mono font-extrabold bg-slate-950 text-white px-3 py-1 rounded-xl">
+                        #{ticket.orderNumber}
+                      </span>
+                      <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-700">
+                        {ticket.orderMode.replace('_', ' ')}
+                      </span>
                     </div>
-
-                    {/* Table / Customer Details */}
-                    <div className="text-xs font-semibold text-slate-400">
-                      {ticket.tableId ? (
-                        <span className="text-amber-400 font-extrabold text-sm">
-                          📍 Table {ticket.tableId.displayName || ticket.tableId.tableNumber}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 font-bold">
-                          👤 {ticket.customerName || 'Walk-in'} {ticket.customerPhone ? `(${ticket.customerPhone})` : ''}
-                        </span>
-                      )}
-                      {ticket.roundNumber && (
-                        <span className="ml-2 font-mono text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
-                          R{ticket.roundNumber}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Items List */}
-                    <div className="space-y-3 pt-2 border-t border-slate-800">
-                      {ticket.items.map((item, idx) => {
-                        const statusVal = item.itemStatus || 'PENDING';
-                        const isDone = statusVal === 'SERVED';
-                        const isReady = statusVal === 'READY';
-                        const isPrep = statusVal === 'PREPARING';
-
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-3 rounded-2xl border transition ${
-                              isDone
-                                ? 'bg-slate-950/60 border-slate-850 text-slate-500 opacity-60'
-                                : isReady
-                                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
-                                : isPrep
-                                ? 'bg-indigo-950/40 border-indigo-500/40 text-indigo-200'
-                                : 'bg-slate-800/60 border-slate-700/80 text-white'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <span className="text-sm font-extrabold block">
-                                  {item.nameSnapshot}{' '}
-                                  <span className="font-mono text-amber-400 font-black ml-1 text-base">
-                                    x{item.quantity}
-                                  </span>
-                                </span>
-
-                                {/* Add-ons */}
-                                {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                  <div className="text-[11px] text-slate-400 mt-1 font-medium">
-                                    + {item.selectedAddOns.map((a) => a.name).join(', ')}
-                                  </div>
-                                )}
-
-                                {/* Special Instructions */}
-                                {item.specialInstructions && (
-                                  <div className="mt-1.5 p-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] font-bold text-amber-300 flex items-center gap-1">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                    <span>{item.specialInstructions}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Item Action Button (Large Touch Target) */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateItemStatusMutation.mutate({
-                                    orderId: ticket._id,
-                                    itemIndex: idx,
-                                    nextStatus: getNextItemStatus(statusVal),
-                                  })
-                                }
-                                disabled={isDone || updateItemStatusMutation.isPending}
-                                className={`px-3 py-2 text-xs font-bold rounded-xl transition shrink-0 flex items-center gap-1 ${
-                                  isDone
-                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                    : isReady
-                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold'
-                                    : isPrep
-                                    ? 'bg-purple-500 hover:bg-purple-400 text-white'
-                                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold'
-                                }`}
-                              >
-                                {isDone ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" /> Served
-                                  </>
-                                ) : (
-                                  getItemButtonLabel(statusVal)
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {getAgingBadge(ticket.createdAt)}
                   </div>
 
-                  {/* Ticket Footer / Bump Button */}
-                  <div className="pt-4 border-t border-slate-800 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => bumpTicketMutation.mutate(ticket._id)}
-                      disabled={allServed || bumpTicketMutation.isPending}
-                      className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white text-xs font-extrabold rounded-2xl transition flex items-center justify-center gap-2 disabled:opacity-40"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Bump Entire Ticket
-                    </button>
+                  {/* Table / Customer Details */}
+                  <div className="text-xs font-semibold text-slate-600 border-b border-slate-100 pb-3">
+                    {ticket.tableId ? (
+                      <span className="text-amber-600 font-bold text-sm flex items-center gap-1">
+                        📍 Table {ticket.tableId.displayName || ticket.tableId.tableNumber}
+                      </span>
+                    ) : (
+                      <span className="text-slate-800 font-bold flex items-center gap-1">
+                        👤 {ticket.customerName || 'Walk-in'} {ticket.customerPhone ? `(${ticket.customerPhone})` : ''}
+                      </span>
+                    )}
+                    {ticket.roundNumber && (
+                      <span className="ml-2 font-mono text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+                        Round {ticket.roundNumber}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Items List */}
+                  <div className="space-y-3">
+                    {ticket.items.map((item, idx) => {
+                      const statusVal = item.itemStatus || 'PENDING';
+                      const isDone = statusVal === 'SERVED';
+                      const isReady = statusVal === 'READY';
+                      const isPrep = statusVal === 'PREPARING';
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-2xl border transition ${
+                            isDone
+                              ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
+                              : isReady
+                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                              : isPrep
+                              ? 'bg-purple-50/70 border-purple-200 text-purple-950'
+                              : 'bg-white border-slate-200 text-slate-900 shadow-2xs'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-1 min-w-0">
+                              <span className="text-xs font-extrabold text-slate-900 block truncate">
+                                {item.nameSnapshot}
+                                <span className="font-mono text-amber-600 font-bold ml-1.5 bg-amber-100 px-1.5 py-0.5 rounded-lg text-xs">
+                                  x{item.quantity}
+                                </span>
+                              </span>
+
+                              {/* Add-ons */}
+                              {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                                <div className="text-[11px] text-slate-500 font-medium">
+                                  + {item.selectedAddOns.map((a) => a.name).join(', ')}
+                                </div>
+                              )}
+
+                              {/* Special Instructions */}
+                              {item.specialInstructions && (
+                                <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] font-bold text-amber-800 flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span>{item.specialInstructions}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Item Action Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateItemStatusMutation.mutate({
+                                  orderId: ticket._id,
+                                  itemIndex: idx,
+                                  nextStatus: getNextItemStatus(statusVal),
+                                })
+                              }
+                              disabled={isDone || updateItemStatusMutation.isPending}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition shrink-0 flex items-center gap-1 ${
+                                isDone
+                                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                  : isReady
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm'
+                                  : isPrep
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm'
+                                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-sm'
+                              }`}
+                            >
+                              {isDone ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" /> Served
+                                </>
+                              ) : (
+                                getItemButtonLabel(statusVal)
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
+
+                {/* Bump Ticket Footer Button */}
+                <div className="pt-4 border-t border-slate-100 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => bumpTicketMutation.mutate(ticket._id)}
+                    disabled={allServed || bumpTicketMutation.isPending}
+                    className="w-full py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-extrabold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-40"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Bump Entire Ticket</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

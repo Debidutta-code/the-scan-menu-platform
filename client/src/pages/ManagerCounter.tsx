@@ -58,11 +58,23 @@ export const ManagerCounter: React.FC = () => {
   const [orderMode, setOrderMode] = useState<OrderMode>('DINE_IN');
   const [lastOrder, setLastOrder] = useState<{ orderNumber: number; total: number } | null>(null);
 
-  // Fetch Menu for Counter Order Entry
-  const { data: menuData, isLoading } = useQuery({
-    queryKey: ['managerCounterMenu', restaurantId],
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+
+  // Fetch Categories for Counter Order Entry
+  const { data: categoriesData, isLoading: isLoadingCats } = useQuery({
+    queryKey: ['managerCounterCategories', restaurantId],
     queryFn: async () => {
       const res = await apiClient.get(`/restaurants/${restaurantId}/categories`);
+      return res.data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch Menu Items for Counter Order Entry
+  const { data: menuItemsData, isLoading: isLoadingItems } = useQuery({
+    queryKey: ['managerCounterMenuItems', restaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${restaurantId}/menu-items`);
       return res.data;
     },
     enabled: !!restaurantId,
@@ -80,7 +92,9 @@ export const ManagerCounter: React.FC = () => {
 
   const taxRatePercent: number = settingsData?.data?.settings?.paymentConfig?.taxRatePercent ?? 0;
 
-  const categories = menuData?.data || [];
+  const categories = categoriesData?.data || [];
+  const allMenuItems = menuItemsData?.data || [];
+  const isLoading = isLoadingCats || isLoadingItems;
 
   const addItemToCart = (item: any) => {
     setCartItems((prev) => {
@@ -206,59 +220,173 @@ export const ManagerCounter: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Menu Item Selector */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-            <input
-              type="text"
-              placeholder="Search items for counter entry..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <input
+                type="text"
+                placeholder="Search items for counter entry..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
           </div>
 
+          {/* Category Filter Pills */}
+          {categories.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                onClick={() => setSelectedCategoryFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                  selectedCategoryFilter === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                All Categories
+              </button>
+              {categories.map((cat: any) => (
+                <button
+                  key={cat._id}
+                  onClick={() => setSelectedCategoryFilter(cat._id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                    selectedCategoryFilter === cat._id
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-6 max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
-            {categories.map((cat: any) => {
-              const items = (cat.menuItems || []).filter((item: any) =>
-                item.name.toLowerCase().includes(searchQuery.toLowerCase()) && item.isAvailable
-              );
-              if (items.length === 0) return null;
-              return (
-                <div key={cat._id} className="space-y-3">
-                  <h3 className="text-xs font-bold text-slate-400 tracking-widest uppercase font-mono">{cat.name}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {items.map((item: any) => {
-                      const selected = cartItems.find((i) => i.itemId === item._id);
-                      return (
-                        <div
-                          key={item._id}
-                          onClick={() => addItemToCart(item)}
-                          className={`p-3.5 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 ${
-                            selected ? 'bg-amber-50/70 border-amber-300 shadow-sm' : 'bg-white border-slate-150 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="space-y-0.5 min-w-0">
-                            <h4 className="text-xs font-bold text-slate-900 truncate">{item.name}</h4>
-                            <span className="text-xs font-mono font-bold text-slate-700">
-                              ₹{(item.price / 100).toFixed(2)}
-                            </span>
-                          </div>
-                          {selected ? (
-                            <span className="shrink-0 bg-amber-500 text-slate-950 font-mono text-xs px-2 py-1 rounded-xl font-bold">
-                              x{selected.quantity}
-                            </span>
-                          ) : (
-                            <span className="shrink-0 h-7 w-7 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600">
-                              <Plus className="w-4 h-4" />
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            {allMenuItems.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-3xl border border-slate-150 space-y-2">
+                <UtensilsCrossed className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-sm font-bold text-slate-700">No menu items found</p>
+                <p className="text-xs text-slate-400">Add categories and menu items in Menu Management to start punching orders.</p>
+              </div>
+            ) : (
+              (() => {
+                const filteredCategories = selectedCategoryFilter === 'ALL'
+                  ? categories
+                  : categories.filter((c: any) => c._id === selectedCategoryFilter);
+
+                let hasAnyItems = false;
+
+                const categoryBlocks = filteredCategories.map((cat: any) => {
+                  const items = allMenuItems.filter((item: any) => {
+                    const itemCatId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+                    const matchesCategory = itemCatId === cat._id;
+                    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+                    return matchesCategory && matchesSearch && item.isAvailable;
+                  });
+
+                  if (items.length === 0) return null;
+                  hasAnyItems = true;
+
+                  return (
+                    <div key={cat._id} className="space-y-3">
+                      <h3 className="text-xs font-bold text-slate-400 tracking-widest uppercase font-mono">{cat.name}</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {items.map((item: any) => {
+                          const selected = cartItems.find((i) => i.itemId === item._id);
+                          return (
+                            <div
+                              key={item._id}
+                              onClick={() => addItemToCart(item)}
+                              className={`p-3.5 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 ${
+                                selected ? 'bg-amber-50/70 border-amber-300 shadow-sm' : 'bg-white border-slate-150 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="space-y-0.5 min-w-0">
+                                <h4 className="text-xs font-bold text-slate-900 truncate">{item.name}</h4>
+                                <span className="text-xs font-mono font-bold text-slate-700">
+                                  ₹{(item.price / 100).toFixed(2)}
+                                </span>
+                              </div>
+                              {selected ? (
+                                <span className="shrink-0 bg-amber-500 text-slate-950 font-mono text-xs px-2 py-1 rounded-xl font-bold">
+                                  x{selected.quantity}
+                                </span>
+                              ) : (
+                                <span className="shrink-0 h-7 w-7 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600">
+                                  <Plus className="w-4 h-4" />
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+
+                // Also check items without a category if "ALL" is selected
+                const uncategorizedItems = selectedCategoryFilter === 'ALL'
+                  ? allMenuItems.filter((item: any) => {
+                      const itemCatId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+                      const hasCategory = categories.some((c: any) => c._id === itemCatId);
+                      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+                      return !hasCategory && matchesSearch && item.isAvailable;
+                    })
+                  : [];
+
+                if (uncategorizedItems.length > 0) {
+                  hasAnyItems = true;
+                  categoryBlocks.push(
+                    <div key="uncategorized" className="space-y-3">
+                      <h3 className="text-xs font-bold text-slate-400 tracking-widest uppercase font-mono">Other Items</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {uncategorizedItems.map((item: any) => {
+                          const selected = cartItems.find((i) => i.itemId === item._id);
+                          return (
+                            <div
+                              key={item._id}
+                              onClick={() => addItemToCart(item)}
+                              className={`p-3.5 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 ${
+                                selected ? 'bg-amber-50/70 border-amber-300 shadow-sm' : 'bg-white border-slate-150 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="space-y-0.5 min-w-0">
+                                <h4 className="text-xs font-bold text-slate-900 truncate">{item.name}</h4>
+                                <span className="text-xs font-mono font-bold text-slate-700">
+                                  ₹{(item.price / 100).toFixed(2)}
+                                </span>
+                              </div>
+                              {selected ? (
+                                <span className="shrink-0 bg-amber-500 text-slate-950 font-mono text-xs px-2 py-1 rounded-xl font-bold">
+                                  x{selected.quantity}
+                                </span>
+                              ) : (
+                                <span className="shrink-0 h-7 w-7 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600">
+                                  <Plus className="w-4 h-4" />
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (!hasAnyItems) {
+                  return (
+                    <div className="p-8 text-center bg-white rounded-3xl border border-slate-150 space-y-2">
+                      <Search className="w-6 h-6 text-slate-300 mx-auto" />
+                      <p className="text-xs font-bold text-slate-600">No matching items found</p>
+                      <p className="text-[11px] text-slate-400">Try adjusting your search query or category filter.</p>
+                    </div>
+                  );
+                }
+
+                return categoryBlocks;
+              })()
+            )}
           </div>
         </div>
 
