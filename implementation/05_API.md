@@ -49,6 +49,17 @@ Platform-wide operations restricted to users with the `SUPER_ADMIN` role.
 *   `DELETE /restaurants/:id`: Deactivate / remove tenant.
 *   `GET /stats`: Platform-wide aggregate metrics (total tenants, active/suspended counts, total orders).
 *   `GET /analytics`: Platform-wide financial analytics (total GMV, 30-day daily trends, top-performing restaurant leaderboard, subscription plan distribution).
+*   `GET /pos/outlets`: List all connected POS outlets across the platform.
+*   `GET /pos/sync-logs`: Query cross-tenant POS sync audit logs.
+*   `POST /pos/:restaurantId/sync-menu`: Trigger manual menu catalog sync for any tenant.
+*   `PATCH /pos/:restaurantId/config`: Configure POS API key & outlet ID mapping per tenant.
+*   `GET /payments/overview`: Aggregate volume split across Cash, Card, UPI, and Razorpay Online.
+*   `GET /payments/tenant-configs`: Payment gateway enablement matrix per tenant.
+*   `PATCH /payments/restaurants/:restaurantId/methods`: Bulk toggle Cash, Card, UPI, and Razorpay per tenant.
+*   `GET /audit-logs`: Global system and security audit trail query endpoint.
+*   `GET /white-label/domains`: List all enterprise custom domains and white-label settings.
+*   `POST /white-label/domains/:restaurantId/verify`: Verify CNAME DNS resolution for a custom domain.
+*   `PATCH /white-label/domains/:restaurantId`: Update custom domain, "Hide Powered By" entitlement, and branding colors.
 
 ### 2a. Subscription Plans (`/subscription`)
 *   `GET /api/v1/subscription`: List all available platform subscription plans. (Any authenticated user).

@@ -24,13 +24,26 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request Interceptor to automatically attach accessToken
+// Request Interceptor to automatically attach accessToken & impersonation header
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const impersonatedRaw = localStorage.getItem('tsm_impersonated_outlet');
+    if (impersonatedRaw && config.headers) {
+      try {
+        const impersonated = JSON.parse(impersonatedRaw);
+        if (impersonated?.id) {
+          config.headers['x-impersonate-restaurant-id'] = impersonated.id;
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -39,7 +52,6 @@ apiClient.interceptors.request.use(
 // Response Interceptor to handle silent refresh and standard envelopes
 apiClient.interceptors.response.use(
   (response) => {
-    // If successful, we can optionally parse standard envelope data
     return response;
   },
   async (error) => {

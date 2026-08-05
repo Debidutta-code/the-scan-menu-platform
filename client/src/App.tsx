@@ -12,6 +12,10 @@ import AdminRestaurants from './pages/AdminRestaurants';
 import AdminRestaurantDetail from './pages/AdminRestaurantDetail';
 import AdminProvision from './pages/AdminProvision';
 import AdminSubscriptions from './pages/AdminSubscriptions';
+import AdminPOSIntegrations from './pages/AdminPOSIntegrations';
+import AdminPaymentGateways from './pages/AdminPaymentGateways';
+import AdminAuditLogs from './pages/AdminAuditLogs';
+import AdminWhiteLabel from './pages/AdminWhiteLabel';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminFeatureFlags from './pages/AdminFeatureFlags';
 import AdminProfile from './pages/AdminProfile';
@@ -25,6 +29,8 @@ import ManagerWaiterCalls from './pages/ManagerWaiterCalls';
 import ManagerTables from './pages/ManagerTables';
 import ManagerMenu from './pages/ManagerMenu';
 import ManagerMenuAvailability from './pages/ManagerMenuAvailability';
+import ManagerInventory from './pages/ManagerInventory';
+import ManagerWhiteLabel from './pages/ManagerWhiteLabel';
 import ManagerStaff from './pages/ManagerStaff';
 import ManagerTaxes from './pages/ManagerTaxes';
 import ManagerSettings from './pages/ManagerSettings';
@@ -75,6 +81,10 @@ export const App = () => {
                   <Route path="/admin/restaurants/provision" element={<AdminProvision />} />
                   <Route path="/admin/restaurants/:id" element={<AdminRestaurantDetail />} />
                   <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
+                  <Route path="/admin/pos-integrations" element={<AdminPOSIntegrations />} />
+                  <Route path="/admin/payments" element={<AdminPaymentGateways />} />
+                  <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+                  <Route path="/admin/white-label" element={<AdminWhiteLabel />} />
                   <Route path="/admin/analytics" element={<AdminAnalytics />} />
                   <Route path="/admin/feature-flags" element={<AdminFeatureFlags />} />
                   <Route path="/admin/profile" element={<AdminProfile />} />
@@ -97,6 +107,8 @@ export const App = () => {
                   <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'SUPER_ADMIN']} />}>
                     <Route path="/manager/tables" element={<ManagerTables />} />
                     <Route path="/manager/menu" element={<ManagerMenu />} />
+                    <Route path="/manager/inventory" element={<ManagerInventory />} />
+                    <Route path="/manager/white-label" element={<ManagerWhiteLabel />} />
                     <Route path="/manager/staff" element={<ManagerStaff />} />
                     <Route path="/manager/taxes" element={<ManagerTaxes />} />
                     <Route path="/manager/settings" element={<ManagerSettings />} />

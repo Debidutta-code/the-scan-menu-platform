@@ -14,6 +14,10 @@
 | `/admin/restaurants/provision` | `client/src/pages/AdminProvision.tsx` | `SUPER_ADMIN` | One-click atomic tenant provisioning wizard (restaurant + manager + 10 tables + QR codes + settings). | `AdminLayout` |
 | `/admin/restaurants/:id` | `client/src/pages/AdminRestaurantDetail.tsx` | `SUPER_ADMIN` | Deep-dive tenant profile, assigned personnel, subscription info, onboarding progress checklist, and feature flags. | `AdminLayout` |
 | `/admin/subscriptions` | `client/src/pages/AdminSubscriptions.tsx` | `SUPER_ADMIN` | Subscription control center: tier structures, included features, active tenant counts, and plan assignment modal. | `AdminLayout` |
+| `/admin/pos-integrations` | `client/src/pages/AdminPOSIntegrations.tsx` | `SUPER_ADMIN` | External POS hub: Petpooja outlet ID mapping, manual catalog sync trigger, and sync audit logs. | `AdminLayout` |
+| `/admin/payments` | `client/src/pages/AdminPaymentGateways.tsx` | `SUPER_ADMIN` | Payment gateways manager: Cash/Card/UPI/Razorpay volume split & tenant payment method toggles. | `AdminLayout` |
+| `/admin/audit-logs` | `client/src/pages/AdminAuditLogs.tsx` | `SUPER_ADMIN` | Global system audit logs timeline: security actions, tenant lifecycle events, and actor payloads. | `AdminLayout` |
+| `/admin/white-label` | `client/src/pages/AdminWhiteLabel.tsx` | `SUPER_ADMIN` | White-label domains manager: CNAME DNS resolution verification and "Hide Powered By" entitlement. | `AdminLayout` |
 | `/admin/analytics` | `client/src/pages/AdminAnalytics.tsx` | `SUPER_ADMIN` | Cross-tenant intelligence: platform GMV, 30-day transaction trends, and top performing restaurant leaderboards. | `AdminLayout` |
 | `/admin/feature-flags` | `client/src/pages/AdminFeatureFlags.tsx` | `SUPER_ADMIN` | Global feature flags matrix: inspect and toggle 10 feature flags across any tenant outlet. | `AdminLayout` |
 | `/admin/profile` | `client/src/pages/AdminProfile.tsx` | `SUPER_ADMIN` | Super Admin account profile details and security password change form. | `AdminLayout` |

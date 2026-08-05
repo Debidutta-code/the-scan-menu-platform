@@ -179,8 +179,6 @@ export const seedDatabase = async () => {
         theme: { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
         whiteLabelConfig: {
           primaryColor: '#111827',
-          secondaryColor: '#FFFFFF',
-          accentColor: '#F59E0B',
           fontFamily: 'Plus Jakarta Sans',
           hidePoweredBy: false,
         },
@@ -651,10 +649,27 @@ export const seedDatabase = async () => {
       logger.info('Demo Webhook Subscription seeded.');
     }
 
-    // 12. Seed Feature Flags for all 10 modules
-    logger.info('Seeding & Enabling all 10 Feature Flags...');
+    // 12. Seed Feature Flags and enable all ENTERPRISE flags for Demo Cafe
+    logger.info('Seeding & Enabling all ENTERPRISE Feature Flags...');
     await featureFlagService.getRestaurantFlags(restaurant._id);
-    logger.info('Feature Flags Seeded.');
+
+    const enterpriseFlags = [
+      'qr_menu',
+      'ordering',
+      'waiter_call',
+      'payments',
+      'kds',
+      'inventory',
+      'analytics',
+      'white_label',
+      'api_webhooks',
+      'pos_integration',
+    ];
+    await featureFlagService.bulkUpdate(
+      restaurant._id,
+      enterpriseFlags.map((key) => ({ key, enabled: true }))
+    );
+    logger.info(`All ${enterpriseFlags.length} ENTERPRISE Feature Flags enabled for Demo Cafe.`);
 
     logger.info('--------------------------------------------------');
     logger.info('IDEMPOTENT SEED DATA CREATED SUCCESSFULLY!');

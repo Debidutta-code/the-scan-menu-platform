@@ -13,11 +13,11 @@ export const DEFAULT_FLAGS = [
   { key: 'delivery', description: 'Enable Delivery module' },
   { key: 'takeaway', description: 'Enable Takeaway module' },
   { key: 'white_label', description: 'Enable White Label features' },
-  { key: 'pos', description: 'Enable POS integration' },
+  { key: 'pos_integration', description: 'Enable POS integration' },
   { key: 'coupons', description: 'Enable Coupons and Promotions' },
   { key: 'loyalty', description: 'Enable Loyalty Program' },
   { key: 'crm', description: 'Enable Customer Relationship Management' },
-  { key: 'api_access', description: 'Enable external API Access' },
+  { key: 'api_webhooks', description: 'Enable Developer API & Webhooks access' },
 ];
 
 export class FeatureFlagService {

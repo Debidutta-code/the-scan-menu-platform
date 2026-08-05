@@ -26,11 +26,14 @@ import {
   ToggleRight,
   MoreHorizontal,
   X,
+  Eye,
+  Package,
+  Globe,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
 export const ManagerLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user, impersonatedOutlet, exitImpersonation } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -75,6 +78,10 @@ export const ManagerLayout: React.FC = () => {
     ? 'settings'
     : currentPath.startsWith('/manager/analytics')
     ? 'analytics'
+    : currentPath.startsWith('/manager/inventory')
+    ? 'inventory'
+    : currentPath.startsWith('/manager/white-label')
+    ? 'white-label'
     : currentPath.startsWith('/manager/developer')
     ? 'developer'
     : currentPath.startsWith('/manager/profile')
@@ -278,9 +285,27 @@ export const ManagerLayout: React.FC = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
+      {impersonatedOutlet && (
+        <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-extrabold flex items-center justify-between shadow-sm z-50 shrink-0">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            <span>SuperAdmin Impersonation Mode: Currently viewing <strong>{impersonatedOutlet.name}</strong> ({impersonatedOutlet.slug})</span>
+          </div>
+          <button
+            onClick={() => {
+              exitImpersonation();
+              navigate('/admin/restaurants');
+            }}
+            className="bg-slate-950 text-white px-3 py-1 rounded-xl text-[11px] font-bold hover:bg-slate-800 transition"
+          >
+            Exit Impersonation & Return to SuperAdmin
+          </button>
+        </div>
+      )}
 
-      {/* ----------------- SIDEBAR (TABLET/DESKTOP) ----------------- */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* ----------------- SIDEBAR (TABLET/DESKTOP) ----------------- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-150 shrink-0 h-full">
         <div className="p-6 border-b border-slate-150">
           <h2 className="font-display tracking-tight text-3xl font-normal text-slate-900">
@@ -291,7 +316,7 @@ export const ManagerLayout: React.FC = () => {
           </p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {/* Orders tab */}
           <button
             onClick={() => navigate('/manager/orders')}
@@ -400,6 +425,36 @@ export const ManagerLayout: React.FC = () => {
             >
               <BookOpen className="w-4 h-4" strokeWidth={1.75} />
               <span>Menu Management</span>
+            </button>
+          )}
+
+          {/* Inventory & Stock Control tab (Manager/Super Admin only) */}
+          {!isStaff && isEnabled('inventory') && (
+            <button
+              onClick={() => navigate('/manager/inventory')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'inventory'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Package className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+              <span>Inventory & Stock</span>
+            </button>
+          )}
+
+          {/* White-Label Branding tab (Manager/Super Admin only) */}
+          {!isStaff && isEnabled('white_label') && (
+            <button
+              onClick={() => navigate('/manager/white-label')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'white-label'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Globe className="w-4 h-4 text-purple-500" strokeWidth={1.75} />
+              <span>White-Label Branding</span>
             </button>
           )}
 
@@ -789,6 +844,7 @@ export const ManagerLayout: React.FC = () => {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 };

@@ -3,12 +3,21 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User } from '../types';
 import apiClient from '../lib/api';
 
+export interface ImpersonatedOutlet {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   isLoading: boolean;
+  impersonatedOutlet: ImpersonatedOutlet | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  impersonateOutlet: (outlet: ImpersonatedOutlet) => void;
+  exitImpersonation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +26,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('accessToken'));
   const [isLoading, setIsLoading] = useState(true);
+  const [impersonatedOutlet, setImpersonatedOutlet] = useState<ImpersonatedOutlet | null>(() => {
+    const raw = localStorage.getItem('tsm_impersonated_outlet');
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -74,14 +94,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Ignore failures on logout and clean local state
     } finally {
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('tsm_impersonated_outlet');
       setAccessToken(null);
       setUser(null);
+      setImpersonatedOutlet(null);
       setIsLoading(false);
     }
   };
 
+  const impersonateOutlet = (outlet: ImpersonatedOutlet) => {
+    localStorage.setItem('tsm_impersonated_outlet', JSON.stringify(outlet));
+    setImpersonatedOutlet(outlet);
+  };
+
+  const exitImpersonation = () => {
+    localStorage.removeItem('tsm_impersonated_outlet');
+    setImpersonatedOutlet(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, accessToken, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        accessToken,
+        isLoading,
+        impersonatedOutlet,
+        login,
+        logout,
+        impersonateOutlet,
+        exitImpersonation,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -94,3 +137,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default useAuth;

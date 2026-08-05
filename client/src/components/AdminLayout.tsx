@@ -13,6 +13,9 @@ import {
   LogOut,
   MoreHorizontal,
   X,
+  Plug,
+  Clock,
+  Globe,
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
@@ -31,6 +34,14 @@ export const AdminLayout: React.FC = () => {
     ? 'restaurants'
     : currentPath.startsWith('/admin/subscriptions')
     ? 'subscriptions'
+    : currentPath.startsWith('/admin/pos-integrations')
+    ? 'pos-integrations'
+    : currentPath.startsWith('/admin/payments')
+    ? 'payments'
+    : currentPath.startsWith('/admin/audit-logs')
+    ? 'audit-logs'
+    : currentPath.startsWith('/admin/white-label')
+    ? 'white-label'
     : currentPath.startsWith('/admin/analytics')
     ? 'analytics'
     : currentPath.startsWith('/admin/feature-flags')
@@ -39,52 +50,34 @@ export const AdminLayout: React.FC = () => {
     ? 'profile'
     : '';
 
-  const renderHeader = () => (
-    <header className="bg-white border-b border-slate-150 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-sm shrink-0">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl bg-slate-950 flex items-center justify-center text-amber-500 shadow-sm shrink-0">
-          <Shield className="w-4.5 h-4.5" strokeWidth={2} />
-        </div>
-        <div>
-          <h1 className="font-display tracking-tight text-2xl font-bold text-slate-900 leading-none">
-            Pixora SuperAdmin
-          </h1>
-          <span className="text-[9px] text-slate-400 font-mono font-semibold uppercase tracking-wider">
-            Platform Control Center
-          </span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/manager/orders')}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-        >
-          <Store className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
-          <span>Tenant View</span>
-        </button>
-
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl">
-          <div className="w-5 h-5 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-[10px] font-mono">
-            {user?.name?.charAt(0).toUpperCase() || 'A'}
-          </div>
-          <span className="text-xs font-extrabold text-slate-900 truncate max-w-[120px]">{user?.name || 'Super Admin'}</span>
-        </div>
-
-        <button
-          onClick={logout}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-red-600 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-red-50 transition"
-        >
-          <LogOut className="w-4 h-4" strokeWidth={1.75} />
-          <span className="hidden sm:inline">Log Out</span>
-        </button>
-      </div>
-    </header>
-  );
+  const pageTitle =
+    activeTab === 'dashboard'
+      ? 'Platform Command Center'
+      : activeTab === 'restaurants'
+      ? 'Tenants Directory'
+      : activeTab === 'provision'
+      ? 'Provision Outlet Wizard'
+      : activeTab === 'subscriptions'
+      ? 'Subscription Plans'
+      : activeTab === 'pos-integrations'
+      ? 'External POS Integrations'
+      : activeTab === 'payments'
+      ? 'Payment Gateways & Methods'
+      : activeTab === 'audit-logs'
+      ? 'Global System Audit Logs'
+      : activeTab === 'white-label'
+      ? 'White-Label & Custom Domains'
+      : activeTab === 'analytics'
+      ? 'Platform Analytics'
+      : activeTab === 'feature-flags'
+      ? 'Global Feature Flags'
+      : activeTab === 'profile'
+      ? 'Admin Profile'
+      : 'SuperAdmin Control Panel';
 
   return (
     <div className="h-screen flex flex-col md:flex-row bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
-      {/* ----------------- SIDEBAR (TABLET/DESKTOP) ----------------- */}
+      {/* SIDEBAR (DESKTOP) */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-150 shrink-0 h-full">
         <div className="p-6 border-b border-slate-150">
           <div className="flex items-center gap-2.5">
@@ -106,7 +99,7 @@ export const AdminLayout: React.FC = () => {
           {/* Dashboard */}
           <button
             onClick={() => navigate('/admin/dashboard')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'dashboard'
                 ? 'bg-slate-950 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -119,7 +112,7 @@ export const AdminLayout: React.FC = () => {
           {/* Tenants Directory */}
           <button
             onClick={() => navigate('/admin/restaurants')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'restaurants'
                 ? 'bg-slate-950 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -132,7 +125,7 @@ export const AdminLayout: React.FC = () => {
           {/* Provision Tenant */}
           <button
             onClick={() => navigate('/admin/restaurants/provision')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'provision'
                 ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -145,7 +138,7 @@ export const AdminLayout: React.FC = () => {
           {/* Subscriptions */}
           <button
             onClick={() => navigate('/admin/subscriptions')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'subscriptions'
                 ? 'bg-slate-950 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -155,10 +148,62 @@ export const AdminLayout: React.FC = () => {
             <span>Subscriptions</span>
           </button>
 
+          {/* POS Integrations Hub */}
+          <button
+            onClick={() => navigate('/admin/pos-integrations')}
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'pos-integrations'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Plug className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <span>POS Integrations</span>
+          </button>
+
+          {/* Payment Gateways Manager */}
+          <button
+            onClick={() => navigate('/admin/payments')}
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'payments'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <CreditCard className="w-4 h-4 text-emerald-500" strokeWidth={1.75} />
+            <span>Payment Gateways</span>
+          </button>
+
+          {/* Global System Audit Logs */}
+          <button
+            onClick={() => navigate('/admin/audit-logs')}
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'audit-logs'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-indigo-400" strokeWidth={1.75} />
+            <span>System Audit Logs</span>
+          </button>
+
+          {/* White-Label & Custom Domains */}
+          <button
+            onClick={() => navigate('/admin/white-label')}
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'white-label'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Globe className="w-4 h-4 text-purple-400" strokeWidth={1.75} />
+            <span>White-Label Domains</span>
+          </button>
+
           {/* Platform Analytics */}
           <button
             onClick={() => navigate('/admin/analytics')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'analytics'
                 ? 'bg-slate-950 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -171,7 +216,7 @@ export const AdminLayout: React.FC = () => {
           {/* Feature Flags Matrix */}
           <button
             onClick={() => navigate('/admin/feature-flags')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'feature-flags'
                 ? 'bg-slate-950 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -184,7 +229,7 @@ export const AdminLayout: React.FC = () => {
           {/* Profile */}
           <button
             onClick={() => navigate('/admin/profile')}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
               activeTab === 'profile'
                 ? 'bg-slate-950 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -198,23 +243,19 @@ export const AdminLayout: React.FC = () => {
         {/* User Footer */}
         <div className="p-4 border-t border-slate-150 bg-slate-50/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-9 w-9 bg-slate-900 text-amber-500 rounded-xl flex items-center justify-center font-extrabold shrink-0 text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-slate-950 text-amber-400 font-bold text-xs flex items-center justify-center font-mono">
                 {user?.name?.charAt(0).toUpperCase() || 'A'}
               </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-xs font-extrabold text-slate-900 truncate leading-tight">
-                  {user?.name || 'Super Admin'}
-                </h4>
-                <p className="text-[10px] text-amber-700 truncate font-mono uppercase font-bold tracking-wider mt-0.5">
-                  SUPER_ADMIN
-                </p>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
+                <p className="text-[10px] text-slate-400 font-mono truncate">{user?.email}</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
-              title="Log Out"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+              title="Log out"
             >
               <LogOut className="w-4 h-4" strokeWidth={1.75} />
             </button>
@@ -222,107 +263,76 @@ export const AdminLayout: React.FC = () => {
         </div>
       </aside>
 
-      {/* ----------------- MAIN VIEW WRAPPER ----------------- */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {renderHeader()}
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
+        {/* Desktop Top Header */}
+        <header className="hidden md:flex h-16 bg-white border-b border-slate-150 px-8 items-center justify-between shrink-0">
+          <h1 className="font-display tracking-tight text-xl font-bold text-slate-900">
+            {pageTitle}
+          </h1>
 
-        <main className="flex-1 h-0 overflow-y-auto relative p-4 md:p-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/admin/restaurants/provision')}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition shadow-sm"
+            >
+              <PlusCircle className="w-4 h-4" strokeWidth={2} />
+              <span>Provision Outlet</span>
+            </button>
+
+            <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg uppercase">
+              SUPER_ADMIN
+            </span>
+          </div>
+        </header>
+
+        {/* Mobile Top Header */}
+        <header className="md:hidden h-14 bg-white border-b border-slate-150 px-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-amber-500" strokeWidth={2} />
+            <span className="font-display text-lg font-bold text-slate-900">{pageTitle}</span>
+          </div>
+
+          <button
+            onClick={() => setMoreDrawerOpen(true)}
+            className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl"
+          >
+            <MoreHorizontal className="w-5 h-5" strokeWidth={1.75} />
+          </button>
+        </header>
+
+        {/* Scrollable Page Body */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
         </main>
       </div>
 
-      {/* ----------------- BOTTOM BAR (MOBILE ONLY) ----------------- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-150 flex items-center justify-around px-2 pb-safe z-40 shadow-lg">
-        <button
-          onClick={() => navigate('/admin/dashboard')}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all ${
-            activeTab === 'dashboard' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <LayoutGrid className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] truncate">Dashboard</span>
-        </button>
-
-        <button
-          onClick={() => navigate('/admin/restaurants')}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all ${
-            activeTab === 'restaurants' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <Store className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] truncate">Tenants</span>
-        </button>
-
-        <button
-          onClick={() => navigate('/admin/restaurants/provision')}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all ${
-            activeTab === 'provision' ? 'text-amber-600 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <PlusCircle className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] truncate">Provision</span>
-        </button>
-
-        <button
-          onClick={() => navigate('/admin/subscriptions')}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all ${
-            activeTab === 'subscriptions' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <CreditCard className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] truncate">Plans</span>
-        </button>
-
-        <button
-          onClick={() => setMoreDrawerOpen(!moreDrawerOpen)}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all ${
-            moreDrawerOpen ? 'text-amber-500 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <MoreHorizontal className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] truncate">More</span>
-        </button>
-      </nav>
-
-      {/* MOBILE MORE DRAWER */}
+      {/* Mobile Drawer */}
       {moreDrawerOpen && (
-        <>
-          <div
-            className="md:hidden fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[2px]"
-            onClick={() => setMoreDrawerOpen(false)}
-          />
-          <div className="md:hidden fixed bottom-16 left-0 right-0 z-50 bg-white border-t border-slate-150 rounded-t-3xl shadow-2xl p-4 pb-safe animate-slide-up">
-            <div className="flex items-center justify-between mb-4 px-1">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Admin Tools</h3>
-              <button onClick={() => setMoreDrawerOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">
-                <X className="w-4 h-4" strokeWidth={2} />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 md:hidden flex justify-end">
+          <div className="w-72 bg-white h-full p-6 space-y-4 flex flex-col">
+            <div className="flex justify-between items-center pb-4 border-b">
+              <h3 className="font-bold text-sm">Navigation Menu</h3>
+              <button onClick={() => setMoreDrawerOpen(false)} className="text-slate-400">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={() => { navigate('/admin/analytics'); setMoreDrawerOpen(false); }}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-2xl border bg-slate-50 border-slate-150 text-slate-700"
-              >
-                <BarChart3 className="w-5 h-5" strokeWidth={1.75} />
-                <span className="text-[10px] font-bold text-center">Analytics</span>
-              </button>
-              <button
-                onClick={() => { navigate('/admin/feature-flags'); setMoreDrawerOpen(false); }}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-2xl border bg-slate-50 border-slate-150 text-slate-700"
-              >
-                <ToggleRight className="w-5 h-5" strokeWidth={1.75} />
-                <span className="text-[10px] font-bold text-center">Feature Flags</span>
-              </button>
-              <button
-                onClick={() => { navigate('/admin/profile'); setMoreDrawerOpen(false); }}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-2xl border bg-slate-50 border-slate-150 text-slate-700"
-              >
-                <User className="w-5 h-5" strokeWidth={1.75} />
-                <span className="text-[10px] font-bold text-center">Profile</span>
-              </button>
+            <div className="space-y-2 flex-1 overflow-y-auto text-xs font-bold">
+              <button onClick={() => { navigate('/admin/dashboard'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Dashboard</button>
+              <button onClick={() => { navigate('/admin/restaurants'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Tenants Directory</button>
+              <button onClick={() => { navigate('/admin/restaurants/provision'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl bg-amber-50 text-amber-900 font-extrabold">Provision Outlet</button>
+              <button onClick={() => { navigate('/admin/subscriptions'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Subscriptions</button>
+              <button onClick={() => { navigate('/admin/pos-integrations'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">POS Integrations</button>
+              <button onClick={() => { navigate('/admin/payments'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Payment Gateways</button>
+              <button onClick={() => { navigate('/admin/audit-logs'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">System Audit Logs</button>
+              <button onClick={() => { navigate('/admin/white-label'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">White-Label Domains</button>
+              <button onClick={() => { navigate('/admin/analytics'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Platform Analytics</button>
+              <button onClick={() => { navigate('/admin/feature-flags'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Feature Flags</button>
+              <button onClick={() => { navigate('/admin/profile'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Profile</button>
             </div>
+            <button onClick={logout} className="w-full py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-xs">Log Out</button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

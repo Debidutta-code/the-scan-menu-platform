@@ -190,6 +190,66 @@ export const adminService = {
     const res = await apiClient.patch(`/restaurants/${restaurantId}/subscription`, { planKey });
     return res.data;
   },
+
+  // POS Integrations
+  async getPOSOutlets() {
+    const res = await apiClient.get('/admin/pos/outlets');
+    return res.data;
+  },
+
+  async getPOSSyncLogs(page = 1, limit = 50) {
+    const res = await apiClient.get(`/admin/pos/sync-logs?page=${page}&limit=${limit}`);
+    return res.data;
+  },
+
+  async triggerPOSMenuSync(restaurantId: string) {
+    const res = await apiClient.post(`/admin/pos/${restaurantId}/sync-menu`);
+    return res.data;
+  },
+
+  async updatePOSConfig(restaurantId: string, data: { enabled: boolean; outletId: string; apiKey?: string }) {
+    const res = await apiClient.patch(`/admin/pos/${restaurantId}/config`, data);
+    return res.data;
+  },
+
+  // Payment Gateways
+  async getPaymentOverview() {
+    const res = await apiClient.get('/admin/payments/overview');
+    return res.data;
+  },
+
+  async getTenantPaymentConfigs() {
+    const res = await apiClient.get('/admin/payments/tenant-configs');
+    return res.data;
+  },
+
+  async updateTenantPaymentMethods(restaurantId: string, data: { cashEnabled: boolean; cardEnabled: boolean; upiEnabled: boolean; razorpayEnabled: boolean }) {
+    const res = await apiClient.patch(`/admin/payments/restaurants/${restaurantId}/methods`, data);
+    return res.data;
+  },
+
+  // Audit Logs
+  async getAuditLogs(params: { page?: number; limit?: number; action?: string; severity?: string; search?: string }) {
+    const query = new URLSearchParams(params as any).toString();
+    const res = await apiClient.get(`/admin/audit-logs?${query}`);
+    return res.data;
+  },
+
+  // White Label & Domains
+  async getWhiteLabelDomains() {
+    const res = await apiClient.get('/admin/white-label/domains');
+    return res.data;
+  },
+
+  async verifyDomainDNS(restaurantId: string) {
+    const res = await apiClient.post(`/admin/white-label/domains/${restaurantId}/verify`);
+    return res.data;
+  },
+
+  async updateWhiteLabelConfig(restaurantId: string, data: { customDomain?: string | null; hidePoweredBy?: boolean; primaryColor?: string; secondaryColor?: string }) {
+    const res = await apiClient.patch(`/admin/white-label/domains/${restaurantId}`, data);
+    return res.data;
+  },
 };
 
 export const managerService = {

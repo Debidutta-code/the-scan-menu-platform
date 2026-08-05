@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 import { adminService, Restaurant } from '../services/restaurant.service';
 import {
   Plus,
@@ -21,6 +22,7 @@ import {
   Eye,
   Trash2,
   AlertTriangle,
+  LogIn,
 } from 'lucide-react';
 
 const restaurantSchema = z.object({
@@ -50,6 +52,7 @@ type ManagerFormValues = z.infer<typeof managerSchema>;
 export const AdminRestaurants: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { impersonateOutlet } = useAuth();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRest, setEditingRest] = useState<Restaurant | null>(null);
@@ -425,6 +428,18 @@ export const AdminRestaurants: React.FC = () => {
 
                     <div className="border-t border-slate-100 pt-3 mt-4 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            impersonateOutlet({ id: rest._id, name: rest.name, slug: rest.slug });
+                            navigate('/manager/orders');
+                          }}
+                          className="flex items-center gap-1 text-slate-950 font-bold bg-amber-400 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition shadow-sm"
+                          title="Manage Outlet as SuperAdmin"
+                        >
+                          <LogIn className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span>Impersonate</span>
+                        </button>
+
                         <button
                           onClick={() => navigate(`/admin/restaurants/${rest._id}`)}
                           className="flex items-center gap-1 text-slate-800 hover:text-slate-900 bg-slate-100 px-2 py-1 rounded-lg transition"

@@ -10,7 +10,7 @@ const tokenService = new TokenService();
 const userRepository = new UserRepository();
 
 export interface AuthenticatedRequest extends Request {
-  user?: TokenUserPayload & { isActive: boolean };
+  user?: TokenUserPayload & { isActive: boolean; name?: string };
 }
 
 export const requireAuth = async (
