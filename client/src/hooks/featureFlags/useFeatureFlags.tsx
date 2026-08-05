@@ -28,8 +28,8 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ childr
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
-  // Extract restaurantId from authenticated user context, avoiding TS type errors on missing properties
-  const activeRestaurantId = (user as any)?.restaurantId; // Assume we need a user to fetch flags, or handle public routes differently
+  // Extract restaurantId from authenticated user context (user.restaurants array or fallback restaurantId property)
+  const activeRestaurantId = user?.restaurants?.[0] || (user as any)?.restaurantId;
 
   const fetchFlags = useCallback(async () => {
     // If no restaurantId is provided, we might be in a context where flags aren't needed yet, or it's a global public view

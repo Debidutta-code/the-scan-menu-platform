@@ -55,6 +55,10 @@ import analyticsRoutes from './routes/analytics.routes';
 import whiteLabelRoutes from './routes/whiteLabel.routes';
 import openapiRoutes from './routes/openapi.routes';
 import developerRoutes from './routes/developer.routes';
+import healthRoutes from './routes/health.routes';
+import { correlationIdMiddleware } from './middleware/correlationId.middleware';
+import { authRateLimiter } from './middleware/rateLimiter.middleware';
+import { setupGracefulShutdown } from './utils/gracefulShutdown';
 import { errorHandler } from './middleware/errorHandler';
 import { SocketService } from './sockets/socket.service';
 import { logger } from './utils/logger';
@@ -76,6 +80,9 @@ app.use(
   })
 );
 
+app.use(correlationIdMiddleware);
+app.use('/health', healthRoutes);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -85,8 +92,6 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Express parser configuration
-// Mount webhook routes BEFORE the global JSON parser so they can access the raw body for signature verification
 app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 
 app.use(express.json());
@@ -94,6 +99,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Routing
+app.use('/api/v1/auth/login', authRateLimiter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
@@ -183,6 +189,8 @@ export const startServer = async () => {
     } catch (checkErr) {
       logger.error(checkErr, 'Error running startup safety check / auto-migration for unmigrated orders');
     }
+
+    setupGracefulShutdown(httpServer);
 
     httpServer.listen(PORT, () => {
       logger.info(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

@@ -5,6 +5,7 @@ import { MenuItem } from '../models/MenuItem';
 import { CloudinaryService } from '../services/cloudinary.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { inventoryService } from '../services/inventory.service';
+import { cacheService } from '../utils/cacheService';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -76,6 +77,7 @@ export class MenuController {
       });
 
       await category.save();
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, category, 'Category created successfully', 201);
     } catch (error) {
       next(error);
@@ -101,6 +103,7 @@ export class MenuController {
         return;
       }
 
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, category, 'Category updated successfully');
     } catch (error) {
       next(error);
@@ -138,6 +141,7 @@ export class MenuController {
       }
 
       await Category.findByIdAndDelete(categoryId);
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, {}, 'Category deleted successfully');
     } catch (error) {
       next(error);
@@ -165,6 +169,7 @@ export class MenuController {
       }));
 
       await Category.bulkWrite(bulkOps);
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, {}, 'Categories reordered successfully');
     } catch (error) {
       next(error);
@@ -273,6 +278,7 @@ export class MenuController {
 
       await menuItem.save();
       await restaurantStatsService.incrementMenuItems(restaurantId, 1);
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, menuItem, 'Menu item created successfully', 201);
     } catch (error) {
       next(error);
@@ -342,6 +348,7 @@ export class MenuController {
       if (updateData.addOns !== undefined) item.addOns = updateData.addOns;
 
       await item.save();
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, item, 'Menu item updated successfully');
     } catch (error) {
       next(error);
@@ -363,6 +370,7 @@ export class MenuController {
       }
 
       await restaurantStatsService.incrementMenuItems(restaurantId, -1);
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
 
       sendSuccess(res, {}, 'Menu item deleted successfully');
     } catch (error) {
@@ -396,6 +404,7 @@ export class MenuController {
         { type: actorType, id: req.user?.id }
       );
 
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, updatedItem, 'Menu item availability toggled successfully');
     } catch (error) {
       next(error);

@@ -10,7 +10,11 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:codegen": "playwright codegen http://localhost:5173",
+    "e2e:report": "playwright show-report"
   },
   "keywords": [
     "qr-menu",
@@ -18,5 +22,13 @@
     "saas"
   ],
   "author": "Pixora Studios",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "mongoose": "^9.9.1",
+    "ts-node": "^10.9.2"
+  }
 }

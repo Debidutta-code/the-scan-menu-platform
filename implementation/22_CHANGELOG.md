@@ -1,3 +1,20 @@
+## [Phase 16] - Production Hardening & Infrastructure
+
+### Added
+- Created `CacheService` singleton in-memory TTL cache (`server/src/utils/cacheService.ts`) with `set`, `get`, `del`, `invalidatePattern` and `clear` methods.
+- Added public menu response caching (120s TTL, keyed by `public_menu_{restaurantId}`) in `PublicController.getMenu`.
+- Hooked `cacheService.invalidatePattern` on all 8 menu write mutation operations (create/edit/delete category/item, reorder, toggle availability, update stock) in `menu.controller.ts`.
+- Created tiered rate limiting middleware (`server/src/middleware/rateLimiter.middleware.ts`): `authRateLimiter` (10 req/15 min for login), `orderPlacementRateLimiter` (30 req/min for public orders), `generalApiRateLimiter` (300 req/15 min global).
+- Applied `authRateLimiter` to `POST /api/v1/auth/login` in `index.ts`.
+- Created Correlation ID middleware (`server/src/middleware/correlationId.middleware.ts`) using `crypto.randomUUID()` — attaches `X-Correlation-ID` header to every request/response.
+- Created `HealthController` (`server/src/controllers/health.controller.ts`) and `health.routes.ts` mounted at `/health` with `GET /health/liveness` and `GET /health/readiness` probes.
+- Created `gracefulShutdown.ts` utility for `SIGTERM`/`SIGINT` handling: stops HTTP connections, drains active requests, closes Mongoose, force-exits after 10s timeout.
+- Registered `correlationIdMiddleware`, `healthRoutes`, and `setupGracefulShutdown(httpServer)` in `index.ts`.
+- Created `17_PRODUCTION_HARDENING.md` technical specification document.
+- Comprehensive Vitest test suite `productionHardening.test.ts` passing 6/6 tests (100%).
+
+---
+
 ## [Phase 15] - Plugin Framework (Public API & Webhooks)
 
 ### Added

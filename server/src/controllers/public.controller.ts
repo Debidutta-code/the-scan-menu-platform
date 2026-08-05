@@ -13,6 +13,7 @@ import { restaurantStatsService } from '../services/restaurantStats.service';
 import { paymentService } from '../services/payment.service';
 import { posIntegrationService } from '../services/posIntegration.service';
 import { inventoryService } from '../services/inventory.service';
+import { cacheService } from '../utils/cacheService';
 import mongoose from 'mongoose';
 
 export class PublicController {
@@ -162,6 +163,14 @@ export class PublicController {
         return;
       }
 
+      // Cache keyed by restaurantId so menu.controller can invalidate without slug lookup
+      const cacheKey = `public_menu_${restaurant._id.toString()}`;
+      const cachedMenu = cacheService.get(cacheKey);
+      if (cachedMenu) {
+        sendSuccess(res, cachedMenu, 'Public menu retrieved successfully (cached)');
+        return;
+      }
+
       const categories = await Category.find({
         restaurantId: restaurant._id,
         isActive: true,
@@ -185,6 +194,7 @@ export class PublicController {
         };
       });
 
+      cacheService.set(cacheKey, categoriesWithItems, { ttlSeconds: 120 });
       sendSuccess(res, categoriesWithItems, 'Public menu retrieved successfully');
     } catch (error) {
       next(error);
