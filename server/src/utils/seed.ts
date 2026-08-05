@@ -177,11 +177,6 @@ export const seedDatabase = async () => {
           socialLinks: { facebook: 'https://fb.com/democafe', instagram: 'https://instagr.am/democafe' },
         },
         theme: { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
-        whiteLabelConfig: {
-          primaryColor: '#111827',
-          fontFamily: 'Plus Jakarta Sans',
-          hidePoweredBy: false,
-        },
       });
       await settings.save();
     }
@@ -661,7 +656,6 @@ export const seedDatabase = async () => {
       'kds',
       'inventory',
       'analytics',
-      'white_label',
       'api_webhooks',
       'pos_integration',
     ];

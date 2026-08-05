@@ -12,7 +12,6 @@ export const DEFAULT_FLAGS = [
   { key: 'customer_display', description: 'Enable Customer Display Screen' },
   { key: 'delivery', description: 'Enable Delivery module' },
   { key: 'takeaway', description: 'Enable Takeaway module' },
-  { key: 'white_label', description: 'Enable White Label features' },
   { key: 'pos_integration', description: 'Enable POS integration' },
   { key: 'coupons', description: 'Enable Coupons and Promotions' },
   { key: 'loyalty', description: 'Enable Loyalty Program' },

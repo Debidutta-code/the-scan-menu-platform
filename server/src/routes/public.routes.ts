@@ -77,8 +77,5 @@ router.get('/table-sessions/:sessionId', publicGetLimiter, publicController.getT
 router.post('/tables/:tableToken/waiter-call', waiterCallLimiter, waiterCallController.createWaiterCall);
 router.get('/tables/:tableToken/waiter-call/active', publicGetLimiter, waiterCallController.getActiveWaiterCall);
 
-import { whiteLabelController } from '../controllers/whiteLabel.controller';
-
-router.get('/white-label/domain/:domain', whiteLabelController.getByDomain);
 
 export default router;

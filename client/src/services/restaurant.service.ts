@@ -234,22 +234,6 @@ export const adminService = {
     const res = await apiClient.get(`/admin/audit-logs?${query}`);
     return res.data;
   },
-
-  // White Label & Domains
-  async getWhiteLabelDomains() {
-    const res = await apiClient.get('/admin/white-label/domains');
-    return res.data;
-  },
-
-  async verifyDomainDNS(restaurantId: string) {
-    const res = await apiClient.post(`/admin/white-label/domains/${restaurantId}/verify`);
-    return res.data;
-  },
-
-  async updateWhiteLabelConfig(restaurantId: string, data: { customDomain?: string | null; hidePoweredBy?: boolean; primaryColor?: string; secondaryColor?: string }) {
-    const res = await apiClient.patch(`/admin/white-label/domains/${restaurantId}`, data);
-    return res.data;
-  },
 };
 
 export const managerService = {

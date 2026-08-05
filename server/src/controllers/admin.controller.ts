@@ -48,9 +48,6 @@ export class AdminController {
     this.getTenantPaymentConfigs = this.getTenantPaymentConfigs.bind(this);
     this.updateTenantPaymentMethods = this.updateTenantPaymentMethods.bind(this);
     this.getAuditLogs = this.getAuditLogs.bind(this);
-    this.getWhiteLabelDomains = this.getWhiteLabelDomains.bind(this);
-    this.verifyDomainDNS = this.verifyDomainDNS.bind(this);
-    this.updateWhiteLabelConfig = this.updateWhiteLabelConfig.bind(this);
   }
 
   async provisionRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
@@ -724,95 +721,4 @@ export class AdminController {
     }
   }
 
-  // 9. Get White Label Domains
-  async getWhiteLabelDomains(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const restaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } }).lean();
-      const settingsList = await RestaurantSettings.find().lean();
-
-      const domains = restaurants.map((rest: any) => {
-        const set = settingsList.find((s: any) => s.restaurantId?.toString() === rest._id.toString());
-        return {
-          restaurantId: rest._id,
-          name: rest.name,
-          slug: rest.slug,
-          subscriptionPlan: rest.subscription?.planKey || 'FREE',
-          whiteLabelConfig: set?.whiteLabelConfig || {
-            customDomain: null,
-            hidePoweredBy: false,
-            primaryColor: '#111827',
-            secondaryColor: '#F59E0B',
-          },
-        };
-      });
-
-      sendSuccess(res, domains, 'White-label domain configurations retrieved');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // 10. Verify Domain DNS
-  async verifyDomainDNS(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { restaurantId } = req.params;
-      const settings = await RestaurantSettings.findOne({ restaurantId });
-
-      const customDomain = settings?.whiteLabelConfig?.customDomain;
-      if (!customDomain) {
-        sendError(res, 'BAD_REQUEST', 'No custom domain configured for this outlet', null, 400);
-        return;
-      }
-
-      // Simulated CNAME DNS Verification
-      const isDnsValid = customDomain.includes('.');
-      sendSuccess(
-        res,
-        {
-          domain: customDomain,
-          dnsStatus: isDnsValid ? 'ACTIVE' : 'FAILED',
-          cnameTarget: 'cname.pixoraqr.com',
-          verifiedAt: new Date(),
-        },
-        isDnsValid ? 'CNAME record verified successfully' : 'DNS resolution failed for custom domain'
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // 11. Update White Label Config
-  async updateWhiteLabelConfig(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { restaurantId } = req.params;
-      const { customDomain, hidePoweredBy, primaryColor, secondaryColor } = req.body;
-
-      const settings = await RestaurantSettings.findOneAndUpdate(
-        { restaurantId },
-        {
-          'whiteLabelConfig.customDomain': customDomain || null,
-          'whiteLabelConfig.hidePoweredBy': !!hidePoweredBy,
-          'whiteLabelConfig.primaryColor': primaryColor || '#111827',
-          'whiteLabelConfig.secondaryColor': secondaryColor || '#F59E0B',
-        },
-        { new: true, upsert: true }
-      );
-
-      const rest = await Restaurant.findById(restaurantId);
-      await auditLogService.logEvent({
-        action: 'WHITE_LABEL_UPDATED',
-        actorId: req.user?.id,
-        actorName: req.user?.name,
-        actorRole: req.user?.role,
-        restaurantId: rest?.id,
-        restaurantName: rest?.name,
-        details: { customDomain, hidePoweredBy },
-      });
-
-      sendSuccess(res, settings.whiteLabelConfig, 'White-label configuration updated');
-    } catch (error) {
-      next(error);
-    }
-  }
 }
-

@@ -52,7 +52,6 @@ import publicRoutes from './routes/public.routes';
 import paymentRoutes from './routes/payment.routes';
 import webhookRoutes from './routes/webhook.routes';
 import analyticsRoutes from './routes/analytics.routes';
-import whiteLabelRoutes from './routes/whiteLabel.routes';
 import openapiRoutes from './routes/openapi.routes';
 import developerRoutes from './routes/developer.routes';
 import healthRoutes from './routes/health.routes';
@@ -110,7 +109,6 @@ app.use('/api/v1/subscription', globalSubscriptionRoutes);
 // Mount orderRoutes first so STAFF role can access orders without being blocked by menuRoutes/restaurantRoutes top-level MANAGER checks.
 // Mount menuRoutes BEFORE restaurantRoutes to prevent wildcard param collision clashing (:restaurantId matches categories-reorder etc.)
 app.use('/api/v1/restaurants/:restaurantId/analytics', analyticsRoutes);
-app.use('/api/v1/restaurants/:restaurantId/white-label', whiteLabelRoutes);
 app.use('/api/v1/restaurants/:restaurantId/developer', developerRoutes);
 app.use('/api/v1/restaurants/:restaurantId/payments', paymentRoutes);
 app.use('/api/v1/restaurants', orderRoutes);

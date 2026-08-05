@@ -15,7 +15,6 @@ import {
   X,
   Plug,
   Clock,
-  Globe,
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
@@ -40,8 +39,6 @@ export const AdminLayout: React.FC = () => {
     ? 'payments'
     : currentPath.startsWith('/admin/audit-logs')
     ? 'audit-logs'
-    : currentPath.startsWith('/admin/white-label')
-    ? 'white-label'
     : currentPath.startsWith('/admin/analytics')
     ? 'analytics'
     : currentPath.startsWith('/admin/feature-flags')
@@ -65,8 +62,6 @@ export const AdminLayout: React.FC = () => {
       ? 'Payment Gateways & Methods'
       : activeTab === 'audit-logs'
       ? 'Global System Audit Logs'
-      : activeTab === 'white-label'
-      ? 'White-Label & Custom Domains'
       : activeTab === 'analytics'
       ? 'Platform Analytics'
       : activeTab === 'feature-flags'
@@ -185,19 +180,6 @@ export const AdminLayout: React.FC = () => {
           >
             <Clock className="w-4 h-4 text-indigo-400" strokeWidth={1.75} />
             <span>System Audit Logs</span>
-          </button>
-
-          {/* White-Label & Custom Domains */}
-          <button
-            onClick={() => navigate('/admin/white-label')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
-              activeTab === 'white-label'
-                ? 'bg-slate-950 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <Globe className="w-4 h-4 text-purple-400" strokeWidth={1.75} />
-            <span>White-Label Domains</span>
           </button>
 
           {/* Platform Analytics */}
@@ -325,7 +307,6 @@ export const AdminLayout: React.FC = () => {
               <button onClick={() => { navigate('/admin/pos-integrations'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">POS Integrations</button>
               <button onClick={() => { navigate('/admin/payments'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Payment Gateways</button>
               <button onClick={() => { navigate('/admin/audit-logs'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">System Audit Logs</button>
-              <button onClick={() => { navigate('/admin/white-label'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">White-Label Domains</button>
               <button onClick={() => { navigate('/admin/analytics'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Platform Analytics</button>
               <button onClick={() => { navigate('/admin/feature-flags'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Feature Flags</button>
               <button onClick={() => { navigate('/admin/profile'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Profile</button>

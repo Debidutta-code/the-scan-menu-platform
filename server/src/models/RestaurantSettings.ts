@@ -76,20 +76,6 @@ export interface IRestaurantSettingsInventory {
   auto86OnZeroStock: boolean;
 }
 
-export interface IRestaurantSettingsWhiteLabel {
-  enabled: boolean;
-  customDomain?: string;
-  logoUrl?: string;
-  faviconUrl?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  fontFamily?: string;
-  hidePoweredBy?: boolean;
-  customCss?: string;
-}
-
 export interface IRestaurantSettings extends Document {
   restaurantId: Types.ObjectId;
   currency: string;
@@ -101,7 +87,6 @@ export interface IRestaurantSettings extends Document {
   notificationPreferences: IRestaurantSettingsNotification;
   orderConfig: IRestaurantSettingsOrderConfig;
   inventoryConfig: IRestaurantSettingsInventory;
-  whiteLabelConfig?: IRestaurantSettingsWhiteLabel;
   uiSettings: IRestaurantSettingsUi;
   timings?: {
     open: string;
@@ -183,19 +168,6 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       defaultLowStockThreshold: { type: Number, default: 5 },
       auto86OnZeroStock: { type: Boolean, default: true },
     },
-    whiteLabelConfig: {
-      enabled: { type: Boolean, default: false },
-      customDomain: { type: String, trim: true, lowercase: true },
-      logoUrl: { type: String, trim: true },
-      faviconUrl: { type: String, trim: true },
-      primaryColor: { type: String, trim: true },
-      secondaryColor: { type: String, trim: true },
-      backgroundColor: { type: String, trim: true },
-      textColor: { type: String, trim: true },
-      fontFamily: { type: String, trim: true },
-      hidePoweredBy: { type: Boolean, default: false },
-      customCss: { type: String, trim: true },
-    },
     uiSettings: {
       defaultLanguage: { type: String, default: 'en' },
       displayItemImages: { type: Boolean, default: true },
@@ -212,7 +184,6 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
   }
 );
 
-restaurantSettingsSchema.index({ 'whiteLabelConfig.customDomain': 1 }, { sparse: true });
 
 export const RestaurantSettings = (mongoose.models.RestaurantSettings as any) || model<IRestaurantSettings>('RestaurantSettings', restaurantSettingsSchema);
 export default RestaurantSettings;

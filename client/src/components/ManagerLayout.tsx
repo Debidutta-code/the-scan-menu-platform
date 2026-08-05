@@ -28,7 +28,6 @@ import {
   X,
   Eye,
   Package,
-  Globe,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -80,8 +79,6 @@ export const ManagerLayout: React.FC = () => {
     ? 'analytics'
     : currentPath.startsWith('/manager/inventory')
     ? 'inventory'
-    : currentPath.startsWith('/manager/white-label')
-    ? 'white-label'
     : currentPath.startsWith('/manager/developer')
     ? 'developer'
     : currentPath.startsWith('/manager/profile')
@@ -440,21 +437,6 @@ export const ManagerLayout: React.FC = () => {
             >
               <Package className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
               <span>Inventory & Stock</span>
-            </button>
-          )}
-
-          {/* White-Label Branding tab (Manager/Super Admin only) */}
-          {!isStaff && isEnabled('white_label') && (
-            <button
-              onClick={() => navigate('/manager/white-label')}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-                activeTab === 'white-label'
-                  ? 'bg-slate-950 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <Globe className="w-4 h-4 text-purple-500" strokeWidth={1.75} />
-              <span>White-Label Branding</span>
             </button>
           )}
 

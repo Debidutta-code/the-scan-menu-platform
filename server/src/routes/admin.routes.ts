@@ -35,9 +35,5 @@ router.patch('/payments/restaurants/:restaurantId/methods', adminController.upda
 // Global Audit Trail
 router.get('/audit-logs', adminController.getAuditLogs);
 
-// Custom Domains & White-Label Manager
-router.get('/white-label/domains', adminController.getWhiteLabelDomains);
-router.post('/white-label/domains/:restaurantId/verify', adminController.verifyDomainDNS);
-router.patch('/white-label/domains/:restaurantId', adminController.updateWhiteLabelConfig);
 
 export default router;
