@@ -34,6 +34,7 @@ export class AdminController {
     this.deleteRestaurant = this.deleteRestaurant.bind(this);
     this.assignManager = this.assignManager.bind(this);
     this.getPlatformStats = this.getPlatformStats.bind(this);
+    this.getPlatformAnalytics = this.getPlatformAnalytics.bind(this);
   }
 
   async provisionRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
@@ -373,6 +374,103 @@ export class AdminController {
       await staff.save();
 
       sendSuccess(res, staff, 'Manager assigned successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getPlatformAnalytics(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      // Total Platform GMV
+      const revenueAggregate = await Order.aggregate([
+        { $match: { status: { $ne: 'CANCELLED' } } },
+        { $group: { _id: null, totalRevenue: { $sum: '$total' } } },
+      ]);
+      const totalRevenue = revenueAggregate[0]?.totalRevenue || 0;
+
+      // 30-Day Daily Revenue & Orders Trend
+      const dailyTrendRaw = await Order.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: thirtyDaysAgo },
+            status: { $ne: 'CANCELLED' },
+          },
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            revenue: { $sum: '$total' },
+            orders: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+
+      // Top 5 Performing Restaurants
+      const topRestaurantsRaw = await Order.aggregate([
+        { $match: { status: { $ne: 'CANCELLED' } } },
+        {
+          $group: {
+            _id: '$restaurantId',
+            totalRevenue: { $sum: '$total' },
+            totalOrders: { $sum: 1 },
+          },
+        },
+        { $sort: { totalRevenue: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: 'restaurants',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'restaurant',
+          },
+        },
+        { $unwind: '$restaurant' },
+        {
+          $project: {
+            _id: 1,
+            name: '$restaurant.name',
+            slug: '$restaurant.slug',
+            code: '$restaurant.code',
+            totalRevenue: 1,
+            totalOrders: 1,
+          },
+        },
+      ]);
+
+      // Subscription Plan Distribution
+      const planDistributionRaw = await Restaurant.aggregate([
+        {
+          $group: {
+            _id: '$subscription.planKey',
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const planDistribution: Record<string, number> = {
+        FREE: 0,
+        STARTER: 0,
+        PROFESSIONAL: 0,
+        ENTERPRISE: 0,
+      };
+      for (const item of planDistributionRaw) {
+        if (item._id) planDistribution[item._id] = item.count;
+      }
+
+      sendSuccess(
+        res,
+        {
+          totalRevenue,
+          dailyTrend: dailyTrendRaw,
+          topRestaurants: topRestaurantsRaw,
+          planDistribution,
+        },
+        'Platform analytics retrieved successfully'
+      );
     } catch (error) {
       next(error);
     }

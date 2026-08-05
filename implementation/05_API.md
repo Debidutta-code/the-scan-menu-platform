@@ -48,6 +48,7 @@ Platform-wide operations restricted to users with the `SUPER_ADMIN` role.
 *   `GET /restaurants/:id/onboarding`: Retrieve tenant onboarding progress and verification checklist.
 *   `DELETE /restaurants/:id`: Deactivate / remove tenant.
 *   `GET /stats`: Platform-wide aggregate metrics (total tenants, active/suspended counts, total orders).
+*   `GET /analytics`: Platform-wide financial analytics (total GMV, 30-day daily trends, top-performing restaurant leaderboard, subscription plan distribution).
 
 ### 2a. Subscription Plans (`/subscription`)
 *   `GET /api/v1/subscription`: List all available platform subscription plans. (Any authenticated user).

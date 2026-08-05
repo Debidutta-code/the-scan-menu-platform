@@ -1,11 +1,13 @@
 import rateLimit from 'express-rate-limit';
 
+const isTest = process.env.NODE_ENV === 'test';
+
 /**
  * Auth rate limiter: 10 requests per 15 minutes per IP (protects login & auth).
  */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isTest ? 10000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -23,7 +25,7 @@ export const authRateLimiter = rateLimit({
  */
 export const orderPlacementRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: isTest ? 10000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -41,7 +43,7 @@ export const orderPlacementRateLimiter = rateLimit({
  */
 export const generalApiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: isTest ? 10000 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

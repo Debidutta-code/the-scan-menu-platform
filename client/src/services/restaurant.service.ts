@@ -126,7 +126,12 @@ export const adminService = {
     return res.data;
   },
 
-  async listRestaurants(page = 1, limit = 10) {
+  async getPlatformAnalytics() {
+    const res = await apiClient.get('/admin/analytics');
+    return res.data;
+  },
+
+  async listRestaurants(page = 1, limit = 100) {
     const res = await apiClient.get(`/admin/restaurants?page=${page}&limit=${limit}`);
     return res.data;
   },
@@ -138,6 +143,16 @@ export const adminService = {
 
   async createRestaurant(data: Partial<Restaurant>) {
     const res = await apiClient.post('/admin/restaurants', data);
+    return res.data;
+  },
+
+  async provisionRestaurant(data: any) {
+    const res = await apiClient.post('/admin/restaurants/provision', data);
+    return res.data;
+  },
+
+  async getOnboardingProgress(id: string) {
+    const res = await apiClient.get(`/admin/restaurants/${id}/onboarding`);
     return res.data;
   },
 
@@ -156,8 +171,23 @@ export const adminService = {
     return res.data;
   },
 
+  async deleteRestaurant(id: string) {
+    const res = await apiClient.delete(`/admin/restaurants/${id}`);
+    return res.data;
+  },
+
   async assignManager(restaurantId: string, managerData: { userId?: string; email?: string; name?: string; password?: string }) {
     const res = await apiClient.post(`/admin/restaurants/${restaurantId}/managers`, managerData);
+    return res.data;
+  },
+
+  async getAllPlans() {
+    const res = await apiClient.get('/subscriptions');
+    return res.data;
+  },
+
+  async assignPlan(restaurantId: string, planKey: string) {
+    const res = await apiClient.patch(`/restaurants/${restaurantId}/subscription`, { planKey });
     return res.data;
   },
 };

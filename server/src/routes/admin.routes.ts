@@ -9,6 +9,7 @@ const adminController = new AdminController();
 router.use(requireAuth as any, requireRole('SUPER_ADMIN'));
 
 router.get('/stats', adminController.getPlatformStats);
+router.get('/analytics', adminController.getPlatformAnalytics);
 router.post('/restaurants/provision', adminController.provisionRestaurant);
 router.get('/restaurants/:id/onboarding', adminController.getOnboardingProgress);
 router.post('/restaurants', adminController.createRestaurant);
