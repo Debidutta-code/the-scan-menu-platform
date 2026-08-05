@@ -56,7 +56,7 @@ export const AdminProfile: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="w-full space-y-8">
       {/* Header Banner */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-4">

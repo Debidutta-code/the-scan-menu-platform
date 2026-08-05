@@ -582,7 +582,7 @@ export const ManagerLayout: React.FC = () => {
         {renderHeader()}
 
         {/* Active Content Panel */}
-        <main className="flex-1 h-0 overflow-y-auto relative">
+        <main className="flex-1 h-0 overflow-y-auto relative p-6">
           <Outlet />
         </main>
       </div>

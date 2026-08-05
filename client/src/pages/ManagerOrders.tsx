@@ -467,7 +467,7 @@ export const ManagerOrders: React.FC = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col select-none">
+    <div className="w-full space-y-8 font-sans select-none">
 
       {/* ── Mobile Status Tab Bar ── */}
       <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-3 bg-white border-b border-slate-150 shrink-0 scrollbar-none">

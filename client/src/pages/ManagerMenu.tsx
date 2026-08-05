@@ -474,8 +474,8 @@ export const ManagerMenu: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 font-sans">
-      <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-5">
+    <div className="w-full space-y-8 font-sans">
+      <div className="flex justify-between items-center border-b border-slate-100 pb-5">
         <div>
           <h1 className="font-display tracking-tight text-4xl font-bold text-slate-900">
             Restaurant Menu Builder

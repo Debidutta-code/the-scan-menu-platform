@@ -106,7 +106,7 @@ export const AdminRestaurantDetail: React.FC = () => {
   const isActive = restaurant.status !== 'SUSPENDED' && restaurant.status !== 'ARCHIVED';
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="w-full space-y-8">
       {/* Top Breadcrumb Header */}
       <div className="flex items-center justify-between">
         <button

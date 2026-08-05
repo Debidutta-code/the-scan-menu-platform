@@ -169,7 +169,7 @@ export const ManagerDeveloper: React.FC = () => {
 
   if (!isEnabled('api_webhooks')) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="w-full space-y-8 font-sans">
         <div className="bg-slate-50 rounded-3xl border border-slate-200 p-8 text-center space-y-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
             <Lock className="w-6 h-6" strokeWidth={1.75} />
@@ -187,7 +187,7 @@ export const ManagerDeveloper: React.FC = () => {
   const webhooks: WebhookItem[] = webhooksResponse?.data || [];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="w-full space-y-8 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>

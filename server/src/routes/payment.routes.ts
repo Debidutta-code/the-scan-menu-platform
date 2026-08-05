@@ -15,6 +15,9 @@ router.post('/intent', paymentController.createIntent);
 // GET /restaurants/:restaurantId/payments/transactions
 router.get('/transactions', paymentController.listTransactions);
 
+// GET /restaurants/:restaurantId/payments/transactions/export (CSV)
+router.get('/transactions/export', requireRole('MANAGER', 'SUPER_ADMIN') as any, paymentController.exportTransactionsCsv);
+
 // GET /restaurants/:restaurantId/payments/transactions/:id
 router.get('/transactions/:id', paymentController.getTransaction);
 

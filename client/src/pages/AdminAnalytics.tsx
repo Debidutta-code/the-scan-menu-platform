@@ -36,7 +36,7 @@ export const AdminAnalytics: React.FC = () => {
   }).format(analytics.totalRevenue / 100);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="w-full space-y-8 font-sans">
       {/* Banner */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>

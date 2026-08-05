@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import apiClient from '../lib/api';
 import {
   Package,
@@ -12,14 +13,18 @@ import {
   Plus,
   Minus,
   Search,
+  Lock,
 } from 'lucide-react';
 
 export const ManagerInventory: React.FC = () => {
   const { user, impersonatedOutlet } = useAuth();
   const { toast } = useToast();
+  const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exactStockInput, setExactStockInput] = useState<Record<string, string>>({});
 
   const restaurantId =
     impersonatedOutlet?.id ||
@@ -56,6 +61,31 @@ export const ManagerInventory: React.FC = () => {
     },
   });
 
+  // Feature flag gate
+  if (flagsLoading) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
+      </div>
+    );
+  }
+
+  if (!isEnabled('inventory')) {
+    return (
+      <div className="w-full space-y-8 font-sans">
+        <div className="bg-white rounded-3xl border border-slate-150 shadow-sm flex flex-col items-center justify-center p-12 text-center min-h-[400px]">
+          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+            <Lock className="w-8 h-8 text-amber-600" strokeWidth={1.75} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Inventory Tracking Locked</h3>
+          <p className="text-slate-600 max-w-md mx-auto text-sm">
+            Inventory management is not included in your current plan. Please upgrade to enable stock tracking and alerts.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="h-96 flex items-center justify-center">
@@ -91,23 +121,42 @@ export const ManagerInventory: React.FC = () => {
 
   const handleAdjustStock = (item: any, delta: number) => {
     const newQty = Math.max(0, (item.stockQuantity || 0) + delta);
-    updateStockMutation.mutate({
-      itemId: item._id,
-      stockQuantity: newQty,
-      isAvailable: newQty > 0,
-    });
+    updateStockMutation.mutate({ itemId: item._id, stockQuantity: newQty, isAvailable: newQty > 0 });
   };
 
   const handleSetStock = (item: any, qty: number) => {
-    updateStockMutation.mutate({
-      itemId: item._id,
-      stockQuantity: qty,
-      isAvailable: qty > 0,
+    updateStockMutation.mutate({ itemId: item._id, stockQuantity: qty, isAvailable: qty > 0 });
+  };
+
+  const handleSetExactStock = (item: any) => {
+    const raw = exactStockInput[item._id];
+    const qty = parseInt(raw, 10);
+    if (isNaN(qty) || qty < 0) { toast('Enter a valid stock quantity', 'error'); return; }
+    handleSetStock(item, qty);
+    setExactStockInput((prev) => { const next = { ...prev }; delete next[item._id]; return next; });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
   };
 
+  const handleBulkAction = async (action: '86' | 'available') => {
+    const ids = Array.from(selectedIds);
+    await Promise.all(
+      ids.map((id) =>
+        updateStockMutation.mutateAsync({ itemId: id, isAvailable: action === 'available' })
+      )
+    );
+    setSelectedIds(new Set());
+    toast(`${ids.length} items updated`, 'success');
+  };
+
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="w-full space-y-8 font-sans">
       {/* Banner */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
@@ -170,6 +219,15 @@ export const ManagerInventory: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Bulk action bar */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 text-white rounded-xl text-xs font-bold">
+                <span>{selectedIds.size} selected</span>
+                <button onClick={() => handleBulkAction('available')} className="px-2 py-0.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg transition">Mark Available</button>
+                <button onClick={() => handleBulkAction('86')} className="px-2 py-0.5 bg-red-500 hover:bg-red-400 text-white rounded-lg transition">Mark 86'd</button>
+                <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white ml-1">✕</button>
+              </div>
+            )}
             <select
               value={stockFilter}
               onChange={(e: any) => setStockFilter(e.target.value)}
@@ -188,6 +246,17 @@ export const ManagerInventory: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-400 uppercase font-mono text-[10px] tracking-wider border-y border-slate-150">
               <tr>
+                <th className="py-3 px-4 w-8">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === filteredItems.length && filteredItems.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedIds(new Set(filteredItems.map((i: any) => i._id)));
+                      else setSelectedIds(new Set());
+                    }}
+                    className="rounded"
+                  />
+                </th>
                 <th className="py-3 px-4">Menu Item</th>
                 <th className="py-3 px-4">Price</th>
                 <th className="py-3 px-4">Stock Tracking</th>
@@ -202,9 +271,18 @@ export const ManagerInventory: React.FC = () => {
                 const qty = item.stockQuantity || 0;
                 const isLow = isTracked && qty > 0 && qty <= 5;
                 const isOut = !item.isAvailable || (isTracked && qty <= 0);
+                const isSelected = selectedIds.has(item._id);
 
                 return (
-                  <tr key={item._id} className="hover:bg-slate-50/50 transition">
+                  <tr key={item._id} className={`hover:bg-slate-50/50 transition ${isSelected ? 'bg-amber-50/40' : ''}`}>
+                    <td className="py-3.5 px-4">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(item._id)}
+                        className="rounded"
+                      />
+                    </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       {item.name}
                       <span className="block text-[10px] text-slate-400 font-normal">{item.category?.name || 'General'}</span>
@@ -250,7 +328,7 @@ export const ManagerInventory: React.FC = () => {
 
                     <td className="py-3.5 px-4 text-right space-x-1">
                       {isTracked ? (
-                        <>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           <button
                             onClick={() => handleAdjustStock(item, -1)}
                             disabled={updateStockMutation.isPending}
@@ -258,7 +336,6 @@ export const ManagerInventory: React.FC = () => {
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-
                           <button
                             onClick={() => handleAdjustStock(item, 1)}
                             disabled={updateStockMutation.isPending}
@@ -266,7 +343,6 @@ export const ManagerInventory: React.FC = () => {
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
-
                           <button
                             onClick={() => handleSetStock(item, qty + 20)}
                             disabled={updateStockMutation.isPending}
@@ -274,14 +350,29 @@ export const ManagerInventory: React.FC = () => {
                           >
                             +20
                           </button>
-                        </>
+                          {/* Exact stock input */}
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={exactStockInput[item._id] ?? ''}
+                              onChange={(e) => setExactStockInput((p) => ({ ...p, [item._id]: e.target.value }))}
+                              placeholder="Set"
+                              className="w-14 px-2 py-1 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-amber-500 text-center"
+                            />
+                            <button
+                              onClick={() => handleSetExactStock(item)}
+                              disabled={!exactStockInput[item._id] || updateStockMutation.isPending}
+                              className="px-2 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-500 disabled:opacity-40 transition"
+                            >
+                              Set
+                            </button>
+                          </div>
+                        </div>
                       ) : (
                         <button
                           onClick={() =>
-                            updateStockMutation.mutate({
-                              itemId: item._id,
-                              isAvailable: !item.isAvailable,
-                            })
+                            updateStockMutation.mutate({ itemId: item._id, isAvailable: !item.isAvailable })
                           }
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs font-mono transition ${
                             item.isAvailable ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'

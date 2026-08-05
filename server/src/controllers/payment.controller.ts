@@ -64,6 +64,47 @@ export class PaymentController {
     }
   }
 
+  async exportTransactionsCsv(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { restaurantId } = req.params;
+      const { status, startDate, endDate } = req.query;
+
+      const filters = {
+        status: status as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      };
+
+      // Fetch up to 10,000 rows for CSV export (no pagination)
+      const result = await paymentService.listTransactions(restaurantId, filters, 1, 10000);
+      const transactions: any[] = result.transactions || [];
+
+      const header = ['ID', 'Provider', 'Mode', 'Amount (INR)', 'Currency', 'Status', 'Order ID', 'Created At'];
+      const rows = transactions.map((t: any) => [
+        t._id?.toString() || '',
+        t.provider || '',
+        t.mode || '',
+        ((t.amount || 0) / 100).toFixed(2),
+        t.currency || 'INR',
+        t.status || '',
+        t.orderId?.toString() || '',
+        t.createdAt ? new Date(t.createdAt).toISOString() : '',
+      ]);
+
+      const csvLines = [header, ...rows].map((row) =>
+        row.map((cell: string) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      );
+      const csvContent = csvLines.join('\n');
+
+      const filename = `transactions_${restaurantId}_${new Date().toISOString().slice(0, 10)}.csv`;
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async updateConfig(req: Request, res: Response, next: NextFunction) {
     try {
       const { restaurantId } = req.params;

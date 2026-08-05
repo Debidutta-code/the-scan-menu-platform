@@ -84,7 +84,7 @@ export const AdminProvision: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="w-full space-y-8 font-sans">
       {/* Top Breadcrumb */}
       <div className="flex items-center justify-between">
         <button

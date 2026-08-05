@@ -139,7 +139,7 @@ export const ManagerWaiterCalls: React.FC = () => {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-6 pb-24 flex flex-col font-sans">
+    <div className="w-full space-y-8 font-sans">
       <div className="mb-6">
         <h3 className="font-display text-3xl font-semibold text-slate-900">
           Floor Service Assistance

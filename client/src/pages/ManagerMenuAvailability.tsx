@@ -114,7 +114,7 @@ export const ManagerMenuAvailability: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col font-sans overflow-hidden">
+    <div className="w-full space-y-8 font-sans">
       {/* Page Header */}
       <div className="px-6 py-5 border-b border-slate-150 bg-white shrink-0">
         <h1 className="font-display tracking-tight text-3xl font-bold text-slate-900 leading-none">

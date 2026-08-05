@@ -8,6 +8,12 @@ import {
   Loader,
   Receipt,
   Send,
+  CreditCard,
+  Smartphone,
+  Banknote,
+  UtensilsCrossed,
+  ShoppingBag,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -20,6 +26,20 @@ interface SelectedCounterItem {
   quantity: number;
   specialInstructions?: string;
 }
+
+type PaymentMethod = 'CASH' | 'UPI' | 'CARD';
+type OrderMode = 'DINE_IN' | 'TAKEAWAY';
+
+const paymentMethodOptions: { key: PaymentMethod; label: string; icon: React.ReactNode }[] = [
+  { key: 'CASH', label: 'Cash', icon: <Banknote className="w-4 h-4" strokeWidth={1.75} /> },
+  { key: 'UPI', label: 'UPI', icon: <Smartphone className="w-4 h-4" strokeWidth={1.75} /> },
+  { key: 'CARD', label: 'Card', icon: <CreditCard className="w-4 h-4" strokeWidth={1.75} /> },
+];
+
+const orderModeOptions: { key: OrderMode; label: string; icon: React.ReactNode }[] = [
+  { key: 'DINE_IN', label: 'Dine-In', icon: <UtensilsCrossed className="w-4 h-4" strokeWidth={1.75} /> },
+  { key: 'TAKEAWAY', label: 'Takeaway', icon: <ShoppingBag className="w-4 h-4" strokeWidth={1.75} /> },
+];
 
 export const ManagerCounter: React.FC = () => {
   const { user } = useAuth();
@@ -34,6 +54,9 @@ export const ManagerCounter: React.FC = () => {
   const [customerNote, setCustomerNote] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [orderMode, setOrderMode] = useState<OrderMode>('DINE_IN');
+  const [lastOrder, setLastOrder] = useState<{ orderNumber: number; total: number } | null>(null);
 
   // Fetch Menu for Counter Order Entry
   const { data: menuData, isLoading } = useQuery({
@@ -45,25 +68,27 @@ export const ManagerCounter: React.FC = () => {
     enabled: !!restaurantId,
   });
 
+  // Fetch tax rate from settings
+  const { data: settingsData } = useQuery({
+    queryKey: ['restaurantSettings', restaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${restaurantId}`);
+      return res.data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  const taxRatePercent: number = settingsData?.data?.settings?.paymentConfig?.taxRatePercent ?? 0;
+
   const categories = menuData?.data || [];
 
   const addItemToCart = (item: any) => {
     setCartItems((prev) => {
       const existing = prev.find((i) => i.itemId === item._id);
       if (existing) {
-        return prev.map((i) =>
-          i.itemId === item._id ? { ...i, quantity: i.quantity + 1 } : i
-        );
+        return prev.map((i) => i.itemId === item._id ? { ...i, quantity: i.quantity + 1 } : i);
       }
-      return [
-        ...prev,
-        {
-          itemId: item._id,
-          name: item.name,
-          price: item.price,
-          quantity: 1,
-        },
-      ];
+      return [...prev, { itemId: item._id, name: item.name, price: item.price, quantity: 1 }];
     });
   };
 
@@ -71,9 +96,7 @@ export const ManagerCounter: React.FC = () => {
     if (qty <= 0) {
       setCartItems((prev) => prev.filter((i) => i.itemId !== itemId));
     } else {
-      setCartItems((prev) =>
-        prev.map((i) => (i.itemId === itemId ? { ...i, quantity: qty } : i))
-      );
+      setCartItems((prev) => prev.map((i) => (i.itemId === itemId ? { ...i, quantity: qty } : i)));
     }
   };
 
@@ -85,6 +108,8 @@ export const ManagerCounter: React.FC = () => {
   };
 
   const cartSubtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const taxAmount = Math.round((cartSubtotal * taxRatePercent) / 100);
+  const grandTotal = cartSubtotal + taxAmount;
 
   const handlePunchOrder = async () => {
     if (cartItems.length === 0) {
@@ -93,13 +118,14 @@ export const ManagerCounter: React.FC = () => {
     }
 
     setIsSubmitting(true);
-
     try {
       const payload = {
         customerName: customerName.trim() || 'Walk-in Customer',
         customerPhone: customerPhone.trim() || undefined,
         customerNote: customerNote.trim() || undefined,
         paymentStatus: 'PAID',
+        paymentMethod,
+        orderMode,
         items: cartItems.map((item) => ({
           itemId: item.itemId,
           quantity: item.quantity,
@@ -111,12 +137,11 @@ export const ManagerCounter: React.FC = () => {
       const res = await apiClient.post(`/restaurants/${restaurantId}/orders/counter`, payload);
 
       if (res.data.success) {
-        toast(`Counter Order #${res.data.data.orderNumber} placed & marked PAID!`, 'success');
+        setLastOrder({ orderNumber: res.data.data.orderNumber, total: grandTotal });
         clearCart();
         queryClient.invalidateQueries({ queryKey: ['orders', restaurantId] });
       }
     } catch (err: any) {
-      console.error(err);
       toast(err.response?.data?.error?.message || 'Failed to place counter order', 'error');
     } finally {
       setIsSubmitting(false);
@@ -132,20 +157,51 @@ export const ManagerCounter: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-8 font-sans">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <h1 className="text-2xl font-bold font-display text-slate-900 tracking-tight">Counter POS</h1>
           <p className="text-xs text-slate-500 mt-0.5">Rapid walk-in order creation for staff & managers</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Cash Auto-Settled</span>
-          </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Order Mode selector */}
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+            {orderModeOptions.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setOrderMode(opt.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  orderMode === opt.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Success receipt banner */}
+      {lastOrder && (
+        <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" strokeWidth={1.75} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-900">Order #{lastOrder.orderNumber} Punched!</p>
+              <p className="text-xs text-emerald-700 font-mono">
+                ₹{(lastOrder.total / 100).toFixed(2)} · {paymentMethod} · {orderMode.replace('_', ' ')}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => setLastOrder(null)} className="text-emerald-600 hover:text-emerald-800">
+            <X className="w-4 h-4" strokeWidth={2} />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Menu Item Selector */}
@@ -161,13 +217,12 @@ export const ManagerCounter: React.FC = () => {
             />
           </div>
 
-          <div className="space-y-6 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+          <div className="space-y-6 max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
             {categories.map((cat: any) => {
               const items = (cat.menuItems || []).filter((item: any) =>
-                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                item.name.toLowerCase().includes(searchQuery.toLowerCase()) && item.isAvailable
               );
               if (items.length === 0) return null;
-
               return (
                 <div key={cat._id} className="space-y-3">
                   <h3 className="text-xs font-bold text-slate-400 tracking-widest uppercase font-mono">{cat.name}</h3>
@@ -182,16 +237,18 @@ export const ManagerCounter: React.FC = () => {
                             selected ? 'bg-amber-50/70 border-amber-300 shadow-sm' : 'bg-white border-slate-150 hover:border-slate-300'
                           }`}
                         >
-                          <div className="space-y-1">
-                            <h4 className="text-xs font-bold text-slate-900">{item.name}</h4>
-                            <span className="text-xs font-mono font-bold text-slate-700">₹{(item.price / 100).toFixed(2)}</span>
+                          <div className="space-y-0.5 min-w-0">
+                            <h4 className="text-xs font-bold text-slate-900 truncate">{item.name}</h4>
+                            <span className="text-xs font-mono font-bold text-slate-700">
+                              ₹{(item.price / 100).toFixed(2)}
+                            </span>
                           </div>
                           {selected ? (
-                            <span className="bg-amber-500 text-slate-950 font-mono text-xs px-2 py-1 rounded-xl font-bold">
+                            <span className="shrink-0 bg-amber-500 text-slate-950 font-mono text-xs px-2 py-1 rounded-xl font-bold">
                               x{selected.quantity}
                             </span>
                           ) : (
-                            <span className="h-7 w-7 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600">
+                            <span className="shrink-0 h-7 w-7 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600">
                               <Plus className="w-4 h-4" />
                             </span>
                           )}
@@ -211,7 +268,7 @@ export const ManagerCounter: React.FC = () => {
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-amber-500" />
-                <span>Counter Ticket</span>
+                Counter Ticket
               </h3>
               {cartItems.length > 0 && (
                 <button onClick={clearCart} className="text-[11px] font-bold text-red-500 hover:underline">
@@ -220,7 +277,7 @@ export const ManagerCounter: React.FC = () => {
               )}
             </div>
 
-            {/* Customer Information (Optional for Walk-in) */}
+            {/* Customer Information */}
             <div className="space-y-2">
               <input
                 type="text"
@@ -238,10 +295,31 @@ export const ManagerCounter: React.FC = () => {
               />
             </div>
 
+            {/* Payment Method */}
+            <div>
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">Payment Method</p>
+              <div className="flex gap-2">
+                {paymentMethodOptions.map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setPaymentMethod(opt.key)}
+                    className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition ${
+                      paymentMethod === opt.key
+                        ? 'bg-slate-950 text-white border-transparent'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    {opt.icon}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Selected Items List */}
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {cartItems.length === 0 ? (
-                <p className="text-xs text-slate-400 italic text-center py-8">Select menu items from the left to build order.</p>
+                <p className="text-xs text-slate-400 italic text-center py-6">Select menu items from the left.</p>
               ) : (
                 cartItems.map((item) => (
                   <div key={item.itemId} className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
@@ -265,10 +343,23 @@ export const ManagerCounter: React.FC = () => {
           </div>
 
           {/* Action Footer */}
-          <div className="border-t pt-4 space-y-3">
-            <div className="flex justify-between items-center text-sm font-bold text-slate-900">
-              <span>Total Amount</span>
-              <span className="font-mono text-lg text-emerald-600">₹{(cartSubtotal / 100).toFixed(2)}</span>
+          <div className="border-t pt-4 space-y-2">
+            {/* Subtotal + Tax + Total breakdown */}
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between text-slate-500">
+                <span>Subtotal</span>
+                <span className="font-mono">₹{(cartSubtotal / 100).toFixed(2)}</span>
+              </div>
+              {taxRatePercent > 0 && (
+                <div className="flex justify-between text-slate-500">
+                  <span>GST ({taxRatePercent}%)</span>
+                  <span className="font-mono">₹{(taxAmount / 100).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-slate-900 border-t border-slate-100 pt-1.5">
+                <span>Total Amount</span>
+                <span className="font-mono text-base text-emerald-600">₹{(grandTotal / 100).toFixed(2)}</span>
+              </div>
             </div>
 
             <button
@@ -276,10 +367,12 @@ export const ManagerCounter: React.FC = () => {
               disabled={isSubmitting || cartItems.length === 0}
               className="w-full py-3.5 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs rounded-2xl transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {isSubmitting ? <Loader className="w-4 h-4 animate-spin text-amber-500" /> : (
+              {isSubmitting ? (
+                <Loader className="w-4 h-4 animate-spin text-amber-500" />
+              ) : (
                 <>
                   <Send className="w-4 h-4 text-amber-400" />
-                  <span>Punch Counter Order (Cash Paid)</span>
+                  <span>Punch Order · {paymentMethod}</span>
                 </>
               )}
             </button>

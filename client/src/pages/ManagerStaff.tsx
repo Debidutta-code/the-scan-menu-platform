@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { managerService, Staff } from '../services/restaurant.service';
-import { Plus, Edit2, ShieldAlert, Trash2, ShieldCheck, X, Loader, Users } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, Trash2, ShieldCheck, X, Loader, Users, Eye, EyeOff } from 'lucide-react';
 
 const staffSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -24,6 +24,7 @@ export const ManagerStaff: React.FC = () => {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [revealPinForId, setRevealPinForId] = useState<string | null>(null);
 
   const activeRestaurantId = user?.restaurants?.[0];
 
@@ -155,7 +156,7 @@ export const ManagerStaff: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="w-full space-y-8 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -195,7 +196,19 @@ export const ManagerStaff: React.FC = () => {
                 </h3>
                 <p className="text-sm text-slate-500">{staff.email}</p>
                 {staff.pin && (
-                  <p className="text-xs font-mono text-slate-400 mt-1">PIN: ••••</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs font-mono text-slate-400">
+                      PIN: {revealPinForId === staff._id ? staff.pin : '••••'}
+                    </span>
+                    <button
+                      onClick={() => setRevealPinForId(revealPinForId === staff._id ? null : staff._id)}
+                      className="text-slate-300 hover:text-slate-500 transition"
+                    >
+                      {revealPinForId === staff._id
+                        ? <EyeOff className="w-3 h-3" strokeWidth={1.75} />
+                        : <Eye className="w-3 h-3" strokeWidth={1.75} />}
+                    </button>
+                  </div>
                 )}
               </div>
               <div

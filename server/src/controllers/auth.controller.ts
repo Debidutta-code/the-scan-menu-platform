@@ -17,6 +17,7 @@ export class AuthController {
     this.refresh = this.refresh.bind(this);
     this.logout = this.logout.bind(this);
     this.me = this.me.bind(this);
+    this.updateProfile = this.updateProfile.bind(this);
     this.changePassword = this.changePassword.bind(this);
   }
 
@@ -206,6 +207,32 @@ export class AuthController {
         },
         'User details fetched successfully'
       );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateProfile(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        sendError(res, 'UNAUTHORIZED', 'Not authenticated', null, 401);
+        return;
+      }
+
+      const { name } = req.body;
+
+      if (!name || typeof name !== 'string' || name.trim().length < 1) {
+        sendError(res, 'VALIDATION_ERROR', 'Name is required', null, 400);
+        return;
+      }
+
+      const user = await this.userRepository.update(req.user.id, { name: name.trim() });
+      if (!user) {
+        sendError(res, 'NOT_FOUND', 'User not found', null, 404);
+        return;
+      }
+
+      sendSuccess(res, { id: user.id, name: user.name, email: user.email, role: user.role }, 'Profile updated successfully');
     } catch (error) {
       next(error);
     }
