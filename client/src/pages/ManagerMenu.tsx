@@ -340,6 +340,24 @@ export const ManagerMenu: React.FC = () => {
     },
   });
 
+  // Dedicated stock adjustment mutation hitting PATCH /menu-items/:itemId/stock
+  const updateStockMutation = useMutation({
+    mutationFn: ({ id, stockQuantity, trackStock, lowStockThreshold, isAvailable }: { id: string; stockQuantity?: number; trackStock?: boolean; lowStockThreshold?: number; isAvailable?: boolean }) =>
+      apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${id}/stock`, {
+        stockQuantity,
+        trackStock,
+        lowStockThreshold,
+        isAvailable,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      toast('Stock updated successfully.', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error updating stock', 'error');
+    },
+  });
+
   // Bulk availability update
   const bulkAvailableMutation = useMutation({
     mutationFn: ({ ids, isAvailable }: { ids: string[]; isAvailable: boolean }) =>
@@ -709,16 +727,46 @@ export const ManagerMenu: React.FC = () => {
                                   {item.isAvailable ? 'Available' : '86\'d (Unavailable)'}
                                 </button>
                                 {item.trackStock && (
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
-                                      item.stockQuantity <= (item.lowStockThreshold || 5)
-                                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                        : 'bg-slate-100 text-slate-700'
-                                    }`}
-                                  >
-                                    Stock: {item.stockQuantity}
-                                    {item.stockQuantity <= (item.lowStockThreshold || 5) && ' ⚠️ Low'}
-                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateStockMutation.mutate({
+                                          id: item._id,
+                                          stockQuantity: Math.max(0, (item.stockQuantity || 0) - 1),
+                                        });
+                                      }}
+                                      className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition"
+                                      title="Decrease Stock"
+                                    >
+                                      -
+                                    </button>
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
+                                        item.stockQuantity <= (item.lowStockThreshold || 5)
+                                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                          : 'bg-slate-100 text-slate-700'
+                                      }`}
+                                    >
+                                      Stock: {item.stockQuantity}
+                                      {item.stockQuantity <= (item.lowStockThreshold || 5) && ' ⚠️ Low'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateStockMutation.mutate({
+                                          id: item._id,
+                                          stockQuantity: (item.stockQuantity || 0) + 1,
+                                        });
+                                      }}
+                                      className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition"
+                                      title="Increase Stock"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
                                 )}
                               </div>
 

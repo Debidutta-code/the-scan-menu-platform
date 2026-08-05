@@ -23,6 +23,9 @@ import {
   Calculator,
   Flame,
   Code,
+  ToggleRight,
+  MoreHorizontal,
+  X,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -36,6 +39,7 @@ export const ManagerLayout: React.FC = () => {
 
   // Sound/notification toggles
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [alertsEnabled, setAlertsEnabled] = useState(false);
 
   const activeRestaurantId = user?.restaurants?.[0];
@@ -57,6 +61,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'transactions'
     : currentPath.startsWith('/manager/waiter-calls')
     ? 'waiter-calls'
+    : currentPath.startsWith('/manager/menu/availability')
+    ? 'menu-availability'
     : currentPath.startsWith('/manager/menu')
     ? 'menu'
     : currentPath.startsWith('/manager/tables')
@@ -217,10 +223,15 @@ export const ManagerLayout: React.FC = () => {
     };
   }, [socket, activeRestaurantId, toast, playChime, queryClient]);
 
-  // If STAFF tries to visit a protected MANAGER route, redirect them to orders
+  // If STAFF tries to visit MANAGER-only routes, redirect to appropriate fallback
   useEffect(() => {
     if (isStaff && (activeTab === 'menu' || activeTab === 'tables' || activeTab === 'settings' || activeTab === 'analytics')) {
-      navigate('/manager/orders', { replace: true });
+      // Redirect STAFF from full menu editor to availability-only view
+      if (activeTab === 'menu') {
+        navigate('/manager/menu/availability', { replace: true });
+      } else {
+        navigate('/manager/orders', { replace: true });
+      }
     }
   }, [activeTab, isStaff, navigate]);
 
@@ -303,20 +314,22 @@ export const ManagerLayout: React.FC = () => {
             )}
           </button>
 
-          {/* Counter POS tab */}
-          <button
-            onClick={() => navigate('/manager/counter')}
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-              activeTab === 'counter'
-                ? 'bg-slate-950 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Calculator className="w-4 h-4" strokeWidth={1.75} />
-              <span>Counter POS</span>
-            </div>
-          </button>
+          {/* Counter POS tab — visible only if ordering module is enabled */}
+          {isEnabled('ordering') && (
+            <button
+              onClick={() => navigate('/manager/counter')}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'counter'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Calculator className="w-4 h-4" strokeWidth={1.75} />
+                <span>Counter POS</span>
+              </div>
+            </button>
+          )}
 
           {/* Kitchen (KDS) tab */}
           {isEnabled('kds') && (
@@ -387,6 +400,21 @@ export const ManagerLayout: React.FC = () => {
             >
               <BookOpen className="w-4 h-4" strokeWidth={1.75} />
               <span>Menu Management</span>
+            </button>
+          )}
+
+          {/* 86 Items tab (Staff only — availability toggle view) */}
+          {isStaff && isEnabled('qr_menu') && (
+            <button
+              onClick={() => navigate('/manager/menu/availability')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'menu-availability'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <ToggleRight className="w-4 h-4 text-amber-600" strokeWidth={2} />
+              <span>86 Items</span>
             </button>
           )}
 
@@ -577,18 +605,31 @@ export const ManagerLayout: React.FC = () => {
         </button>
         )}
 
-        {/* Menu (Manager only) */}
-        {!isStaff && isEnabled('qr_menu') && (
-          <button
-            onClick={() => navigate('/manager/menu')}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
-              activeTab === 'menu' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
-            }`}
-          >
-            <BookOpen className="w-5 h-5" strokeWidth={1.75} />
-            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Menu</span>
-          </button>
-        )}
+          {/* Menu (Manager only) */}
+          {!isStaff && isEnabled('qr_menu') && (
+            <button
+              onClick={() => navigate('/manager/menu')}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+                activeTab === 'menu' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
+              }`}
+            >
+              <BookOpen className="w-5 h-5" strokeWidth={1.75} />
+              <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Menu</span>
+            </button>
+          )}
+
+          {/* 86 Items (Staff only — availability toggle view) */}
+          {isStaff && isEnabled('qr_menu') && (
+            <button
+              onClick={() => navigate('/manager/menu/availability')}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+                activeTab === 'menu-availability' ? 'text-amber-600 font-bold' : 'text-slate-400 font-medium'
+              }`}
+            >
+              <ToggleRight className="w-5 h-5" strokeWidth={1.75} />
+              <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">86 Items</span>
+            </button>
+          )}
 
         {/* Tables (Manager only) */}
         {!isStaff && isEnabled('qr_menu') && (
@@ -665,7 +706,89 @@ export const ManagerLayout: React.FC = () => {
           <User className="w-5 h-5" strokeWidth={1.75} />
           <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Profile</span>
         </button>
+
+        {/* More — shows Counter POS, KDS, Developer in a slide-up drawer */}
+        <button
+          id="mobile-more-menu-btn"
+          onClick={() => setMoreDrawerOpen((o) => !o)}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+            moreDrawerOpen ? 'text-amber-500 font-bold' : 'text-slate-400 font-medium'
+          }`}
+        >
+          <MoreHorizontal className="w-5 h-5" strokeWidth={1.75} />
+          <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">More</span>
+        </button>
       </nav>
+
+      {/* ---- MOBILE "MORE" SLIDE-UP DRAWER ---- */}
+      {moreDrawerOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[2px]"
+            onClick={() => setMoreDrawerOpen(false)}
+          />
+          {/* Drawer panel */}
+          <div className="md:hidden fixed bottom-16 left-0 right-0 z-50 bg-white border-t border-slate-150 rounded-t-3xl shadow-2xl p-4 pb-safe animate-slide-up">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">More</h3>
+              <button
+                onClick={() => setMoreDrawerOpen(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <X className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {/* Counter POS */}
+              {isEnabled('ordering') && (
+                <button
+                  id="mobile-more-counter-btn"
+                  onClick={() => { navigate('/manager/counter'); setMoreDrawerOpen(false); }}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
+                    activeTab === 'counter'
+                      ? 'bg-slate-950 border-slate-950 text-white'
+                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Calculator className="w-6 h-6" strokeWidth={1.75} />
+                  <span className="text-[10px] font-bold text-center leading-none">Counter POS</span>
+                </button>
+              )}
+              {/* KDS */}
+              {isEnabled('kds') && (
+                <button
+                  id="mobile-more-kds-btn"
+                  onClick={() => { navigate('/manager/kds'); setMoreDrawerOpen(false); }}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
+                    activeTab === 'kds'
+                      ? 'bg-amber-500 border-amber-500 text-slate-950'
+                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Flame className="w-6 h-6 text-amber-500" strokeWidth={2} />
+                  <span className="text-[10px] font-bold text-center leading-none">Kitchen</span>
+                </button>
+              )}
+              {/* Developer API — Manager only */}
+              {!isStaff && isEnabled('api_webhooks') && (
+                <button
+                  id="mobile-more-developer-btn"
+                  onClick={() => { navigate('/manager/developer'); setMoreDrawerOpen(false); }}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
+                    activeTab === 'developer'
+                      ? 'bg-slate-950 border-slate-950 text-white'
+                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Code className="w-6 h-6" strokeWidth={1.75} />
+                  <span className="text-[10px] font-bold text-center leading-none">Developer</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

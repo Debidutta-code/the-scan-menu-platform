@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -47,7 +48,8 @@ type RestaurantFormValues = z.infer<typeof restaurantSchema>;
 type ManagerFormValues = z.infer<typeof managerSchema>;
 
 export const AdminRestaurants: React.FC = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -224,22 +226,61 @@ export const AdminRestaurants: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans flex flex-col">
-      {/* Top Header Control */}
-      <header className="bg-white border-b border-slate-150 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <Shield className="w-6 h-6 text-amber-500" strokeWidth={1.75} />
-          <h1 className="font-display tracking-tight text-3xl font-semibold text-slate-900 leading-none">
-            Pixora SuperAdmin
-          </h1>
+      {/* Top Navigation Bar */}
+      <header className="bg-white border-b border-slate-150 px-6 py-3 flex items-center justify-between shadow-sm shrink-0 flex-wrap gap-3">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-slate-950 flex items-center justify-center text-amber-500 shadow-sm">
+              <Shield className="w-5 h-5" strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="font-display tracking-tight text-2xl font-bold text-slate-900 leading-none">
+                Pixora SuperAdmin
+              </h1>
+              <span className="text-[10px] text-slate-400 font-mono font-semibold uppercase tracking-wider">
+                Platform Operations
+              </span>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <nav className="hidden md:flex items-center gap-2 border-l border-slate-150 pl-6">
+            <button
+              onClick={() => navigate('/admin/restaurants')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-950 text-white shadow-sm transition"
+            >
+              Tenants & Platform Stats
+            </button>
+            <button
+              onClick={() => navigate('/manager/orders')}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-1.5"
+            >
+              <Store className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+              <span>Tenant View</span>
+            </button>
+          </nav>
         </div>
 
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-red-600 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-red-50 transition"
-        >
-          <LogOut className="w-4 h-4" strokeWidth={1.75} />
-          <span>Platform Log Out</span>
-        </button>
+        {/* User Info & Actions */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 border border-slate-150 rounded-xl">
+            <div className="w-6 h-6 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs font-mono">
+              {user?.name?.charAt(0).toUpperCase() || 'A'}
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-extrabold text-slate-900 leading-none">{user?.name || 'Super Admin'}</p>
+              <p className="text-[9px] text-amber-700 font-mono font-semibold uppercase tracking-wider">Super Admin</p>
+            </div>
+          </div>
+
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-red-600 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-red-50 transition"
+          >
+            <LogOut className="w-4 h-4" strokeWidth={1.75} />
+            <span className="hidden sm:inline">Log Out</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content Layout */}

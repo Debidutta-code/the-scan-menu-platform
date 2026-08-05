@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
-import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft, CreditCard, Lock, RefreshCw, CheckCircle } from 'lucide-react';
+import { Loader, Settings, Save, AlertCircle, Palette, GitBranch, Timer, ToggleLeft, CreditCard, Lock, RefreshCw, CheckCircle, FileText } from 'lucide-react';
 import apiClient from '../lib/api';
 
 interface RestaurantTheme {
@@ -208,6 +208,17 @@ export const ManagerSettings: React.FC = () => {
       toast(err.response?.data?.error?.message || 'Error initiating menu sync', 'error');
     },
   });
+
+  // Fetch POS Sync Logs
+  const { data: syncLogsResponse, isLoading: isLoadingSyncLogs, refetch: refetchSyncLogs } = useQuery({
+    queryKey: ['posSyncLogs', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/integrations/sync-logs?limit=10`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId && isEnabled('pos_integration'),
+  });
+  const syncLogs = Array.isArray(syncLogsResponse?.data?.logs) ? syncLogsResponse.data.logs : (Array.isArray(syncLogsResponse?.data) ? syncLogsResponse.data : []);
 
   // Fetch restaurant details
   const { data: restaurantResponse, isLoading } = useQuery({
@@ -887,6 +898,60 @@ export const ManagerSettings: React.FC = () => {
                   )}
                   Save Petpooja Credentials
                 </button>
+              </div>
+
+              {/* POS Integration Sync Audit Logs Table */}
+              <div className="border-t border-slate-100 pt-4 mt-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
+                    <span>Recent POS Sync Audit Logs</span>
+                  </h5>
+                  <button
+                    type="button"
+                    onClick={() => refetchSyncLogs()}
+                    className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingSyncLogs ? 'animate-spin' : ''}`} /> Refresh Logs
+                  </button>
+                </div>
+
+                {syncLogs.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No integration sync audit logs recorded yet.</p>
+                ) : (
+                  <div className="overflow-x-auto max-h-48 custom-scrollbar">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-150 text-slate-400 font-bold uppercase text-[9px]">
+                          <th className="pb-1.5">Timestamp</th>
+                          <th className="pb-1.5">Action</th>
+                          <th className="pb-1.5">Status</th>
+                          <th className="pb-1.5">Message / Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                        {syncLogs.map((log: any, idx: number) => (
+                          <tr key={log._id || idx}>
+                            <td className="py-1.5 pr-2 text-slate-500 whitespace-nowrap">
+                              {new Date(log.createdAt || log.timestamp).toLocaleTimeString()}
+                            </td>
+                            <td className="py-1.5 pr-2 font-bold text-slate-700">{log.action || log.type}</td>
+                            <td className="py-1.5 pr-2">
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                  log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {log.status}
+                              </span>
+                            </td>
+                            <td className="py-1.5 text-slate-600 truncate max-w-xs">{log.message || log.errorDetails || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>

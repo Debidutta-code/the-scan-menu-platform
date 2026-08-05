@@ -43,7 +43,16 @@ Handles user identity and session management using HTTP-only cookies and short-l
 Platform-wide operations restricted to users with the `SUPER_ADMIN` role.
 *   `GET /restaurants`: List all tenants.
 *   `POST /restaurants`: Provision a new tenant.
-*   `GET /stats`: Platform-wide metrics.
+*   `POST /restaurants/provision`: Programmatic multi-tenant provisioning (atomic restaurant + manager + default subscription creation).
+*   `GET /restaurants/:id`: Get single tenant profile by ID.
+*   `GET /restaurants/:id/onboarding`: Retrieve tenant onboarding progress and verification checklist.
+*   `DELETE /restaurants/:id`: Deactivate / remove tenant.
+*   `GET /stats`: Platform-wide aggregate metrics (total tenants, active/suspended counts, total orders).
+
+### 2a. Subscription Plans (`/subscription`)
+*   `GET /api/v1/subscription`: List all available platform subscription plans. (Any authenticated user).
+*   `GET /api/v1/restaurants/:restaurantId/subscription`: Get a tenant's current subscription plan. (Auth + `requireRestaurantAccess`).
+*   `PATCH /api/v1/restaurants/:restaurantId/subscription`: Assign or change a tenant's subscription plan. (SUPER_ADMIN only).
 
 ### 3. Public Menu & Ordering (`/public`)
 Endpoints used by the customer-facing application. They do not require authentication but rely on public identifiers (slugs, tokens). Heavily rate-limited.
@@ -65,8 +74,9 @@ Within this namespace, sub-routers handle specific domains:
 *   `/orders`: Fetching, filtering, and updating the status of customer orders. (Accessible by STAFF).
 *   `/orders/counter`: Rapid Counter Order Entry for walk-in cash customers. (Accessible by STAFF and MANAGER).
 *   `/waiter-calls`: Managing customer assistance requests. (Accessible by STAFF).
-*   `/staff`: Managing staff access to the tenant. (Requires MANAGER).
+*   `/staff`: Managing staff access to the tenant. (Requires MANAGER). Endpoints: `POST`, `GET`, `PATCH /:staffId`, `DELETE /:staffId`.
 *   `/analytics`: Reporting and metrics endpoints. (Requires MANAGER).
+*   `/orders/analytics`: Order-specific analytics (order counts, revenue by date range) — distinct from the general analytics sub-router. (Requires MANAGER, `ordering` flag).
 *   `/integrations/sync-logs`: Monitoring external POS synchronization audit logs. (Requires MANAGER, guarded by `pos_integration` feature flag).
 
 ## Security & Validation

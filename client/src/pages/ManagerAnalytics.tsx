@@ -79,7 +79,7 @@ export const ManagerAnalytics: React.FC = () => {
     return getRangeDates(dateRange, customStart, customEnd);
   }, [dateRange, customStart, customEnd]);
 
-  // Fetch Analytics data
+  // Fetch composite Analytics overview
   const { data: analyticsResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ['analyticsData', activeRestaurantId, start.toISOString(), end.toISOString()],
     queryFn: async () => {
@@ -91,7 +91,20 @@ export const ManagerAnalytics: React.FC = () => {
     enabled: !!activeRestaurantId,
   });
 
+  // Fetch peak-hours distribution separately (hourly order volume)
+  const { data: peakHoursResponse } = useQuery({
+    queryKey: ['analyticsPeakHours', activeRestaurantId, start.toISOString(), end.toISOString()],
+    queryFn: async () => {
+      const res = await apiClient.get(
+        `/restaurants/${activeRestaurantId}/analytics/peak-hours?startDate=${start.toISOString()}&endDate=${end.toISOString()}`
+      );
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+  });
+
   const analytics = analyticsResponse?.data;
+  const peakHours: { hour: number; count: number }[] = peakHoursResponse?.data?.hourly || [];
 
   // CSV Exporter
   const handleExportCsv = () => {
@@ -366,10 +379,6 @@ export const ManagerAnalytics: React.FC = () => {
     return <Navigate to="/manager/orders" replace />;
   }
 
-  if (!flagsLoading && !isEnabled('analytics')) {
-    return <Navigate to="/manager/orders" replace />;
-  }
-
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 space-y-6 font-sans">
 
@@ -559,6 +568,46 @@ export const ManagerAnalytics: React.FC = () => {
             </div>
 
           </div>
+
+          {/* ==================== 5. PEAK HOURS 24H HEATMAP ==================== */}
+          {peakHours.length > 0 && (
+            <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-4">
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+                  <span>Peak Hours — 24h Order Volume</span>
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Hourly order distribution in restaurant local timezone.</p>
+              </div>
+              <div className="flex items-end gap-1 h-24 w-full overflow-x-auto pb-5 relative">
+                {(() => {
+                  const maxCount = Math.max(...peakHours.map((h) => h.count), 1);
+                  return Array.from({ length: 24 }, (_, hr) => {
+                    const bucket = peakHours.find((h) => h.hour === hr);
+                    const count = bucket?.count || 0;
+                    const pct = (count / maxCount) * 100;
+                    const isHigh = pct >= 70;
+                    return (
+                      <div key={hr} className="flex flex-col items-center gap-1 flex-1 min-w-[24px]">
+                        <div
+                          title={`${hr.toString().padStart(2, '0')}:00 — ${count} orders`}
+                          style={{ height: `${Math.max(4, pct)}%` }}
+                          className={`w-full rounded-t-md transition-all ${
+                            isHigh ? 'bg-amber-500' : 'bg-slate-200'
+                          }`}
+                        />
+                        {hr % 6 === 0 && (
+                          <span className="text-[9px] text-slate-400 font-mono font-bold whitespace-nowrap absolute bottom-0">
+                            {hr.toString().padStart(2, '0')}h
+                          </span>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* ==================== 5. TOP SELLERS & STATUS BREAKDOWN ==================== */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

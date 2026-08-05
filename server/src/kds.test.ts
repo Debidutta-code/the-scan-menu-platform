@@ -419,7 +419,7 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
 
       const updatedOrder = await Order.findById(order._id);
       expect(updatedOrder?.status).toBe('SERVED');
-      expect(updatedOrder?.items.every((i) => i.itemStatus === 'SERVED')).toBe(true);
+      expect(updatedOrder?.items.every((i: any) => i.itemStatus === 'SERVED')).toBe(true);
     });
   });
 

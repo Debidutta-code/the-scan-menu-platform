@@ -22,6 +22,7 @@ import ManagerLayout from './components/ManagerLayout';
 import PublicTable from './pages/PublicTable';
 import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
 import PublicSessionlessOrder from './pages/PublicSessionlessOrder';
+import ManagerMenuAvailability from './pages/ManagerMenuAvailability';
 
 const DashboardRedirect = () => {
   const { user } = useAuth();
@@ -66,6 +67,8 @@ export const App = () => {
                 <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                 <Route path="/manager/profile" element={<ManagerProfile />} />
                 <Route path="/manager/transactions" element={<ManagerTransactions />} />
+                {/* STAFF-accessible availability-only view (no edit/delete/pricing) */}
+                <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
 
                 {/* Manager/Super Admin only routes inside layout */}
                 <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'SUPER_ADMIN']} />}>

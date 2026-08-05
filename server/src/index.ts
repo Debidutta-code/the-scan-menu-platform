@@ -56,6 +56,7 @@ import whiteLabelRoutes from './routes/whiteLabel.routes';
 import openapiRoutes from './routes/openapi.routes';
 import developerRoutes from './routes/developer.routes';
 import healthRoutes from './routes/health.routes';
+import { globalSubscriptionRoutes, restaurantSubscriptionRoutes } from './routes/subscription.routes';
 import { correlationIdMiddleware } from './middleware/correlationId.middleware';
 import { authRateLimiter } from './middleware/rateLimiter.middleware';
 import { setupGracefulShutdown } from './utils/gracefulShutdown';
@@ -103,6 +104,9 @@ app.use('/api/v1/auth/login', authRateLimiter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
+// Subscription plan listing (any authenticated user) and per-tenant assignment (SUPER_ADMIN only)
+app.use('/api/v1/subscription', globalSubscriptionRoutes);
+
 // Mount orderRoutes first so STAFF role can access orders without being blocked by menuRoutes/restaurantRoutes top-level MANAGER checks.
 // Mount menuRoutes BEFORE restaurantRoutes to prevent wildcard param collision clashing (:restaurantId matches categories-reorder etc.)
 app.use('/api/v1/restaurants/:restaurantId/analytics', analyticsRoutes);
@@ -111,6 +115,7 @@ app.use('/api/v1/restaurants/:restaurantId/developer', developerRoutes);
 app.use('/api/v1/restaurants/:restaurantId/payments', paymentRoutes);
 app.use('/api/v1/restaurants', orderRoutes);
 app.use('/api/v1/restaurants', waiterCallRoutes);
+app.use('/api/v1/restaurants', restaurantSubscriptionRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/restaurants', menuRoutes);
 
