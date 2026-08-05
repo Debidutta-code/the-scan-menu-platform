@@ -1,5 +1,6 @@
 import { Tax } from '../models/Tax';
 import { Request, Response, NextFunction } from 'express';
+import { TenantRequest } from '../middleware/tenantResolver.middleware';
 import { Restaurant } from '../models/Restaurant';
 import { RestaurantSettings } from '../models/RestaurantSettings';
 import { Table } from '../models/Table';
@@ -31,7 +32,7 @@ export class PublicController {
     this.clearTableSession = this.clearTableSession.bind(this);
   }
 
-  async clearTableSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async clearTableSession(req: TenantRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantSlug, tableToken } = req.params;
 
@@ -90,7 +91,7 @@ export class PublicController {
     }
   }
 
-  async resolveTable(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async resolveTable(req: TenantRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantSlug, tableToken } = req.params;
 
@@ -162,7 +163,7 @@ export class PublicController {
     }
   }
 
-  async getMenu(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getMenu(req: TenantRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantSlug, tableToken } = req.params;
 
@@ -229,7 +230,7 @@ export class PublicController {
     }
   }
 
-  async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createOrder(req: TenantRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantSlug, tableToken } = req.params;
       const { items, customerNote, customerName, customerPhone, paymentStatus } = req.body;
