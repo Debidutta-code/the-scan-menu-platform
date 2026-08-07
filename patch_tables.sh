@@ -1,1 +1,0 @@
-sed -i 's/import { managerService, Table } from '\''..\/services\/restaurant.service'\'';/import { managerService, Table, TableZone } from '\''..\/services\/restaurant.service'\'';/' client/src/pages/ManagerTables.tsx

@@ -5,7 +5,7 @@ import path from 'path';
 describe('Architecture Validation', () => {
   it('should enforce that no Express controller contains business logic or data fetching', () => {
     // We expect the controllers to only import services and not mongoose or models directly
-    const controllersDir = path.resolve(__dirname, '../../server/src/controllers');
+    const controllersDir = path.resolve(__dirname, '../../src/controllers');
     const files = fs.readdirSync(controllersDir);
 
     files.forEach(file => {
@@ -17,7 +17,7 @@ describe('Architecture Validation', () => {
   });
 
   it('should verify standard envelope response usage in controllers', () => {
-    const controllersDir = path.resolve(__dirname, '../../server/src/controllers');
+    const controllersDir = path.resolve(__dirname, '../../src/controllers');
     const files = fs.readdirSync(controllersDir);
 
     let anySendResponse = false;

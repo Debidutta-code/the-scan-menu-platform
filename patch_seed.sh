@@ -1,1 +1,0 @@
-sed -i 's/import { Table } from '\''..\/models\/Table'\'';/import { Table } from '\''..\/models\/Table'\'';\nimport { TableZone } from '\''..\/models\/TableZone'\'';\nimport { Tax } from '\''..\/models\/Tax'\'';/' server/src/utils/seed.ts

@@ -1,0 +1,18 @@
+{
+  "userId": "6a7581193b7f197044de888b",
+  "restaurantId": "6a7581193b7f197044de888c",
+  "restaurantSlug": "e2e-test-restaurant",
+  "categoryIds": [
+    "6a7581193b7f197044de889b",
+    "6a7581193b7f197044de889c"
+  ],
+  "menuItemIds": [
+    "6a7581193b7f197044de889d",
+    "6a7581193b7f197044de889e",
+    "6a7581193b7f197044de889f"
+  ],
+  "tableId": "6a7581193b7f197044de88a0",
+  "tableToken": "e2e-test-table-token-abc123",
+  "managerEmail": "e2e-manager@scanmenu.test",
+  "managerPassword": "E2eTest@1234"
+}
