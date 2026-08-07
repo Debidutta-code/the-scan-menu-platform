@@ -5,16 +5,16 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { app } from './index';
-import { Order } from './models/Order';
-import { MenuItem } from './models/MenuItem';
-import { Category } from './models/Category';
-import { Restaurant } from './models/Restaurant';
-import { RestaurantSettings } from './models/RestaurantSettings';
-import { User } from './models/User';
-import { RestaurantStaff } from './models/RestaurantStaff';
-import { featureFlagService } from './services/featureFlag.service';
-import { analyticsService } from './services/analytics.service';
+import { app } from '../../src/index';
+import { Order } from '../../src/models/Order';
+import { MenuItem } from '../../src/models/MenuItem';
+import { Category } from '../../src/models/Category';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { User } from '../../src/models/User';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { featureFlagService } from '../../src/services/featureFlag.service';
+import { analyticsService } from '../../src/services/analytics.service';
 
 describe('Phase 13 Analytics & Reporting Test Suite', () => {
   let restAId: string;

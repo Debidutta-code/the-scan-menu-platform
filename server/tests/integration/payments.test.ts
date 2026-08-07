@@ -3,16 +3,16 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from './index';
-import { Restaurant } from './models/Restaurant';
-import { RestaurantSettings } from './models/RestaurantSettings';
-import { User } from './models/User';
-import { Transaction } from './models/Transaction';
-import { FeatureFlag } from './models/FeatureFlag';
-import { RestaurantStaff } from './models/RestaurantStaff';
+import { app, httpServer } from '../../src/index';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { User } from '../../src/models/User';
+import { Transaction } from '../../src/models/Transaction';
+import { FeatureFlag } from '../../src/models/FeatureFlag';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
 // TokenService import removed — tokens are now signed directly with the test secret
-import { CashAdapter } from './integrations/payments/adapters/CashAdapter';
-import { PaymentProviderFactory } from './integrations/payments/PaymentProviderFactory';
+import { CashAdapter } from '../../src/integrations/payments/adapters/CashAdapter';
+import { PaymentProviderFactory } from '../../src/integrations/payments/PaymentProviderFactory';
 
 let mongoServer: MongoMemoryServer;
 let adminAccessToken: string;

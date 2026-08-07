@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { SubscriptionPlan } from './models/SubscriptionPlan';
-import { Restaurant } from './models/Restaurant';
-import { FeatureFlag } from './models/FeatureFlag';
-import { subscriptionService } from './services/subscription.service';
-import { featureFlagService } from './services/featureFlag.service';
+import { SubscriptionPlan } from '../../src/models/SubscriptionPlan';
+import { Restaurant } from '../../src/models/Restaurant';
+import { FeatureFlag } from '../../src/models/FeatureFlag';
+import { subscriptionService } from '../../src/services/subscription.service';
+import { featureFlagService } from '../../src/services/featureFlag.service';
 
 let mongoServer: MongoMemoryServer;
 

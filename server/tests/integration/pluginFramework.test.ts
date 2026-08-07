@@ -5,16 +5,16 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { app } from './index';
-import { Restaurant } from './models/Restaurant';
-import { RestaurantSettings } from './models/RestaurantSettings';
-import { User } from './models/User';
-import { RestaurantStaff } from './models/RestaurantStaff';
-import { ApiKey } from './models/ApiKey';
-import { WebhookSubscription } from './models/WebhookSubscription';
-import { featureFlagService } from './services/featureFlag.service';
-import { apiKeyService } from './services/apiKey.service';
-import { webhookDispatcherService } from './services/webhookDispatcher.service';
+import { app } from '../../src/index';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { User } from '../../src/models/User';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { ApiKey } from '../../src/models/ApiKey';
+import { WebhookSubscription } from '../../src/models/WebhookSubscription';
+import { featureFlagService } from '../../src/services/featureFlag.service';
+import { apiKeyService } from '../../src/services/apiKey.service';
+import { webhookDispatcherService } from '../../src/services/webhookDispatcher.service';
 
 const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
 

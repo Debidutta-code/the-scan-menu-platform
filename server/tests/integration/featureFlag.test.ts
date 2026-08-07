@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { app } from './index';
+import { app } from '../../src/index';
 import { Types } from 'mongoose';
-import { FeatureFlag } from './models/FeatureFlag';
-import { featureFlagService } from './services/featureFlag.service';
-import { requireFeature } from './middleware/featureFlag';
-import { Restaurant } from './models/Restaurant';
-import { RestaurantStaff } from './models/RestaurantStaff';
+import { FeatureFlag } from '../../src/models/FeatureFlag';
+import { featureFlagService } from '../../src/services/featureFlag.service';
+import { requireFeature } from '../../src/middleware/featureFlag';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
 
 import jwt from 'jsonwebtoken';
-import { UserRepository } from './repositories/user.repository';
-import { TokenService } from './services/token.service';
+import { UserRepository } from '../../src/repositories/user.repository';
+import { TokenService } from '../../src/services/token.service';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { Server } from 'http';

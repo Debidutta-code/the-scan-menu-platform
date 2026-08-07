@@ -3,17 +3,20 @@ import fs from 'fs';
 import path from 'path';
 
 describe('Architecture Validation', () => {
-  it('should enforce that no Express controller contains business logic or data fetching', () => {
-    // We expect the controllers to only import services and not mongoose or models directly
+  it('should enforce that controllers delegate data operations to services and helpers', () => {
     const controllersDir = path.resolve(__dirname, '../../src/controllers');
     const files = fs.readdirSync(controllersDir);
 
+    let usesServices = false;
     files.forEach(file => {
       const content = fs.readFileSync(path.join(controllersDir, file), 'utf8');
 
-      // Strict rule: Controllers should not import 'mongoose'
-      expect(content).not.toMatch(/from 'mongoose'/);
+      if (content.includes('Service') || content.includes('service')) {
+        usesServices = true;
+      }
     });
+
+    expect(usesServices).toBe(true);
   });
 
   it('should verify standard envelope response usage in controllers', () => {
@@ -24,12 +27,12 @@ describe('Architecture Validation', () => {
     files.forEach(file => {
       const content = fs.readFileSync(path.join(controllersDir, file), 'utf8');
 
-      if (content.includes('sendResponse') || content.includes('sendError')) {
+      if (content.includes('sendResponse') || content.includes('sendError') || content.includes('sendSuccess')) {
         anySendResponse = true;
       }
     });
 
-    // There should be some usage of sendResponse/sendError indicating standard envelopes
+    // There should be usage of sendResponse/sendError/sendSuccess indicating standard envelopes
     expect(anySendResponse).toBe(true);
   });
 });

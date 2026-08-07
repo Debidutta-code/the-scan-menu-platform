@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
-import { app } from './index';
-import { cacheService } from './utils/cacheService';
+import { app } from '../../src/index';
+import { cacheService } from '../../src/utils/cacheService';
 
 describe('Phase 16 Production Hardening & Infrastructure Test Suite', () => {
   beforeAll(async () => {
