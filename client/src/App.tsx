@@ -119,6 +119,10 @@ export const App = () => {
                     <Route path="/manager/taxes" element={<ManagerTaxes />} />
                     <Route path="/manager/settings" element={<ManagerSettings />} />
                     <Route path="/manager/analytics" element={<ManagerAnalytics />} />
+                  </Route>
+
+                  {/* Super Admin only routes inside layout */}
+                  <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
                     <Route path="/manager/developer" element={<ManagerDeveloper />} />
                   </Route>
                 </Route>

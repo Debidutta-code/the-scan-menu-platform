@@ -2,7 +2,7 @@ import { User, IUser } from '../models/User';
 
 export class UserRepository {
   async findByEmail(email: string): Promise<IUser | null> {
-    return User.findOne({ email: email.toLowerCase() });
+    return User.findOne({ email: (email || '').trim().toLowerCase() });
   }
 
   async findById(id: string): Promise<IUser | null> {

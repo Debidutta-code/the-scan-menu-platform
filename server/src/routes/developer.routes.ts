@@ -9,7 +9,7 @@ const router = Router({ mergeParams: true });
 router.use(requireAuth as any);
 router.use(requireFeature('api_webhooks') as any);
 router.use(requireRestaurantAccess as any);
-router.use(requireRole('MANAGER', 'SUPER_ADMIN') as any);
+router.use(requireRole('SUPER_ADMIN') as any);
 
 router.get('/api-keys', developerController.listApiKeys);
 router.post('/api-keys', developerController.createApiKey);

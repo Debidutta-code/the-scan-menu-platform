@@ -44,11 +44,11 @@ interface CategoryOption {
 }
 
 export const ManagerKDS: React.FC = () => {
-  const { user } = useAuth();
+  const { user, impersonatedOutlet } = useAuth();
   const { isEnabled } = useFeatureFlags();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const activeRestaurantId = user?.restaurants?.[0];
+  const activeRestaurantId = impersonatedOutlet?.id || user?.restaurants?.[0] || '';
 
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedOrderMode, setSelectedOrderMode] = useState<string>('ALL');

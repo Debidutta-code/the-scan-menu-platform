@@ -327,13 +327,13 @@ export const ManagerLayout: React.FC = () => {
               <Receipt className="w-4 h-4" strokeWidth={1.75} />
               <span>Orders</span>
             </div>
-            {activeOrdersCount > 0 && (
-              <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono ${
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono transition-opacity ${
+                activeOrdersCount > 0 ? 'opacity-100' : 'opacity-0'
+              } ${
                 activeTab === 'orders' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-700'
               }`}>
-                {activeOrdersCount}
+                {activeOrdersCount || ' '}
               </span>
-            )}
           </button>
 
           {/* Counter POS tab — visible only if ordering module is enabled */}
@@ -402,11 +402,11 @@ export const ManagerLayout: React.FC = () => {
               <Bell className="w-4 h-4" strokeWidth={1.75} />
               <span>Waiter Calls</span>
             </div>
-            {activeWaiterCallsCount > 0 && (
-              <span className="px-2 py-0.5 text-[10px] rounded-full font-bold font-mono bg-amber-500 text-slate-950 animate-pulse">
-                {activeWaiterCallsCount}
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono bg-amber-500 text-slate-950 transition-opacity ${
+                activeWaiterCallsCount > 0 ? 'opacity-100 animate-pulse' : 'opacity-0'
+              }`}>
+                {activeWaiterCallsCount || ' '}
               </span>
-            )}
             </button>
           )}
 
@@ -530,8 +530,8 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Developer API & Webhooks tab (Manager/Super Admin only) */}
-          {!isStaff && isEnabled('api_webhooks') && (
+          {/* Developer API & Webhooks tab (Super Admin only) */}
+          {user?.role === 'SUPER_ADMIN' && isEnabled('api_webhooks') && (
             <button
               onClick={() => navigate('/manager/developer')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -598,11 +598,11 @@ export const ManagerLayout: React.FC = () => {
         >
           <Receipt className="w-5 h-5" strokeWidth={1.75} />
           <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Orders</span>
-          {activeOrdersCount > 0 && (
-            <span className="absolute top-2 right-1/4 px-1.5 py-0.5 text-[8px] bg-amber-500 text-slate-950 rounded-full font-bold font-mono border border-white">
-              {activeOrdersCount}
+          <span className={`absolute top-2 right-1/4 px-1.5 py-0.5 text-[8px] bg-amber-500 text-slate-950 rounded-full font-bold font-mono border border-white transition-opacity ${
+              activeOrdersCount > 0 ? 'opacity-100' : 'opacity-0'
+            }`}>
+              {activeOrdersCount || ' '}
             </span>
-          )}
         </button>
 
 
@@ -634,11 +634,11 @@ export const ManagerLayout: React.FC = () => {
         >
           <Bell className="w-5 h-5" strokeWidth={1.75} />
           <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Waiter Calls</span>
-          {activeWaiterCallsCount > 0 && (
-            <span className="absolute top-2 right-1/4 px-1.5 py-0.5 text-[8px] bg-amber-500 text-slate-950 rounded-full font-bold font-mono border border-white animate-pulse">
-              {activeWaiterCallsCount}
+          <span className={`absolute top-2 right-1/4 px-1.5 py-0.5 text-[8px] bg-amber-500 text-slate-950 rounded-full font-bold font-mono border border-white transition-opacity ${
+              activeWaiterCallsCount > 0 ? 'opacity-100 animate-pulse' : 'opacity-0'
+            }`}>
+              {activeWaiterCallsCount || ' '}
             </span>
-          )}
         </button>
         )}
 
@@ -807,8 +807,8 @@ export const ManagerLayout: React.FC = () => {
                   <span className="text-[10px] font-bold text-center leading-none">Kitchen</span>
                 </button>
               )}
-              {/* Developer API — Manager only */}
-              {!isStaff && isEnabled('api_webhooks') && (
+              {/* Developer API — Super Admin only */}
+              {user?.role === 'SUPER_ADMIN' && isEnabled('api_webhooks') && (
                 <button
                   id="mobile-more-developer-btn"
                   onClick={() => { navigate('/manager/developer'); setMoreDrawerOpen(false); }}

@@ -26,17 +26,13 @@ export const ManagerInventory: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exactStockInput, setExactStockInput] = useState<Record<string, string>>({});
 
-  const restaurantId =
-    impersonatedOutlet?.id ||
-    (user as any)?.restaurantId ||
-    (typeof user?.restaurants?.[0] === 'object' ? (user?.restaurants?.[0] as any)?.restaurantId : user?.restaurants?.[0]) ||
-    '';
+  const restaurantId = impersonatedOutlet?.id || user?.restaurants?.[0] || '';
 
   // Fetch Menu Items with stock data
   const { data: menuResponse, isLoading } = useQuery({
     queryKey: ['managerInventory', restaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${restaurantId}/menu/items`);
+      const res = await apiClient.get(`/restaurants/${restaurantId}/menu-items`);
       return res.data;
     },
     enabled: !!restaurantId,
@@ -45,7 +41,7 @@ export const ManagerInventory: React.FC = () => {
   // Update item stock mutation
   const updateStockMutation = useMutation({
     mutationFn: async ({ itemId, isAvailable, stockQuantity, trackInventory }: { itemId: string; isAvailable?: boolean; stockQuantity?: number; trackInventory?: boolean }) => {
-      const res = await apiClient.patch(`/restaurants/${restaurantId}/menu/items/${itemId}`, {
+      const res = await apiClient.patch(`/restaurants/${restaurantId}/menu-items/${itemId}`, {
         isAvailable,
         stockQuantity,
         trackInventory,

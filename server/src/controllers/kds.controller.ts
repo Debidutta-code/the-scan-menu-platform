@@ -135,6 +135,7 @@ export class KDSController {
       if (nextItemStatus === 'SERVED') {
         item.servedAt = new Date();
       }
+      order.markModified('items');
 
       const previousAggregateStatus = order.status;
 
@@ -217,14 +218,18 @@ export class KDSController {
       }
 
       const now = new Date();
-      for (const item of order.items) {
-        item.itemStatus = 'SERVED';
-        if (!item.servedAt) {
-          item.servedAt = now;
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          item.itemStatus = 'SERVED';
+          if (!item.servedAt) {
+            item.servedAt = now;
+          }
         }
+        order.markModified('items');
       }
 
       order.status = 'SERVED';
+      order.markModified('status');
       await order.save();
 
       // Emit socket notification
@@ -241,6 +246,22 @@ export class KDSController {
 
       // Relay to POS non-blockingly
       posIntegrationService.updateOrderStatusAsync(restaurantId, orderId, 'SERVED');
+
+      // Notify session update if session exists
+      if (order.sessionId) {
+        try {
+          const session = await TableSession.findById(order.sessionId);
+          if (session) {
+            NotificationService.getInstance().notifySessionUpdated(
+              order.restaurantId.toString(),
+              session._id.toString(),
+              session
+            );
+          }
+        } catch (err) {
+          console.error('Failed to notify session update from KDS bump:', err);
+        }
+      }
 
       sendSuccess(res, order, 'Kitchen ticket bumped and marked SERVED successfully');
     } catch (error) {

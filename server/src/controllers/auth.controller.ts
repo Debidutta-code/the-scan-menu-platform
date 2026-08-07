@@ -24,8 +24,9 @@ export class AuthController {
   async login(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password } = req.body;
+      const cleanEmail = (email || '').trim().toLowerCase();
 
-      const user = await this.userRepository.findByEmail(email);
+      const user = await this.userRepository.findByEmail(cleanEmail);
       if (!user) {
         sendError(res, 'INVALID_CREDENTIALS', 'Invalid email or password', null, 401);
         return;

@@ -1,13 +1,14 @@
 import rateLimit from 'express-rate-limit';
 
-const isTest = process.env.NODE_ENV === 'test';
+const isDevOrTest = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
 
 /**
- * Auth rate limiter: 10 requests per 15 minutes per IP (protects login & auth).
+ * Auth rate limiter: 10 requests per 15 minutes per IP in production (protects login & auth).
+ * Higher limit in dev/test to prevent developer lockout.
  */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTest ? 10000 : 10,
+  max: isDevOrTest ? 10000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -25,7 +26,7 @@ export const authRateLimiter = rateLimit({
  */
 export const orderPlacementRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: isTest ? 10000 : 30,
+  max: isDevOrTest ? 10000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -43,7 +44,7 @@ export const orderPlacementRateLimiter = rateLimit({
  */
 export const generalApiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTest ? 10000 : 300,
+  max: isDevOrTest ? 10000 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
