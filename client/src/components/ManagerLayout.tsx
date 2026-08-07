@@ -6,6 +6,7 @@ import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from './ConnectionIndicator';
+import PWAInstallPrompt from './PWAInstallPrompt';
 import {
   Lock,
   Receipt,
@@ -283,6 +284,7 @@ export const ManagerLayout: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
+      <PWAInstallPrompt />
       {impersonatedOutlet && (
         <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-extrabold flex items-center justify-between shadow-sm z-50 shrink-0">
           <div className="flex items-center gap-2">
