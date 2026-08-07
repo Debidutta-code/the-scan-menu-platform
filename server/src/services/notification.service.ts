@@ -71,6 +71,25 @@ export class NotificationService {
     }
   }
 
+  /** Emits waiter_call:created directly to the guest's table room */
+  public notifyTableWaiterCallCreated(tableToken: string, waiterCall: any): void {
+    try {
+      this.getIO().to(`table:${tableToken}`).emit('waiter_call:created', waiterCall);
+    } catch (err) {
+      console.error('NotificationService notifyTableWaiterCallCreated failed:', err);
+    }
+  }
+
+  /** Emits waiter_call:resolved directly to the guest's table room */
+  public notifyTableWaiterCallResolved(tableToken: string, callId: string, status: string, resolvedAt: Date | undefined): void {
+    try {
+      const payload = { callId, status, resolvedAt };
+      this.getIO().to(`table:${tableToken}`).emit('waiter_call:resolved', payload);
+    } catch (err) {
+      console.error('NotificationService notifyTableWaiterCallResolved failed:', err);
+    }
+  }
+
   public notifyInventoryUpdated(restaurantId: string, itemId: string, data: any): void {
     try {
       const payload = { itemId, ...data, updatedAt: new Date() };

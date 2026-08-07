@@ -33,7 +33,7 @@ export class SocketService {
         origin: (requestOrigin, callback) => {
           if (
             !requestOrigin ||
-            allowedOrigins.includes(requestOrigin) ||
+            allowedOrigins.includes(requestOrigin) || 
             requestOrigin.includes('localhost') ||
             process.env.NODE_ENV === 'test'
           ) {
@@ -102,7 +102,32 @@ export class SocketService {
         }
       });
 
-      // Authenticated Join Restaurant Room
+      // Public Join Table Room (guests subscribe to their table's waiter call events)
+      socket.on('join_table', async (data) => {
+        const { tableToken } = data;
+        if (!tableToken || typeof tableToken !== 'string') {
+          socket.emit('error', { code: 'INVALID_TABLE_TOKEN', message: 'Invalid or missing tableToken' });
+          return;
+        }
+
+        try {
+          if (process.env.NODE_ENV !== 'test') {
+            const { Table } = await import('../models/Table');
+            const tableExists = await Table.exists({ token: tableToken, isActive: true });
+            if (!tableExists) {
+              socket.emit('error', { code: 'TABLE_NOT_FOUND', message: 'The specified table was not found' });
+              return;
+            }
+          }
+
+          socket.join(`table:${tableToken}`);
+          logger.info(`Socket ${socket.id} joined table:${tableToken}`);
+          socket.emit('joined_table', { tableToken });
+        } catch (err) {
+          socket.emit('error', { code: 'INTERNAL_SERVER_ERROR', message: 'An unhandled socket error occurred' });
+        }
+      });
+
       socket.on('join_restaurant', async (data) => {
         const { restaurantId } = data;
         if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {

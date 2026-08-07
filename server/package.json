@@ -4,7 +4,7 @@
   "description": "Backend API server for Pixora QR Platform",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node-dev src/utils/seed.ts",
@@ -49,6 +49,7 @@
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.1",
     "mongodb-memory-server": "^9.1.8",
+    "nodemon": "^3.1.14",
     "socket.io-client": "^4.8.3",
     "supertest": "^6.3.4",
     "ts-node-dev": "^2.0.0",

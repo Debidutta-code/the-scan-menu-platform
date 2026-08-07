@@ -622,30 +622,48 @@ export const PublicTable: React.FC = () => {
     { menuItemId: string; name: string; reason: 'unavailable' | 'category_inactive' }[]
   >([]);
 
+  // Socket connection for this table (shared across waiter call + session/order real-time updates)
+  const { socket } = useSocket(null);
+
   // Phase 7 Waiter Call States
   const [waiterCallState, setWaiterCallState] = useState<'idle' | 'pulsing' | 'waiting'>('idle');
 
-  // Query active waiter call on mount
-  const { data: activeCallData } = useQuery({
-    queryKey: ['activeWaiterCall', tableToken],
-    queryFn: async () => {
-      const res = await apiClient.get(`/public/tables/${tableToken}/waiter-call/active`);
-      return res.data;
-    },
-    enabled: !!tableToken,
-    refetchInterval: waiterCallState === 'waiting' ? 4000 : false,
-  });
-
-  // Sync initial waiter call state
+  // On mount fetch the current state once (handles page refresh while a call is active).
+  // After that, all state transitions are driven by socket events — no polling.
   useEffect(() => {
-    if (activeCallData?.success) {
-      if (activeCallData.data) {
-        setWaiterCallState('waiting');
-      } else {
-        setWaiterCallState('idle');
-      }
-    }
-  }, [activeCallData]);
+    if (!tableToken) return;
+
+    let cancelled = false;
+    apiClient
+      .get(`/public/tables/${tableToken}/waiter-call/active`)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data?.success) {
+          setWaiterCallState(res.data.data ? 'waiting' : 'idle');
+        }
+      })
+      .catch(() => { /* silently ignore — socket will keep state current */ });
+
+    return () => { cancelled = true; };
+  }, [tableToken]);
+
+  // Join the table socket room and listen for waiter call events
+  useEffect(() => {
+    if (!socket || !tableToken) return;
+
+    socket.emit('join_table', { tableToken });
+
+    const handleWaiterCallCreated = () => setWaiterCallState('waiting');
+    const handleWaiterCallResolved = () => setWaiterCallState('idle');
+
+    socket.on('waiter_call:created', handleWaiterCallCreated);
+    socket.on('waiter_call:resolved', handleWaiterCallResolved);
+
+    return () => {
+      socket.off('waiter_call:created', handleWaiterCallCreated);
+      socket.off('waiter_call:resolved', handleWaiterCallResolved);
+    };
+  }, [socket, tableToken]);
 
 
   // Bottom Sheet States for Item Detail
@@ -706,7 +724,6 @@ export const PublicTable: React.FC = () => {
   });
 
   // Real-time socket updates for Public Session Details
-  const { socket } = useSocket(null);
 
   useEffect(() => {
     if (!socket || !activeSessionId || !sessionDetailsData?.success) return;

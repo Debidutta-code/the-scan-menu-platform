@@ -79,7 +79,10 @@ export class WaiterCallController {
           requestType: waiterCall.requestType,
           createdAt: waiterCall.createdAt,
         };
+        // Notify the manager/staff dashboard (restaurant room)
         NotificationService.getInstance().notifyWaiterCallCreated(restaurant._id.toString(), payload);
+        // Notify the guest's own table room so the UI goes to 'waiting' instantly
+        NotificationService.getInstance().notifyTableWaiterCallCreated(tableToken, payload);
       } catch (err) {
         console.error('Failed to notify waiter call creation:', err);
       }
@@ -196,7 +199,7 @@ export class WaiterCallController {
       waiterCall.acknowledgedAt = new Date();
       await waiterCall.save();
 
-      // Emit status updated to keep all staff clients in sync
+      // Emit status updated to keep all staff clients and the guest table in sync
       try {
         NotificationService.getInstance().notifyWaiterCallResolved(
           restaurantId,
@@ -204,6 +207,16 @@ export class WaiterCallController {
           'ACKNOWLEDGED',
           waiterCall.acknowledgedAt
         );
+        // Look up the table token so we can push to the guest's table room
+        const tableForAck = await Table.findById(waiterCall.tableId).select('token').lean();
+        if (tableForAck?.token) {
+          NotificationService.getInstance().notifyTableWaiterCallResolved(
+            tableForAck.token,
+            waiterCall._id.toString(),
+            'ACKNOWLEDGED',
+            waiterCall.acknowledgedAt
+          );
+        }
       } catch (err) {
         console.error('Failed to notify waiter call status update:', err);
       }
@@ -252,7 +265,7 @@ export class WaiterCallController {
       waiterCall.resolvedBy = new mongoose.Types.ObjectId(user.id);
       await waiterCall.save();
 
-      // Emit waiter_call:resolved to restaurant:{restaurantId} room via central NotificationService
+      // Emit waiter_call:resolved to restaurant room and guest table room
       try {
         NotificationService.getInstance().notifyWaiterCallResolved(
           restaurantId,
@@ -260,6 +273,16 @@ export class WaiterCallController {
           'RESOLVED',
           waiterCall.resolvedAt
         );
+        // Look up the table token so we can push to the guest's table room
+        const tableForResolve = await Table.findById(waiterCall.tableId).select('token').lean();
+        if (tableForResolve?.token) {
+          NotificationService.getInstance().notifyTableWaiterCallResolved(
+            tableForResolve.token,
+            waiterCall._id.toString(),
+            'RESOLVED',
+            waiterCall.resolvedAt
+          );
+        }
       } catch (err) {
         console.error('Failed to notify waiter call resolution:', err);
       }
