@@ -186,7 +186,9 @@ export const ManagerKDS: React.FC = () => {
     refetchInterval: isConnected ? false : 10000,
   });
 
-  const tickets: KDSTicket[] = ticketsResponse?.success ? ticketsResponse.data : [];
+  const tickets: KDSTicket[] = useMemo(() => {
+    return ticketsResponse?.success ? ticketsResponse.data : [];
+  }, [ticketsResponse]);
 
   // Sound chime when new tickets arrive
   useEffect(() => {
@@ -209,7 +211,9 @@ export const ManagerKDS: React.FC = () => {
     refetchInterval: 15000,
   });
 
-  const historyTickets: KDSTicket[] = historyResponse?.success ? historyResponse.data : [];
+  const historyTickets: KDSTicket[] = useMemo(() => {
+    return historyResponse?.success ? historyResponse.data : [];
+  }, [historyResponse]);
 
   // Socket real-time invalidation
   useEffect(() => {

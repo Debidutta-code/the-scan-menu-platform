@@ -29,7 +29,9 @@ export class TokenService {
   }
 
   generateAccessToken(payload: TokenUserPayload): string {
-    return jwt.sign(payload, this.accessSecret, { expiresIn: ACCESS_TOKEN_EXPIRY });
+    return jwt.sign(payload, this.accessSecret, {
+      expiresIn: ACCESS_TOKEN_EXPIRY as jwt.SignOptions['expiresIn'],
+    });
   }
 
   verifyAccessToken(token: string): TokenUserPayload {

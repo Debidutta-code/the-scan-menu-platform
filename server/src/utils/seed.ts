@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import dotenv from 'dotenv';
 import { User } from '../models/User';
 import { Restaurant } from '../models/Restaurant';
 import { RestaurantSettings } from '../models/RestaurantSettings';
