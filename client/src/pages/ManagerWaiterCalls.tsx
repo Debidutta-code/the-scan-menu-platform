@@ -64,10 +64,9 @@ const getRequestTypeDetails = (type: string) => {
 
 export const ManagerWaiterCalls: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const activeRestaurantId = user?.restaurants?.[0];
 
   // Fetch Waiter Calls
   const { data: waiterCallsData, isLoading: isLoadingWaiterCalls } = useQuery({

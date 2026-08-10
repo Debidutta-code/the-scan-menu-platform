@@ -21,9 +21,8 @@ import apiClient from '../lib/api';
 import { useToast } from '../hooks/useToast';
 
 export const ManagerProfile: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, activeRestaurantId, logout } = useAuth();
   const { toast } = useToast();
-  const activeRestaurantId = user?.restaurants?.[0];
 
   // Edit name state
   const [isEditingName, setIsEditingName] = useState(false);

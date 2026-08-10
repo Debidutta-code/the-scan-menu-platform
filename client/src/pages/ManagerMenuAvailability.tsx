@@ -15,10 +15,9 @@ import { Leaf, Flame, Loader, FolderOpen, ToggleLeft, ToggleRight, Lock } from '
  */
 export const ManagerMenuAvailability: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const queryClient = useQueryClient();
 
-  const activeRestaurantId = user?.restaurants?.[0];
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
 
   const inventoryEnabled = isEnabled('qr_menu');

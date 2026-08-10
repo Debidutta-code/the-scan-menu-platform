@@ -59,7 +59,9 @@ router.post('/:restaurantId/integrations/petpooja/sync-menu', requireFeature('po
 
 // Kitchen Display System (KDS) Routes (Staff, Manager, Super Admin)
 router.get('/:restaurantId/kds/tickets', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.getActiveTickets);
+router.get('/:restaurantId/kds/history', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.getBumpedHistory);
 router.patch('/:restaurantId/kds/tickets/:orderId/items/:itemIndex/status', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.updateItemStatus);
 router.post('/:restaurantId/kds/tickets/:orderId/bump', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.bumpTicket);
+router.post('/:restaurantId/kds/tickets/:orderId/recall', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.recallTicket);
 
 export default router;

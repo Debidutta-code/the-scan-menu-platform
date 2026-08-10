@@ -49,11 +49,10 @@ interface WebhookItem {
 }
 
 export const ManagerDeveloper: React.FC = () => {
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { isEnabled } = useFeatureFlags();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const activeRestaurantId = user?.restaurants?.[0];
 
   // Modals state
   const [showKeyModal, setShowKeyModal] = useState(false);

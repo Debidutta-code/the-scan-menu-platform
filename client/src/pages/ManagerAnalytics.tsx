@@ -59,9 +59,8 @@ const getRangeDates = (rangeType: string, customStart?: string, customEnd?: stri
 
 export const ManagerAnalytics: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
-  const activeRestaurantId = user?.restaurants?.[0];
 
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'custom'>('today');
   const [customStart, setCustomStart] = useState('');

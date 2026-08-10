@@ -193,7 +193,9 @@ export class MenuController {
         query.categoryId = new mongoose.Types.ObjectId(categoryId as string);
       }
 
-      const items = await MenuItem.find(query).sort({ sortOrder: 1 });
+      const items = await MenuItem.find(query)
+        .populate('categoryId', 'name sortOrder')
+        .sort({ sortOrder: 1 });
       sendSuccess(res, items, 'Menu items retrieved successfully');
     } catch (error) {
       next(error);

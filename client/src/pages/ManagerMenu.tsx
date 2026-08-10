@@ -92,8 +92,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, children }) => {
 export const ManagerMenu: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
-
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
@@ -106,8 +105,6 @@ export const ManagerMenu: React.FC = () => {
   // Bulk availability states
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-
-  const activeRestaurantId = user?.restaurants?.[0];
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 

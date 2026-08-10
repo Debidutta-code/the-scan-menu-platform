@@ -42,10 +42,7 @@ function writeCache(restaurantId: string, flags: Record<string, boolean>): void 
 }
 
 export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ children }) => {
-  const { user } = useAuth();
-
-  // Extract restaurantId from authenticated user context (user.restaurants array or fallback restaurantId property)
-  const activeRestaurantId = user?.restaurants?.[0] || (user as any)?.restaurantId;
+  const { user, activeRestaurantId } = useAuth();
 
   // Seed initial state from localStorage so the sidebar renders fully on first paint (no layout jump)
   const [flags, setFlags] = useState<Record<string, boolean>>(() => {

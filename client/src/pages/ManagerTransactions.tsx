@@ -64,11 +64,9 @@ const formatINR = (paise: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(paise / 100);
 
 export const ManagerTransactions: React.FC = () => {
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { toast } = useToast();
-
-  const activeRestaurantId = user?.restaurants?.[0];
 
   const [statusFilter, setStatusFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRangeKey>('today');

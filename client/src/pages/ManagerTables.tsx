@@ -32,7 +32,7 @@ type BulkTableFormValues = z.infer<typeof bulkTableSchema>;
 
 export const ManagerTables: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsCreateOpen] = useState(false);
@@ -46,9 +46,6 @@ export const ManagerTables: React.FC = () => {
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
 
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
-
-  // Active restaurant ID for this manager (from useAuth list)
-  const activeRestaurantId = user?.restaurants?.[0];
 
   // Fetch tables list
   const { data: tablesData, isLoading } = useQuery({

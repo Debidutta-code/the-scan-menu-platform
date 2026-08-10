@@ -42,11 +42,11 @@ const orderModeOptions: { key: OrderMode; label: string; icon: React.ReactNode }
 ];
 
 export const ManagerCounter: React.FC = () => {
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const restaurantId = user?.restaurants?.[0];
+  const restaurantId = activeRestaurantId;
 
   const [cartItems, setCartItems] = useState<SelectedCounterItem[]>([]);
   const [customerName, setCustomerName] = useState('');

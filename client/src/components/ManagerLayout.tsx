@@ -33,7 +33,7 @@ import {
 import apiClient from '../lib/api';
 
 export const ManagerLayout: React.FC = () => {
-  const { user, impersonatedOutlet, exitImpersonation } = useAuth();
+  const { user, impersonatedOutlet, activeRestaurantId, exitImpersonation } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -45,7 +45,6 @@ export const ManagerLayout: React.FC = () => {
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [alertsEnabled, setAlertsEnabled] = useState(false);
 
-  const activeRestaurantId = user?.restaurants?.[0];
   const isStaff = user?.role === 'STAFF';
 
   // Fetch Live socket status

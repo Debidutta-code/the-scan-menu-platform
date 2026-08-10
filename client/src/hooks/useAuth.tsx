@@ -14,6 +14,7 @@ interface AuthContextType {
   accessToken: string | null;
   isLoading: boolean;
   impersonatedOutlet: ImpersonatedOutlet | null;
+  activeRestaurantId: string | undefined;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   impersonateOutlet: (outlet: ImpersonatedOutlet) => void;
@@ -112,6 +113,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setImpersonatedOutlet(null);
   };
 
+  const activeRestaurantId = impersonatedOutlet?.id || user?.restaurants?.[0] || undefined;
+
   return (
     <AuthContext.Provider
       value={{
@@ -119,6 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         accessToken,
         isLoading,
         impersonatedOutlet,
+        activeRestaurantId,
         login,
         logout,
         impersonateOutlet,

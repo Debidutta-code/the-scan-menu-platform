@@ -239,9 +239,43 @@ Changes password for the currently logged-in user.
       ],
       "total": 1,
       "page": 1,
-      "limit": 20
+### 10. KDS - Get Bumped Tickets History (Staff / Manager / Super Admin)
+- **Method:** `GET`
+- **Path:** `/api/v1/restaurants/:restaurantId/kds/history`
+- **Auth:** Bearer Token (Roles: `STAFF`, `MANAGER`, `SUPER_ADMIN`). Feature flag required: `kds`.
+- **Query Params:** `limit` (optional, default 25)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d0fe...",
+        "orderNumber": 101,
+        "status": "SERVED",
+        "items": [...]
+      }
+    ],
+    "message": "Bumped KDS tickets history retrieved successfully"
+  }
+  ```
+
+---
+
+### 11. KDS - Recall Bumped Ticket (Staff / Manager / Super Admin)
+- **Method:** `POST`
+- **Path:** `/api/v1/restaurants/:restaurantId/kds/tickets/:orderId/recall`
+- **Auth:** Bearer Token (Roles: `STAFF`, `MANAGER`, `SUPER_ADMIN`). Feature flag required: `kds`.
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d0fe...",
+      "orderNumber": 101,
+      "status": "PREPARING"
     },
-    "message": "Integration sync logs retrieved successfully"
+    "message": "Kitchen ticket recalled to active queue successfully"
   }
   ```
 

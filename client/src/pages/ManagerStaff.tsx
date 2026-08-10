@@ -19,14 +19,12 @@ const staffSchema = z.object({
 type StaffFormValues = z.infer<typeof staffSchema>;
 
 export const ManagerStaff: React.FC = () => {
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [revealPinForId, setRevealPinForId] = useState<string | null>(null);
-
-  const activeRestaurantId = user?.restaurants?.[0];
 
   const { data: staffData, isLoading } = useQuery({
     queryKey: ['managerStaff', activeRestaurantId],

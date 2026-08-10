@@ -13,6 +13,8 @@ export class KDSController {
     this.getActiveTickets = this.getActiveTickets.bind(this);
     this.updateItemStatus = this.updateItemStatus.bind(this);
     this.bumpTicket = this.bumpTicket.bind(this);
+    this.getBumpedHistory = this.getBumpedHistory.bind(this);
+    this.recallTicket = this.recallTicket.bind(this);
   }
 
   /**
@@ -264,6 +266,83 @@ export class KDSController {
       }
 
       sendSuccess(res, order, 'Kitchen ticket bumped and marked SERVED successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/restaurants/:restaurantId/kds/history
+   * Retrieves recently bumped/served kitchen tickets for recall and history.
+   */
+  async getBumpedHistory(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const limit = parseInt(req.query.limit as string, 10) || 25;
+
+      const rId = new mongoose.Types.ObjectId(restaurantId);
+      const orders = await Order.find({
+        restaurantId: rId,
+        status: 'SERVED',
+      })
+        .populate('tableId', 'displayName tableNumber')
+        .sort({ updatedAt: -1 })
+        .limit(limit);
+
+      sendSuccess(res, orders, 'Bumped KDS tickets history retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/restaurants/:restaurantId/kds/tickets/:orderId/recall
+   * Recalls an accidentally bumped ticket back to active KDS preparation queue.
+   */
+  async recallTicket(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, orderId } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(orderId)) {
+        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
+        return;
+      }
+
+      const order = await Order.findOne({
+        _id: new mongoose.Types.ObjectId(orderId),
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      });
+
+      if (!order) {
+        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
+        return;
+      }
+
+      // Reset item statuses
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          item.itemStatus = 'PREPARING';
+        }
+        order.markModified('items');
+      }
+
+      order.status = 'PREPARING';
+      order.markModified('status');
+      await order.save();
+
+      // Emit socket notification
+      try {
+        NotificationService.getInstance().notifyOrderStatusUpdated(
+          order.restaurantId.toString(),
+          order._id.toString(),
+          'PREPARING',
+          order.updatedAt
+        );
+      } catch (err) {
+        console.error('Failed to notify order recall:', err);
+      }
+
+      sendSuccess(res, order, 'Kitchen ticket recalled to active queue successfully');
     } catch (error) {
       next(error);
     }

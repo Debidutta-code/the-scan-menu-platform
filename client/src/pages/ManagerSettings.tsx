@@ -78,11 +78,10 @@ type TabType =
   | 'feature_flags';
 
 export const ManagerSettings: React.FC = () => {
-  const { user } = useAuth();
+  const { user, activeRestaurantId } = useAuth();
   const { flags, refreshFlags, isEnabled } = useFeatureFlags();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const activeRestaurantId = user?.restaurants?.[0];
 
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [localFlags, setLocalFlags] = useState<Record<string, boolean>>({});
@@ -135,7 +134,11 @@ export const ManagerSettings: React.FC = () => {
   const [fontFamily, setFontFamily] = useState('Plus Jakarta Sans');
 
   // Order Workflow & Automation
-  const [orderWorkflowMode, setOrderWorkflowMode] = useState<'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP'>('FIVE_STEP');
+  const [orderWorkflowMode, setOrderWorkflowMode] = useState<'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP'>(() => {
+    if (!activeRestaurantId) return 'FIVE_STEP';
+    const cached = localStorage.getItem(`pixora_workflow_mode_${activeRestaurantId}`);
+    return (cached as any) || 'FIVE_STEP';
+  });
   const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
   const [autoAcceptDelay, setAutoAcceptDelay] = useState(10);
 
@@ -199,7 +202,11 @@ export const ManagerSettings: React.FC = () => {
       }
 
       const raw = restaurantResponse.data as any;
-      setOrderWorkflowMode(raw.orderWorkflowMode || 'FIVE_STEP');
+      const serverWorkflow = raw.orderWorkflowMode || 'FIVE_STEP';
+      setOrderWorkflowMode(serverWorkflow);
+      if (activeRestaurantId) {
+        localStorage.setItem(`pixora_workflow_mode_${activeRestaurantId}`, serverWorkflow);
+      }
       setAutoAcceptEnabled(!!raw.autoAcceptConfig?.enabled);
       setAutoAcceptDelay(raw.autoAcceptConfig?.delaySeconds ?? 10);
 
@@ -331,6 +338,9 @@ export const ManagerSettings: React.FC = () => {
 
   const handleSaveWorkflow = (e: React.FormEvent) => {
     e.preventDefault();
+    if (activeRestaurantId) {
+      localStorage.setItem(`pixora_workflow_mode_${activeRestaurantId}`, orderWorkflowMode);
+    }
     updateSectionMutation.mutate({
       sectionName: 'Order Workflow & Automation',
       payload: {
@@ -341,6 +351,8 @@ export const ManagerSettings: React.FC = () => {
         },
       } as any,
     });
+    queryClient.invalidateQueries({ queryKey: ['restaurantConfig', activeRestaurantId] });
+    queryClient.invalidateQueries({ queryKey: ['restaurantProfileInfo', activeRestaurantId] });
   };
 
   const handleSaveNotifications = (e: React.FormEvent) => {

@@ -12,7 +12,6 @@ import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Table } from '../models/Table';
 import { TableZone } from '../models/TableZone';
-import { featureFlagService } from '../services/featureFlag.service';
 import { Tax } from '../models/Tax';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { SubscriptionPlan } from '../models/SubscriptionPlan';
@@ -22,6 +21,11 @@ import { WaiterCall } from '../models/WaiterCall';
 import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
 import { ApiKey } from '../models/ApiKey';
 import { WebhookSubscription } from '../models/WebhookSubscription';
+import { InventoryLog } from '../models/InventoryLog';
+import { Transaction } from '../models/Transaction';
+import { AuditLog } from '../models/AuditLog';
+import { subscriptionService } from '../services/subscription.service';
+import { restaurantStatsService } from '../services/restaurantStats.service';
 import { logger } from './logger';
 
 dotenv.config();
@@ -33,15 +37,20 @@ const MANAGER_EMAIL = 'manager@democafe.com';
 const STAFF1_EMAIL = 'staff1@democafe.com';
 const STAFF2_EMAIL = 'staff2@democafe.com';
 const DEMO_PASSWORD = 'PixoraDemo123!';
+const DEFAULT_PIN = '1234';
 
 export const seedDatabase = async () => {
   const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr';
 
   try {
     logger.info('Connecting to database for seeding...');
-    await mongoose.connect(mongoURI);
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(mongoURI);
+    }
 
-    // 1. Seed Subscription Plans
+    // ------------------------------------------------------------------------
+    // 1. Seed Subscription Plans with All 17 Core Feature Flags
+    // ------------------------------------------------------------------------
     logger.info('Seeding Subscription Plans...');
     const subscriptionPlansData = [
       {
@@ -53,19 +62,29 @@ export const seedDatabase = async () => {
       {
         key: 'STARTER',
         name: 'Starter Plan',
-        description: 'QR Menu, Waiter Call, and Basic Dine-In Ordering.',
-        includedFeatureKeys: ['qr_menu', 'ordering', 'waiter_call'],
+        description: 'QR Menu, Waiter Call, and Basic Dine-In & Takeaway Ordering.',
+        includedFeatureKeys: ['qr_menu', 'ordering', 'waiter_call', 'takeaway'],
       },
       {
         key: 'PROFESSIONAL',
         name: 'Professional Plan',
-        description: 'Full Dine-In & Takeaway ordering, Payments, and Analytics.',
-        includedFeatureKeys: ['qr_menu', 'ordering', 'waiter_call', 'payments', 'analytics', 'inventory'],
+        description: 'Full Dine-In & Takeaway ordering, Payments, Customer Display, and Analytics.',
+        includedFeatureKeys: [
+          'qr_menu',
+          'ordering',
+          'waiter_call',
+          'payments',
+          'analytics',
+          'inventory',
+          'takeaway',
+          'customer_display',
+          'coupons',
+        ],
       },
       {
         key: 'ENTERPRISE',
         name: 'Enterprise Plan',
-        description: 'All features including KDS, White Labeling, POS Integrations, and Developer API.',
+        description: 'All features including KDS, White Labeling, POS Integrations, CRM, and Developer APIs.',
         includedFeatureKeys: [
           'qr_menu',
           'ordering',
@@ -74,9 +93,17 @@ export const seedDatabase = async () => {
           'kds',
           'inventory',
           'analytics',
-          'white_label',
-          'api_webhooks',
+          'customer_display',
+          'delivery',
+          'takeaway',
+          'pos',
           'pos_integration',
+          'coupons',
+          'loyalty',
+          'crm',
+          'api_webhooks',
+          'api_access',
+          'white_label',
         ],
       },
     ];
@@ -90,7 +117,9 @@ export const seedDatabase = async () => {
     }
     logger.info('Subscription Plans seeded successfully.');
 
+    // ------------------------------------------------------------------------
     // 2. Seed SUPER_ADMIN idempotently
+    // ------------------------------------------------------------------------
     logger.info('Checking for existing SUPER_ADMIN user...');
     let superAdmin = await User.findOne({
       $or: [{ role: 'SUPER_ADMIN' }, { email: ADMIN_EMAIL.toLowerCase() }],
@@ -105,21 +134,26 @@ export const seedDatabase = async () => {
         role: 'SUPER_ADMIN',
         name: 'Super Admin',
         isActive: true,
+        pin: DEFAULT_PIN,
       });
       await superAdmin.save();
       logger.info('SUPER_ADMIN created successfully.');
     } else {
+      superAdmin.pin = DEFAULT_PIN;
+      await superAdmin.save();
       logger.info(`SUPER_ADMIN already exists: ${superAdmin.email}.`);
     }
 
-    // Initialize Counter if not exists
+    // Initialize Sequence Counter if not exists
     let counter = await Counter.findOne({ name: 'restaurant_code' });
     if (!counter) {
       counter = new Counter({ name: 'restaurant_code', seq: 1 });
       await counter.save();
     }
 
+    // ------------------------------------------------------------------------
     // 3. Seed "Demo Cafe" Restaurant idempotently
+    // ------------------------------------------------------------------------
     logger.info('Checking for existing "Demo Cafe" restaurant...');
     let restaurant = await Restaurant.findOne({ slug: 'demo-cafe' });
     if (!restaurant) {
@@ -128,10 +162,12 @@ export const seedDatabase = async () => {
         name: 'Demo Cafe',
         slug: 'demo-cafe',
         status: 'ACTIVE',
-        description: 'A charming, high-performance coffee and dining spot.',
+        description: 'A charming, high-performance coffee and artisan dining spot.',
         phone: '+91 9999999999',
         email: 'info@democafe.com',
-        address: '123 Espresso Boulevard, Bangalore, Karnataka',
+        address: '123 Espresso Boulevard, Indiranagar, Bangalore, Karnataka 560038',
+        logoUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&auto=format&fit=crop&q=80',
+        coverImageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&auto=format&fit=crop&q=80',
         subscription: {
           status: 'ACTIVE',
           planKey: 'ENTERPRISE',
@@ -153,31 +189,63 @@ export const seedDatabase = async () => {
       logger.info('"Demo Cafe" restaurant updated with Enterprise subscription.');
     }
 
-    // Seed RestaurantSettings, Stats, Onboarding & White Labeling
+    // Seed/Update RestaurantSettings
     let settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+    const settingsPayload = {
+      restaurantId: restaurant._id,
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      paymentConfig: {
+        activeProvider: 'CASH',
+        activeMode: 'POSTPAID',
+        taxRatePercent: 5.0,
+        paymentMethods: { cash: true, card: true, upi: true, razorpay: true },
+        razorpayConfig: { keyId: 'rzp_test_demoKey123', keySecret: 'demoSecret456' },
+        integrationConfig: { provider: 'PETPOOJA', config: { outletId: 'democafe_01', enabled: true } },
+        gstNumber: '29ABCDE1234F1Z5',
+      },
+      workflow: {
+        orderWorkflowMode: 'FIVE_STEP',
+        autoAcceptConfig: { enabled: false, delaySeconds: 10 },
+      },
+      orderConfig: {
+        minOrderAmount: 0,
+        allowSpecialInstructions: true,
+        enableTableOrdering: true,
+        enableTakeaway: true,
+        enableDelivery: false,
+      },
+      inventoryConfig: {
+        enableLowStockAlerts: true,
+        defaultLowStockThreshold: 5,
+        auto86OnZeroStock: true,
+      },
+      uiSettings: {
+        defaultLanguage: 'en',
+        displayItemImages: true,
+        enableDarkMode: false,
+      },
+      notificationPreferences: {
+        emailNotifications: true,
+        smsNotifications: false,
+        whatsappNotifications: true,
+      },
+      timings: { open: '08:00', close: '23:00' },
+      branding: {
+        logoUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&auto=format&fit=crop&q=80',
+        coverImageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&auto=format&fit=crop&q=80',
+        googleReviewUrl: 'https://g.page/r/democafe-reviews',
+        whatsapp: '+919999999999',
+        socialLinks: { facebook: 'https://fb.com/democafe', instagram: 'https://instagr.am/democafe', twitter: 'https://x.com/democafe' },
+      },
+      theme: { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
+    };
+
     if (!settings) {
-      settings = new RestaurantSettings({
-        restaurantId: restaurant._id,
-        currency: 'INR',
-        timezone: 'Asia/Kolkata',
-        paymentConfig: {
-          taxRatePercent: 5.0,
-          paymentMethods: { cash: true, card: true, upi: true, razorpay: false },
-          integrationConfig: { provider: 'PETPOOJA', config: { outletId: 'democafe_01', enabled: true } },
-          gstNumber: '29ABCDE1234F1Z5',
-        },
-        workflow: {
-          orderWorkflowMode: 'FIVE_STEP',
-          autoAcceptConfig: { enabled: false, delaySeconds: 10 },
-        },
-        timings: { open: '08:00', close: '23:00' },
-        branding: {
-          googleReviewUrl: 'https://g.page/r/democafe-reviews',
-          whatsapp: '+919999999999',
-          socialLinks: { facebook: 'https://fb.com/democafe', instagram: 'https://instagr.am/democafe' },
-        },
-        theme: { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
-      });
+      settings = new RestaurantSettings(settingsPayload);
+      await settings.save();
+    } else {
+      Object.assign(settings, settingsPayload);
       await settings.save();
     }
 
@@ -202,7 +270,9 @@ export const seedDatabase = async () => {
       await onboarding.save();
     }
 
-    // 4. Seed Manager & Staff users idempotently
+    // ------------------------------------------------------------------------
+    // 4. Seed Manager & Staff Users with PIN
+    // ------------------------------------------------------------------------
     const demoHashedPassword = await bcrypt.hash(DEMO_PASSWORD, 10);
 
     // Manager
@@ -214,9 +284,13 @@ export const seedDatabase = async () => {
         role: 'MANAGER',
         name: 'Demo Manager',
         isActive: true,
+        pin: DEFAULT_PIN,
       });
       await manager.save();
       logger.info(`Manager account created: ${MANAGER_EMAIL}`);
+    } else {
+      manager.pin = DEFAULT_PIN;
+      await manager.save();
     }
 
     const existingStaffManager = await RestaurantStaff.findOne({
@@ -242,9 +316,13 @@ export const seedDatabase = async () => {
         role: 'STAFF',
         name: 'Demo Staff One',
         isActive: true,
+        pin: DEFAULT_PIN,
       });
       await staff1.save();
       logger.info(`Staff 1 account created: ${STAFF1_EMAIL}`);
+    } else {
+      staff1.pin = DEFAULT_PIN;
+      await staff1.save();
     }
 
     const existingStaff1Join = await RestaurantStaff.findOne({
@@ -270,9 +348,13 @@ export const seedDatabase = async () => {
         role: 'STAFF',
         name: 'Demo Staff Two',
         isActive: true,
+        pin: DEFAULT_PIN,
       });
       await staff2.save();
       logger.info(`Staff 2 account created: ${STAFF2_EMAIL}`);
+    } else {
+      staff2.pin = DEFAULT_PIN;
+      await staff2.save();
     }
 
     const existingStaff2Join = await RestaurantStaff.findOne({
@@ -289,7 +371,9 @@ export const seedDatabase = async () => {
       logger.info('Linked Staff Two to "Demo Cafe".');
     }
 
+    // ------------------------------------------------------------------------
     // 5. Seed Taxes & Table Zones
+    // ------------------------------------------------------------------------
     logger.info('Seeding taxes...');
     const taxesData = [
       { name: 'CGST', percentage: 2.5 },
@@ -324,12 +408,14 @@ export const seedDatabase = async () => {
     const indoorZone = createdZones.find((z) => z.name === 'Indoor Dining');
     const outdoorZone = createdZones.find((z) => z.name === 'Outdoor Patio');
 
+    // ------------------------------------------------------------------------
     // 6. Seed Tables idempotently per zone
+    // ------------------------------------------------------------------------
     logger.info('Seeding tables...');
     try {
       await Table.collection.dropIndex('restaurantId_1_tableNumber_1');
-    } catch (err) {
-      // Legacy index missing
+    } catch {
+      // Ignore if legacy index does not exist
     }
     await Table.syncIndexes();
 
@@ -358,6 +444,8 @@ export const seedDatabase = async () => {
           displayName: t.name,
           token,
           qrCodeUrl: `/api/v1/restaurants/${restaurant._id}/tables/${token}/qr`,
+          status: 'AVAILABLE',
+          isArchived: false,
           isActive: true,
         });
         logger.info(`Table ${t.num} in zone seeded.`);
@@ -368,7 +456,9 @@ export const seedDatabase = async () => {
       seededTables.push(existingTable);
     }
 
-    // 7. Seed 5 Categories & 20 Menu Items with Inventory Stock Tracking
+    // ------------------------------------------------------------------------
+    // 7. Seed 5 Categories & 20 Menu Items with Photography & Inventory
+    // ------------------------------------------------------------------------
     logger.info('Seeding categories...');
     const catsData = [
       { name: 'Coffee Specialties', order: 0 },
@@ -398,33 +488,273 @@ export const seedDatabase = async () => {
       categoryMap[c.name] = cat._id;
     }
 
-    logger.info('Seeding menu items with stock tracking...');
+    logger.info('Seeding menu items with rich imagery and inventory stock...');
     const itemsData = [
       // 1. Coffee
-      { cat: 'Coffee Specialties', name: 'Madras Filter Coffee', price: 12000, veg: true, spicy: false, prep: 4, trackStock: true, stock: 50, lowStock: 10 },
-      { cat: 'Coffee Specialties', name: 'Nutella Mocha Latte', price: 21000, veg: true, spicy: false, prep: 5, trackStock: true, stock: 25, lowStock: 5 },
-      { cat: 'Coffee Specialties', name: 'Single Origin Espresso', price: 15000, veg: true, spicy: false, prep: 3, trackStock: false, stock: 0, lowStock: 0 },
-      { cat: 'Coffee Specialties', name: 'Cold Brew on Draft', price: 18000, veg: true, spicy: false, prep: 3, trackStock: true, stock: 4, lowStock: 5 }, // Trigger low stock!
+      {
+        cat: 'Coffee Specialties',
+        name: 'Madras Filter Coffee',
+        price: 12000,
+        veg: true,
+        spicy: false,
+        prep: 4,
+        trackStock: true,
+        stock: 50,
+        lowStock: 10,
+        imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Froth', priceDelta: 1500 }, { name: 'Jaggery Sweetener', priceDelta: 2000 }],
+      },
+      {
+        cat: 'Coffee Specialties',
+        name: 'Nutella Mocha Latte',
+        price: 21000,
+        veg: true,
+        spicy: false,
+        prep: 5,
+        trackStock: true,
+        stock: 25,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Oat Milk Substitute', priceDelta: 4000 }, { name: 'Whipped Cream', priceDelta: 2500 }],
+      },
+      {
+        cat: 'Coffee Specialties',
+        name: 'Single Origin Espresso',
+        price: 15000,
+        veg: true,
+        spicy: false,
+        prep: 3,
+        trackStock: false,
+        stock: 0,
+        lowStock: 0,
+        imageUrl: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Shot', priceDelta: 5000 }],
+      },
+      {
+        cat: 'Coffee Specialties',
+        name: 'Cold Brew on Draft',
+        price: 18000,
+        veg: true,
+        spicy: false,
+        prep: 3,
+        trackStock: true,
+        stock: 4,
+        lowStock: 5, // Low stock trigger
+        imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Vanilla Sweet Cream', priceDelta: 3000 }],
+      },
       // 2. Pizzas
-      { cat: 'House Baked Pizzas', name: 'Classic Margherita Sourdough', price: 44900, veg: true, spicy: false, prep: 12, trackStock: true, stock: 30, lowStock: 5 },
-      { cat: 'House Baked Pizzas', name: 'Spicy Paneer Tikka Furnace Pizza', price: 54900, veg: true, spicy: true, prep: 15, trackStock: true, stock: 18, lowStock: 5 },
-      { cat: 'House Baked Pizzas', name: 'Garden Pesto & Mushroom Pizza', price: 49900, veg: true, spicy: false, prep: 14, trackStock: false, stock: 0, lowStock: 0 },
-      { cat: 'House Baked Pizzas', name: 'Hot Chili Pepper Double Cheese Pizza', price: 52900, veg: true, spicy: true, prep: 13, trackStock: true, stock: 20, lowStock: 5 },
+      {
+        cat: 'House Baked Pizzas',
+        name: 'Classic Margherita Sourdough',
+        price: 44900,
+        veg: true,
+        spicy: false,
+        prep: 12,
+        trackStock: true,
+        stock: 30,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1604382355076-af4b0eb60143?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Fresh Burrata Ball', priceDelta: 12000 }, { name: 'Extra Basil Pesto', priceDelta: 3500 }],
+      },
+      {
+        cat: 'House Baked Pizzas',
+        name: 'Spicy Paneer Tikka Furnace Pizza',
+        price: 54900,
+        veg: true,
+        spicy: true,
+        prep: 15,
+        trackStock: true,
+        stock: 18,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Paneer Cubes', priceDelta: 6000 }, { name: 'Jalapeno Slices', priceDelta: 2500 }],
+      },
+      {
+        cat: 'House Baked Pizzas',
+        name: 'Garden Pesto & Mushroom Pizza',
+        price: 49900,
+        veg: true,
+        spicy: false,
+        prep: 14,
+        trackStock: false,
+        stock: 0,
+        lowStock: 0,
+        imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Truffle Oil Drizzle', priceDelta: 8000 }],
+      },
+      {
+        cat: 'House Baked Pizzas',
+        name: 'Hot Chili Pepper Double Cheese Pizza',
+        price: 52900,
+        veg: true,
+        spicy: true,
+        prep: 13,
+        trackStock: true,
+        stock: 20,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Double Mozzarella', priceDelta: 7000 }, { name: 'Chili Flakes Jar', priceDelta: 1500 }],
+      },
       // 3. Sliders
-      { cat: 'Gourmet Sliders', name: 'Crispy Veg Patty Brioche Slider', price: 29900, veg: true, spicy: false, prep: 10, trackStock: true, stock: 40, lowStock: 8 },
-      { cat: 'Gourmet Sliders', name: 'Spiced Potato Masala Slider', price: 19900, veg: true, spicy: true, prep: 8, trackStock: true, stock: 35, lowStock: 5 },
-      { cat: 'Gourmet Sliders', name: 'Paneer Firecracker Melt Slider', price: 32900, veg: true, spicy: true, prep: 11, trackStock: true, stock: 15, lowStock: 5 },
-      { cat: 'Gourmet Sliders', name: 'Portobello Truffle Cheese Slider', price: 34900, veg: true, spicy: false, prep: 12, trackStock: false, stock: 0, lowStock: 0 },
+      {
+        cat: 'Gourmet Sliders',
+        name: 'Crispy Veg Patty Brioche Slider',
+        price: 29900,
+        veg: true,
+        spicy: false,
+        prep: 10,
+        trackStock: true,
+        stock: 40,
+        lowStock: 8,
+        imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Cheddar Cheese Slice', priceDelta: 3000 }, { name: 'Caramelized Onions', priceDelta: 2000 }],
+      },
+      {
+        cat: 'Gourmet Sliders',
+        name: 'Spiced Potato Masala Slider',
+        price: 19900,
+        veg: true,
+        spicy: true,
+        prep: 8,
+        trackStock: true,
+        stock: 35,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Mint Chutney Dip', priceDelta: 1500 }],
+      },
+      {
+        cat: 'Gourmet Sliders',
+        name: 'Paneer Firecracker Melt Slider',
+        price: 32900,
+        veg: true,
+        spicy: true,
+        prep: 11,
+        trackStock: true,
+        stock: 15,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1520072959219-c595dc870360?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Peri Peri Fries Addon', priceDelta: 5500 }],
+      },
+      {
+        cat: 'Gourmet Sliders',
+        name: 'Portobello Truffle Cheese Slider',
+        price: 34900,
+        veg: true,
+        spicy: false,
+        prep: 12,
+        trackStock: false,
+        stock: 0,
+        lowStock: 0,
+        imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Smoked Gouda Slice', priceDelta: 4500 }],
+      },
       // 4. Desserts
-      { cat: 'Artisanal Desserts', name: 'Woodfired Hot Fudge Skillet Cookie', price: 26000, veg: true, spicy: false, prep: 10, trackStock: true, stock: 12, lowStock: 3 },
-      { cat: 'Artisanal Desserts', name: 'Saffron Pistachio Tres Leches', price: 32000, veg: true, spicy: false, prep: 6, trackStock: true, stock: 8, lowStock: 3 },
-      { cat: 'Artisanal Desserts', name: 'Classic Tiramisu on Espresso Soak', price: 29000, veg: true, spicy: false, prep: 5, trackStock: false, stock: 0, lowStock: 0 },
-      { cat: 'Artisanal Desserts', name: 'Salted Caramel Pecan Tart', price: 28000, veg: true, spicy: false, prep: 5, trackStock: true, stock: 10, lowStock: 3 },
+      {
+        cat: 'Artisanal Desserts',
+        name: 'Woodfired Hot Fudge Skillet Cookie',
+        price: 26000,
+        veg: true,
+        spicy: false,
+        prep: 10,
+        trackStock: true,
+        stock: 12,
+        lowStock: 3,
+        imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Vanilla Bean Gelato Scoop', priceDelta: 4500 }, { name: 'Toasted Hazelnuts', priceDelta: 3000 }],
+      },
+      {
+        cat: 'Artisanal Desserts',
+        name: 'Saffron Pistachio Tres Leches',
+        price: 32000,
+        veg: true,
+        spicy: false,
+        prep: 6,
+        trackStock: true,
+        stock: 8,
+        lowStock: 3,
+        imageUrl: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Saffron Milk Soak', priceDelta: 3500 }],
+      },
+      {
+        cat: 'Artisanal Desserts',
+        name: 'Classic Tiramisu on Espresso Soak',
+        price: 29000,
+        veg: true,
+        spicy: false,
+        prep: 5,
+        trackStock: false,
+        stock: 0,
+        lowStock: 0,
+        imageUrl: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Cocoa Powder Dusting', priceDelta: 1000 }],
+      },
+      {
+        cat: 'Artisanal Desserts',
+        name: 'Salted Caramel Pecan Tart',
+        price: 28000,
+        veg: true,
+        spicy: false,
+        prep: 5,
+        trackStock: true,
+        stock: 10,
+        lowStock: 3,
+        imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Sea Salt Flakes', priceDelta: 1000 }],
+      },
       // 5. Tonics
-      { cat: 'Refreshing Tonics', name: 'Cold Pressed Orange Zest Mojito', price: 16000, veg: true, spicy: false, prep: 4, trackStock: true, stock: 45, lowStock: 10 },
-      { cat: 'Refreshing Tonics', name: 'Ginger Lemongrass Herbal Fizz', price: 14000, veg: true, spicy: false, prep: 4, trackStock: true, stock: 30, lowStock: 5 },
-      { cat: 'Refreshing Tonics', name: 'Wild Berries Iced Hibiscus Tea', price: 15000, veg: true, spicy: false, prep: 3, trackStock: false, stock: 0, lowStock: 0 },
-      { cat: 'Refreshing Tonics', name: 'Cucumber Cooler Basil Tonic', price: 13000, veg: true, spicy: false, prep: 4, trackStock: true, stock: 22, lowStock: 5 },
+      {
+        cat: 'Refreshing Tonics',
+        name: 'Cold Pressed Orange Zest Mojito',
+        price: 16000,
+        veg: true,
+        spicy: false,
+        prep: 4,
+        trackStock: true,
+        stock: 45,
+        lowStock: 10,
+        imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Chia Seeds Boost', priceDelta: 2000 }],
+      },
+      {
+        cat: 'Refreshing Tonics',
+        name: 'Ginger Lemongrass Herbal Fizz',
+        price: 14000,
+        veg: true,
+        spicy: false,
+        prep: 4,
+        trackStock: true,
+        stock: 30,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Honey Infusion', priceDelta: 2000 }],
+      },
+      {
+        cat: 'Refreshing Tonics',
+        name: 'Wild Berries Iced Hibiscus Tea',
+        price: 15000,
+        veg: true,
+        spicy: false,
+        prep: 3,
+        trackStock: false,
+        stock: 0,
+        lowStock: 0,
+        imageUrl: 'https://images.unsplash.com/photo-1497534446932-c925b458314e?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Fresh Mint Sprig', priceDelta: 1000 }],
+      },
+      {
+        cat: 'Refreshing Tonics',
+        name: 'Cucumber Cooler Basil Tonic',
+        price: 13000,
+        veg: true,
+        spicy: false,
+        prep: 4,
+        trackStock: true,
+        stock: 22,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Crushed Ice Extra', priceDelta: 500 }],
+      },
     ];
 
     const seededMenuItems: any[] = [];
@@ -437,34 +767,39 @@ export const seedDatabase = async () => {
         name: item.name,
       });
 
+      const menuItemPayload = {
+        restaurantId: restaurant._id,
+        categoryId: catId,
+        name: item.name,
+        description: `Signature house specialty ${item.name.toLowerCase()} prepared fresh with artisan ingredients.`,
+        price: item.price,
+        imageUrl: item.imageUrl,
+        isAvailable: true,
+        isVegetarian: item.veg,
+        isSpicy: item.spicy,
+        prepTimeMinutes: item.prep,
+        trackStock: item.trackStock,
+        stockQuantity: item.stock,
+        lowStockThreshold: item.lowStock,
+        sortOrder: idx,
+        addOns: item.addOns || [],
+        externalIds: { petpoojaItemId: `PP_ITEM_${idx + 1}` },
+        isArchived: false,
+      };
+
       if (!menuItem) {
-        menuItem = await MenuItem.create({
-          restaurantId: restaurant._id,
-          categoryId: catId,
-          name: item.name,
-          description: `Signature delicious house specialty ${item.name.toLowerCase()} prepared fresh.`,
-          price: item.price,
-          isAvailable: true,
-          isVegetarian: item.veg,
-          isSpicy: item.spicy,
-          prepTimeMinutes: item.prep,
-          trackStock: item.trackStock,
-          stockQuantity: item.stock,
-          lowStockThreshold: item.lowStock,
-          sortOrder: idx,
-          addOns: [{ name: 'Extra Portion', priceDelta: 4000 }],
-        });
+        menuItem = await MenuItem.create(menuItemPayload);
         logger.info(`Menu Item "${item.name}" seeded.`);
       } else {
-        menuItem.trackStock = item.trackStock;
-        menuItem.stockQuantity = item.stock;
-        menuItem.lowStockThreshold = item.lowStock;
+        Object.assign(menuItem, menuItemPayload);
         await menuItem.save();
       }
       seededMenuItems.push(menuItem);
     }
 
-    // 8. Seed Sample Active Orders for KDS, Live Orders & Analytics
+    // ------------------------------------------------------------------------
+    // 8. Seed Sample Active & Completed Orders with Live Statuses
+    // ------------------------------------------------------------------------
     logger.info('Seeding sample active orders & kitchen tickets...');
     let orderCounter = await OrderCounter.findOne({ restaurantId: restaurant._id });
     if (!orderCounter) {
@@ -480,6 +815,7 @@ export const seedDatabase = async () => {
         source: 'QR',
         status: 'PENDING',
         paymentStatus: 'PAID',
+        paymentProvider: 'RAZORPAY',
         item: seededMenuItems[0],
         qty: 2,
       },
@@ -490,6 +826,7 @@ export const seedDatabase = async () => {
         source: 'QR',
         status: 'PREPARING',
         paymentStatus: 'PAID',
+        paymentProvider: 'RAZORPAY',
         item: seededMenuItems[4],
         qty: 1,
       },
@@ -500,6 +837,7 @@ export const seedDatabase = async () => {
         source: 'POS',
         status: 'READY',
         paymentStatus: 'PAID',
+        paymentProvider: 'CASH',
         item: seededMenuItems[8],
         qty: 3,
       },
@@ -510,11 +848,13 @@ export const seedDatabase = async () => {
         source: 'MANUAL',
         status: 'SERVED',
         paymentStatus: 'PAID',
+        paymentProvider: 'CASH',
         item: seededMenuItems[12],
         qty: 2,
       },
     ];
 
+    const seededOrders: any[] = [];
     for (const ord of sampleOrdersData) {
       let existingOrder = await Order.findOne({ restaurantId: restaurant._id, orderNumber: ord.orderNumber });
       if (!existingOrder && ord.table && ord.item) {
@@ -530,6 +870,8 @@ export const seedDatabase = async () => {
           subtotal,
           tax: taxAmount,
           total,
+          openedAt: new Date(Date.now() - 30 * 60 * 1000),
+          closedAt: ord.status === 'SERVED' ? new Date() : undefined,
         });
 
         existingOrder = await Order.create({
@@ -556,18 +898,153 @@ export const seedDatabase = async () => {
               unitPriceSnapshot: ord.item.price,
               quantity: ord.qty,
               selectedAddOns: [],
-              itemStatus: ord.status === 'SERVED' ? 'SERVED' : ord.status === 'READY' ? 'READY' : ord.status === 'PREPARING' ? 'PREPARING' : 'PENDING',
+              specialInstructions: 'Prepare fresh with extra napkins',
+              prepTimeMinutesSnapshot: ord.item.prepTimeMinutes,
+              itemStatus:
+                ord.status === 'SERVED'
+                  ? 'SERVED'
+                  : ord.status === 'READY'
+                  ? 'READY'
+                  : ord.status === 'PREPARING'
+                  ? 'PREPARING'
+                  : 'PENDING',
+              servedAt: ord.status === 'SERVED' ? new Date() : undefined,
             },
           ],
+          integrationMetadata: {
+            petpoojaOrderId: `PP_ORD_${ord.orderNumber}`,
+            syncedAt: new Date(),
+          },
         });
         logger.info(`Sample order ORD-${ord.orderNumber} seeded.`);
       }
+
+      if (existingOrder) {
+        seededOrders.push({ order: existingOrder, meta: ord });
+      }
     }
 
-    // 9. Seed Waiter Calls for Notification Testing
+    // ------------------------------------------------------------------------
+    // 9. Seed Financial Transactions for Paid Orders
+    // ------------------------------------------------------------------------
+    logger.info('Seeding financial transactions...');
+    for (const { order, meta } of seededOrders) {
+      const existingTx = await Transaction.findOne({ restaurantId: restaurant._id, orderId: order._id });
+      if (!existingTx) {
+        await Transaction.create({
+          restaurantId: restaurant._id,
+          tableSessionId: order.sessionId,
+          orderId: order._id,
+          provider: meta.paymentProvider || 'CASH',
+          mode: 'POSTPAID',
+          amount: order.total,
+          currency: 'INR',
+          status: 'CAPTURED',
+          providerReferenceId: `tx_ref_${order.orderNumber}_${Date.now()}`,
+          metadata: { orderNumber: order.orderNumber, seeded: true },
+        });
+        logger.info(`Transaction for order ORD-${order.orderNumber} seeded.`);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // 10. Seed Inventory Logs for Inventory Tracking Auditing
+    // ------------------------------------------------------------------------
+    logger.info('Seeding sample inventory stock adjustment logs...');
+    const existingInvLogs = await InventoryLog.countDocuments({ restaurantId: restaurant._id });
+    if (existingInvLogs === 0 && seededMenuItems.length > 0) {
+      await InventoryLog.create([
+        {
+          restaurantId: restaurant._id,
+          menuItemId: seededMenuItems[0]._id,
+          actorType: 'MANAGER',
+          actorId: manager._id,
+          action: 'STOCK_ADJUSTMENT',
+          previousQuantity: 20,
+          newQuantity: 50,
+          previousAvailability: true,
+          newAvailability: true,
+          reason: 'Initial morning stock receipt from roastery supplier.',
+        },
+        {
+          restaurantId: restaurant._id,
+          menuItemId: seededMenuItems[3]._id, // Low stock Cold Brew
+          actorType: 'ORDER',
+          action: 'ORDER_DECREMENT',
+          previousQuantity: 6,
+          newQuantity: 4,
+          previousAvailability: true,
+          newAvailability: true,
+          orderId: seededOrders[0]?.order?._id,
+          reason: 'Deducted by customer order ORD-101.',
+        },
+        {
+          restaurantId: restaurant._id,
+          menuItemId: seededMenuItems[4]._id,
+          actorType: 'MANAGER',
+          actorId: manager._id,
+          action: 'STOCK_ADJUSTMENT',
+          previousQuantity: 10,
+          newQuantity: 30,
+          previousAvailability: true,
+          newAvailability: true,
+          reason: 'Fresh batch of sourdough dough balls prepared.',
+        },
+      ]);
+      logger.info('Sample Inventory Logs seeded.');
+    }
+
+    // ------------------------------------------------------------------------
+    // 11. Seed Administrative & Operational Audit Logs
+    // ------------------------------------------------------------------------
+    logger.info('Seeding administrative audit logs...');
+    const existingAuditLogs = await AuditLog.countDocuments({ restaurantId: restaurant._id.toString() });
+    if (existingAuditLogs === 0) {
+      await AuditLog.create([
+        {
+          action: 'RESTAURANT_PROVISIONED',
+          actorId: superAdmin._id.toString(),
+          actorName: superAdmin.name,
+          actorRole: 'SUPER_ADMIN',
+          restaurantId: restaurant._id.toString(),
+          restaurantName: restaurant.name,
+          details: { plan: 'ENTERPRISE', tablesCount: 5 },
+          severity: 'INFO',
+        },
+        {
+          action: 'MENU_CATALOG_SYNCED',
+          actorId: manager._id.toString(),
+          actorName: manager.name,
+          actorRole: 'MANAGER',
+          restaurantId: restaurant._id.toString(),
+          restaurantName: restaurant.name,
+          details: { categoriesCount: 5, itemsCount: 20 },
+          severity: 'INFO',
+        },
+        {
+          action: 'FEATURE_FLAGS_UPDATED',
+          actorId: superAdmin._id.toString(),
+          actorName: superAdmin.name,
+          actorRole: 'SUPER_ADMIN',
+          restaurantId: restaurant._id.toString(),
+          restaurantName: restaurant.name,
+          details: { planKey: 'ENTERPRISE', flagsCount: 17 },
+          severity: 'INFO',
+        },
+      ]);
+      logger.info('Administrative Audit Logs seeded.');
+    }
+
+    // ------------------------------------------------------------------------
+    // 12. Seed Waiter Calls for Notification Testing
+    // ------------------------------------------------------------------------
     logger.info('Seeding sample waiter calls...');
     if (seededTables[0]) {
-      const existingCall = await WaiterCall.findOne({ restaurantId: restaurant._id, tableId: seededTables[0]._id, status: 'PENDING' });
+      const existingCall = await WaiterCall.findOne({
+        restaurantId: restaurant._id,
+        tableId: seededTables[0]._id,
+        status: 'PENDING',
+      });
       if (!existingCall) {
         await WaiterCall.create({
           restaurantId: restaurant._id,
@@ -580,7 +1057,9 @@ export const seedDatabase = async () => {
       }
     }
 
-    // 10. Seed Integration Sync Logs for Petpooja POS
+    // ------------------------------------------------------------------------
+    // 13. Seed Integration Sync Logs for Petpooja POS
+    // ------------------------------------------------------------------------
     logger.info('Seeding POS Integration Sync Audit Logs...');
     const syncLogCheck = await IntegrationSyncLog.findOne({ restaurantId: restaurant._id });
     if (!syncLogCheck) {
@@ -605,7 +1084,9 @@ export const seedDatabase = async () => {
       logger.info('POS Sync Audit Logs seeded.');
     }
 
-    // 11. Seed API Keys & Webhook Subscriptions for Developer Portal
+    // ------------------------------------------------------------------------
+    // 14. Seed API Keys & Webhook Subscriptions for Developer Portal
+    // ------------------------------------------------------------------------
     logger.info('Seeding Developer API Keys & Webhook Subscriptions...');
     const existingApiKey = await ApiKey.findOne({ restaurantId: restaurant._id });
     if (!existingApiKey) {
@@ -644,41 +1125,38 @@ export const seedDatabase = async () => {
       logger.info('Demo Webhook Subscription seeded.');
     }
 
-    // 12. Seed Feature Flags and enable all ENTERPRISE flags for Demo Cafe
-    logger.info('Seeding & Enabling all ENTERPRISE Feature Flags...');
-    await featureFlagService.getRestaurantFlags(restaurant._id);
+    // ------------------------------------------------------------------------
+    // 15. Assign ENTERPRISE Plan & Sync All 17 Feature Flags via Service
+    // ------------------------------------------------------------------------
+    logger.info('Assigning ENTERPRISE Plan and syncing all Feature Flags...');
+    await subscriptionService.assignPlanToRestaurant(restaurant._id, 'ENTERPRISE');
+    logger.info('ENTERPRISE Plan assigned and all Feature Flags synced.');
 
-    const enterpriseFlags = [
-      'qr_menu',
-      'ordering',
-      'waiter_call',
-      'payments',
-      'kds',
-      'inventory',
-      'analytics',
-      'api_webhooks',
-      'pos_integration',
-    ];
-    await featureFlagService.bulkUpdate(
-      restaurant._id,
-      enterpriseFlags.map((key) => ({ key, enabled: true }))
+    // ------------------------------------------------------------------------
+    // 16. Recalculate Live Restaurant Stats for 100% Data Accuracy
+    // ------------------------------------------------------------------------
+    logger.info('Recalculating live RestaurantStats from database...');
+    const updatedStats = await restaurantStatsService.recalculateStats(restaurant._id);
+    logger.info(
+      `RestaurantStats Synced: ${updatedStats?.menuItemsCount} items, ${updatedStats?.tablesCount} tables, ${updatedStats?.staffCount} staff, ${updatedStats?.ordersCount} orders, ₹${((updatedStats?.revenue || 0) / 100).toFixed(2)} total revenue.`
     );
-    logger.info(`All ${enterpriseFlags.length} ENTERPRISE Feature Flags enabled for Demo Cafe.`);
 
-    logger.info('--------------------------------------------------');
-    logger.info('IDEMPOTENT SEED DATA CREATED SUCCESSFULLY!');
-    logger.info(`SUPER ADMIN Email: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
-    logger.info(`DEMO RESTAURANT SLUG: demo-cafe`);
-    logger.info(`DEMO MANAGER Email: ${MANAGER_EMAIL} / ${DEMO_PASSWORD}`);
-    logger.info(`DEMO STAFF 1 Email: ${STAFF1_EMAIL} / ${DEMO_PASSWORD}`);
-    logger.info(`DEMO STAFF 2 Email: ${STAFF2_EMAIL} / ${DEMO_PASSWORD}`);
-    logger.info('--------------------------------------------------');
+    logger.info('================================================================');
+    logger.info('IDEMPOTENT DATABASE SEED COMPLETED SUCCESSFULLY!');
+    logger.info(`SUPER ADMIN Email: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD} (PIN: ${DEFAULT_PIN})`);
+    logger.info(`DEMO RESTAURANT SLUG: demo-cafe (Code: ${restaurant.code})`);
+    logger.info(`DEMO MANAGER Email: ${MANAGER_EMAIL} / ${DEMO_PASSWORD} (PIN: ${DEFAULT_PIN})`);
+    logger.info(`DEMO STAFF 1 Email: ${STAFF1_EMAIL} / ${DEMO_PASSWORD} (PIN: ${DEFAULT_PIN})`);
+    logger.info(`DEMO STAFF 2 Email: ${STAFF2_EMAIL} / ${DEMO_PASSWORD} (PIN: ${DEFAULT_PIN})`);
+    logger.info('================================================================');
   } catch (error) {
     logger.error(error, 'Error seeding database');
     throw error;
   } finally {
-    await mongoose.disconnect();
-    logger.info('Disconnected from database.');
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      logger.info('Disconnected from database.');
+    }
   }
 };
 
@@ -687,4 +1165,5 @@ if (require.main === module) {
     .then(() => process.exit(0))
     .catch(() => process.exit(1));
 }
+
 export default seedDatabase;

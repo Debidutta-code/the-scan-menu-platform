@@ -19,13 +19,11 @@ const taxSchema = z.object({
 type TaxFormValues = z.infer<typeof taxSchema>;
 
 export const ManagerTaxes: React.FC = () => {
-  const { user } = useAuth();
+  const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTax, setEditingTax] = useState<Tax | null>(null);
-
-  const activeRestaurantId = user?.restaurants?.[0];
 
   const { data: taxesData, isLoading } = useQuery({
     queryKey: ['managerTaxes', activeRestaurantId],
