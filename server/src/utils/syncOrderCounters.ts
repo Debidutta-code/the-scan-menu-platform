@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-dotenv.config();
+import config from '../config';
 
 const orderSchema = new mongoose.Schema({
   restaurantId: mongoose.Schema.Types.ObjectId,
@@ -15,7 +14,7 @@ const Order = mongoose.model('Order', orderSchema, 'orders');
 const OrderCounter = mongoose.model('OrderCounter', orderCounterSchema, 'order_counters');
 
 async function syncCounters() {
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr');
+  await mongoose.connect(config.db.mongoUri);
   console.log('Connected. Syncing order counters...');
 
   const restaurants = await Order.distinct('restaurantId');

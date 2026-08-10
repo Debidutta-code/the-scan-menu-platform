@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
+import config from '../config';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
-const SOCKET_URL = API_BASE_URL.replace('/api/v1', '');
+const SOCKET_URL = config.socketUrl;
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 

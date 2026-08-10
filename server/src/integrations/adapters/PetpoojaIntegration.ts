@@ -4,6 +4,7 @@ import { Order } from '../../models/Order';
 import { MenuItem } from '../../models/MenuItem';
 import { decrypt } from '../../utils/encryption';
 import { logger } from '../../utils/logger';
+import appConfig from '../../config';
 import axios from 'axios';
 
 export interface PetpoojaConfig {
@@ -60,7 +61,7 @@ export class PetpoojaIntegration implements RestaurantIntegration {
       appSecret,
       accessToken,
       outletId: rawConfig.outletId || rawConfig.restaurantId || '',
-      apiUrl: rawConfig.apiUrl || process.env.PETPOOJA_API_URL || 'https://api.petpooja.com/v1',
+      apiUrl: rawConfig.apiUrl || appConfig.integrations.petpooja.apiUrl,
       enabled: rawConfig.enabled !== false,
     };
   }
@@ -90,7 +91,7 @@ export class PetpoojaIntegration implements RestaurantIntegration {
         const res = await axios.post(endpoint, payload, { timeout: 5000 });
         responseData = res.data;
       } catch (err: any) {
-        if (process.env.NODE_ENV === 'test') {
+        if (appConfig.app.isTest) {
           responseData = { success: '1', message: 'Mock test sync executed' };
         } else {
           throw new Error(`Petpooja Menu API request failed: ${err.message}`);
@@ -180,7 +181,7 @@ export class PetpoojaIntegration implements RestaurantIntegration {
         petpoojaOrderId = res.data.order_id;
       }
     } catch (err: any) {
-      if (process.env.NODE_ENV === 'test') {
+      if (appConfig.app.isTest) {
         // In test mode, proceed with test fallback ID if credentials valid
       } else {
         throw new Error(`Petpooja Save Order API request to ${endpoint} failed: ${err.message}`);
@@ -252,7 +253,7 @@ export class PetpoojaIntegration implements RestaurantIntegration {
     try {
       await axios.post(endpoint, payload, { timeout: 5000 });
     } catch (err: any) {
-      if (process.env.NODE_ENV === 'test') {
+      if (appConfig.app.isTest) {
         // test fallback
       } else {
         throw new Error(`Petpooja update_order_status API request failed: ${err.message}`);

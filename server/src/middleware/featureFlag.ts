@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { featureFlagService } from '../services/featureFlag.service';
 import { Types } from 'mongoose';
+import config from '../config';
 
 export const requireFeature = (featureKey: string) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      if (process.env.NODE_ENV === 'test' && !process.env.TESTING_FEATURE_FLAGS) {
+      if (config.app.isTest && !process.env.TESTING_FEATURE_FLAGS) {
         return next();
       }
       const restaurantId = req.params.restaurantId || req.body.restaurantId || (req as any).restaurant?.id;

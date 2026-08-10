@@ -27,8 +27,7 @@ import { AuditLog } from '../models/AuditLog';
 import { subscriptionService } from '../services/subscription.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { logger } from './logger';
-
-dotenv.config();
+import config from '../config';
 
 const ADMIN_EMAIL = 'admin@pixora.dev';
 const ADMIN_PASSWORD = 'PixoraDemo123!';
@@ -40,7 +39,7 @@ const DEMO_PASSWORD = 'PixoraDemo123!';
 const DEFAULT_PIN = '1234';
 
 export const seedDatabase = async () => {
-  const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr';
+  const mongoURI = config.db.mongoUri;
 
   try {
     logger.info('Connecting to database for seeding...');

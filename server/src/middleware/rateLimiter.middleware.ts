@@ -1,14 +1,15 @@
 import rateLimit from 'express-rate-limit';
+import config from '../config';
 
-const isDevOrTest = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
+const isDevOrTest = config.app.isTest || config.app.isDevelopment;
 
 /**
  * Auth rate limiter: 10 requests per 15 minutes per IP in production (protects login & auth).
  * Higher limit in dev/test to prevent developer lockout.
  */
 export const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isDevOrTest ? 10000 : 10,
+  windowMs: config.rateLimit.windowMs,
+  max: isDevOrTest ? 10000 : config.rateLimit.authMaxRequests,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -26,7 +27,7 @@ export const authRateLimiter = rateLimit({
  */
 export const orderPlacementRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: isDevOrTest ? 10000 : 30,
+  max: isDevOrTest ? 10000 : config.rateLimit.orderPlacementMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -43,15 +44,15 @@ export const orderPlacementRateLimiter = rateLimit({
  * General API rate limiter: 300 requests per 15 minutes per IP.
  */
 export const generalApiRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isDevOrTest ? 10000 : 300,
+  windowMs: config.rateLimit.windowMs,
+  max: isDevOrTest ? 10000 : config.rateLimit.maxRequests,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
     error: {
       code: 'TOO_MANY_REQUESTS',
-      message: 'API rate limit exceeded. Please slow down your requests.',
+      message: 'Too many requests. Please try again later.',
       details: null,
     },
   },

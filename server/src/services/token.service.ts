@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import config from '../config';
 
-const ACCESS_TOKEN_EXPIRY = '15m'; // Short-lived
-const REFRESH_TOKEN_EXPIRY_DAYS = 7; // Long-lived
+const ACCESS_TOKEN_EXPIRY = config.auth.jwtAccessExpiresIn; // Short-lived
+const REFRESH_TOKEN_EXPIRY_DAYS = config.auth.jwtRefreshExpiresInDays; // Long-lived
 
 export interface TokenUserPayload {
   id: string;
@@ -16,13 +17,8 @@ export class TokenService {
   private refreshSecret: string;
 
   constructor() {
-    let accessSecret = process.env.JWT_ACCESS_SECRET;
-    let refreshSecret = process.env.JWT_REFRESH_SECRET;
-
-    if (process.env.NODE_ENV === 'test') {
-      accessSecret = accessSecret || 'test_access_secret_key_123_abc_456_def';
-      refreshSecret = refreshSecret || 'test_refresh_secret_key_123_abc_456_def';
-    }
+    const accessSecret = config.auth.jwtAccessSecret;
+    const refreshSecret = config.auth.jwtRefreshSecret;
 
     if (!accessSecret || !refreshSecret) {
       throw new Error('FATAL ERROR: JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be defined in env.');

@@ -1,14 +1,15 @@
 import crypto from 'crypto';
+import config from '../config';
 
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
 
 /**
- * Gets the encryption key from environment variables.
+ * Gets the encryption key from centralized configuration.
  * Ensures the key is exactly 32 bytes for AES-256.
  */
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY;
+  const key = config.auth.encryptionKey;
   if (!key) {
     throw new Error('ENCRYPTION_KEY environment variable is not set. Required for encrypting sensitive data.');
   }

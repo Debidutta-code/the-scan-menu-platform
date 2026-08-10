@@ -5,42 +5,10 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import config, { validateStartupConfig } from './config';
 
-dotenv.config();
-
-// Under test environment, supply dummy/fallback env variables automatically if they aren't loaded
-if (process.env.NODE_ENV === 'test') {
-  process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test_access_secret_key_123_abc_456_def';
-  process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test_refresh_secret_key_123_abc_456_def';
-  process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr-test';
-  process.env.CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'mock_cloud_name';
-  process.env.CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '123456789012345';
-  process.env.CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'mock_api_secret_abc123';
-}
-
-// Fail fast at startup if critical environment variables are missing
-const requiredEnv = [
-  'JWT_ACCESS_SECRET',
-  'JWT_REFRESH_SECRET',
-  'MONGODB_URI',
-  'CLOUDINARY_CLOUD_NAME',
-  'CLOUDINARY_API_KEY',
-  'CLOUDINARY_API_SECRET',
-];
-const missingEnv = requiredEnv.filter((envName) => !process.env[envName]);
-
-if (missingEnv.length > 0) {
-  const errMsg = `FATAL ERROR: Missing required environment variables: [${missingEnv.join(', ')}]`;
-  console.error(errMsg);
-  process.exit(1);
-}
-
-// Fail loudly if EMAIL_ENABLED=true but EMAIL_FROM is missing (except when running in test mode)
-if (process.env.NODE_ENV !== 'test' && process.env.EMAIL_ENABLED === 'true' && !process.env.EMAIL_FROM) {
-  console.error('FATAL ERROR: EMAIL_ENABLED=true but EMAIL_FROM environment variable is unset.');
-  process.exit(1);
-}
+// Validate critical startup configurations
+validateStartupConfig();
 
 import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
@@ -74,7 +42,7 @@ app.set('trust proxy', 1);
 // Security configuration
 app.use(helmet());
 
-const allowedBaseDomain = process.env.BASE_DOMAIN || 'thescanmenu.com';
+const allowedBaseDomain = config.app.baseDomain;
 const corsOriginRegex = new RegExp(
   `^https?:\\/\\/([a-z0-9-]+\\.)?${allowedBaseDomain.replace('.', '\\.')}(:[0-9]+)?$`,
   'i'
@@ -87,7 +55,7 @@ app.use(
         !origin ||
         corsOriginRegex.test(origin) ||
         origin.includes('localhost') ||
-        process.env.NODE_ENV === 'test'
+        config.app.isTest
       ) {
         callback(null, true);
       } else {
@@ -101,12 +69,10 @@ app.use(
 app.use(correlationIdMiddleware);
 app.use('/health', healthRoutes);
 
-const isTest = process.env.NODE_ENV === 'test';
-
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isTest ? 100000 : 100, // Limit each IP to 100 requests per `window`
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.maxRequests,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -158,7 +124,7 @@ app.get('/health', (_req, res) => {
     data: {
       status: isHealthy ? 'ok' : 'degraded',
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
+      environment: config.app.nodeEnv,
       timestamp: new Date().toISOString(),
       services: {
         mongodb: mongoStateMap[mongoState] ?? 'unknown',
@@ -172,13 +138,13 @@ app.get('/health', (_req, res) => {
 app.use(errorHandler);
 
 // Socket.io initialization
-const socketCorsOrigin = process.env.SOCKET_CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5173';
+const socketCorsOrigin = config.app.socketCorsOrigin;
 SocketService.getInstance().init(httpServer, socketCorsOrigin);
 
 // Startup logic
 export const startServer = async () => {
-  const PORT = process.env.PORT || 5000;
-  const mongoURI = process.env.MONGODB_URI!;
+  const PORT = config.app.port;
+  const mongoURI = config.db.mongoUri;
 
   try {
     await mongoose.connect(mongoURI);
@@ -216,7 +182,7 @@ export const startServer = async () => {
     setupGracefulShutdown(httpServer);
 
     httpServer.listen(PORT, () => {
-      logger.info(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+      logger.info(`Server is running in ${config.app.nodeEnv} mode on port ${PORT}`);
     });
   } catch (error) {
     logger.error(error, 'Error starting the server');

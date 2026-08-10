@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { sendError } from '../utils/response';
 import { logger } from '../utils/logger';
+import config from '../config';
 
 export const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   logger.error(err, `Unhandled error on ${req.method} ${req.url}`);
@@ -10,11 +11,11 @@ export const errorHandler = (err: any, req: Request, res: Response, _next: NextF
 
   // Hardened response message: mask raw internal errors in production to prevent DB/trace leaks
   let message = err.message || 'An unexpected error occurred';
-  if (status === 500 && process.env.NODE_ENV === 'production') {
+  if (status === 500 && config.app.isProduction) {
     message = 'An unexpected internal server error occurred';
   }
 
-  const details = process.env.NODE_ENV === 'development' ? err.stack : null;
+  const details = config.app.isDevelopment ? err.stack : null;
 
   return sendError(res, code, message, details, status);
 };

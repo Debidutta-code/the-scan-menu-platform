@@ -1,13 +1,11 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import { Order } from '../models/Order';
 import { TableSession } from '../models/TableSession';
 import { logger } from './logger';
-
-dotenv.config();
+import config from '../config';
 
 export const runMigration = async () => {
-  const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr';
+  const mongoURI = config.db.mongoUri;
 
   try {
     logger.info('Connecting to database for session migration...');

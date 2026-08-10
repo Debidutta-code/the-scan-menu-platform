@@ -10,6 +10,7 @@ import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { sendSuccess, sendError } from '../utils/response';
+import config from '../config';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
@@ -390,7 +391,7 @@ export class RestaurantController {
   }
 
   async bulkCreateTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    const isTestEnv = process.env.NODE_ENV === 'test';
+    const isTestEnv = config.app.isTest;
     let session;
 
     // Transactions are heavily reliant on replica sets in MongoDB, which in-memory mock setups often lack.
@@ -671,7 +672,7 @@ export class RestaurantController {
         return;
       }
 
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      const clientUrl = config.app.clientUrl;
       const tableUrl = `${clientUrl}/r/${restaurant.slug}/t/${table.token}`;
 
       const svg = await tableService.generateQrCodeSvg(tableUrl);

@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { logger } from '../utils/logger';
 import { TokenService } from '../services/token.service';
+import config from '../config';
 import mongoose from 'mongoose';
 
 const tokenService = new TokenService();
@@ -35,7 +36,7 @@ export class SocketService {
             !requestOrigin ||
             allowedOrigins.includes(requestOrigin) || 
             requestOrigin.includes('localhost') ||
-            process.env.NODE_ENV === 'test'
+            config.app.isTest
           ) {
             callback(null, requestOrigin || allowedOrigins[0]);
           } else {
@@ -59,7 +60,7 @@ export class SocketService {
         }
 
         try {
-          if (process.env.NODE_ENV !== 'test') {
+          if (!config.app.isTest) {
             const { Order } = await import('../models/Order');
             const orderExists = await Order.exists({ _id: new mongoose.Types.ObjectId(orderId) });
             if (!orderExists) {
@@ -85,7 +86,7 @@ export class SocketService {
         }
 
         try {
-          if (process.env.NODE_ENV !== 'test') {
+          if (!config.app.isTest) {
             const { TableSession } = await import('../models/TableSession');
             const sessionExists = await TableSession.exists({ _id: new mongoose.Types.ObjectId(sessionId) });
             if (!sessionExists) {
@@ -111,7 +112,7 @@ export class SocketService {
         }
 
         try {
-          if (process.env.NODE_ENV !== 'test') {
+          if (!config.app.isTest) {
             const { Table } = await import('../models/Table');
             const tableExists = await Table.exists({ token: tableToken, isActive: true });
             if (!tableExists) {

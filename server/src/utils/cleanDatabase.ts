@@ -25,6 +25,7 @@ import { FeatureFlag } from '../models/FeatureFlag';
 import { SubscriptionPlan } from '../models/SubscriptionPlan';
 import { Counter } from '../models/Counter';
 import { logger } from './logger';
+import config from '../config';
 
 dotenv.config();
 
@@ -57,7 +58,7 @@ const getCounts = async () => ({
 });
 
 export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
-  const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr';
+  const mongoURI = config.db.mongoUri;
   const isFullWipe = options.wipeAll || process.argv.includes('--all') || process.argv.includes('--full');
 
   try {

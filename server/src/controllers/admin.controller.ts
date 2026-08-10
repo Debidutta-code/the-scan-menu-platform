@@ -12,6 +12,7 @@ import { EmailService } from '../services/email.service';
 import { restaurantProvisioningService } from '../services/restaurantProvisioning.service';
 import { counterService } from '../services/counter.service';
 import { logger } from '../utils/logger';
+import config from '../config';
 import bcrypt from 'bcrypt';
 
 function slugify(text: string): string {
@@ -341,7 +342,7 @@ export class AdminController {
         targetUserId = newUser.id;
 
         try {
-          const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+          const clientUrl = config.app.clientUrl;
           await EmailService.getInstance().sendManagerInvite(
             email.toLowerCase().trim(),
             name,

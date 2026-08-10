@@ -4,12 +4,13 @@ import { WaiterCallController } from '../controllers/waiterCall.controller';
 import { tenantResolverMiddleware } from '../middleware/tenantResolver.middleware';
 import { tableResolverMiddleware } from '../middleware/tableResolver.middleware';
 import rateLimit from 'express-rate-limit';
+import config from '../config';
 
 const router = Router();
 const publicController = new PublicController();
 const waiterCallController = new WaiterCallController();
 
-const isTest = process.env.NODE_ENV === 'test';
+const isTest = config.app.isTest;
 
 // Tight public rate limiters to prevent API abuse and order spamming (disabled or relaxed in tests)
 const orderCreationLimiter = rateLimit({

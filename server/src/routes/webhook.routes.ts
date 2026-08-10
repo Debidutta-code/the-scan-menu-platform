@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller';
 import { petpoojaWebhookController } from '../controllers/petpoojaWebhook.controller';
 import rateLimit from 'express-rate-limit';
+import config from '../config';
 
 const router = Router();
 
 const webhookLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'test' ? 10000 : 300,
+  max: config.app.isTest ? 10000 : 300,
   message: {
     success: false,
     error: {

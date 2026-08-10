@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { logger } from '../utils/logger';
+import config from '../config';
 
 export class EmailService {
   private static instance: EmailService;
@@ -8,9 +9,9 @@ export class EmailService {
   private apiKey?: string;
 
   private constructor() {
-    this.isEnabled = process.env.EMAIL_ENABLED === 'true';
-    this.fromEmail = process.env.EMAIL_FROM;
-    this.apiKey = process.env.RESEND_API_KEY;
+    this.isEnabled = config.email.enabled;
+    this.fromEmail = config.email.from;
+    this.apiKey = config.email.resendApiKey;
   }
 
   public static getInstance(): EmailService {

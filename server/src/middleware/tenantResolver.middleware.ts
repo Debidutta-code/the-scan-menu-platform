@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Restaurant, IRestaurant } from '../models/Restaurant';
 import { ITable } from '../models/Table';
 import { sendError } from '../utils/response';
+import config from '../config';
 
 export interface TenantRequest extends Request {
   restaurant?: IRestaurant | null;
@@ -33,7 +34,7 @@ export const tenantResolverMiddleware = async (
     const hostname = rawHost.split(':')[0].toLowerCase().trim();
 
     let restaurant: IRestaurant | null = null;
-    const baseDomain = (process.env.BASE_DOMAIN || 'thescanmenu.com').toLowerCase();
+    const baseDomain = config.app.baseDomain;
 
     // 1. Check for Wildcard Subdomain (e.g. randomcafe.thescanmenu.com or randomcafe.localhost)
     if (hostname.endsWith(baseDomain) || hostname.endsWith('localhost')) {

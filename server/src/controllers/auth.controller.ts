@@ -6,6 +6,7 @@ import { RefreshTokenRepository } from '../repositories/refreshToken.repository'
 import { TokenService } from '../services/token.service';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { sendSuccess, sendError } from '../utils/response';
+import config from '../config';
 
 export class AuthController {
   private userRepository = new UserRepository();
@@ -52,7 +53,7 @@ export class AuthController {
 
       await this.tokenRepository.create(user.id, tokenHash, expiresAt);
 
-      const isProd = process.env.NODE_ENV === 'production';
+      const isProd = config.app.isProduction;
       res.cookie('refreshToken', refreshTokenStr, {
         httpOnly: true,
         secure: isProd,
@@ -129,7 +130,7 @@ export class AuthController {
 
       await this.tokenRepository.create(user.id, newRefreshTokenHash, expiresAt);
 
-      const isProd = process.env.NODE_ENV === 'production';
+      const isProd = config.app.isProduction;
       res.cookie('refreshToken', newRefreshTokenStr, {
         httpOnly: true,
         secure: isProd,
@@ -158,7 +159,7 @@ export class AuthController {
         await this.tokenRepository.revoke(tokenHash);
       }
 
-      const isProd = process.env.NODE_ENV === 'production';
+      const isProd = config.app.isProduction;
       res.clearCookie('refreshToken', {
         httpOnly: true,
         secure: isProd,
