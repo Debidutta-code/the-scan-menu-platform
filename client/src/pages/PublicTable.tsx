@@ -121,6 +121,61 @@ const MenuSkeleton = () => (
 );
 
 // ==========================================
+// CUSTOM WAITER CALL SERVICE ICONS (High-Fidelity)
+// ==========================================
+
+const ClocheBellIcon: React.FC<{ className?: string }> = ({ className = 'w-7 h-7 text-purple-600' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 4v2" />
+    <path d="M4 18h16" />
+    <path d="M4 18a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="4" r="1" />
+  </svg>
+);
+
+const ReceiptBillIcon: React.FC<{ className?: string }> = ({ className = 'w-7 h-7 text-blue-500' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M5 3v18l3.5-2 3.5 2 3.5-2 3.5 2V3l-3.5 2L12 3 8.5 5z" />
+    <path d="M12 8v8" />
+    <path d="M9.5 10.5a2.5 2.5 0 0 1 5 0c0 2-5 2-5 4a2.5 2.5 0 0 0 5 0" />
+  </svg>
+);
+
+const WaterBottleServiceIcon: React.FC<{ className?: string }> = ({ className = 'w-7 h-7 text-cyan-500' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M8 2h8v3H8z" />
+    <path d="M7 5h10a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
+    <path d="M12 11c0 0-3 3.5-3 5.5a3 3 0 0 0 6 0c0-2-3-5.5-3-5.5z" />
+  </svg>
+);
+
+const TissuePaperServiceIcon: React.FC<{ className?: string }> = ({ className = 'w-7 h-7 text-emerald-500' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 13h18a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2z" />
+    <path d="M7 13V8.5a3.5 3.5 0 0 1 7 0V13" />
+    <path d="M10 8.5V4a2 2 0 0 1 4 0v4.5" />
+  </svg>
+);
+
+const ChatOtherServiceIcon: React.FC<{ className?: string }> = ({ className = 'w-7 h-7 text-amber-500' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <circle cx="8" cy="10" r="1.25" fill="currentColor" />
+    <circle cx="12" cy="10" r="1.25" fill="currentColor" />
+    <circle cx="16" cy="10" r="1.25" fill="currentColor" />
+  </svg>
+);
+
+const ClappingHandsOutlineIcon: React.FC<{ className?: string }> = ({ className = 'w-10 h-10 text-emerald-700/50' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" />
+    <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" />
+    <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
+    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.9-2.7l-4.4-6a1.5 1.5 0 0 1 2.4-1.8L6 13.5" />
+  </svg>
+);
+
+// ==========================================
 // TIMELINE COMPONENT (WITH ANIMATED CONNECTING LINES)
 // Dynamic based on restaurant's orderWorkflowMode
 // ==========================================
@@ -625,8 +680,55 @@ export const PublicTable: React.FC = () => {
   // Socket connection for this table (shared across waiter call + session/order real-time updates)
   const { socket } = useSocket(null);
 
-  // Phase 7 Waiter Call States
+  // Phase 7 Waiter Call States & Cooldown Timer
   const [waiterCallState, setWaiterCallState] = useState<'idle' | 'pulsing' | 'waiting'>('idle');
+  const COOLDOWN_DURATION_SEC = 60; // 60-second cooldown rate limit
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+
+  // Initialize and sync waiter call cooldown from localStorage
+  useEffect(() => {
+    if (!restaurantSlug || !tableToken) return;
+    const cooldownKey = `pixora_waiter_cooldown_${restaurantSlug}_${tableToken}`;
+    const storedEnd = localStorage.getItem(cooldownKey);
+    if (storedEnd) {
+      const endMs = parseInt(storedEnd, 10);
+      const now = Date.now();
+      if (endMs > now) {
+        setCooldownRemaining(Math.ceil((endMs - now) / 1000));
+      } else {
+        localStorage.removeItem(cooldownKey);
+      }
+    }
+  }, [restaurantSlug, tableToken]);
+
+  // Active countdown timer ticker
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          if (restaurantSlug && tableToken) {
+            const cooldownKey = `pixora_waiter_cooldown_${restaurantSlug}_${tableToken}`;
+            localStorage.removeItem(cooldownKey);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownRemaining, restaurantSlug, tableToken]);
+
+  const formatCooldown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+      return `${mins}:${secs < 10 ? `0${secs}` : secs}`;
+    }
+    return `${secs}s`;
+  };
 
   // On mount fetch the current state once (handles page refresh while a call is active).
   // After that, all state transitions are driven by socket events — no polling.
@@ -653,17 +755,38 @@ export const PublicTable: React.FC = () => {
 
     socket.emit('join_table', { tableToken });
 
-    const handleWaiterCallCreated = () => setWaiterCallState('waiting');
-    const handleWaiterCallResolved = () => setWaiterCallState('idle');
+    const handleWaiterCallCreated = () => {
+      setWaiterCallState('waiting');
+    };
+
+    const handleWaiterCallResolved = (data?: any) => {
+      // Instantly unlock the button and clear cooldown when manager acknowledges or resolves
+      setWaiterCallState('idle');
+      setCooldownRemaining(0);
+      if (restaurantSlug && tableToken) {
+        const cooldownKey = `pixora_waiter_cooldown_${restaurantSlug}_${tableToken}`;
+        localStorage.removeItem(cooldownKey);
+      }
+      queryClient.invalidateQueries({ queryKey: ['activeWaiterCall', tableToken] });
+
+      const isAck = data?.status === 'ACKNOWLEDGED';
+      if (isAck) {
+        toast('Staff has acknowledged your call and is on their way!', 'success');
+      } else {
+        toast('Your table request has been resolved by our staff.', 'success');
+      }
+    };
 
     socket.on('waiter_call:created', handleWaiterCallCreated);
     socket.on('waiter_call:resolved', handleWaiterCallResolved);
+    socket.on('waiter_call:acknowledged', handleWaiterCallResolved);
 
     return () => {
       socket.off('waiter_call:created', handleWaiterCallCreated);
       socket.off('waiter_call:resolved', handleWaiterCallResolved);
+      socket.off('waiter_call:acknowledged', handleWaiterCallResolved);
     };
-  }, [socket, tableToken]);
+  }, [socket, tableToken, restaurantSlug, queryClient, toast]);
 
 
   // Bottom Sheet States for Item Detail
@@ -1126,37 +1249,54 @@ export const PublicTable: React.FC = () => {
     }
   };
 
-  // Trigger public waiter assistance request
-  const handleCallWaiterConfirm = async () => {
-    setIsWaiterConfirmOpen(false);
+  // Trigger public waiter assistance request directly by type
+  const handleTriggerWaiterCall = async (type: 'CALL_WAITER' | 'REQUEST_BILL' | 'WATER' | 'TISSUE' | 'OTHER') => {
+    if (cooldownRemaining > 0) {
+      toast(`Please wait ${formatCooldown(cooldownRemaining)} before requesting again.`, 'info');
+      return;
+    }
+
+    setSelectedRequestType(type);
     setWaiterCallState('pulsing');
 
     try {
       await apiClient.post(`/public/tables/${tableToken}/waiter-call`, {
-        requestType: selectedRequestType,
+        requestType: type,
       });
-      toast('Call successfully dispatched to staff operations board.', 'success');
+      toast(`Request for ${type.replace('_', ' ').toLowerCase()} sent!`, 'success');
       queryClient.invalidateQueries({ queryKey: ['activeWaiterCall', tableToken] });
+
+      // Start Cooldown Rate Limit
+      const endMs = Date.now() + COOLDOWN_DURATION_SEC * 1000;
+      const cooldownKey = `pixora_waiter_cooldown_${restaurantSlug}_${tableToken}`;
+      localStorage.setItem(cooldownKey, endMs.toString());
+      setCooldownRemaining(COOLDOWN_DURATION_SEC);
 
       // Add to recent log
       const key = `pixora_waiter_calls_${restaurantSlug}_${tableToken}`;
       const stored = JSON.parse(localStorage.getItem(key) || '[]');
       const newCall = {
-        type: selectedRequestType,
+        type: type,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
-      const updated = [newCall, ...stored].slice(0, 5); // limit to 5
+      const updated = [newCall, ...stored].slice(0, 5);
       localStorage.setItem(key, JSON.stringify(updated));
       setRecentWaiterCalls(updated);
 
       setTimeout(() => {
         setWaiterCallState('waiting');
-      }, 2400);
+      }, 500);
     } catch (err: any) {
       console.error(err);
       toast('Failed to alert floor staff. Please retry.', 'error');
       setWaiterCallState('idle');
     }
+  };
+
+  // Trigger public waiter assistance request via modal
+  const handleCallWaiterConfirm = async () => {
+    setIsWaiterConfirmOpen(false);
+    await handleTriggerWaiterCall(selectedRequestType);
   };
 
   // Auto badge helpers based on item pricing/names for visual fidelity
@@ -1780,113 +1920,391 @@ export const PublicTable: React.FC = () => {
         </motion.div>
       )}
 
-      {/* -------------------- 4. CALL WAITER TAB -------------------- */}
+      {/* -------------------- 4. CALL WAITER TAB (Redesigned Screen) -------------------- */}
       {activeTab === 'waiter' && (
         <motion.div
           key="waiter"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md mx-auto px-4 py-4 space-y-6 flex flex-col pb-8"
+          className="max-w-md mx-auto px-4 py-3 space-y-5 flex flex-col pb-12"
         >
-          <div className="text-center space-y-2">
-            <h3 className="font-display text-4xl font-normal text-slate-900 tracking-tight">
-              Table Service & Assistance
-            </h3>
-            <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-              Need water, the bill, or table assistance? Select a request below and we will notify your server immediately.
-            </p>
+          {/* Top Hero Section: Title + Bell Graphic */}
+          <div className="bg-gradient-to-b from-[#FBF9F5] via-[#FCFAF8] to-white rounded-3xl p-5 sm:p-6 border border-slate-150/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden flex items-center justify-between gap-3">
+            <div className="flex-1 space-y-2 z-10">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                We're here to <br />
+                <span className="text-[#6366F1] font-black">assist</span> you 👋✨
+              </h2>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-[200px]">
+                Choose a service and our team will be right with you.
+              </p>
+            </div>
+            <div className="w-[125px] sm:w-[155px] shrink-0 flex items-center justify-end z-10">
+              <img
+                src="/waiter_call.png"
+                alt="Service Bell"
+                className="w-full max-h-[125px] sm:max-h-[145px] object-contain drop-shadow-md hover:scale-105 transition-transform duration-300"
+              />
+            </div>
           </div>
 
-          {/* Interactive tactile request grid */}
-          <div className="grid grid-cols-2 gap-3.5 pt-2">
-            {([
-              { key: 'CALL_WAITER', label: 'Server Waiter', desc: 'General table help', icon: BellRing, color: 'text-amber-500' },
-              { key: 'REQUEST_BILL', label: 'Request Bill', desc: 'Printed copy & payment', icon: Receipt, color: 'text-indigo-500' },
-              { key: 'WATER', label: 'Drinking Water', desc: 'Fresh refilled water', icon: Sparkles, color: 'text-sky-500' },
-              { key: 'TISSUE', label: 'Tissue Paper', desc: 'Extra paper tissues', icon: Leaf, color: 'text-emerald-500' },
-              { key: 'OTHER', label: 'Other Requests', desc: 'Custom assistance', icon: MessageSquare, color: 'text-rose-500' },
-            ] as const).map((t) => {
-              const IconComp = t.icon;
-              const isSelected = selectedRequestType === t.key;
-              return (
-                <motion.button
-                  key={t.key}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedRequestType(t.key)}
-                  className={`p-4 rounded-3xl border text-left transition-all flex flex-col justify-between min-h-[110px] shadow-sm relative overflow-hidden ${
-                    isSelected
-                      ? 'bg-slate-900 border-slate-900 text-white'
-                      : 'bg-white border-slate-150 text-slate-700 hover:bg-slate-50/50 hover:border-slate-300'
-                  }`}
-                >
-                  <div className={`p-2 rounded-2xl w-fit ${isSelected ? 'bg-white/10' : 'bg-slate-50'} ${t.color}`}>
-                    <IconComp className="w-5 h-5" strokeWidth={1.75} />
-                  </div>
-                  <div className="mt-4">
-                    <span className="font-bold text-xs block leading-tight">{t.label}</span>
-                    <span className={`text-[10px] font-medium block mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
-                      {t.desc}
-                    </span>
-                  </div>
-                  {isSelected && (
-                    <motion.div
-                      layoutId="selected-indicator"
-                      className="absolute top-3 right-3 w-2 h-2 rounded-full bg-amber-400"
-                    />
-                  )}
-                </motion.button>
-              );
-            })}
+          {/* Section Divider with Sparkles and Purple Bar */}
+          <div className="text-center py-1 space-y-1.5">
+            <div className="flex items-center justify-center gap-2 text-slate-900 font-extrabold text-xs sm:text-sm tracking-tight">
+              <Sparkles className="w-3.5 h-3.5 text-[#6366F1]" />
+              <span>What can we get for you?</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#6366F1]" />
+            </div>
+            <div className="w-9 h-1 bg-[#6366F1] rounded-full mx-auto" />
           </div>
 
-          {/* Action Trigger Buttons with Premium Visual Pulsing Indicators */}
-          <div className="pt-2 relative">
+          {/* 5 Circular Action Cards Grid (3 on Top, 2 on Bottom Centered) */}
+          <div className="pt-2 space-y-6">
+            {/* Top Row: 3 Options */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 justify-items-center">
+              {[
+                {
+                  key: 'CALL_WAITER' as const,
+                  title: 'Call Waiter',
+                  subtitle: 'Need assistance from our staff',
+                  icon: ClocheBellIcon,
+                  activeRing: 'ring-4 ring-offset-2 ring-purple-500 border-2 border-purple-500 bg-purple-100/90 shadow-[0_14px_35px_rgba(168,85,247,0.42)]',
+                  activeBadge: 'bg-purple-600',
+                  activeTextColor: 'text-purple-700',
+                  ringBorder: 'border-purple-200/70',
+                  ringBg: 'bg-purple-50/60',
+                  glowShadow: 'shadow-[0_8px_20px_rgba(147,51,234,0.10)]',
+                  iconColor: 'text-purple-600',
+                },
+                {
+                  key: 'REQUEST_BILL' as const,
+                  title: 'Request Bill',
+                  subtitle: 'Get your bill instantly',
+                  icon: ReceiptBillIcon,
+                  activeRing: 'ring-4 ring-offset-2 ring-blue-500 border-2 border-blue-500 bg-blue-100/90 shadow-[0_14px_35px_rgba(59,130,246,0.42)]',
+                  activeBadge: 'bg-blue-600',
+                  activeTextColor: 'text-blue-700',
+                  ringBorder: 'border-blue-200/70',
+                  ringBg: 'bg-blue-50/60',
+                  glowShadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.10)]',
+                  iconColor: 'text-blue-500',
+                },
+                {
+                  key: 'WATER' as const,
+                  title: 'Drinking Water',
+                  subtitle: 'Request fresh drinking water',
+                  icon: WaterBottleServiceIcon,
+                  activeRing: 'ring-4 ring-offset-2 ring-cyan-500 border-2 border-cyan-500 bg-cyan-100/90 shadow-[0_14px_35px_rgba(6,182,212,0.42)]',
+                  activeBadge: 'bg-cyan-600',
+                  activeTextColor: 'text-cyan-700',
+                  ringBorder: 'border-cyan-200/70',
+                  ringBg: 'bg-cyan-50/60',
+                  glowShadow: 'shadow-[0_8px_20px_rgba(6,182,212,0.10)]',
+                  iconColor: 'text-cyan-500',
+                },
+              ].map((opt) => {
+                const IconComp = opt.icon;
+                const isSelected = selectedRequestType === opt.key;
+
+                return (
+                  <motion.button
+                    key={opt.key}
+                    type="button"
+                    whileHover={{ scale: isSelected ? 1.10 : 1.04 }}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => {
+                      setSelectedRequestType(opt.key);
+                      if (waiterCallState === 'waiting') {
+                        setWaiterCallState('idle');
+                      }
+                    }}
+                    className={`flex flex-col items-center text-center group cursor-pointer select-none focus:outline-none transition-all duration-300 ${
+                      isSelected ? 'scale-105 z-10' : 'opacity-65 hover:opacity-95'
+                    }`}
+                  >
+                    {/* Outer Glowing Halo Circle */}
+                    <div
+                      className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full border transition-all duration-300 relative flex items-center justify-center p-1.5 ${
+                        isSelected
+                          ? `${opt.activeRing} scale-108`
+                          : `${opt.ringBorder} ${opt.ringBg} ${opt.glowShadow}`
+                      }`}
+                    >
+                      {/* Inner Pure White Disc */}
+                      <div
+                        className={`w-full h-full rounded-full flex items-center justify-center transition-all ${
+                          isSelected
+                            ? 'bg-white shadow-md border-2 border-white'
+                            : 'bg-white shadow-inner border border-white/80'
+                        }`}
+                      >
+                        <IconComp
+                          className={`w-7 h-7 sm:w-8 sm:h-8 transition-transform duration-300 ${
+                            opt.iconColor
+                          } ${isSelected ? 'scale-115 stroke-[2.25]' : 'scale-100'}`}
+                        />
+                      </div>
+
+                      {/* Prominent Floating Checkmark Badge */}
+                      {isSelected && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className={`absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full ${opt.activeBadge} text-white font-black text-[11px] flex items-center justify-center shadow-md ring-2 ring-white`}
+                        >
+                          ✓
+                        </motion.span>
+                      )}
+                    </div>
+
+                    {/* Label & Subtitle */}
+                    <div className="mt-2.5 flex flex-col items-center">
+                      <span
+                        className={`text-xs sm:text-sm tracking-tight transition-colors ${
+                          isSelected
+                            ? `${opt.activeTextColor} font-black scale-105`
+                            : 'text-slate-800 font-extrabold'
+                        }`}
+                      >
+                        {opt.title}
+                      </span>
+                      <span
+                        className={`text-[10px] sm:text-[11px] leading-tight max-w-[100px] sm:max-w-[115px] mt-0.5 transition-colors ${
+                          isSelected ? 'text-slate-700 font-semibold' : 'text-slate-500 font-medium'
+                        }`}
+                      >
+                        {opt.subtitle}
+                      </span>
+
+                      {/* Active Pill Indicator underneath */}
+                      {isSelected && (
+                        <motion.div
+                          layoutId="active-waiter-indicator"
+                          className={`w-6 h-1 rounded-full ${opt.activeBadge} mt-1.5 shadow-xs`}
+                        />
+                      )}
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            {/* Bottom Row: 2 Options Centered */}
+            <div className="flex items-center justify-center gap-6 sm:gap-10">
+              {[
+                {
+                  key: 'TISSUE' as const,
+                  title: 'Tissue Paper',
+                  subtitle: 'Request extra tissue paper',
+                  icon: TissuePaperServiceIcon,
+                  activeRing: 'ring-4 ring-offset-2 ring-emerald-500 border-2 border-emerald-500 bg-emerald-100/90 shadow-[0_14px_35px_rgba(16,185,129,0.42)]',
+                  activeBadge: 'bg-emerald-600',
+                  activeTextColor: 'text-emerald-700',
+                  ringBorder: 'border-emerald-200/70',
+                  ringBg: 'bg-emerald-50/60',
+                  glowShadow: 'shadow-[0_8px_20px_rgba(16,185,129,0.10)]',
+                  iconColor: 'text-emerald-500',
+                },
+                {
+                  key: 'OTHER' as const,
+                  title: 'Other Requests',
+                  subtitle: "Anything else? We're here to help",
+                  icon: ChatOtherServiceIcon,
+                  activeRing: 'ring-4 ring-offset-2 ring-amber-500 border-2 border-amber-500 bg-amber-100/90 shadow-[0_14px_35px_rgba(245,158,11,0.42)]',
+                  activeBadge: 'bg-amber-600',
+                  activeTextColor: 'text-amber-700',
+                  ringBorder: 'border-amber-200/70',
+                  ringBg: 'bg-amber-50/60',
+                  glowShadow: 'shadow-[0_8px_20px_rgba(245,158,11,0.10)]',
+                  iconColor: 'text-amber-500',
+                },
+              ].map((opt) => {
+                const IconComp = opt.icon;
+                const isSelected = selectedRequestType === opt.key;
+
+                return (
+                  <motion.button
+                    key={opt.key}
+                    type="button"
+                    whileHover={{ scale: isSelected ? 1.10 : 1.04 }}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => {
+                      setSelectedRequestType(opt.key);
+                      if (waiterCallState === 'waiting') {
+                        setWaiterCallState('idle');
+                      }
+                    }}
+                    className={`flex flex-col items-center text-center group cursor-pointer select-none focus:outline-none transition-all duration-300 ${
+                      isSelected ? 'scale-105 z-10' : 'opacity-65 hover:opacity-95'
+                    }`}
+                  >
+                    {/* Outer Glowing Halo Circle */}
+                    <div
+                      className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full border transition-all duration-300 relative flex items-center justify-center p-1.5 ${
+                        isSelected
+                          ? `${opt.activeRing} scale-108`
+                          : `${opt.ringBorder} ${opt.ringBg} ${opt.glowShadow}`
+                      }`}
+                    >
+                      {/* Inner Pure White Disc */}
+                      <div
+                        className={`w-full h-full rounded-full flex items-center justify-center transition-all ${
+                          isSelected
+                            ? 'bg-white shadow-md border-2 border-white'
+                            : 'bg-white shadow-inner border border-white/80'
+                        }`}
+                      >
+                        <IconComp
+                          className={`w-7 h-7 sm:w-8 sm:h-8 transition-transform duration-300 ${
+                            opt.iconColor
+                          } ${isSelected ? 'scale-115 stroke-[2.25]' : 'scale-100'}`}
+                        />
+                      </div>
+
+                      {/* Prominent Floating Checkmark Badge */}
+                      {isSelected && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className={`absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full ${opt.activeBadge} text-white font-black text-[11px] flex items-center justify-center shadow-md ring-2 ring-white`}
+                        >
+                          ✓
+                        </motion.span>
+                      )}
+                    </div>
+
+                    {/* Label & Subtitle */}
+                    <div className="mt-2.5 flex flex-col items-center">
+                      <span
+                        className={`text-xs sm:text-sm tracking-tight transition-colors ${
+                          isSelected
+                            ? `${opt.activeTextColor} font-black scale-105`
+                            : 'text-slate-800 font-extrabold'
+                        }`}
+                      >
+                        {opt.title}
+                      </span>
+                      <span
+                        className={`text-[10px] sm:text-[11px] leading-tight max-w-[100px] sm:max-w-[115px] mt-0.5 transition-colors ${
+                          isSelected ? 'text-slate-700 font-semibold' : 'text-slate-500 font-medium'
+                        }`}
+                      >
+                        {opt.subtitle}
+                      </span>
+
+                      {/* Active Pill Indicator underneath */}
+                      {isSelected && (
+                        <motion.div
+                          layoutId="active-waiter-indicator"
+                          className={`w-6 h-1 rounded-full ${opt.activeBadge} mt-1.5 shadow-xs`}
+                        />
+                      )}
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Action Trigger Buttons with Rate-Limit Countdown */}
+          <div className="pt-2">
             {waiterCallState === 'idle' && (
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => setIsWaiterConfirmOpen(true)}
-                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm rounded-2xl transition flex items-center justify-center gap-2 shadow-lg"
-              >
-                <BellRing className="w-4.5 h-4.5" strokeWidth={1.75} />
-                <span>Call for {selectedRequestType.replace('_', ' ').toLowerCase()}</span>
-              </motion.button>
+              <>
+                {cooldownRemaining > 0 ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-4 bg-slate-100 text-slate-400 font-extrabold text-sm rounded-2xl border border-slate-200 flex items-center justify-center gap-2.5 cursor-not-allowed shadow-none select-none transition-all"
+                  >
+                    <Clock className="w-4.5 h-4.5 text-slate-400 animate-pulse" />
+                    <span>Please wait ({formatCooldown(cooldownRemaining)}) to call again</span>
+                  </button>
+                ) : (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleTriggerWaiterCall(selectedRequestType)}
+                    className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm rounded-2xl transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-slate-900/20 cursor-pointer"
+                  >
+                    <BellRing className="w-4.5 h-4.5 text-amber-400 animate-bounce" strokeWidth={2.2} />
+                    <span>Call Waiter for {selectedRequestType.replace('_', ' ').toLowerCase()}</span>
+                  </motion.button>
+                )}
+              </>
             )}
 
             {waiterCallState === 'pulsing' && (
-              <div className="w-full py-4 bg-amber-100 text-amber-800 text-sm font-semibold rounded-2xl flex items-center justify-center gap-2 border border-amber-200">
+              <div className="w-full py-4 bg-amber-50 text-amber-800 text-sm font-bold rounded-2xl flex items-center justify-center gap-2.5 border border-amber-200 shadow-sm animate-pulse">
                 <Loader className="w-4 h-4 animate-spin text-amber-600" />
-                <span>Broadcasting to staff board...</span>
+                <span>Dispatching call to floor team...</span>
               </div>
             )}
 
             {waiterCallState === 'waiting' && (
-              <div className="relative">
-                {/* Visual pulsing wave behind the notification card */}
-                <div className="absolute -inset-1 rounded-3xl bg-emerald-500/10 blur animate-pulse" />
-                <div className="relative bg-emerald-50 rounded-2xl p-5 border border-emerald-150 text-emerald-800 text-center space-y-2.5 shadow-sm">
-                  <div className="relative mx-auto w-10 h-10 flex items-center justify-center">
-                    {/* Pulsing visual indicator rings */}
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-30" />
-                    <div className="relative rounded-full bg-emerald-500 p-2 text-white">
-                      <CheckCircle2 className="w-5 h-5" strokeWidth={2.2} />
+              <div className="space-y-3">
+                {/* Bottom Confirmation Notification Card ("Request Sent!") */}
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex items-center justify-between gap-3 relative overflow-hidden"
+                >
+                  {/* Left Checkmark with Decorative Confetti */}
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative shrink-0">
+                      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#22C55E] flex items-center justify-center text-white shadow-md shadow-green-500/20">
+                        <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.5} />
+                      </div>
+                      {/* Decorative confetti stars */}
+                      <span className="absolute -top-1 -left-1 text-[11px] text-amber-400">✦</span>
+                      <span className="absolute -bottom-1 -right-1 text-[11px] text-purple-400">✦</span>
+                    </div>
+
+                    {/* Center text */}
+                    <div className="space-y-0.5">
+                      <h4 className="font-extrabold text-sm sm:text-base text-[#15803D] tracking-tight">
+                        Request Sent!
+                      </h4>
+                      <p className="text-[11px] sm:text-xs text-slate-600 leading-snug">
+                        Your request has been sent successfully. <br className="hidden sm:inline" />
+                        Our team will be with you shortly.
+                      </p>
                     </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <h4 className="font-bold text-sm tracking-tight text-slate-900">Active Request Sent</h4>
-                    <p className="text-[11px] text-slate-500 leading-normal max-w-xs mx-auto">
-                      Your alert for <strong className="text-slate-800">"{selectedRequestType.replace('_', ' ')}"</strong> has been logged. A team member is on their way to Table {table.tableNumber}.
-                    </p>
+
+                  {/* Right Clapping Hands Illustration */}
+                  <div className="shrink-0 hidden xs:block opacity-60">
+                    <ClappingHandsOutlineIcon className="w-9 h-9 sm:w-11 sm:h-11 text-emerald-800" />
                   </div>
-                </div>
+                </motion.div>
+
+                {/* Cooldown or Secondary Re-call Action Button */}
+                {cooldownRemaining > 0 ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-3 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-2 cursor-not-allowed select-none"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-slate-400 animate-pulse" />
+                    <span>Please wait ({formatCooldown(cooldownRemaining)}) before requesting again</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setWaiterCallState('idle')}
+                    className="w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <BellRing className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Need another service? Choose & Call</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          {/* Recent Waiter Request History Timeline */}
+          {/* Recent Service History */}
           {recentWaiterCalls.length > 0 && (
-            <div className="space-y-3 pt-4 border-t border-slate-150">
+            <div className="space-y-2.5 pt-4 border-t border-slate-150">
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">
                 Recent Service History
               </span>
@@ -1894,7 +2312,7 @@ export const PublicTable: React.FC = () => {
                 {recentWaiterCalls.map((call, idx) => (
                   <div
                     key={idx}
-                    className="bg-white rounded-xl p-3 border border-slate-150 flex items-center justify-between text-xs transition"
+                    className="bg-white rounded-xl p-3 border border-slate-150 flex items-center justify-between text-xs transition shadow-2xs"
                   >
                     <div className="flex items-center gap-2.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
