@@ -1127,12 +1127,14 @@ export const PublicTable: React.FC = () => {
       .reduce((sum, ci) => sum + ci.quantity, 0);
   };
 
-  // Helper to directly add/increment an item from the card
+  // Helper to directly add/increment an item from the card without opening sheet unless choices are mandatory
   const handleQuickAdd = (item: MenuItem, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!item.isAvailable) return;
 
-    if (item.addOns && item.addOns.length > 0) {
+    // Only open bottom sheet if there are explicitly mandatory choices
+    const hasMandatoryChoices = (item as any).hasRequiredOptions === true;
+    if (hasMandatoryChoices) {
       handleItemCardClick(item);
       return;
     }
