@@ -485,7 +485,11 @@ export const ManagerOrders: React.FC = () => {
     refetchInterval: 15000,
   });
 
-  const activeOrders: Order[] = activeOrdersResponse?.success ? activeOrdersResponse.data : [];
+  const activeOrders: Order[] = React.useMemo(() => {
+    return activeOrdersResponse?.success && Array.isArray(activeOrdersResponse.data)
+      ? activeOrdersResponse.data
+      : [];
+  }, [activeOrdersResponse]);
 
   // 2. Fetch Served Orders (history)
   const { data: servedOrdersData, isFetching: isFetchingServed } = useQuery({
@@ -543,6 +547,27 @@ export const ManagerOrders: React.FC = () => {
     }
   }, [historyOrdersData, historyPage]);
 
+  // Live reactive references for selected card and detail modal
+  const liveSelectedOrder = React.useMemo(() => {
+    if (!selectedCardOrder) return null;
+    return (
+      activeOrders.find((o) => o._id === selectedCardOrder._id) ||
+      servedOrders.find((o) => o._id === selectedCardOrder._id) ||
+      historyOrders.find((o) => o._id === selectedCardOrder._id) ||
+      selectedCardOrder
+    );
+  }, [selectedCardOrder, activeOrders, servedOrders, historyOrders]);
+
+  const liveDetailOrder = React.useMemo(() => {
+    if (!detailModalOrder) return null;
+    return (
+      activeOrders.find((o) => o._id === detailModalOrder._id) ||
+      servedOrders.find((o) => o._id === detailModalOrder._id) ||
+      historyOrders.find((o) => o._id === detailModalOrder._id) ||
+      detailModalOrder
+    );
+  }, [detailModalOrder, activeOrders, servedOrders, historyOrders]);
+
   // Live clock timer
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 10000);
@@ -558,12 +583,22 @@ export const ManagerOrders: React.FC = () => {
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
     };
-    socket.on('order:status_updated', invalidate);
+
+    const handleStatusUpdated = (data: { orderId: string; status: string }) => {
+      invalidate();
+      if (data?.orderId && data?.status) {
+        setSelectedCardOrder((prev) => (prev && prev._id === data.orderId ? { ...prev, status: data.status as any } : prev));
+        setDetailModalOrder((prev) => (prev && prev._id === data.orderId ? { ...prev, status: data.status as any } : prev));
+      }
+    };
+
+    socket.on('order:status_updated', handleStatusUpdated);
     socket.on('order:created', invalidate);
     socket.on('session:updated', invalidate);
     return () => {
-      socket.off('order:status_updated', invalidate);
+      socket.off('order:status_updated', handleStatusUpdated);
       socket.off('order:created', invalidate);
       socket.off('session:updated', invalidate);
     };
@@ -1143,7 +1178,7 @@ export const ManagerOrders: React.FC = () => {
           PERSISTENT FLOATING QUICK ACTION DOCK
           ══════════════════════════════════════════════ */}
       <AnimatePresence>
-        {selectedCardOrder && !detailModalOrder && (
+        {liveSelectedOrder && !detailModalOrder && (
           <motion.div
             initial={{ y: 60, opacity: 0, scale: 0.96 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -1154,25 +1189,25 @@ export const ManagerOrders: React.FC = () => {
             {/* Left: Selected Order Info */}
             <div className="flex items-center gap-3 min-w-0">
               <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-slate-950 px-2.5 py-1 rounded-xl shadow-xs shrink-0">
-                #{selectedCardOrder.orderNumber}
+                #{liveSelectedOrder.orderNumber}
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-xs sm:text-sm text-white truncate">
-                    {selectedCardOrder.tableId?.displayName || selectedCardOrder.tableId?.tableNumber || 'Table'}
+                    {liveSelectedOrder.tableId?.displayName || liveSelectedOrder.tableId?.tableNumber || 'Table'}
                   </span>
                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-amber-400 border border-slate-700 uppercase">
-                    {selectedCardOrder.status}
+                    {liveSelectedOrder.status}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
-                  <span>{selectedCardOrder.items.length} items</span>
+                  <span>{liveSelectedOrder.items.length} items</span>
                   <span>•</span>
-                  <span className="text-white font-bold">{formatAmount(selectedCardOrder.total)}</span>
-                  {selectedCardOrder.customerName && (
+                  <span className="text-white font-bold">{formatAmount(liveSelectedOrder.total)}</span>
+                  {liveSelectedOrder.customerName && (
                     <>
                       <span>•</span>
-                      <span className="text-slate-300 truncate max-w-[100px]">{selectedCardOrder.customerName}</span>
+                      <span className="text-slate-300 truncate max-w-[100px]">{liveSelectedOrder.customerName}</span>
                     </>
                   )}
                 </div>
@@ -1183,13 +1218,13 @@ export const ManagerOrders: React.FC = () => {
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
               {/* Quick Revert Button */}
               {(() => {
-                const prevStatus = getPreviousStatus(selectedCardOrder.status, workflowMode);
+                const prevStatus = getPreviousStatus(liveSelectedOrder.status, workflowMode);
                 if (!prevStatus) return null;
                 return (
                   <button
                     onClick={() =>
                       updateStatusMutation.mutate({
-                        orderId: selectedCardOrder._id,
+                        orderId: liveSelectedOrder._id,
                         nextStatus: prevStatus,
                       })
                     }
@@ -1205,15 +1240,15 @@ export const ManagerOrders: React.FC = () => {
 
               {/* Quick Advance Button */}
               {(() => {
-                const nextStatus = getNextStatus(selectedCardOrder.status, workflowMode);
+                const nextStatus = getNextStatus(liveSelectedOrder.status, workflowMode);
                 if (nextStatus) {
-                  const nextAction = getNextActionLabel(selectedCardOrder.status, workflowMode);
+                  const nextAction = getNextActionLabel(liveSelectedOrder.status, workflowMode);
                   const ActionIcon = nextAction.icon;
                   return (
                     <button
                       onClick={() =>
                         updateStatusMutation.mutate({
-                          orderId: selectedCardOrder._id,
+                          orderId: liveSelectedOrder._id,
                           nextStatus,
                         })
                       }
@@ -1226,15 +1261,15 @@ export const ManagerOrders: React.FC = () => {
                   );
                 }
 
-                if (selectedCardOrder.status === 'SERVED') {
-                  const sessId = (selectedCardOrder as any).diningSessionId?._id || selectedCardOrder.sessionId;
+                if (liveSelectedOrder.status === 'SERVED') {
+                  const sessId = (liveSelectedOrder as any).diningSessionId?._id || liveSelectedOrder.sessionId;
                   return (
                     <button
                       onClick={async () => {
-                        if (sessId && (selectedCardOrder as any).diningSessionId?.status !== 'CLOSED') {
+                        if (sessId && (liveSelectedOrder as any).diningSessionId?.status !== 'CLOSED') {
                           try {
                             await apiClient.post(`/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`);
-                            archiveServedOrder(selectedCardOrder._id);
+                            archiveServedOrder(liveSelectedOrder._id);
                             setSelectedCardOrder(null);
                             toast('Table session closed & freed!', 'success');
                             queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
@@ -1244,7 +1279,7 @@ export const ManagerOrders: React.FC = () => {
                             toast(err.response?.data?.error?.message || 'Failed to close session', 'error');
                           }
                         } else {
-                          archiveServedOrder(selectedCardOrder._id);
+                          archiveServedOrder(liveSelectedOrder._id);
                           setSelectedCardOrder(null);
                         }
                       }}
@@ -1261,7 +1296,7 @@ export const ManagerOrders: React.FC = () => {
 
               {/* View Full Details Button */}
               <button
-                onClick={() => setDetailModalOrder(selectedCardOrder)}
+                onClick={() => setDetailModalOrder(liveSelectedOrder)}
                 className="px-3.5 py-2 sm:py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95"
                 title="View full order details and bill breakdown"
               >
@@ -1288,7 +1323,7 @@ export const ManagerOrders: React.FC = () => {
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
-            {detailModalOrder && (
+            {liveDetailOrder && (
               <div className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/75 backdrop-blur-md p-4 sm:p-6 flex min-h-screen items-center justify-center select-none">
                 {/* Backdrop */}
                 <motion.div
@@ -1311,11 +1346,11 @@ export const ManagerOrders: React.FC = () => {
                   <div className="px-6 py-4 border-b border-slate-150 flex items-center justify-between bg-slate-50/80 shrink-0">
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-base font-black bg-slate-900 text-white px-3 py-1 rounded-xl shadow-inner">
-                        Order #{detailModalOrder.orderNumber}
+                        Order #{liveDetailOrder.orderNumber}
                       </span>
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black font-mono tracking-wide bg-amber-50 text-amber-800 border border-amber-200">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                        {detailModalOrder.status}
+                        {liveDetailOrder.status}
                       </span>
                     </div>
 
@@ -1330,11 +1365,11 @@ export const ManagerOrders: React.FC = () => {
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 custom-scrollbar">
                     {/* Modern Stepper */}
-                    <ModernOrderStepper currentStatus={detailModalOrder.status} workflowMode={workflowMode} />
+                    <ModernOrderStepper currentStatus={liveDetailOrder.status} workflowMode={workflowMode} />
 
                     {/* Table & Guest Context Card */}
                     {(() => {
-                      const ctx = getOrderContextDetails(detailModalOrder);
+                      const ctx = getOrderContextDetails(liveDetailOrder);
                       const ContextIcon = ctx.icon;
 
                       return (
@@ -1354,19 +1389,19 @@ export const ManagerOrders: React.FC = () => {
                               </div>
                               <span className="text-slate-500 font-medium text-[11px] mt-0.5 block truncate">
                                 {ctx.subtitle}
-                                {detailModalOrder.customerPhone ? ` • ${detailModalOrder.customerPhone}` : ''}
+                                {liveDetailOrder.customerPhone ? ` • ${liveDetailOrder.customerPhone}` : ''}
                               </span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                            {detailModalOrder.roundNumber && (
+                            {liveDetailOrder.roundNumber && (
                               <span className="bg-white border border-slate-200 text-slate-800 font-mono text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xs">
-                                Round {detailModalOrder.roundNumber}
+                                Round {liveDetailOrder.roundNumber}
                               </span>
                             )}
                             <span className="bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xs">
-                              {new Date(detailModalOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(liveDetailOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </div>
@@ -1381,7 +1416,7 @@ export const ManagerOrders: React.FC = () => {
                         <span className="text-[10px] font-mono text-slate-400 font-semibold">• Petpooja Sync</span>
                       </div>
                       <button
-                        onClick={() => retryPosMutation.mutate(detailModalOrder._id)}
+                        onClick={() => retryPosMutation.mutate(liveDetailOrder._id)}
                         disabled={retryPosMutation.isPending}
                         className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-xl shadow-2xs transition active:scale-95"
                       >
@@ -1398,13 +1433,13 @@ export const ManagerOrders: React.FC = () => {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider font-mono">
-                          Order Items ({detailModalOrder.items.length})
+                          Order Items ({liveDetailOrder.items.length})
                         </h3>
                         <span className="text-xs text-slate-400 font-medium">Prepared fresh</span>
                       </div>
 
                       <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl bg-white shadow-sm overflow-hidden">
-                        {detailModalOrder.items.map((item, idx) => (
+                        {liveDetailOrder.items.map((item, idx) => (
                           <div key={idx} className="p-4 hover:bg-slate-50/60 transition flex flex-col gap-2">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
@@ -1455,12 +1490,12 @@ export const ManagerOrders: React.FC = () => {
                     </div>
 
                     {/* Customer General Note */}
-                    {detailModalOrder.customerNote && (
+                    {liveDetailOrder.customerNote && (
                       <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
                           Customer Note
                         </span>
-                        <p className="text-slate-700 italic font-medium">"{detailModalOrder.customerNote}"</p>
+                        <p className="text-slate-700 italic font-medium">"{liveDetailOrder.customerNote}"</p>
                       </div>
                     )}
 
@@ -1468,11 +1503,11 @@ export const ManagerOrders: React.FC = () => {
                     <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
                       <div className="flex justify-between items-center text-xs text-slate-600 font-medium">
                         <span>Subtotal</span>
-                        <span className="font-mono font-bold text-slate-800">{formatAmount(detailModalOrder.subtotal)}</span>
+                        <span className="font-mono font-bold text-slate-800">{formatAmount(liveDetailOrder.subtotal)}</span>
                       </div>
 
-                      {detailModalOrder.taxBreakdown && detailModalOrder.taxBreakdown.length > 0 ? (
-                        detailModalOrder.taxBreakdown.map((t, i) => (
+                      {liveDetailOrder.taxBreakdown && liveDetailOrder.taxBreakdown.length > 0 ? (
+                        liveDetailOrder.taxBreakdown.map((t, i) => (
                           <div key={i} className="flex justify-between items-center text-xs text-slate-500">
                             <span>{t.name} ({t.percentage}%)</span>
                             <span className="font-mono">{formatAmount(t.amount)}</span>
@@ -1481,7 +1516,7 @@ export const ManagerOrders: React.FC = () => {
                       ) : (
                         <div className="flex justify-between items-center text-xs text-slate-500">
                           <span>Taxes & GST</span>
-                          <span className="font-mono">{formatAmount(detailModalOrder.tax)}</span>
+                          <span className="font-mono">{formatAmount(liveDetailOrder.tax)}</span>
                         </div>
                       )}
 
@@ -1492,11 +1527,11 @@ export const ManagerOrders: React.FC = () => {
                           </span>
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 font-mono">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" strokeWidth={2} />
-                            {detailModalOrder.paymentStatus === 'PAID' ? 'PAID' : 'PAYMENT PENDING'}
+                            {liveDetailOrder.paymentStatus === 'PAID' ? 'PAID' : 'PAYMENT PENDING'}
                           </span>
                         </div>
                         <span className="font-mono text-xl font-black text-slate-950">
-                          {formatAmount(detailModalOrder.total)}
+                          {formatAmount(liveDetailOrder.total)}
                         </span>
                       </div>
                     </div>
@@ -1506,9 +1541,9 @@ export const ManagerOrders: React.FC = () => {
                   <div className="p-5 sm:p-6 bg-slate-50/90 border-t border-slate-200 flex flex-col gap-3 shrink-0">
                     <div className="flex flex-col sm:flex-row gap-3">
                       {/* Cancel Button */}
-                      {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(detailModalOrder.status) && (
+                      {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(liveDetailOrder.status) && (
                         <button
-                          onClick={() => setOrderToCancel(detailModalOrder)}
+                          onClick={() => setOrderToCancel(liveDetailOrder)}
                           className="py-3.5 px-4 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition active:scale-98"
                         >
                           Cancel Ticket
@@ -1517,7 +1552,7 @@ export const ManagerOrders: React.FC = () => {
 
                       {/* Revert / Step-Back Button */}
                       {(() => {
-                        const prevStatus = getPreviousStatus(detailModalOrder.status, workflowMode);
+                        const prevStatus = getPreviousStatus(liveDetailOrder.status, workflowMode);
                         if (!prevStatus) return null;
                         const prevAction = getPreviousActionLabel(prevStatus);
                         const PrevIcon = prevAction.icon;
@@ -1526,7 +1561,7 @@ export const ManagerOrders: React.FC = () => {
                           <button
                             onClick={() =>
                               updateStatusMutation.mutate({
-                                orderId: detailModalOrder._id,
+                                orderId: liveDetailOrder._id,
                                 nextStatus: prevStatus,
                               })
                             }
@@ -1542,16 +1577,16 @@ export const ManagerOrders: React.FC = () => {
 
                       {/* Primary Advance CTA */}
                       {(() => {
-                        const nextStatus = getNextStatus(detailModalOrder.status, workflowMode);
+                        const nextStatus = getNextStatus(liveDetailOrder.status, workflowMode);
                         if (nextStatus) {
-                          const nextAction = getNextActionLabel(detailModalOrder.status, workflowMode);
+                          const nextAction = getNextActionLabel(liveDetailOrder.status, workflowMode);
                           const ActionIcon = nextAction.icon;
 
                           return (
                             <button
                               onClick={() =>
                                 updateStatusMutation.mutate({
-                                  orderId: detailModalOrder._id,
+                                  orderId: liveDetailOrder._id,
                                   nextStatus,
                                 })
                               }
@@ -1581,17 +1616,17 @@ export const ManagerOrders: React.FC = () => {
                     </div>
 
                     {/* Settle Table Session CTA if Served */}
-                    {detailModalOrder.status === 'SERVED' && (
+                    {liveDetailOrder.status === 'SERVED' && (
                       <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                        {detailModalOrder.sessionId || (detailModalOrder as any).diningSessionId ? (
+                        {liveDetailOrder.sessionId || (liveDetailOrder as any).diningSessionId ? (
                           <button
                             onClick={async () => {
                               try {
-                                const sessId = (detailModalOrder as any).diningSessionId?._id || detailModalOrder.sessionId;
+                                const sessId = (liveDetailOrder as any).diningSessionId?._id || liveDetailOrder.sessionId;
                                 await apiClient.post(
                                   `/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`
                                 );
-                                archiveServedOrder(detailModalOrder._id);
+                                archiveServedOrder(liveDetailOrder._id);
                                 toast('Table settled and session closed! Ticket archived to history.', 'success');
                                 setDetailModalOrder(null);
                                 setSelectedCardOrder(null);
@@ -1611,7 +1646,7 @@ export const ManagerOrders: React.FC = () => {
 
                         <button
                           onClick={() => {
-                            archiveServedOrder(detailModalOrder._id);
+                            archiveServedOrder(liveDetailOrder._id);
                             setDetailModalOrder(null);
                             setSelectedCardOrder(null);
                           }}
