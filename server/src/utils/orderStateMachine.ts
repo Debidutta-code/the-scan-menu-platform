@@ -2,11 +2,11 @@ import { OrderStatus } from '../models/Order';
 
 export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ['ACCEPTED', 'PREPARING', 'CANCELLED'],
-  ACCEPTED: ['PREPARING', 'CANCELLED'],
-  PREPARING: ['READY', 'SERVED'],
-  READY: ['SERVED'],
-  SERVED: [],
-  CANCELLED: [],
+  ACCEPTED: ['PREPARING', 'PENDING', 'CANCELLED'],
+  PREPARING: ['READY', 'SERVED', 'ACCEPTED', 'PENDING', 'CANCELLED'],
+  READY: ['SERVED', 'PREPARING'],
+  SERVED: ['READY', 'PREPARING'],
+  CANCELLED: ['PENDING'],
 };
 
 export function getWorkflowTransitions(
@@ -16,28 +16,28 @@ export function getWorkflowTransitions(
     return {
       PENDING: ['PREPARING', 'CANCELLED'],
       ACCEPTED: ['PREPARING', 'CANCELLED'],
-      PREPARING: ['SERVED'],
-      READY: ['SERVED'],
-      SERVED: [],
-      CANCELLED: [],
+      PREPARING: ['SERVED', 'PENDING', 'CANCELLED'],
+      READY: ['SERVED', 'PREPARING'],
+      SERVED: ['PREPARING'],
+      CANCELLED: ['PENDING'],
     };
   } else if (workflowMode === 'FOUR_STEP') {
     return {
       PENDING: ['PREPARING', 'CANCELLED'],
       ACCEPTED: ['PREPARING', 'CANCELLED'],
-      PREPARING: ['READY'],
-      READY: ['SERVED'],
-      SERVED: [],
-      CANCELLED: [],
+      PREPARING: ['READY', 'PENDING', 'CANCELLED'],
+      READY: ['SERVED', 'PREPARING'],
+      SERVED: ['READY', 'PREPARING'],
+      CANCELLED: ['PENDING'],
     };
   } else {
     return {
       PENDING: ['ACCEPTED', 'CANCELLED'],
-      ACCEPTED: ['PREPARING', 'CANCELLED'],
-      PREPARING: ['READY'],
-      READY: ['SERVED'],
-      SERVED: [],
-      CANCELLED: [],
+      ACCEPTED: ['PREPARING', 'PENDING', 'CANCELLED'],
+      PREPARING: ['READY', 'ACCEPTED', 'PENDING', 'CANCELLED'],
+      READY: ['SERVED', 'PREPARING'],
+      SERVED: ['READY', 'PREPARING'],
+      CANCELLED: ['PENDING'],
     };
   }
 }

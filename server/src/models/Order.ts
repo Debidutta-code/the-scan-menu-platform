@@ -247,15 +247,15 @@ orderSchema.pre('save', async function (this: any, next) {
         }
       } else if (targetStatus === 'READY') {
         for (const item of this.items) {
-          if (item.itemStatus === 'PENDING' || item.itemStatus === 'PREPARING') {
-            item.itemStatus = 'READY';
-          }
+          item.itemStatus = 'READY';
         }
       } else if (targetStatus === 'PREPARING') {
         for (const item of this.items) {
-          if (item.itemStatus === 'PENDING') {
-            item.itemStatus = 'PREPARING';
-          }
+          item.itemStatus = 'PREPARING';
+        }
+      } else if (targetStatus === 'PENDING' || targetStatus === 'ACCEPTED') {
+        for (const item of this.items) {
+          item.itemStatus = 'PENDING';
         }
       }
     }

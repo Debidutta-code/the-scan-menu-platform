@@ -79,6 +79,7 @@ export class OrderController {
       const orders = await Order.find(query)
         .sort({ createdAt: -1 })
         .populate('tableId', 'displayName tableNumber')
+        .populate('diningSessionId', 'status sessionCode closedAt')
         .skip(skip)
         .limit(limit);
 
@@ -107,7 +108,8 @@ export class OrderController {
         status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'] },
       })
         .sort({ createdAt: 1 })
-        .populate('tableId', 'displayName tableNumber');
+        .populate('tableId', 'displayName tableNumber')
+        .populate('diningSessionId', 'status sessionCode closedAt');
 
       sendSuccess(res, orders, 'Active orders retrieved successfully');
     } catch (error) {
@@ -150,7 +152,9 @@ export class OrderController {
       const order = await Order.findOne({
         _id: new mongoose.Types.ObjectId(orderId),
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      }).populate('tableId', 'displayName tableNumber');
+      })
+        .populate('tableId', 'displayName tableNumber')
+        .populate('diningSessionId', 'status sessionCode closedAt');
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);

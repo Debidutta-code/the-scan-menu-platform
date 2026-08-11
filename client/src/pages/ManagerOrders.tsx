@@ -30,6 +30,8 @@ import {
   Check,
   ChevronRight,
   RefreshCw,
+  RotateCcw,
+  Archive,
   History as HistoryIcon,
   Kanban as KanbanIcon
 } from 'lucide-react';
@@ -116,6 +118,28 @@ const getNextActionLabel = (currentStatus: string, workflowMode: WorkflowMode): 
       return { label: 'Mark as Served', gradient: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500', icon: Utensils };
     default:
       return { label: 'Advance Order', gradient: 'bg-slate-900 hover:bg-slate-800', icon: ArrowRight };
+  }
+};
+
+const getPreviousStatus = (currentStatus: string, workflowMode: WorkflowMode): string | null => {
+  const steps = WORKFLOW_STEPS[workflowMode];
+  const idx = steps.findIndex((s) => s.status === currentStatus);
+  if (idx <= 0) return null;
+  return steps[idx - 1].status;
+};
+
+const getPreviousActionLabel = (previousStatus: string): { label: string; icon: any } => {
+  switch (previousStatus) {
+    case 'READY':
+      return { label: 'Revert to Ready', icon: RotateCcw };
+    case 'PREPARING':
+      return { label: 'Revert to Kitchen Prep', icon: RotateCcw };
+    case 'ACCEPTED':
+      return { label: 'Revert to Accepted', icon: RotateCcw };
+    case 'PENDING':
+      return { label: 'Revert to New', icon: RotateCcw };
+    default:
+      return { label: `Revert to ${previousStatus}`, icon: RotateCcw };
   }
 };
 
@@ -383,6 +407,39 @@ export const ManagerOrders: React.FC = () => {
   // Live clock
   const [now, setNow] = useState<Date>(new Date());
 
+  // Local archived served tickets
+  const [archivedServedIds, setArchivedServedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`pixora_archived_served_${activeRestaurantId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const archiveServedOrder = (orderId: string) => {
+    setArchivedServedIds((prev) => {
+      const next = new Set(prev);
+      next.add(orderId);
+      try {
+        localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+    toast('Order moved to History view', 'info');
+  };
+
+  const unarchiveServedOrder = (orderId: string) => {
+    setArchivedServedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(orderId);
+      try {
+        localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  };
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(historySearch);
@@ -502,9 +559,13 @@ export const ManagerOrders: React.FC = () => {
       return res.data;
     },
     onSuccess: (data) => {
-      toast(`Order #${data.data.orderNumber} advanced to ${data.data.status}`, 'success');
+      toast(`Order #${data.data.orderNumber} updated to ${data.data.status}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+      if (archivedServedIds.has(data.data._id) && data.data.status !== 'SERVED') {
+        unarchiveServedOrder(data.data._id);
+      }
       setSelectedOrder((prev) => (prev && prev._id === data.data._id ? data.data : prev));
     },
     onError: (err: any) => {
@@ -548,7 +609,12 @@ export const ManagerOrders: React.FC = () => {
     let list: Order[] = [];
     if (st === 'SERVED') {
       const todayStr = new Date().toDateString();
-      list = servedOrders.filter((o) => new Date(o.createdAt).toDateString() === todayStr);
+      list = servedOrders.filter((o) => {
+        const isToday = new Date(o.createdAt).toDateString() === todayStr;
+        const isSessionClosed = (o as any).diningSessionId?.status === 'CLOSED';
+        const isArchived = archivedServedIds.has(o._id);
+        return isToday && !isSessionClosed && !isArchived;
+      });
     } else {
       list = activeOrders.filter((o) => o.status === st);
     }
@@ -786,20 +852,70 @@ export const ManagerOrders: React.FC = () => {
                                   {formatAmount(order.total)}
                                 </span>
 
-                                {/* Quick advance button on card */}
-                                {nextStatus && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      updateStatusMutation.mutate({ orderId: order._id, nextStatus });
-                                    }}
-                                    disabled={updateStatusMutation.isPending}
-                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95"
-                                  >
-                                    <span>Advance</span>
-                                    <ArrowRight className="w-3 h-3" strokeWidth={2} />
-                                  </button>
-                                )}
+                                <div className="flex items-center gap-1.5">
+                                  {/* Quick revert button if previous stage exists */}
+                                  {(() => {
+                                    const prevStatus = getPreviousStatus(order.status, workflowMode);
+                                    if (!prevStatus) return null;
+                                    return (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateStatusMutation.mutate({ orderId: order._id, nextStatus: prevStatus });
+                                        }}
+                                        disabled={updateStatusMutation.isPending}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95"
+                                        title={`Revert to ${prevStatus}`}
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
+                                      </button>
+                                    );
+                                  })()}
+
+                                  {/* Quick advance button on card */}
+                                  {nextStatus && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateStatusMutation.mutate({ orderId: order._id, nextStatus });
+                                      }}
+                                      disabled={updateStatusMutation.isPending}
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95"
+                                    >
+                                      <span>Advance</span>
+                                      <ArrowRight className="w-3 h-3" strokeWidth={2} />
+                                    </button>
+                                  )}
+
+                                  {/* Quick archive/free button on served card */}
+                                  {step.status === 'SERVED' && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const sessId = (order as any).diningSessionId?._id || order.sessionId;
+                                        if (sessId && (order as any).diningSessionId?.status !== 'CLOSED') {
+                                          try {
+                                            await apiClient.post(`/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`);
+                                            archiveServedOrder(order._id);
+                                            toast('Table session closed & freed!', 'success');
+                                            queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+                                            queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
+                                            queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+                                          } catch (err: any) {
+                                            toast(err.response?.data?.error?.message || 'Failed to close session', 'error');
+                                          }
+                                        } else {
+                                          archiveServedOrder(order._id);
+                                        }
+                                      }}
+                                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 flex items-center gap-1 transition active:scale-95"
+                                      title="Archive card to history"
+                                    >
+                                      <Archive className="w-3 h-3 text-slate-500" strokeWidth={2} />
+                                      <span>Archive</span>
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </motion.div>
                           );
@@ -1188,6 +1304,31 @@ export const ManagerOrders: React.FC = () => {
                         </button>
                       )}
 
+                      {/* Revert / Step-Back Button */}
+                      {(() => {
+                        const prevStatus = getPreviousStatus(selectedOrder.status, workflowMode);
+                        if (!prevStatus) return null;
+                        const prevAction = getPreviousActionLabel(prevStatus);
+                        const PrevIcon = prevAction.icon;
+
+                        return (
+                          <button
+                            onClick={() =>
+                              updateStatusMutation.mutate({
+                                orderId: selectedOrder._id,
+                                nextStatus: prevStatus,
+                              })
+                            }
+                            disabled={updateStatusMutation.isPending}
+                            className="py-3.5 px-4 border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98"
+                            title={`Revert to ${prevStatus}`}
+                          >
+                            <PrevIcon className="w-4 h-4 text-slate-500" strokeWidth={2} />
+                            <span>{prevAction.label}</span>
+                          </button>
+                        );
+                      })()}
+
                       {/* Primary Advance CTA */}
                       {(() => {
                         const nextStatus = getNextStatus(selectedOrder.status, workflowMode);
@@ -1229,25 +1370,44 @@ export const ManagerOrders: React.FC = () => {
                     </div>
 
                     {/* Settle Table Session CTA if Served */}
-                    {selectedOrder.sessionId && selectedOrder.status === 'SERVED' && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            await apiClient.post(
-                              `/restaurants/${activeRestaurantId}/table-sessions/${selectedOrder.sessionId}/close`
-                            );
-                            toast('Table settled and session closed!', 'success');
+                    {selectedOrder.status === 'SERVED' && (
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                        {selectedOrder.sessionId || (selectedOrder as any).diningSessionId ? (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const sessId = (selectedOrder as any).diningSessionId?._id || selectedOrder.sessionId;
+                                await apiClient.post(
+                                  `/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`
+                                );
+                                archiveServedOrder(selectedOrder._id);
+                                toast('Table settled and session closed! Ticket archived to history.', 'success');
+                                setSelectedOrder(null);
+                                queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+                                queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
+                                queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+                              } catch (err: any) {
+                                toast(err.response?.data?.error?.message || 'Failed to settle table', 'error');
+                              }
+                            }}
+                            className="flex-1 py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-98"
+                          >
+                            <Receipt className="w-4 h-4 text-amber-400" strokeWidth={2} />
+                            <span>Close Session &amp; Free Table</span>
+                          </button>
+                        ) : null}
+
+                        <button
+                          onClick={() => {
+                            archiveServedOrder(selectedOrder._id);
                             setSelectedOrder(null);
-                            queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-                          } catch (err: any) {
-                            toast(err.response?.data?.error?.message || 'Failed to settle table', 'error');
-                          }
-                        }}
-                        className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-98"
-                      >
-                        <Receipt className="w-4 h-4 text-amber-400" strokeWidth={2} />
-                        <span>Close Session &amp; Free Table</span>
-                      </button>
+                          }}
+                          className="py-3.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98"
+                        >
+                          <Archive className="w-4 h-4 text-slate-500" strokeWidth={2} />
+                          <span>Archive to History</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </motion.div>

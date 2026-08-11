@@ -14,6 +14,7 @@ import { TableZone } from '../models/TableZone';
 import { Tax } from '../models/Tax';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { SubscriptionPlan } from '../models/SubscriptionPlan';
+import { Customer } from '../models/Customer';
 import { Order, OrderCounter } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
 import { GuestSession } from '../models/GuestSession';
@@ -808,6 +809,51 @@ export const seedDatabase = async () => {
       await orderCounter.save();
     }
 
+    // ------------------------------------------------------------------------
+    // 7b. Seed Sample Customers for "Demo Cafe"
+    // ------------------------------------------------------------------------
+    logger.info('Seeding sample customers for "Demo Cafe"...');
+    const demoCustomersData = [
+      {
+        phone: '9876543210',
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+        totalOrdersCount: 2,
+        totalSpent: 42000,
+        lastOrderAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      },
+      {
+        phone: '9811223344',
+        name: 'Rahul Sharma',
+        email: 'rahul@example.com',
+        totalOrdersCount: 1,
+        totalSpent: 28500,
+        lastOrderAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      },
+      {
+        phone: '9870011223',
+        name: 'Priya Patel',
+        email: 'priya@example.com',
+        totalOrdersCount: 1,
+        totalSpent: 16000,
+        lastOrderAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+      },
+    ];
+
+    const seededCustomers: any[] = [];
+    for (const cData of demoCustomersData) {
+      let cust = await Customer.findOne({ restaurantId: restaurant._id, phone: cData.phone });
+      if (!cust) {
+        cust = await Customer.create({
+          restaurantId: restaurant._id,
+          ...cData,
+          lastSeenAt: new Date(),
+        });
+        logger.info(`Customer ${cust.name} (${cust.phone}) created.`);
+      }
+      seededCustomers.push(cust);
+    }
+
     const sampleOrdersData = [
       {
         orderNumber: 101,
@@ -819,6 +865,9 @@ export const seedDatabase = async () => {
         paymentProvider: 'RAZORPAY',
         item: seededMenuItems[0],
         qty: 2,
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
       },
       {
         orderNumber: 102,
@@ -830,6 +879,9 @@ export const seedDatabase = async () => {
         paymentProvider: 'RAZORPAY',
         item: seededMenuItems[4],
         qty: 1,
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
       },
       {
         orderNumber: 103,
@@ -841,6 +893,9 @@ export const seedDatabase = async () => {
         paymentProvider: 'CASH',
         item: seededMenuItems[8],
         qty: 3,
+        customer: seededCustomers[1],
+        customerName: 'Rahul Sharma',
+        customerPhone: '9811223344',
       },
       {
         orderNumber: 104,
@@ -852,6 +907,9 @@ export const seedDatabase = async () => {
         paymentProvider: 'CASH',
         item: seededMenuItems[12],
         qty: 2,
+        customer: seededCustomers[2],
+        customerName: 'Priya Patel',
+        customerPhone: '9870011223',
       },
     ];
 
@@ -903,6 +961,9 @@ export const seedDatabase = async () => {
           orderNumber: ord.orderNumber,
           diningSessionId: session._id,
           guestSessionId: guestSession._id,
+          customerId: ord.customer?._id,
+          customerName: ord.customerName,
+          customerPhone: ord.customerPhone,
           tableId: ord.table._id,
           tableNameSnapshot: ord.table.displayName,
           orderMode: ord.mode,
@@ -929,10 +990,10 @@ export const seedDatabase = async () => {
                 ord.status === 'SERVED'
                   ? 'SERVED'
                   : ord.status === 'READY'
-                  ? 'READY'
-                  : ord.status === 'PREPARING'
-                  ? 'PREPARING'
-                  : 'PENDING',
+                    ? 'READY'
+                    : ord.status === 'PREPARING'
+                      ? 'PREPARING'
+                      : 'PENDING',
               servedAt: ord.status === 'SERVED' ? new Date() : undefined,
             },
           ],

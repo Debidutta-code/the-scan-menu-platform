@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import { User } from '../models/User';
 import { Restaurant } from '../models/Restaurant';
 import { RestaurantStaff } from '../models/RestaurantStaff';
+import { Customer } from '../models/Customer';
 import { RestaurantSettings } from '../models/RestaurantSettings';
 import { RestaurantStats } from '../models/RestaurantStats';
 import { RestaurantOnboarding } from '../models/RestaurantOnboarding';
@@ -38,6 +39,7 @@ const getCounts = async () => ({
   Users: await User.countDocuments(),
   Restaurants: await Restaurant.countDocuments(),
   RestaurantStaff: await RestaurantStaff.countDocuments(),
+  Customers: await Customer.countDocuments(),
   RestaurantSettings: await RestaurantSettings.countDocuments(),
   RestaurantStats: await RestaurantStats.countDocuments(),
   RestaurantOnboarding: await RestaurantOnboarding.countDocuments(),
@@ -87,6 +89,7 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         User.deleteMany({}),
         Restaurant.deleteMany({}),
         RestaurantStaff.deleteMany({}),
+        Customer.deleteMany({}),
         RestaurantSettings.deleteMany({}),
         RestaurantStats.deleteMany({}),
         RestaurantOnboarding.deleteMany({}),
@@ -141,6 +144,7 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         Table.deleteMany({}),
         TableZone.deleteMany({}),
         Tax.deleteMany({}),
+        Customer.deleteMany({}),
         FeatureFlag.deleteMany({}),
       ]);
 
