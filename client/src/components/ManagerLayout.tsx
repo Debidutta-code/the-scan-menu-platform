@@ -295,19 +295,17 @@ export const ManagerLayout: React.FC = () => {
           <BellRing className="w-4 h-4" strokeWidth={1.75} />
         </button>
 
-        {/* Kiosk Mode — only visible on KDS page */}
-        {activeTab === 'kds' && (
-          <button
-            onClick={toggleKioskMode}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition active:scale-95"
-            title="Toggle Kitchen Fullscreen Kiosk"
-          >
-            {isKioskMode
-              ? <Minimize2 className="w-3.5 h-3.5 text-amber-400" strokeWidth={1.75} />
-              : <Maximize2 className="w-3.5 h-3.5 text-amber-400" strokeWidth={1.75} />}
-            <span>{isKioskMode ? 'Exit Kiosk' : 'Kiosk Mode'}</span>
-          </button>
-        )}
+        {/* Kiosk Mode — fullscreen toggle, always visible */}
+        <button
+          onClick={toggleKioskMode}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition active:scale-95"
+          title="Toggle Fullscreen Kiosk Mode"
+        >
+          {isKioskMode
+            ? <Minimize2 className="w-3.5 h-3.5 text-amber-400" strokeWidth={1.75} />
+            : <Maximize2 className="w-3.5 h-3.5 text-amber-400" strokeWidth={1.75} />}
+          <span>{isKioskMode ? 'Exit Kiosk' : 'Kiosk Mode'}</span>
+        </button>
       </div>
     </header>
   );
