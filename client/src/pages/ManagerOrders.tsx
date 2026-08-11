@@ -32,6 +32,7 @@ import {
   RefreshCw,
   RotateCcw,
   Archive,
+  Eye,
   History as HistoryIcon,
   Kanban as KanbanIcon
 } from 'lucide-react';
@@ -401,11 +402,27 @@ export const ManagerOrders: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Modal / detail states
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedCardOrder, setSelectedCardOrder] = useState<Order | null>(null);
+  const [detailModalOrder, setDetailModalOrder] = useState<Order | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
 
   // Live clock
   const [now, setNow] = useState<Date>(new Date());
+
+  // Escape key handler to deselect or close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (detailModalOrder) {
+          setDetailModalOrder(null);
+        } else if (selectedCardOrder) {
+          setSelectedCardOrder(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [detailModalOrder, selectedCardOrder]);
 
   // Local archived served tickets
   const [archivedServedIds, setArchivedServedIds] = useState<Set<string>>(() => {
@@ -423,7 +440,9 @@ export const ManagerOrders: React.FC = () => {
       next.add(orderId);
       try {
         localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to persist archived orders to localStorage:', err);
+      }
       return next;
     });
     toast('Order moved to History view', 'info');
@@ -435,7 +454,9 @@ export const ManagerOrders: React.FC = () => {
       next.delete(orderId);
       try {
         localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to persist unarchived orders to localStorage:', err);
+      }
       return next;
     });
   };
@@ -566,7 +587,8 @@ export const ManagerOrders: React.FC = () => {
       if (archivedServedIds.has(data.data._id) && data.data.status !== 'SERVED') {
         unarchiveServedOrder(data.data._id);
       }
-      setSelectedOrder((prev) => (prev && prev._id === data.data._id ? data.data : prev));
+      setSelectedCardOrder((prev) => (prev && prev._id === data.data._id ? data.data : prev));
+      setDetailModalOrder((prev) => (prev && prev._id === data.data._id ? data.data : prev));
     },
     onError: (err: any) => {
       toast(err.response?.data?.error?.message || 'Failed to update order status', 'error');
@@ -582,7 +604,8 @@ export const ManagerOrders: React.FC = () => {
       toast(`Order #${data.data.orderNumber} has been cancelled`, 'info');
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       setOrderToCancel(null);
-      setSelectedOrder(null);
+      setSelectedCardOrder(null);
+      setDetailModalOrder(null);
     },
     onError: (err: any) => {
       toast(err.response?.data?.error?.message || 'Failed to cancel order', 'error');
@@ -786,6 +809,7 @@ export const ManagerOrders: React.FC = () => {
                           const modeInfo = getOrderModeInfo(order.orderMode);
                           const ModeIcon = modeInfo.icon;
                           const nextStatus = getNextStatus(order.status, workflowMode);
+                          const isSelected = selectedCardOrder?._id === order._id;
 
                           return (
                             <motion.div
@@ -794,8 +818,18 @@ export const ManagerOrders: React.FC = () => {
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.96, y: -10 }}
                               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                              onClick={() => setSelectedOrder(order)}
-                              className="bg-white border border-slate-200/90 hover:border-amber-400/80 rounded-2xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col gap-3 group relative overflow-hidden"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setDetailModalOrder(order);
+                                } else {
+                                  setSelectedCardOrder(order);
+                                }
+                              }}
+                              className={`rounded-2xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col gap-3 group relative overflow-hidden ${
+                                isSelected
+                                  ? 'bg-amber-50/50 border-2 border-amber-500 ring-2 ring-amber-500/20 shadow-md scale-[1.01]'
+                                  : 'bg-white border border-slate-200/90 hover:border-amber-400/80'
+                              }`}
                             >
                               {/* Order Card Top Bar */}
                               <div className="flex items-center justify-between">
@@ -808,10 +842,23 @@ export const ManagerOrders: React.FC = () => {
                                     <span>{modeInfo.label}</span>
                                   </span>
                                 </div>
-                                <span className="text-[11px] font-bold text-slate-400 font-mono flex items-center gap-1">
-                                  <Clock className="w-3 h-3" strokeWidth={1.75} />
-                                  {getElapsedTimeLabel(order.createdAt, now)}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDetailModalOrder(order);
+                                    }}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition opacity-80 hover:opacity-100"
+                                    title="View full order details"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" strokeWidth={2} />
+                                  </button>
+                                  <span className="text-[11px] font-bold text-slate-400 font-mono flex items-center gap-1">
+                                    <Clock className="w-3 h-3" strokeWidth={1.75} />
+                                    {getElapsedTimeLabel(order.createdAt, now)}
+                                  </span>
+                                </div>
                               </div>
 
                               {/* Table & Customer Row */}
@@ -1013,11 +1060,22 @@ export const ManagerOrders: React.FC = () => {
               <div className="divide-y divide-slate-100">
                 {historyOrders.map((order) => {
                   const modeInfo = getOrderModeInfo(order.orderMode);
+                  const isSelected = selectedCardOrder?._id === order._id;
                   return (
                     <div
                       key={order._id}
-                      onClick={() => setSelectedOrder(order)}
-                      className="grid grid-cols-1 md:grid-cols-[90px_1fr_1fr_120px_110px_100px_40px] gap-2 md:gap-4 items-center p-4 hover:bg-amber-50/40 cursor-pointer transition"
+                      onClick={() => {
+                        if (isSelected) {
+                          setDetailModalOrder(order);
+                        } else {
+                          setSelectedCardOrder(order);
+                        }
+                      }}
+                      className={`grid grid-cols-1 md:grid-cols-[90px_1fr_1fr_120px_110px_100px_40px] gap-2 md:gap-4 items-center p-4 cursor-pointer transition ${
+                        isSelected
+                          ? 'bg-amber-100/60 border-l-4 border-l-amber-500 font-medium'
+                          : 'hover:bg-amber-50/40'
+                      }`}
                     >
                       <span className="font-mono text-xs font-black text-slate-900">
                         #{order.orderNumber}
@@ -1044,7 +1102,17 @@ export const ManagerOrders: React.FC = () => {
                         {formatAmount(order.total)}
                       </div>
                       <div className="text-right text-slate-400">
-                        <ChevronRight className="w-4 h-4" strokeWidth={2} />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDetailModalOrder(order);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition"
+                          title="View order details"
+                        >
+                          <ChevronRight className="w-4 h-4" strokeWidth={2} />
+                        </button>
                       </div>
                     </div>
                   );
@@ -1072,19 +1140,162 @@ export const ManagerOrders: React.FC = () => {
       )}
 
       {/* ══════════════════════════════════════════════
+          PERSISTENT FLOATING QUICK ACTION DOCK
+          ══════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {selectedCardOrder && !detailModalOrder && (
+          <motion.div
+            initial={{ y: 60, opacity: 0, scale: 0.96 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 60, opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[94vw] max-w-3xl bg-slate-950/95 backdrop-blur-xl border border-slate-800 text-white rounded-3xl p-3 sm:p-4 shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center justify-between gap-3 sm:gap-4 flex-wrap sm:flex-nowrap"
+          >
+            {/* Left: Selected Order Info */}
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-slate-950 px-2.5 py-1 rounded-xl shadow-xs shrink-0">
+                #{selectedCardOrder.orderNumber}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-xs sm:text-sm text-white truncate">
+                    {selectedCardOrder.tableId?.displayName || selectedCardOrder.tableId?.tableNumber || 'Table'}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-amber-400 border border-slate-700 uppercase">
+                    {selectedCardOrder.status}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                  <span>{selectedCardOrder.items.length} items</span>
+                  <span>•</span>
+                  <span className="text-white font-bold">{formatAmount(selectedCardOrder.total)}</span>
+                  {selectedCardOrder.customerName && (
+                    <>
+                      <span>•</span>
+                      <span className="text-slate-300 truncate max-w-[100px]">{selectedCardOrder.customerName}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Quick Action Controls */}
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              {/* Quick Revert Button */}
+              {(() => {
+                const prevStatus = getPreviousStatus(selectedCardOrder.status, workflowMode);
+                if (!prevStatus) return null;
+                return (
+                  <button
+                    onClick={() =>
+                      updateStatusMutation.mutate({
+                        orderId: selectedCardOrder._id,
+                        nextStatus: prevStatus,
+                      })
+                    }
+                    disabled={updateStatusMutation.isPending}
+                    className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95"
+                    title={`Revert to ${prevStatus}`}
+                  >
+                    <RotateCcw className="w-4 h-4 text-amber-400" strokeWidth={2} />
+                    <span className="hidden sm:inline">Revert</span>
+                  </button>
+                );
+              })()}
+
+              {/* Quick Advance Button */}
+              {(() => {
+                const nextStatus = getNextStatus(selectedCardOrder.status, workflowMode);
+                if (nextStatus) {
+                  const nextAction = getNextActionLabel(selectedCardOrder.status, workflowMode);
+                  const ActionIcon = nextAction.icon;
+                  return (
+                    <button
+                      onClick={() =>
+                        updateStatusMutation.mutate({
+                          orderId: selectedCardOrder._id,
+                          nextStatus,
+                        })
+                      }
+                      disabled={updateStatusMutation.isPending}
+                      className={`px-4 py-2 sm:py-2.5 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 ${nextAction.gradient}`}
+                    >
+                      <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
+                      <span>{nextAction.label}</span>
+                    </button>
+                  );
+                }
+
+                if (selectedCardOrder.status === 'SERVED') {
+                  const sessId = (selectedCardOrder as any).diningSessionId?._id || selectedCardOrder.sessionId;
+                  return (
+                    <button
+                      onClick={async () => {
+                        if (sessId && (selectedCardOrder as any).diningSessionId?.status !== 'CLOSED') {
+                          try {
+                            await apiClient.post(`/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`);
+                            archiveServedOrder(selectedCardOrder._id);
+                            setSelectedCardOrder(null);
+                            toast('Table session closed & freed!', 'success');
+                            queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+                            queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
+                            queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+                          } catch (err: any) {
+                            toast(err.response?.data?.error?.message || 'Failed to close session', 'error');
+                          }
+                        } else {
+                          archiveServedOrder(selectedCardOrder._id);
+                          setSelectedCardOrder(null);
+                        }
+                      }}
+                      className="px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95"
+                    >
+                      <Receipt className="w-4 h-4" strokeWidth={2} />
+                      <span>Free Table</span>
+                    </button>
+                  );
+                }
+
+                return null;
+              })()}
+
+              {/* View Full Details Button */}
+              <button
+                onClick={() => setDetailModalOrder(selectedCardOrder)}
+                className="px-3.5 py-2 sm:py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95"
+                title="View full order details and bill breakdown"
+              >
+                <FileText className="w-4 h-4 text-amber-400" strokeWidth={2} />
+                <span>View Details</span>
+              </button>
+
+              {/* Deselect / Close Button */}
+              <button
+                onClick={() => setSelectedCardOrder(null)}
+                className="p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                title="Deselect order (Esc)"
+              >
+                <X className="w-4 h-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════════════════════════════════
           MODERN ORDER DETAILS MODAL / DIALOG
           ══════════════════════════════════════════════ */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
-            {selectedOrder && (
+            {detailModalOrder && (
               <div className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/75 backdrop-blur-md p-4 sm:p-6 flex min-h-screen items-center justify-center select-none">
                 {/* Backdrop */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  onClick={() => setSelectedOrder(null)}
+                  onClick={() => setDetailModalOrder(null)}
                   className="fixed inset-0 cursor-pointer"
                 />
 
@@ -1100,16 +1311,16 @@ export const ManagerOrders: React.FC = () => {
                   <div className="px-6 py-4 border-b border-slate-150 flex items-center justify-between bg-slate-50/80 shrink-0">
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-base font-black bg-slate-900 text-white px-3 py-1 rounded-xl shadow-inner">
-                        Order #{selectedOrder.orderNumber}
+                        Order #{detailModalOrder.orderNumber}
                       </span>
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black font-mono tracking-wide bg-amber-50 text-amber-800 border border-amber-200">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                        {selectedOrder.status}
+                        {detailModalOrder.status}
                       </span>
                     </div>
 
                     <button
-                      onClick={() => setSelectedOrder(null)}
+                      onClick={() => setDetailModalOrder(null)}
                       className="p-2 rounded-full hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition"
                     >
                       <X className="w-5 h-5" strokeWidth={2} />
@@ -1119,11 +1330,11 @@ export const ManagerOrders: React.FC = () => {
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 custom-scrollbar">
                     {/* Modern Stepper */}
-                    <ModernOrderStepper currentStatus={selectedOrder.status} workflowMode={workflowMode} />
+                    <ModernOrderStepper currentStatus={detailModalOrder.status} workflowMode={workflowMode} />
 
                     {/* Table & Guest Context Card */}
                     {(() => {
-                      const ctx = getOrderContextDetails(selectedOrder);
+                      const ctx = getOrderContextDetails(detailModalOrder);
                       const ContextIcon = ctx.icon;
 
                       return (
@@ -1143,19 +1354,19 @@ export const ManagerOrders: React.FC = () => {
                               </div>
                               <span className="text-slate-500 font-medium text-[11px] mt-0.5 block truncate">
                                 {ctx.subtitle}
-                                {selectedOrder.customerPhone ? ` • ${selectedOrder.customerPhone}` : ''}
+                                {detailModalOrder.customerPhone ? ` • ${detailModalOrder.customerPhone}` : ''}
                               </span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                            {selectedOrder.roundNumber && (
+                            {detailModalOrder.roundNumber && (
                               <span className="bg-white border border-slate-200 text-slate-800 font-mono text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xs">
-                                Round {selectedOrder.roundNumber}
+                                Round {detailModalOrder.roundNumber}
                               </span>
                             )}
                             <span className="bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xs">
-                              {new Date(selectedOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(detailModalOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </div>
@@ -1170,7 +1381,7 @@ export const ManagerOrders: React.FC = () => {
                         <span className="text-[10px] font-mono text-slate-400 font-semibold">• Petpooja Sync</span>
                       </div>
                       <button
-                        onClick={() => retryPosMutation.mutate(selectedOrder._id)}
+                        onClick={() => retryPosMutation.mutate(detailModalOrder._id)}
                         disabled={retryPosMutation.isPending}
                         className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-xl shadow-2xs transition active:scale-95"
                       >
@@ -1187,13 +1398,13 @@ export const ManagerOrders: React.FC = () => {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider font-mono">
-                          Order Items ({selectedOrder.items.length})
+                          Order Items ({detailModalOrder.items.length})
                         </h3>
                         <span className="text-xs text-slate-400 font-medium">Prepared fresh</span>
                       </div>
 
                       <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl bg-white shadow-sm overflow-hidden">
-                        {selectedOrder.items.map((item, idx) => (
+                        {detailModalOrder.items.map((item, idx) => (
                           <div key={idx} className="p-4 hover:bg-slate-50/60 transition flex flex-col gap-2">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
@@ -1244,12 +1455,12 @@ export const ManagerOrders: React.FC = () => {
                     </div>
 
                     {/* Customer General Note */}
-                    {selectedOrder.customerNote && (
+                    {detailModalOrder.customerNote && (
                       <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
                           Customer Note
                         </span>
-                        <p className="text-slate-700 italic font-medium">"{selectedOrder.customerNote}"</p>
+                        <p className="text-slate-700 italic font-medium">"{detailModalOrder.customerNote}"</p>
                       </div>
                     )}
 
@@ -1257,11 +1468,11 @@ export const ManagerOrders: React.FC = () => {
                     <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
                       <div className="flex justify-between items-center text-xs text-slate-600 font-medium">
                         <span>Subtotal</span>
-                        <span className="font-mono font-bold text-slate-800">{formatAmount(selectedOrder.subtotal)}</span>
+                        <span className="font-mono font-bold text-slate-800">{formatAmount(detailModalOrder.subtotal)}</span>
                       </div>
 
-                      {selectedOrder.taxBreakdown && selectedOrder.taxBreakdown.length > 0 ? (
-                        selectedOrder.taxBreakdown.map((t, i) => (
+                      {detailModalOrder.taxBreakdown && detailModalOrder.taxBreakdown.length > 0 ? (
+                        detailModalOrder.taxBreakdown.map((t, i) => (
                           <div key={i} className="flex justify-between items-center text-xs text-slate-500">
                             <span>{t.name} ({t.percentage}%)</span>
                             <span className="font-mono">{formatAmount(t.amount)}</span>
@@ -1270,7 +1481,7 @@ export const ManagerOrders: React.FC = () => {
                       ) : (
                         <div className="flex justify-between items-center text-xs text-slate-500">
                           <span>Taxes & GST</span>
-                          <span className="font-mono">{formatAmount(selectedOrder.tax)}</span>
+                          <span className="font-mono">{formatAmount(detailModalOrder.tax)}</span>
                         </div>
                       )}
 
@@ -1281,11 +1492,11 @@ export const ManagerOrders: React.FC = () => {
                           </span>
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 font-mono">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" strokeWidth={2} />
-                            {selectedOrder.paymentStatus === 'PAID' ? 'PAID' : 'PAYMENT PENDING'}
+                            {detailModalOrder.paymentStatus === 'PAID' ? 'PAID' : 'PAYMENT PENDING'}
                           </span>
                         </div>
                         <span className="font-mono text-xl font-black text-slate-950">
-                          {formatAmount(selectedOrder.total)}
+                          {formatAmount(detailModalOrder.total)}
                         </span>
                       </div>
                     </div>
@@ -1295,9 +1506,9 @@ export const ManagerOrders: React.FC = () => {
                   <div className="p-5 sm:p-6 bg-slate-50/90 border-t border-slate-200 flex flex-col gap-3 shrink-0">
                     <div className="flex flex-col sm:flex-row gap-3">
                       {/* Cancel Button */}
-                      {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(selectedOrder.status) && (
+                      {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(detailModalOrder.status) && (
                         <button
-                          onClick={() => setOrderToCancel(selectedOrder)}
+                          onClick={() => setOrderToCancel(detailModalOrder)}
                           className="py-3.5 px-4 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition active:scale-98"
                         >
                           Cancel Ticket
@@ -1306,7 +1517,7 @@ export const ManagerOrders: React.FC = () => {
 
                       {/* Revert / Step-Back Button */}
                       {(() => {
-                        const prevStatus = getPreviousStatus(selectedOrder.status, workflowMode);
+                        const prevStatus = getPreviousStatus(detailModalOrder.status, workflowMode);
                         if (!prevStatus) return null;
                         const prevAction = getPreviousActionLabel(prevStatus);
                         const PrevIcon = prevAction.icon;
@@ -1315,7 +1526,7 @@ export const ManagerOrders: React.FC = () => {
                           <button
                             onClick={() =>
                               updateStatusMutation.mutate({
-                                orderId: selectedOrder._id,
+                                orderId: detailModalOrder._id,
                                 nextStatus: prevStatus,
                               })
                             }
@@ -1331,16 +1542,16 @@ export const ManagerOrders: React.FC = () => {
 
                       {/* Primary Advance CTA */}
                       {(() => {
-                        const nextStatus = getNextStatus(selectedOrder.status, workflowMode);
+                        const nextStatus = getNextStatus(detailModalOrder.status, workflowMode);
                         if (nextStatus) {
-                          const nextAction = getNextActionLabel(selectedOrder.status, workflowMode);
+                          const nextAction = getNextActionLabel(detailModalOrder.status, workflowMode);
                           const ActionIcon = nextAction.icon;
 
                           return (
                             <button
                               onClick={() =>
                                 updateStatusMutation.mutate({
-                                  orderId: selectedOrder._id,
+                                  orderId: detailModalOrder._id,
                                   nextStatus,
                                 })
                               }
@@ -1370,19 +1581,20 @@ export const ManagerOrders: React.FC = () => {
                     </div>
 
                     {/* Settle Table Session CTA if Served */}
-                    {selectedOrder.status === 'SERVED' && (
+                    {detailModalOrder.status === 'SERVED' && (
                       <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                        {selectedOrder.sessionId || (selectedOrder as any).diningSessionId ? (
+                        {detailModalOrder.sessionId || (detailModalOrder as any).diningSessionId ? (
                           <button
                             onClick={async () => {
                               try {
-                                const sessId = (selectedOrder as any).diningSessionId?._id || selectedOrder.sessionId;
+                                const sessId = (detailModalOrder as any).diningSessionId?._id || detailModalOrder.sessionId;
                                 await apiClient.post(
                                   `/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`
                                 );
-                                archiveServedOrder(selectedOrder._id);
+                                archiveServedOrder(detailModalOrder._id);
                                 toast('Table settled and session closed! Ticket archived to history.', 'success');
-                                setSelectedOrder(null);
+                                setDetailModalOrder(null);
+                                setSelectedCardOrder(null);
                                 queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
                                 queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
                                 queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
@@ -1399,8 +1611,9 @@ export const ManagerOrders: React.FC = () => {
 
                         <button
                           onClick={() => {
-                            archiveServedOrder(selectedOrder._id);
-                            setSelectedOrder(null);
+                            archiveServedOrder(detailModalOrder._id);
+                            setDetailModalOrder(null);
+                            setSelectedCardOrder(null);
                           }}
                           className="py-3.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98"
                         >
