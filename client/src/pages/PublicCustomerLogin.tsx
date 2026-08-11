@@ -94,32 +94,32 @@ export const PublicCustomerLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
       <Helmet>
         <title>Diner Sign In - Pixora QR</title>
       </Helmet>
 
-      {/* Decorative ambient glowing circles */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Decorative ambient subtle background glows */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-200/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-amber-100/40 rounded-full blur-3xl pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="w-full max-w-md bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-8 relative z-10"
+        className="w-full max-w-md bg-white border border-slate-200/80 rounded-3xl p-8 shadow-xl space-y-8 relative z-10"
       >
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 bg-gradient-to-tr from-amber-500 to-amber-400 rounded-2xl flex items-center justify-center text-slate-950 mx-auto shadow-lg shadow-amber-500/20">
+          <div className="w-14 h-14 bg-gradient-to-tr from-amber-500 to-amber-400 rounded-2xl flex items-center justify-center text-slate-950 mx-auto shadow-md shadow-amber-500/20">
             <Utensils className="w-7 h-7" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="font-display tracking-tight text-3xl font-semibold text-white">
+            <h1 className="font-display tracking-tight text-3xl font-bold text-slate-900">
               Diner Sign In
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Sign in with your mobile number to view your order history & save preferences.
+            <p className="text-xs text-slate-500 mt-1 font-medium">
+              Sign in with your mobile number to view order history & preferences.
             </p>
           </div>
         </div>
@@ -136,11 +136,11 @@ export const PublicCustomerLogin: React.FC = () => {
               className="space-y-5"
             >
               <div className="space-y-2 text-left">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                   Mobile Number
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Phone className="w-4 h-4" strokeWidth={1.75} />
                   </div>
                   <input
@@ -149,7 +149,7 @@ export const PublicCustomerLogin: React.FC = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Enter 10-digit mobile number"
-                    className="w-full pl-10 pr-4 py-3.5 bg-slate-900 border border-slate-800 rounded-2xl text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition shadow-inner"
+                    className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition font-bold"
                   />
                 </div>
               </div>
@@ -157,21 +157,21 @@ export const PublicCustomerLogin: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm rounded-2xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm rounded-2xl transition-all shadow-md shadow-amber-500/15 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 {isLoading ? (
                   <Loader className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
                     <span>Send Verification Code</span>
-                    <ArrowRight className="w-4 h-4" strokeWidth={2} />
+                    <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
                   </>
                 )}
               </button>
 
-              <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-2xl flex items-center gap-2.5 text-[11px] text-slate-400">
-                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" strokeWidth={1.75} />
-                <span>Demo mode active. Code will be <strong>1234</strong>.</span>
+              <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl flex items-center gap-2.5 text-[11px] text-amber-900">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" strokeWidth={1.75} />
+                <span>Demo mode active. Verification code will be <strong>1234</strong>.</span>
               </div>
             </motion.form>
           ) : (
@@ -184,13 +184,13 @@ export const PublicCustomerLogin: React.FC = () => {
               className="space-y-5 text-left"
             >
               <div className="flex items-center justify-between pb-1">
-                <span className="text-xs font-bold text-slate-400">
-                  Verifying <strong className="text-amber-400 font-mono">{phone}</strong>
+                <span className="text-xs font-bold text-slate-600">
+                  Verifying <strong className="text-amber-700 font-mono">{phone}</strong>
                 </span>
                 <button
                   type="button"
                   onClick={() => setOtpSent(false)}
-                  className="text-xs text-amber-400 hover:underline font-semibold"
+                  className="text-xs text-amber-600 hover:underline font-bold"
                 >
                   Change
                 </button>
@@ -198,11 +198,11 @@ export const PublicCustomerLogin: React.FC = () => {
 
               {/* Name field for new or returning customers */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Your Name {isExistingUser && <span className="text-slate-500 lowercase">(optional to update)</span>}
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Your Name {isExistingUser && <span className="text-slate-400 font-normal lowercase">(optional to update)</span>}
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <UserIcon className="w-4 h-4" strokeWidth={1.75} />
                   </div>
                   <input
@@ -210,18 +210,18 @@ export const PublicCustomerLogin: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your name"
-                    className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition shadow-inner"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                   />
                 </div>
               </div>
 
               {/* OTP Code */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                   4-Digit Verification Code
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <ShieldCheck className="w-4 h-4" strokeWidth={1.75} />
                   </div>
                   <input
@@ -232,7 +232,7 @@ export const PublicCustomerLogin: React.FC = () => {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
                     placeholder="1234"
-                    className="w-full pl-10 pr-4 py-3.5 bg-slate-900 border border-slate-800 rounded-2xl text-base font-mono font-bold tracking-widest text-center text-amber-400 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition shadow-inner"
+                    className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-base font-mono font-black tracking-widest text-center text-slate-950 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                   />
                 </div>
               </div>
@@ -240,7 +240,7 @@ export const PublicCustomerLogin: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-2xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-2xl transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 {isLoading ? (
                   <Loader className="w-5 h-5 animate-spin" />
@@ -260,7 +260,7 @@ export const PublicCustomerLogin: React.FC = () => {
           {returnUrl ? (
             <Link
               to={returnUrl}
-              className="text-xs font-semibold text-slate-400 hover:text-white inline-flex items-center gap-1.5 transition"
+              className="text-xs font-bold text-slate-500 hover:text-slate-900 inline-flex items-center gap-1.5 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />
               <span>Back to Menu / Order</span>
@@ -268,7 +268,7 @@ export const PublicCustomerLogin: React.FC = () => {
           ) : restaurantSlug ? (
             <Link
               to={`/r/${restaurantSlug}`}
-              className="text-xs font-semibold text-slate-400 hover:text-white inline-flex items-center gap-1.5 transition"
+              className="text-xs font-bold text-slate-500 hover:text-slate-900 inline-flex items-center gap-1.5 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />
               <span>Back to Restaurant</span>
@@ -276,7 +276,7 @@ export const PublicCustomerLogin: React.FC = () => {
           ) : (
             <Link
               to="/login"
-              className="text-xs font-semibold text-slate-500 hover:text-slate-300 transition"
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 transition"
             >
               Are you restaurant staff or manager? Staff Login &rarr;
             </Link>

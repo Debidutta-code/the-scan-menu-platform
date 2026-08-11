@@ -1116,7 +1116,6 @@ export const PublicTable: React.FC = () => {
       specialInstructions: detailSpecialInstructions,
     });
 
-    toast(`Added ${selectedItem.name} to cart`, 'success');
     setSelectedItem(null);
   };
 
@@ -1147,7 +1146,6 @@ export const PublicTable: React.FC = () => {
       selectedAddOns: [],
       specialInstructions: '',
     });
-    toast(`Added ${item.name} to cart`, 'success');
   };
 
   // Helper to increment an item already in cart
