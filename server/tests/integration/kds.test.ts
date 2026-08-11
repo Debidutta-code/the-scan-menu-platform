@@ -2,23 +2,24 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from '../src/index';
-import { Restaurant } from '../src/models/Restaurant';
-import { RestaurantSettings } from '../src/models/RestaurantSettings';
-import { Category } from '../src/models/Category';
-import { MenuItem } from '../src/models/MenuItem';
-import { User } from '../src/models/User';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { FeatureFlag } from '../src/models/FeatureFlag';
-import { Order } from '../src/models/Order';
-import { IntegrationSyncLog } from '../src/models/IntegrationSyncLog';
-import { encrypt } from '../src/utils/encryption';
-import jwt from 'jsonwebtoken';
+import { app, httpServer } from '../../src/index';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { Category } from '../../src/models/Category';
+import { MenuItem } from '../../src/models/MenuItem';
+import { User } from '../../src/models/User';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { FeatureFlag } from '../../src/models/FeatureFlag';
+import { Order } from '../../src/models/Order';
+import { IntegrationSyncLog } from '../../src/models/IntegrationSyncLog';
+import { encrypt } from '../../src/utils/encryption';
+import { tokenService } from '../../src/services/token.service';
 
 let mongoServer: MongoMemoryServer;
 const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
 
 beforeAll(async () => {
+  process.env.JWT_ACCESS_SECRET = TEST_JWT_SECRET;
   process.env.TESTING_FEATURE_FLAGS = 'true';
   process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
 
@@ -158,11 +159,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         paymentStatus: 'PAID',
       });
 
-      const token = jwt.sign(
-        { id: manager._id.toString(), email: manager.email, role: 'MANAGER' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const token = tokenService.generateAccessToken({
+        id: manager._id.toString(),
+        email: manager.email,
+        role: 'MANAGER',
+      });
 
       const res = await request(app)
         .get(`/api/v1/restaurants/${restaurant._id}/kds/tickets`)
@@ -229,11 +230,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         subtotal: 500, tax: 0, taxBreakdown: [], total: 500, status: 'PENDING', source: 'QR', paymentStatus: 'PAID',
       });
 
-      const token = jwt.sign(
-        { id: manager._id.toString(), email: manager.email, role: 'MANAGER' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const token = tokenService.generateAccessToken({
+        id: manager._id.toString(),
+        email: manager.email,
+        role: 'MANAGER',
+      });
 
       const res = await request(app)
         .get(`/api/v1/restaurants/${restaurant._id}/kds/tickets?orderMode=DELIVERY`)
@@ -307,11 +308,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         paymentStatus: 'PENDING',
       });
 
-      const token = jwt.sign(
-        { id: staff._id.toString(), email: staff.email, role: 'STAFF' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const token = tokenService.generateAccessToken({
+        id: staff._id.toString(),
+        email: staff.email,
+        role: 'STAFF',
+      });
 
       // Step 1: PENDING -> PREPARING
       const res1 = await request(app)
@@ -404,11 +405,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         paymentStatus: 'PAID',
       });
 
-      const token = jwt.sign(
-        { id: staff._id.toString(), email: staff.email, role: 'STAFF' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const token = tokenService.generateAccessToken({
+        id: staff._id.toString(),
+        email: staff.email,
+        role: 'STAFF',
+      });
 
       const res = await request(app)
         .post(`/api/v1/restaurants/${restaurant._id}/kds/tickets/${order._id}/bump`)
@@ -503,11 +504,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         integrationMetadata: { petpoojaOrderId: 'PET-KDS-501' },
       });
 
-      const token = jwt.sign(
-        { id: manager._id.toString(), email: manager.email, role: 'MANAGER' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const token = tokenService.generateAccessToken({
+        id: manager._id.toString(),
+        email: manager.email,
+        role: 'MANAGER',
+      });
 
       // Advance item to PREPARING -> aggregate status becomes PREPARING
       const res = await request(app)
@@ -555,11 +556,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         isActive: true,
       });
 
-      const token = jwt.sign(
-        { id: manager._id.toString(), email: manager.email, role: 'MANAGER' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const token = tokenService.generateAccessToken({
+        id: manager._id.toString(),
+        email: manager.email,
+        role: 'MANAGER',
+      });
 
       const res = await request(app)
         .get(`/api/v1/restaurants/${restaurant._id}/kds/tickets`)
@@ -589,11 +590,11 @@ describe('Phase 11 Kitchen Display System (KDS) Test Suite', () => {
         isActive: true,
       });
 
-      const tokenA = jwt.sign(
-        { id: staffA._id.toString(), email: staffA.email, role: 'STAFF' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const tokenA = tokenService.generateAccessToken({
+        id: staffA._id.toString(),
+        email: staffA.email,
+        role: 'STAFF',
+      });
 
       const res = await request(app)
         .get(`/api/v1/restaurants/${restB._id}/kds/tickets`)

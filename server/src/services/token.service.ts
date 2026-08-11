@@ -70,4 +70,6 @@ export class TokenService {
     return expiry;
   }
 }
+
+export const tokenService = new TokenService();
 export default TokenService;
