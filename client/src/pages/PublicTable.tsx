@@ -33,10 +33,13 @@ import {
   Utensils,
   ArrowLeft,
   XCircle,
+  User as UserIcon,
 } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn } from '../services/restaurant.service';
 import { useCartStore } from '../store/useCartStore';
 import { useToast } from '../hooks/useToast';
+import { useCustomerAuth } from '../hooks/useCustomerAuth';
+import { Link } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from '../components/ConnectionIndicator';
@@ -592,6 +595,16 @@ export const PublicTable: React.FC = () => {
 
   // Zustand Cart Store
   const { items: cartItems, setTable, addItem, updateQuantity, clearCart } = useCartStore();
+
+  // Customer Auth
+  const { customer, customerToken, isAuthenticated: isCustomerAuthenticated } = useCustomerAuth();
+
+  useEffect(() => {
+    if (customer) {
+      if (customer.name && !customerName) setCustomerName(customer.name);
+      if (customer.phone && !phoneNumber) setPhoneNumber(customer.phone);
+    }
+  }, [customer]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1157,7 +1170,12 @@ export const PublicTable: React.FC = () => {
         ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders`
         : `/public/table/${tableToken}/orders`;
 
-      const res = await apiClient.post(orderUrl, payload);
+      const headers: Record<string, string> = {};
+      if (customerToken) {
+        headers['Authorization'] = `Bearer ${customerToken}`;
+      }
+
+      const res = await apiClient.post(orderUrl, payload, { headers });
 
       if (res.data.success) {
         const finalizeOrderSuccess = (orderId: string) => {
@@ -1428,6 +1446,29 @@ export const PublicTable: React.FC = () => {
           </div>
 
           <div className="max-w-md mx-auto px-4 space-y-6 pb-6">
+            {/* Diner Profile & Sign In Banner */}
+            <div className="bg-white rounded-3xl p-4 border border-slate-150 shadow-xs flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                  <UserIcon className="w-5 h-5" strokeWidth={1.75} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-xs font-bold text-slate-900">
+                    {isCustomerAuthenticated && customer?.name ? `Welcome, ${customer.name}` : 'Diner Account'}
+                  </h4>
+                  <p className="text-[10px] text-slate-400">
+                    {isCustomerAuthenticated ? `${customer?.totalOrdersCount || 0} order visits recorded` : 'Sign in to save details & view past orders'}
+                  </p>
+                </div>
+              </div>
+              <Link
+                to={isCustomerAuthenticated ? (restaurantSlug ? `/r/${restaurantSlug}/portal` : '/customer-login') : (restaurantSlug ? `/r/${restaurantSlug}/login?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}` : '/customer-login')}
+                className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-[11px] font-bold rounded-xl transition shadow-xs shrink-0"
+              >
+                {isCustomerAuthenticated ? 'Dashboard' : 'Sign In'}
+              </Link>
+            </div>
+
             {/* Active Table spot info */}
             <div className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-3 animate-fade-in">
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">

@@ -11,6 +11,7 @@ import { validateStatusTransition } from '../utils/orderStateMachine';
 import { NotificationService } from './notification.service';
 import { posIntegrationService } from './posIntegration.service';
 import { restaurantStatsService } from './restaurantStats.service';
+import { customerService } from './customer.service';
 import { AuditLog } from '../models/AuditLog';
 
 class CustomError extends Error {
@@ -44,6 +45,7 @@ export class OrderService {
     customerNote?: string;
     customerName?: string;
     customerPhone?: string;
+    customerId?: Types.ObjectId | string;
     source?: 'QR' | 'POS' | 'WAITER' | 'MANUAL';
     paymentStatus?: 'PENDING' | 'PAID' | 'WAIVED';
     deliveryAddress?: Record<string, any>;
@@ -53,6 +55,7 @@ export class OrderService {
       tableId,
       diningSessionId,
       guestSessionId,
+      customerId,
       orderMode = 'DINE_IN',
       items,
       customerNote,
@@ -284,12 +287,28 @@ export class OrderService {
     // 5. Allocate Monotonically Increasing Order Number
     const orderNumber = await getNextOrderNumber(new Types.ObjectId(restaurantId));
 
+    // Auto-resolve or upsert customer profile if phone is provided
+    let resolvedCustomerId: Types.ObjectId | undefined = customerId ? new Types.ObjectId(customerId) : undefined;
+    if (!resolvedCustomerId && customerPhone && customerPhone.trim()) {
+      try {
+        const customer = await customerService.findOrCreateCustomer(
+          restaurantId,
+          customerPhone.trim(),
+          customerName?.trim()
+        );
+        resolvedCustomerId = customer._id as Types.ObjectId;
+      } catch (err) {
+        console.error('Error auto-upserting customer on order creation:', err);
+      }
+    }
+
     // 6. Create Immutable Order Ticket
     const order = new Order({
       restaurantId: new Types.ObjectId(restaurantId),
       tableId: tableId ? new Types.ObjectId(tableId) : undefined,
       diningSessionId: resolvedDiningSession ? resolvedDiningSession._id : undefined,
       guestSessionId: guestSessionId ? new Types.ObjectId(guestSessionId) : undefined,
+      customerId: resolvedCustomerId,
       orderMode,
       deliveryAddress,
       roundNumber,
@@ -310,6 +329,10 @@ export class OrderService {
 
     await order.save();
     await restaurantStatsService.recordOrderCreated(new Types.ObjectId(restaurantId));
+
+    if (resolvedCustomerId) {
+      customerService.recordCustomerOrder(resolvedCustomerId, total);
+    }
 
     // 7. Dispatch to POS & Notification
     posIntegrationService.pushOrderAsync(new Types.ObjectId(restaurantId), order);

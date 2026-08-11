@@ -273,10 +273,133 @@ Changes password for the currently logged-in user.
     "data": {
       "_id": "60d0fe...",
       "orderNumber": 101,
-      "status": "PREPARING"
-    },
-    "message": "Kitchen ticket recalled to active queue successfully"
+---
+
+## Customer Authentication & Management Endpoints
+
+### 12. Send Customer Login OTP
+- **Method:** `POST`
+- **Path:** `/api/v1/public/customers/send-otp`
+- **Request Body (JSON):**
+  ```json
+  {
+    "phone": "9876543210",
+    "restaurantSlug": "demo-cafe"
   }
   ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "phone": "9876543210",
+      "isExistingUser": true,
+      "customerName": "Alice",
+      "demoOtp": "1234"
+    },
+    "message": "Verification code sent successfully"
+  }
+  ```
+
+---
+
+### 13. Verify Customer OTP & Login
+- **Method:** `POST`
+- **Path:** `/api/v1/public/customers/verify-otp`
+- **Request Body (JSON):**
+  ```json
+  {
+    "phone": "9876543210",
+    "otp": "1234",
+    "name": "Alice",
+    "restaurantSlug": "demo-cafe"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "customer": {
+        "id": "60d0fe...",
+        "name": "Alice",
+        "phone": "9876543210",
+        "totalOrdersCount": 3,
+        "totalSpent": 15000
+      },
+      "customerToken": "eyJhbGciOi...",
+      "restaurant": {
+        "id": "60d0fe...",
+        "name": "Demo Cafe",
+        "slug": "demo-cafe"
+      }
+    },
+    "message": "Customer verified and logged in successfully"
+  }
+  ```
+
+---
+
+### 14. Get Current Customer Profile
+- **Method:** `GET`
+- **Path:** `/api/v1/public/customers/me`
+- **Request Headers:**
+  - `Authorization`: `Bearer <customerToken>`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "customer": {
+        "_id": "60d0fe...",
+        "name": "Alice",
+        "phone": "9876543210",
+        "totalOrdersCount": 3,
+        "totalSpent": 15000
+      }
+    },
+    "message": "Customer profile retrieved successfully"
+  }
+  ```
+
+---
+
+### 15. Get Customer Order History
+- **Method:** `GET`
+- **Path:** `/api/v1/public/customers/orders`
+- **Request Headers:**
+  - `Authorization`: `Bearer <customerToken>`
+- **Query Params:** `page` (optional), `limit` (optional)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "orders": [...],
+      "pagination": { "page": 1, "limit": 20, "total": 3, "totalPages": 1 }
+    },
+    "message": "Customer order history retrieved successfully"
+  }
+  ```
+
+---
+
+### 16. Manager Customer Directory
+- **Method:** `GET`
+- **Path:** `/api/v1/restaurants/:restaurantId/customers`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`)
+- **Query Params:** `search` (optional), `page` (optional), `limit` (optional)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "customers": [...],
+      "pagination": { "page": 1, "limit": 50, "total": 12, "totalPages": 1 }
+    },
+    "message": "Customers retrieved successfully"
+  }
+  ```
+
 
 

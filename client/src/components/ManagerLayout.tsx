@@ -21,6 +21,7 @@ import {
   VolumeX,
   BellRing,
   Users,
+  UserCheck,
   Calculator,
   Flame,
   Code,
@@ -88,6 +89,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'tables'
     : currentPath.startsWith('/manager/staff')
     ? 'staff'
+    : currentPath.startsWith('/manager/customers')
+    ? 'customers'
     : currentPath.startsWith('/manager/taxes')
     ? 'taxes'
     : currentPath.startsWith('/manager/settings')
@@ -512,6 +515,21 @@ export const ManagerLayout: React.FC = () => {
             >
               <Users className="w-4 h-4" strokeWidth={1.75} />
               <span>Staff Management</span>
+            </button>
+          )}
+
+          {/* Customers tab (Manager/Super Admin only) */}
+          {!isStaff && (
+            <button
+              onClick={() => navigate('/manager/customers')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'customers'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <UserCheck className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+              <span>Customers</span>
             </button>
           )}
 

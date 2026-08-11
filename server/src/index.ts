@@ -17,6 +17,7 @@ import restaurantRoutes from './routes/restaurant.routes';
 import orderRoutes from './routes/order.routes';
 import waiterCallRoutes from './routes/waiterCall.routes';
 import publicRoutes from './routes/public.routes';
+import customerRoutes from './routes/customer.routes';
 import paymentRoutes from './routes/payment.routes';
 import webhookRoutes from './routes/webhook.routes';
 import analyticsRoutes from './routes/analytics.routes';
@@ -105,6 +106,7 @@ app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/restaurants', menuRoutes);
 
 app.use('/api/v1/openapi', openapiRoutes);
+app.use('/api/v1/public/customers', customerRoutes);
 app.use('/api/v1/public', publicRoutes);
 
 

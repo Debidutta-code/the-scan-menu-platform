@@ -10,6 +10,7 @@ import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
 import { DiningSession } from '../models/DiningSession';
 import { restaurantStatsService } from '../services/restaurantStats.service';
+import { customerService } from '../services/customer.service';
 import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
 import mongoose from 'mongoose';
@@ -33,6 +34,11 @@ export class RestaurantController {
 
     // Waiter Staff Management
     this.createStaff = this.createStaff.bind(this);
+    this.createTax = this.createTax.bind(this);
+    this.updateTax = this.updateTax.bind(this);
+    this.deleteTax = this.deleteTax.bind(this);
+    this.listCustomers = this.listCustomers.bind(this);
+    this.getCustomerDetails = this.getCustomerDetails.bind(this);
     this.listStaff = this.listStaff.bind(this);
     this.updateStaff = this.updateStaff.bind(this);
     this.deleteStaff = this.deleteStaff.bind(this);
@@ -867,6 +873,30 @@ export class RestaurantController {
       }
 
       sendSuccess(res, {}, 'Tax deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listCustomers(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const search = req.query.search as string;
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+
+      const result = await customerService.listRestaurantCustomers(restaurantId, search, page, limit);
+      sendSuccess(res, result, 'Customers retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getCustomerDetails(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, customerId } = req.params;
+      const result = await customerService.getCustomerDetails(restaurantId, customerId);
+      sendSuccess(res, result, 'Customer details retrieved successfully');
     } catch (error) {
       next(error);
     }

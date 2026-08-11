@@ -12,6 +12,14 @@ export interface TokenUserPayload {
   name?: string;
 }
 
+export interface TokenCustomerPayload {
+  id: string;
+  phone: string;
+  restaurantId: string;
+  name?: string;
+  role: 'CUSTOMER';
+}
+
 export class TokenService {
   private accessSecret: string;
   private refreshSecret: string;
@@ -36,6 +44,16 @@ export class TokenService {
 
   verifyAccessToken(token: string): TokenUserPayload {
     return jwt.verify(token, this.accessSecret) as TokenUserPayload;
+  }
+
+  generateCustomerToken(payload: TokenCustomerPayload): string {
+    return jwt.sign(payload, this.accessSecret, {
+      expiresIn: '30d',
+    });
+  }
+
+  verifyCustomerToken(token: string): TokenCustomerPayload {
+    return jwt.verify(token, this.accessSecret) as TokenCustomerPayload;
   }
 
   generateRefreshTokenString(): string {

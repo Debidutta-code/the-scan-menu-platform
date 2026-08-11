@@ -39,10 +39,12 @@ import ManagerDeveloper from './pages/ManagerDeveloper';
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerTransactions from './pages/ManagerTransactions';
 
-// Public Pages
 import PublicTable from './pages/PublicTable';
 import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
 import PublicSessionlessOrder from './pages/PublicSessionlessOrder';
+import PublicCustomerLogin from './pages/PublicCustomerLogin';
+import PublicCustomerPortal from './pages/PublicCustomerPortal';
+import ManagerCustomers from './pages/ManagerCustomers';
 
 const DashboardRedirect = () => {
   const { user } = useAuth();
@@ -71,7 +73,13 @@ export const App = () => {
               <Route path="/r/:restaurantSlug/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
               <Route path="/r/:restaurantSlug/order" element={<PublicSessionlessOrder />} />
 
-              {/* Public login */}
+              {/* Dedicated Customer Auth & Portal Routes */}
+              <Route path="/customer-login" element={<PublicCustomerLogin />} />
+              <Route path="/customer-portal" element={<PublicCustomerPortal />} />
+              <Route path="/r/:restaurantSlug/login" element={<PublicCustomerLogin />} />
+              <Route path="/r/:restaurantSlug/portal" element={<PublicCustomerPortal />} />
+
+              {/* Public login (Staff / Manager / SuperAdmin) */}
               <Route path="/login" element={<Login />} />
 
               {/* Protected Routes (all roles) - root redirect */}
@@ -116,6 +124,7 @@ export const App = () => {
                     <Route path="/manager/inventory" element={<ManagerInventory />} />
 
                     <Route path="/manager/staff" element={<ManagerStaff />} />
+                    <Route path="/manager/customers" element={<ManagerCustomers />} />
                     <Route path="/manager/taxes" element={<ManagerTaxes />} />
                     <Route path="/manager/settings" element={<ManagerSettings />} />
                     <Route path="/manager/analytics" element={<ManagerAnalytics />} />

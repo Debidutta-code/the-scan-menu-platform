@@ -46,6 +46,10 @@ router.patch('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, requ
 router.delete('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteTax);
 
 
+// Customer Directory Routes (Manager/Super Admin only)
+router.get('/:restaurantId/customers', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listCustomers);
+router.get('/:restaurantId/customers/:customerId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
+
 // Waiter Staff Management Endpoints (Manager-only)
 router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);
 router.get('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listStaff);

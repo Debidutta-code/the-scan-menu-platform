@@ -43,3 +43,16 @@ export const sendError = (
   };
   return res.status(status).json(response);
 };
+
+export class CustomError extends Error {
+  status: number;
+  code: string;
+  details?: any;
+  constructor(code: string, message: string, status: number = 400, details: any = null) {
+    super(message);
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+

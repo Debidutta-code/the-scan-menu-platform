@@ -78,6 +78,7 @@ export interface IOrder extends Document {
   diningSessionId?: Types.ObjectId;
   sessionId?: Types.ObjectId; // Alias for backward compatibility
   guestSessionId?: Types.ObjectId;
+  customerId?: Types.ObjectId;
   orderMode: OrderMode;
   deliveryAddress?: IDeliveryAddress;
   roundNumber?: number;
@@ -140,6 +141,7 @@ const orderSchema = new Schema<IOrder>(
     diningSessionId: { type: Schema.Types.ObjectId, ref: 'DiningSession', required: false, index: true },
     sessionId: { type: Schema.Types.ObjectId, ref: 'DiningSession', required: false }, // Backwards compat
     guestSessionId: { type: Schema.Types.ObjectId, ref: 'GuestSession', required: false },
+    customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: false, index: true },
     orderMode: {
       type: String,
       required: true,
@@ -270,6 +272,7 @@ orderSchema.index({ restaurantId: 1, orderNumber: 1 }, { unique: true });
 orderSchema.index({ diningSessionId: 1, roundNumber: 1 });
 orderSchema.index({ restaurantId: 1, status: 1 });
 orderSchema.index({ restaurantId: 1, createdAt: -1 });
+orderSchema.index({ restaurantId: 1, customerId: 1, createdAt: -1 });
 orderSchema.index({ restaurantId: 1, orderMode: 1, createdAt: -1 });
 
 export const Order = (mongoose.models.Order as mongoose.Model<IOrder>) || model<IOrder>('Order', orderSchema);
