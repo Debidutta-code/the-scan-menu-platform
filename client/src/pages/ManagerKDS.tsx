@@ -144,6 +144,20 @@ export const ManagerKDS: React.FC = () => {
 
   const categories: CategoryOption[] = categoriesResponse?.success ? categoriesResponse.data : [];
 
+  // Fetch Restaurant Settings for workflowMode
+  const { data: restaurantResponse } = useQuery({
+    queryKey: ['restaurantProfile', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+    staleTime: 60_000,
+  });
+
+  const workflowMode: 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP' =
+    restaurantResponse?.data?.orderWorkflowMode || 'FIVE_STEP';
+
   // 2. Fetch Active KDS Tickets
   const {
     data: ticketsResponse,
@@ -318,7 +332,7 @@ export const ManagerKDS: React.FC = () => {
   const getNextItemStatus = (current?: string) => {
     switch (current) {
       case 'PREPARING':
-        return 'READY';
+        return workflowMode === 'THREE_STEP' ? 'SERVED' : 'READY';
       case 'READY':
         return 'SERVED';
       case 'PENDING':
@@ -724,7 +738,9 @@ export const ManagerKDS: React.FC = () => {
                                       : isReady
                                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                       : isPrep
-                                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                      ? workflowMode === 'THREE_STEP'
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                       : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black'
                                   }`}
                                 >
@@ -739,10 +755,17 @@ export const ManagerKDS: React.FC = () => {
                                       <span>Serve</span>
                                     </>
                                   ) : isPrep ? (
-                                    <>
-                                      <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
-                                      <span>Ready</span>
-                                    </>
+                                    workflowMode === 'THREE_STEP' ? (
+                                      <>
+                                        <Utensils className="w-3.5 h-3.5" strokeWidth={2} />
+                                        <span>Serve</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
+                                        <span>Ready</span>
+                                      </>
+                                    )
                                   ) : (
                                     <>
                                       <ChefHat className="w-3.5 h-3.5" strokeWidth={2} />

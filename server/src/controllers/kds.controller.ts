@@ -8,6 +8,8 @@ import { NotificationService } from '../services/notification.service';
 import { posIntegrationService } from '../services/posIntegration.service';
 import mongoose from 'mongoose';
 
+import { RestaurantSettings } from '../models/RestaurantSettings';
+
 export class KDSController {
   constructor() {
     this.getActiveTickets = this.getActiveTickets.bind(this);
@@ -126,15 +128,24 @@ export class KDSController {
       const item = order.items[itemIndex];
       const currentItemStatus = item.itemStatus || 'PENDING';
 
+      // Check restaurant workflow mode for 3-step vs 4-step/5-step
+      const settings = await RestaurantSettings.findOne({ restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
+
+      let targetItemStatus = nextItemStatus;
+      if (workflowMode === 'THREE_STEP' && targetItemStatus === 'READY') {
+        targetItemStatus = 'SERVED';
+      }
+
       // Forward-only status validation (PENDING -> PREPARING -> READY -> SERVED)
       const statusSeverity: Record<string, number> = { PENDING: 0, PREPARING: 1, READY: 2, SERVED: 3 };
-      if (statusSeverity[nextItemStatus] < statusSeverity[currentItemStatus]) {
-        sendError(res, 'BAD_REQUEST', `Cannot change item status backwards from ${currentItemStatus} to ${nextItemStatus}`, null, 400);
+      if (statusSeverity[targetItemStatus] < statusSeverity[currentItemStatus]) {
+        sendError(res, 'BAD_REQUEST', `Cannot change item status backwards from ${currentItemStatus} to ${targetItemStatus}`, null, 400);
         return;
       }
 
-      item.itemStatus = nextItemStatus as any;
-      if (nextItemStatus === 'SERVED') {
+      item.itemStatus = targetItemStatus as any;
+      if (targetItemStatus === 'SERVED') {
         item.servedAt = new Date();
       }
       order.markModified('items');
