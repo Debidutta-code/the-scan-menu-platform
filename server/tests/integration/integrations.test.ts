@@ -2,24 +2,23 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from '../src/index';
-import { Restaurant } from '../src/models/Restaurant';
-import { RestaurantSettings } from '../src/models/RestaurantSettings';
-import { Category } from '../src/models/Category';
-import { MenuItem } from '../src/models/MenuItem';
-import { Table } from '../src/models/Table';
-import { User } from '../src/models/User';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { FeatureFlag } from '../src/models/FeatureFlag';
-import { IntegrationSyncLog } from '../src/models/IntegrationSyncLog';
-import { IntegrationFactory } from '../src/integrations/core/IntegrationFactory';
-import { NoOpIntegration } from '../src/integrations/adapters/NoOpIntegration';
-import { PetpoojaIntegration } from '../src/integrations/adapters/PetpoojaIntegration';
-import { posIntegrationService } from '../src/services/posIntegration.service';
-import jwt from 'jsonwebtoken';
+import { app, httpServer } from '../../src/index';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { Category } from '../../src/models/Category';
+import { MenuItem } from '../../src/models/MenuItem';
+import { Table } from '../../src/models/Table';
+import { User } from '../../src/models/User';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { FeatureFlag } from '../../src/models/FeatureFlag';
+import { IntegrationSyncLog } from '../../src/models/IntegrationSyncLog';
+import { IntegrationFactory } from '../../src/integrations/core/IntegrationFactory';
+import { NoOpIntegration } from '../../src/integrations/adapters/NoOpIntegration';
+import { PetpoojaIntegration } from '../../src/integrations/adapters/PetpoojaIntegration';
+import { posIntegrationService } from '../../src/services/posIntegration.service';
+import { tokenService } from '../../src/services/token.service';
 
 let mongoServer: MongoMemoryServer;
-const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
 
 beforeAll(async () => {
   process.env.TESTING_FEATURE_FLAGS = 'true';
@@ -241,11 +240,11 @@ describe('Phase 9 POS Adapter Framework & Integration Tests', () => {
         status: 'SUCCESS',
       });
 
-      const accessToken = jwt.sign(
-        { id: manager._id.toString(), email: manager.email, role: 'MANAGER' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const accessToken = tokenService.generateAccessToken({
+        id: manager._id.toString(),
+        email: manager.email,
+        role: 'MANAGER',
+      });
 
       const res = await request(app)
         .get(`/api/v1/restaurants/${restaurant._id}/integrations/sync-logs`)
@@ -285,11 +284,11 @@ describe('Phase 9 POS Adapter Framework & Integration Tests', () => {
         isActive: true,
       });
 
-      const accessToken = jwt.sign(
-        { id: staffUser._id.toString(), email: staffUser.email, role: 'STAFF' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const accessToken = tokenService.generateAccessToken({
+        id: staffUser._id.toString(),
+        email: staffUser.email,
+        role: 'STAFF',
+      });
 
       const res = await request(app)
         .get(`/api/v1/restaurants/${restaurant._id}/integrations/sync-logs`)

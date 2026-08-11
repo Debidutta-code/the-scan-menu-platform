@@ -15,6 +15,7 @@ import { User } from '../../src/models/User';
 import { RestaurantStaff } from '../../src/models/RestaurantStaff';
 import { featureFlagService } from '../../src/services/featureFlag.service';
 import { analyticsService } from '../../src/services/analytics.service';
+import { tokenService } from '../../src/services/token.service';
 
 describe('Phase 13 Analytics & Reporting Test Suite', () => {
   let restAId: string;
@@ -26,13 +27,12 @@ describe('Phase 13 Analytics & Reporting Test Suite', () => {
   let item2Id: string;
   let item3Id: string;
 
-  const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
   const generateAccessToken = (user: any) => {
-    return jwt.sign(
-      { id: user._id.toString(), email: user.email, role: user.role },
-      TEST_JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    return tokenService.generateAccessToken({
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+    });
   };
 
   beforeAll(async () => {

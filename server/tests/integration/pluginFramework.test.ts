@@ -15,8 +15,7 @@ import { WebhookSubscription } from '../../src/models/WebhookSubscription';
 import { featureFlagService } from '../../src/services/featureFlag.service';
 import { apiKeyService } from '../../src/services/apiKey.service';
 import { webhookDispatcherService } from '../../src/services/webhookDispatcher.service';
-
-const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
+import { tokenService } from '../../src/services/token.service';
 
 describe('Phase 15 Plugin Framework (Public API & Webhooks) Test Suite', () => {
   let restAId: string;
@@ -24,11 +23,11 @@ describe('Phase 15 Plugin Framework (Public API & Webhooks) Test Suite', () => {
   let staffAToken: string;
 
   const generateAccessToken = (user: any) => {
-    return jwt.sign(
-      { id: user._id.toString(), email: user.email, role: user.role },
-      TEST_JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    return tokenService.generateAccessToken({
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+    });
   };
 
   beforeAll(async () => {

@@ -122,17 +122,18 @@ export class OrderController {
       const { restaurantId } = req.params;
       const { items, customerNote, customerName, customerPhone, orderMode, tableId, diningSessionId, paymentStatus, source } = req.body;
 
+      const effectiveOrderMode = orderMode || 'COUNTER';
       const order = await orderService.createOrder({
         restaurantId,
         tableId,
         diningSessionId,
-        orderMode: orderMode || 'COUNTER',
+        orderMode: effectiveOrderMode,
         items,
         customerNote,
         customerName,
         customerPhone,
         source: source || 'POS',
-        paymentStatus: paymentStatus || (orderMode === 'COUNTER' ? 'PAID' : 'PENDING'),
+        paymentStatus: paymentStatus || (effectiveOrderMode === 'COUNTER' ? 'PAID' : 'PENDING'),
       });
 
       sendSuccess(res, order, 'Counter order created successfully', 201);

@@ -10,7 +10,7 @@ import { User } from '../../src/models/User';
 import { Transaction } from '../../src/models/Transaction';
 import { FeatureFlag } from '../../src/models/FeatureFlag';
 import { RestaurantStaff } from '../../src/models/RestaurantStaff';
-// TokenService import removed — tokens are now signed directly with the test secret
+import { tokenService } from '../../src/services/token.service';
 import { CashAdapter } from '../../src/integrations/payments/adapters/CashAdapter';
 import { PaymentProviderFactory } from '../../src/integrations/payments/PaymentProviderFactory';
 
@@ -69,20 +69,16 @@ beforeAll(async () => {
     isActive: true,
   });
 
-  // Use the test fallback secret directly — auth.ts creates its tokenService at module load time
-  // (before dotenv.config() runs), so it always uses 'test_access_secret_key_123_abc_456_def'.
-  // Signing with the same secret here ensures JWT verification succeeds.
-  const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
-  adminAccessToken = jwt.sign(
-    { id: (admin._id as any).toString(), email: admin.email, role: admin.role },
-    TEST_JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-  staffAccessToken = jwt.sign(
-    { id: (staff._id as any).toString(), email: staff.email, role: staff.role },
-    TEST_JWT_SECRET,
-    { expiresIn: '1h' }
-  );
+  adminAccessToken = tokenService.generateAccessToken({
+    id: (admin._id as any).toString(),
+    email: admin.email,
+    role: admin.role,
+  });
+  staffAccessToken = tokenService.generateAccessToken({
+    id: (staff._id as any).toString(),
+    email: staff.email,
+    role: staff.role,
+  });
 
   // Enable payment feature flag
   await FeatureFlag.create({

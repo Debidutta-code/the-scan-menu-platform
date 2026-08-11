@@ -70,6 +70,14 @@ export class OrderService {
       throw new CustomError('BAD_REQUEST', 'Order items are required and must be a non-empty array', 400);
     }
 
+    if (orderMode === 'TAKEAWAY' && (!customerName || !customerPhone)) {
+      throw new CustomError('MISSING_CUSTOMER_INFO', 'Customer name is required for takeaway orders', 400);
+    }
+
+    if (orderMode === 'DELIVERY' && (!deliveryAddress || Object.keys(deliveryAddress).length === 0)) {
+      throw new CustomError('MISSING_DELIVERY_ADDRESS', 'Delivery address is required for delivery orders', 400);
+    }
+
     // 1. Validate Menu Items & Categories
     const categories = await Category.find({ restaurantId: new Types.ObjectId(restaurantId) });
     const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));

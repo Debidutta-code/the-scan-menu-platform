@@ -14,6 +14,7 @@ import { Order } from '../../src/models/Order';
 import { FeatureFlag } from '../../src/models/FeatureFlag';
 import { RestaurantStaff } from '../../src/models/RestaurantStaff';
 import { migratePhase8 } from '../../src/utils/migratePhase8';
+import { tokenService } from '../../src/services/token.service';
 
 let mongoServer: MongoMemoryServer;
 let adminAccessToken: string;
@@ -101,17 +102,16 @@ beforeAll(async () => {
     isActive: true,
   });
 
-  const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
-  adminAccessToken = jwt.sign(
-    { id: (admin._id as any).toString(), email: admin.email, role: admin.role },
-    TEST_JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-  staffAccessToken = jwt.sign(
-    { id: (staff._id as any).toString(), email: staff.email, role: staff.role },
-    TEST_JWT_SECRET,
-    { expiresIn: '1h' }
-  );
+  adminAccessToken = tokenService.generateAccessToken({
+    id: (admin._id as any).toString(),
+    email: admin.email,
+    role: admin.role,
+  });
+  staffAccessToken = tokenService.generateAccessToken({
+    id: (staff._id as any).toString(),
+    email: staff.email,
+    role: staff.role,
+  });
 
   await FeatureFlag.create({
     restaurantId,

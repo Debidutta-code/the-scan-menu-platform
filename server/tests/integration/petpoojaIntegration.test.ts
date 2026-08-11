@@ -2,25 +2,24 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from '../src/index';
-import { Restaurant } from '../src/models/Restaurant';
-import { RestaurantSettings } from '../src/models/RestaurantSettings';
-import { Category } from '../src/models/Category';
-import { MenuItem } from '../src/models/MenuItem';
-import { Table } from '../src/models/Table';
-import { User } from '../src/models/User';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { FeatureFlag } from '../src/models/FeatureFlag';
-import { Order } from '../src/models/Order';
-import { IntegrationSyncLog } from '../src/models/IntegrationSyncLog';
-import { IntegrationFactory } from '../src/integrations/core/IntegrationFactory';
-import { PetpoojaIntegration } from '../src/integrations/adapters/PetpoojaIntegration';
-import { NoOpIntegration } from '../src/integrations/adapters/NoOpIntegration';
-import { encrypt, decrypt } from '../src/utils/encryption';
-import jwt from 'jsonwebtoken';
+import { app, httpServer } from '../../src/index';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { Category } from '../../src/models/Category';
+import { MenuItem } from '../../src/models/MenuItem';
+import { Table } from '../../src/models/Table';
+import { User } from '../../src/models/User';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { FeatureFlag } from '../../src/models/FeatureFlag';
+import { Order } from '../../src/models/Order';
+import { IntegrationSyncLog } from '../../src/models/IntegrationSyncLog';
+import { IntegrationFactory } from '../../src/integrations/core/IntegrationFactory';
+import { PetpoojaIntegration } from '../../src/integrations/adapters/PetpoojaIntegration';
+import { NoOpIntegration } from '../../src/integrations/adapters/NoOpIntegration';
+import { encrypt, decrypt } from '../../src/utils/encryption';
+import { tokenService } from '../../src/services/token.service';
 
 let mongoServer: MongoMemoryServer;
-const TEST_JWT_SECRET = 'test_access_secret_key_123_abc_456_def';
 
 beforeAll(async () => {
   process.env.TESTING_FEATURE_FLAGS = 'true';
@@ -199,11 +198,11 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
         },
       });
 
-      const accessToken = jwt.sign(
-        { id: manager._id.toString(), email: manager.email, role: 'MANAGER' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const accessToken = tokenService.generateAccessToken({
+        id: manager._id.toString(),
+        email: manager.email,
+        role: 'MANAGER',
+      });
 
       const res = await request(app)
         .patch(`/api/v1/restaurants/${restaurant._id}/integrations/petpooja/config`)
@@ -260,11 +259,11 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
         isActive: true,
       });
 
-      const accessToken = jwt.sign(
-        { id: staff._id.toString(), email: staff.email, role: 'STAFF' },
-        TEST_JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+      const accessToken = tokenService.generateAccessToken({
+        id: staff._id.toString(),
+        email: staff.email,
+        role: 'STAFF',
+      });
 
       const res = await request(app)
         .patch(`/api/v1/restaurants/${restaurant._id}/integrations/petpooja/config`)
@@ -346,8 +345,8 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
 
       const syncLogs = await IntegrationSyncLog.find({ restaurantId: restaurant._id });
       expect(syncLogs.length).toBeGreaterThanOrEqual(2);
-      expect(syncLogs.some((l) => l.orderId && l.orderId.toString() === dineInOrderId.toString())).toBe(true);
-      expect(syncLogs.some((l) => l.orderId && l.orderId.toString() === takeawayOrderId.toString())).toBe(true);
+      expect(syncLogs.some((l: any) => l.orderId && l.orderId.toString() === dineInOrderId.toString())).toBe(true);
+      expect(syncLogs.some((l: any) => l.orderId && l.orderId.toString() === takeawayOrderId.toString())).toBe(true);
     });
 
     it('processes inbound Petpooja webhook to update order status', async () => {
