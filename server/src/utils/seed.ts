@@ -15,7 +15,10 @@ import { Tax } from '../models/Tax';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { SubscriptionPlan } from '../models/SubscriptionPlan';
 import { Order, OrderCounter } from '../models/Order';
-import { TableSession } from '../models/TableSession';
+import { DiningSession } from '../models/DiningSession';
+import { GuestSession } from '../models/GuestSession';
+import { Bill } from '../models/Bill';
+import { Payment } from '../models/Payment';
 import { WaiterCall } from '../models/WaiterCall';
 import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
 import { ApiKey } from '../models/ApiKey';
@@ -856,30 +859,54 @@ export const seedDatabase = async () => {
     for (const ord of sampleOrdersData) {
       let existingOrder = await Order.findOne({ restaurantId: restaurant._id, orderNumber: ord.orderNumber });
       if (!existingOrder && ord.table && ord.item) {
+        const isClosed = ord.status === 'SERVED';
         const subtotal = ord.item.price * ord.qty;
         const taxAmount = Math.round(subtotal * 0.05);
         const total = subtotal + taxAmount;
 
-        const session = await TableSession.create({
+        const session = await DiningSession.create({
           restaurantId: restaurant._id,
           tableId: ord.table._id,
-          status: ord.status === 'SERVED' ? 'CLOSED' : 'OPEN',
+          sessionCode: `S-${1000 + ord.orderNumber}`,
+          joinPin: '1234',
+          status: isClosed ? 'SETTLED' : 'ACTIVE',
+          paymentMode: 'POSTPAID',
           roundCount: 1,
+          guestCount: 1,
           subtotal,
           tax: taxAmount,
+          taxBreakdown: [
+            { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
+            { name: 'SGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
+          ],
+          discount: 0,
+          serviceCharge: 0,
           total,
+          paidAmount: isClosed || ord.paymentStatus === 'PAID' ? total : 0,
+          balanceDue: isClosed || ord.paymentStatus === 'PAID' ? 0 : total,
           openedAt: new Date(Date.now() - 30 * 60 * 1000),
-          closedAt: ord.status === 'SERVED' ? new Date() : undefined,
+          closedAt: isClosed ? new Date() : undefined,
+        });
+
+        const guestSession = await GuestSession.create({
+          diningSessionId: session._id,
+          restaurantId: restaurant._id,
+          tableId: ord.table._id,
+          guestToken: `guestTokenSeedOrd${ord.orderNumber}`,
+          guestName: 'Demo Guest',
+          isHost: true,
+          lastSeenAt: new Date(),
         });
 
         existingOrder = await Order.create({
           restaurantId: restaurant._id,
           orderNumber: ord.orderNumber,
-          sessionId: session._id,
+          diningSessionId: session._id,
+          guestSessionId: guestSession._id,
           tableId: ord.table._id,
           tableNameSnapshot: ord.table.displayName,
           orderMode: ord.mode,
-          orderSource: ord.source,
+          source: ord.source,
           status: ord.status,
           paymentStatus: ord.paymentStatus,
           subtotal,
@@ -914,6 +941,44 @@ export const seedDatabase = async () => {
             syncedAt: new Date(),
           },
         });
+
+        if (isClosed || ord.paymentStatus === 'PAID') {
+          const bill = await Bill.create({
+            restaurantId: restaurant._id,
+            tableId: ord.table._id,
+            diningSessionId: session._id,
+            billNumber: `BILL-${ord.orderNumber}`,
+            version: 1,
+            subtotal,
+            taxAmount,
+            taxBreakdown: [
+              { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
+              { name: 'SGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
+            ],
+            discountAmount: 0,
+            serviceChargeAmount: 0,
+            netAmount: total,
+            paidAmount: total,
+            balanceDue: 0,
+            status: 'SETTLED',
+            generatedBy: manager._id,
+            settledAt: new Date(),
+          });
+
+          await Payment.create({
+            restaurantId: restaurant._id,
+            diningSessionId: session._id,
+            billId: bill._id,
+            orderId: existingOrder._id,
+            amount: total,
+            currency: 'INR',
+            provider: ord.paymentProvider || 'CASH',
+            method: ord.paymentProvider === 'RAZORPAY' ? 'CARD' : 'CASH',
+            status: 'CAPTURED',
+            providerReferenceId: `tx_ref_${ord.orderNumber}_${Date.now()}`,
+            capturedAt: new Date(),
+          });
+        }
         logger.info(`Sample order ORD-${ord.orderNumber} seeded.`);
       }
 

@@ -21,8 +21,6 @@ import {
   Utensils,
   ShoppingBag,
   CreditCard,
-  Maximize2,
-  Minimize2,
   Volume2,
   VolumeX,
   Layers,
@@ -30,9 +28,7 @@ import {
   RotateCcw,
   Search,
   CheckCheck,
-  TrendingUp,
-  Moon,
-  Sun
+  TrendingUp
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -119,8 +115,6 @@ export const ManagerKDS: React.FC = () => {
   const [selectedOrderMode, setSelectedOrderMode] = useState<string>('ALL');
   const [now, setNow] = useState<Date>(new Date());
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [highContrastDark, setHighContrastDark] = useState<boolean>(false);
   const [recallSearch, setRecallSearch] = useState<string>('');
 
   const kdsContainerRef = useRef<HTMLDivElement>(null);
@@ -137,24 +131,6 @@ export const ManagerKDS: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fullscreen Handler
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-        setIsFullscreen(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
 
   // 1. Fetch Categories for Station filter
   const { data: categoriesResponse } = useQuery({
@@ -453,16 +429,10 @@ export const ManagerKDS: React.FC = () => {
   return (
     <div
       ref={kdsContainerRef}
-      className={`w-full space-y-5 font-sans select-none pb-12 transition-colors duration-200 ${
-        highContrastDark ? 'bg-slate-950 text-white min-h-screen p-4 rounded-3xl' : ''
-      }`}
+      className="w-full space-y-5 font-sans select-none pb-12 transition-colors duration-200"
     >
       {/* ── Top Kitchen Navigation & Controls ── */}
-      <div
-        className={`flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 md:px-6 rounded-2xl border shadow-sm ${
-          highContrastDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/80'
-        }`}
-      >
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 md:px-6 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         {/* Title and View Tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
@@ -478,65 +448,67 @@ export const ManagerKDS: React.FC = () => {
             </div>
           </div>
 
-          {/* Screen Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-bold ml-0 sm:ml-4">
-            <button
-              onClick={() => setActiveTab('STATION')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                activeTab === 'STATION'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" strokeWidth={2} />
-              <span>Station View</span>
-              {tickets.length > 0 && (
-                <span className="bg-slate-900 text-white font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                  {tickets.length}
-                </span>
-              )}
-            </button>
+          {/* Screen Tabs & Kiosk Mode */}
+          <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-4">
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-bold">
+              <button
+                onClick={() => setActiveTab('STATION')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
+                  activeTab === 'STATION'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" strokeWidth={2} />
+                <span>Station View</span>
+                {tickets.length > 0 && (
+                  <span className="bg-slate-900 text-white font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                    {tickets.length}
+                  </span>
+                )}
+              </button>
 
-            <button
-              onClick={() => setActiveTab('ALL_DAY')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                activeTab === 'ALL_DAY'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
-              <span>All-Day Prep Tally</span>
-              {allDayAggregatedItems.length > 0 && (
-                <span className="bg-amber-100 text-amber-900 font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                  {allDayAggregatedItems.length}
-                </span>
-              )}
-            </button>
+              <button
+                onClick={() => setActiveTab('ALL_DAY')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
+                  activeTab === 'ALL_DAY'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
+                <span>All-Day Prep Tally</span>
+                {allDayAggregatedItems.length > 0 && (
+                  <span className="bg-amber-100 text-amber-900 font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                    {allDayAggregatedItems.length}
+                  </span>
+                )}
+              </button>
 
-            <button
-              onClick={() => setActiveTab('RECALL')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                activeTab === 'RECALL'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-indigo-500" strokeWidth={2} />
-              <span>Recall Bumped</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('RECALL')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
+                  activeTab === 'RECALL'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-indigo-500" strokeWidth={2} />
+                <span>Recall Bumped</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('ANALYTICS')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                activeTab === 'ANALYTICS'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" strokeWidth={2} />
-              <span>Kitchen Health</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('ANALYTICS')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
+                  activeTab === 'ANALYTICS'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" strokeWidth={2} />
+                <span>Kitchen Health</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -572,25 +544,6 @@ export const ManagerKDS: React.FC = () => {
             title={audioEnabled ? 'Kitchen audio alert enabled' : 'Muted'}
           >
             {audioEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-          </button>
-
-          {/* Dark OLED Mode Toggle */}
-          <button
-            onClick={() => setHighContrastDark(!highContrastDark)}
-            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-sm"
-            title="Toggle High-Contrast Kitchen Theme"
-          >
-            {highContrastDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-          </button>
-
-          {/* Fullscreen Kiosk Mode */}
-          <button
-            onClick={toggleFullscreen}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition active:scale-95"
-            title="Toggle Kitchen Fullscreen Kiosk"
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isFullscreen ? 'Exit Kiosk' : 'Kiosk Mode'}</span>
           </button>
 
           {/* Socket Indicator */}
@@ -665,8 +618,6 @@ export const ManagerKDS: React.FC = () => {
                     className={`rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden border ${
                       allServed
                         ? 'border-emerald-300 bg-emerald-50/30 opacity-75'
-                        : highContrastDark
-                        ? 'bg-slate-900 border-slate-800'
                         : 'bg-white border-slate-200/90'
                     }`}
                   >

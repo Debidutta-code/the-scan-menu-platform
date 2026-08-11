@@ -10,7 +10,12 @@ import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
 import { Table } from '../models/Table';
 import { TableZone } from '../models/TableZone';
-import { TableSession } from '../models/TableSession';
+import { DiningSession } from '../models/DiningSession';
+import { GuestSession } from '../models/GuestSession';
+import { CheckoutAttempt } from '../models/CheckoutAttempt';
+import { Bill } from '../models/Bill';
+import { Payment } from '../models/Payment';
+import { IdempotencyRecord } from '../models/IdempotencyRecord';
 import { Order, OrderCounter } from '../models/Order';
 import { WaiterCall } from '../models/WaiterCall';
 import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
@@ -41,9 +46,14 @@ const getCounts = async () => ({
   MenuItems: await MenuItem.countDocuments(),
   Tables: await Table.countDocuments(),
   TableZones: await TableZone.countDocuments(),
-  TableSessions: await TableSession.countDocuments(),
+  DiningSessions: await DiningSession.countDocuments(),
+  GuestSessions: await GuestSession.countDocuments(),
+  CheckoutAttempts: await CheckoutAttempt.countDocuments(),
+  Bills: await Bill.countDocuments(),
+  Payments: await Payment.countDocuments(),
   Orders: await Order.countDocuments(),
   OrderCounters: await OrderCounter.countDocuments(),
+  IdempotencyRecords: await IdempotencyRecord.countDocuments(),
   Transactions: await Transaction.countDocuments(),
   InventoryLogs: await InventoryLog.countDocuments(),
   AuditLogs: await AuditLog.countDocuments(),
@@ -85,9 +95,14 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         MenuItem.deleteMany({}),
         Table.deleteMany({}),
         TableZone.deleteMany({}),
-        TableSession.deleteMany({}),
+        DiningSession.deleteMany({}),
+        GuestSession.deleteMany({}),
+        CheckoutAttempt.deleteMany({}),
+        Bill.deleteMany({}),
+        Payment.deleteMany({}),
         Order.deleteMany({}),
         OrderCounter.deleteMany({}),
+        IdempotencyRecord.deleteMany({}),
         Transaction.deleteMany({}),
         InventoryLog.deleteMany({}),
         AuditLog.deleteMany({}),
@@ -101,13 +116,18 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         RefreshToken.deleteMany({}),
       ]);
     } else {
-      logger.info('Cleaning operational data (Orders, Sessions, Menus, Tables, Logs, Keys, Taxes)...');
-      
+      logger.info('Cleaning operational data (Orders, Sessions, Bills, Payments, Menus, Tables, Logs, Keys, Taxes)...');
+
       // Delete operational & transactional data
       await Promise.all([
         Order.deleteMany({}),
         OrderCounter.deleteMany({}),
-        TableSession.deleteMany({}),
+        DiningSession.deleteMany({}),
+        GuestSession.deleteMany({}),
+        CheckoutAttempt.deleteMany({}),
+        Bill.deleteMany({}),
+        Payment.deleteMany({}),
+        IdempotencyRecord.deleteMany({}),
         Transaction.deleteMany({}),
         InventoryLog.deleteMany({}),
         AuditLog.deleteMany({}),
@@ -131,13 +151,13 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
           $set: {
             menuItemsCount: 0,
             tablesCount: 0,
-            ordersCount: 0,
-            activeOrders: 0,
-            completedOrders: 0,
-            cancelledOrders: 0,
-            revenue: 0,
+            totalOrdersCount: 0,
+            activeOrdersCount: 0,
+            completedOrdersCount: 0,
+            cancelledOrdersCount: 0,
+            totalRevenue: 0,
             todayRevenue: 0,
-            todayOrders: 0,
+            todayOrdersCount: 0,
           },
         }
       );
