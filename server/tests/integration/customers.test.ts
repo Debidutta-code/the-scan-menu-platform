@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
-import mongoose, { Types } from 'mongoose';
+import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { app, httpServer } from '../../src/index';
 import { Restaurant } from '../../src/models/Restaurant';
@@ -95,7 +95,7 @@ describe('Customer Auth, Order Auto-Upsert & Directory Tests', () => {
       paymentConfig: { taxRatePercent: 0, paymentMethods: { cash: true }, integrationConfig: { provider: 'NONE', config: {} } },
     });
 
-    const table = await Table.create({
+    await Table.create({
       restaurantId: restaurant._id,
       tableNumber: '5',
       displayName: 'Table 5',

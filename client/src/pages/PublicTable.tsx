@@ -601,8 +601,8 @@ export const PublicTable: React.FC = () => {
 
   useEffect(() => {
     if (customer) {
-      if (customer.name && !customerName) setCustomerName(customer.name);
-      if (customer.phone && !phoneNumber) setPhoneNumber(customer.phone);
+      if (customer.name) setCustomerName((prev) => prev || customer.name);
+      if (customer.phone) setPhoneNumber((prev) => prev || customer.phone);
     }
   }, [customer]);
 

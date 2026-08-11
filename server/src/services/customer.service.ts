@@ -1,4 +1,4 @@
-import mongoose, { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { Customer, ICustomer } from '../models/Customer';
 import { Order } from '../models/Order';
 import { CustomError } from '../utils/response';
@@ -27,14 +27,11 @@ export class CustomerService {
     });
 
     if (customer) {
-      let isModified = false;
       if (name && name.trim() && name.trim() !== customer.name) {
         customer.name = name.trim();
-        isModified = true;
       }
       if (email && email.trim() && email.trim() !== customer.email) {
         customer.email = email.trim();
-        isModified = true;
       }
       customer.lastSeenAt = new Date();
       await customer.save();
