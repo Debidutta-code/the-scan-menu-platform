@@ -76,7 +76,7 @@ export class PublicController {
           displayName: resolution.table.displayName,
           tableNumber: resolution.table.tableNumber,
           token: resolution.table.token,
-          activeSessionId: resolution.session ? resolution.session._id : null,
+          activeSessionId: resolution.session ? resolution.session._id : (resolution.activeSessionSummary?.sessionId || null),
         },
         session: resolution.session,
         guestSession: resolution.guestSession,

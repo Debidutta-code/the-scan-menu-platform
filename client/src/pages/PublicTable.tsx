@@ -815,7 +815,9 @@ export const PublicTable: React.FC = () => {
     retry: false,
   });
 
-  const activeSessionId = tableData?.success ? tableData.data?.table?.activeSessionId : null;
+  const activeSessionId = tableData?.success
+    ? (tableData.data?.table?.activeSessionId || tableData.data?.session?._id || tableData.data?.activeSessionSummary?.sessionId || null)
+    : null;
 
   const clearSessionMutation = useMutation({
     mutationFn: async () => {
@@ -1166,6 +1168,7 @@ export const PublicTable: React.FC = () => {
 
           clearCart();
           queryClient.invalidateQueries({ queryKey: ['publicTable'] });
+          queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
           setIsOtpModalOpen(false);
           setCustomerNote('');
           setPhoneNumber('');

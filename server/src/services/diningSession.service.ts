@@ -151,7 +151,7 @@ export class DiningSessionService {
     return {
       restaurant,
       table,
-      session: null,
+      session: activeSession,
       guestSession: null,
       isParticipant: false,
       hasOngoingMeal: true,
