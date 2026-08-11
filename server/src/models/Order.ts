@@ -1,10 +1,9 @@
 import mongoose, { Schema, model, Document, Types } from 'mongoose';
 import { getOrderStatusRollup } from '../utils/orderStateMachine';
-import { TableSession } from './TableSession';
 import { RestaurantSettings } from './RestaurantSettings';
 
 // ==========================================
-// ORDER COUNTER MODEL (for atomic order numbering)
+// ORDER COUNTER MODEL (for atomic sequence numbers)
 // ==========================================
 
 export interface IOrderCounter extends Document {
@@ -20,15 +19,18 @@ const orderCounterSchema = new Schema<IOrderCounter>(
   { collection: 'order_counters' }
 );
 
-export const OrderCounter = model<IOrderCounter>('OrderCounter', orderCounterSchema);
+export const OrderCounter =
+  (mongoose.models.OrderCounter as mongoose.Model<IOrderCounter>) ||
+  model<IOrderCounter>('OrderCounter', orderCounterSchema);
 
 // ==========================================
 // ORDER MODEL
 // ==========================================
 
 export type OrderStatus = 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
-export type OrderSource = 'QR' | 'POS' | 'API' | 'MANUAL';
+export type OrderSource = 'QR' | 'POS' | 'WAITER' | 'MANUAL' | 'API';
 export type OrderMode = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | 'COUNTER';
+export type PosSyncStatus = 'NOT_APPLICABLE' | 'PENDING' | 'SYNCED' | 'FAILED';
 
 export interface IDeliveryAddress {
   street?: string;
@@ -47,11 +49,14 @@ export interface IOrderAddOn {
 export interface IOrderItem {
   menuItemId: Types.ObjectId;
   nameSnapshot: string;
-  unitPriceSnapshot: number; // in cents/paise (base item price + add-on deltas at unit level)
+  unitPriceSnapshot: number; // in cents/paise (base item price)
   quantity: number;
   selectedAddOns: IOrderAddOn[];
   specialInstructions?: string;
   prepTimeMinutesSnapshot?: number;
+  itemSubtotal: number; // (unitPrice + addOns) * quantity in paise/cents
+  itemTax: number; // in paise/cents
+  itemTotal: number; // in paise/cents
   itemStatus: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED';
   servedAt?: Date;
 }
@@ -59,7 +64,7 @@ export interface IOrderItem {
 export interface IOrderTaxBreakdown {
   name: string;
   percentage: number;
-  amount: number; // calculated in cents/paise
+  amount: number; // in cents/paise
   subTaxes?: {
     name: string;
     percentage: number;
@@ -70,12 +75,14 @@ export interface IOrderTaxBreakdown {
 export interface IOrder extends Document {
   restaurantId: Types.ObjectId;
   tableId?: Types.ObjectId;
-  sessionId?: Types.ObjectId;
+  diningSessionId?: Types.ObjectId;
+  sessionId?: Types.ObjectId; // Alias for backward compatibility
+  guestSessionId?: Types.ObjectId;
   orderMode: OrderMode;
   deliveryAddress?: IDeliveryAddress;
   roundNumber?: number;
   isMerged: boolean;
-  orderNumber: number; // sequential per restaurant
+  orderNumber: number; // Monotonically increasing per restaurant
   items: IOrderItem[];
   subtotal: number; // in cents/paise
   tax: number; // in cents/paise
@@ -86,7 +93,10 @@ export interface IOrder extends Document {
   source: OrderSource;
   customerName?: string;
   customerPhone?: string;
-  paymentStatus: 'PENDING' | 'PAID';
+  paymentStatus: 'PENDING' | 'PAID' | 'WAIVED';
+  posSyncStatus: PosSyncStatus;
+  posSyncRetries: number;
+  posSyncLastError?: string;
   integrationMetadata: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -109,6 +119,9 @@ const orderItemSchema = new Schema<IOrderItem>(
     selectedAddOns: [orderAddOnSchema],
     specialInstructions: { type: String, trim: true },
     prepTimeMinutesSnapshot: { type: Number },
+    itemSubtotal: { type: Number, required: true, default: 0 },
+    itemTax: { type: Number, required: true, default: 0 },
+    itemTotal: { type: Number, required: true, default: 0 },
     itemStatus: {
       type: String,
       required: true,
@@ -122,9 +135,11 @@ const orderItemSchema = new Schema<IOrderItem>(
 
 const orderSchema = new Schema<IOrder>(
   {
-    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
-    tableId: { type: Schema.Types.ObjectId, ref: 'Table', required: false },
-    sessionId: { type: Schema.Types.ObjectId, ref: 'TableSession', required: false },
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    tableId: { type: Schema.Types.ObjectId, ref: 'Table', required: false, index: true },
+    diningSessionId: { type: Schema.Types.ObjectId, ref: 'DiningSession', required: false, index: true },
+    sessionId: { type: Schema.Types.ObjectId, ref: 'DiningSession', required: false }, // Backwards compat
+    guestSessionId: { type: Schema.Types.ObjectId, ref: 'GuestSession', required: false },
     orderMode: {
       type: String,
       required: true,
@@ -139,7 +154,7 @@ const orderSchema = new Schema<IOrder>(
       fullAddress: { type: String, trim: true },
       notes: { type: String, trim: true },
     },
-    roundNumber: { type: Number, required: false },
+    roundNumber: { type: Number, required: false, default: 1 },
     isMerged: { type: Boolean, required: true, default: false },
     orderNumber: { type: Number, required: true },
     items: [orderItemSchema],
@@ -166,11 +181,12 @@ const orderSchema = new Schema<IOrder>(
       required: true,
       enum: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'],
       default: 'PENDING',
+      index: true,
     },
     source: {
       type: String,
       required: true,
-      enum: ['QR', 'POS', 'API', 'MANUAL'],
+      enum: ['QR', 'POS', 'WAITER', 'MANUAL', 'API'],
       default: 'QR',
     },
     customerName: { type: String, trim: true },
@@ -178,9 +194,17 @@ const orderSchema = new Schema<IOrder>(
     paymentStatus: {
       type: String,
       required: true,
-      enum: ['PENDING', 'PAID'],
+      enum: ['PENDING', 'PAID', 'WAIVED'],
       default: 'PENDING',
+      index: true,
     },
+    posSyncStatus: {
+      type: String,
+      enum: ['NOT_APPLICABLE', 'PENDING', 'SYNCED', 'FAILED'],
+      default: 'NOT_APPLICABLE',
+    },
+    posSyncRetries: { type: Number, required: true, default: 0 },
+    posSyncLastError: { type: String },
     integrationMetadata: {
       type: Schema.Types.Mixed,
       required: true,
@@ -193,37 +217,12 @@ const orderSchema = new Schema<IOrder>(
   }
 );
 
-// Pre-validate hook to auto-heal missing sessionId and roundNumber for legacy or unmigrated orders
-orderSchema.pre('validate', async function (this: any, next) {
-  try {
-    if (this.tableId && (!this.sessionId || !this.roundNumber) && this.restaurantId) {
-      let session = await TableSession.findOne({
-        restaurantId: this.restaurantId,
-        tableId: this.tableId,
-        status: 'OPEN',
-      });
-      if (!session) {
-        session = new TableSession({
-          restaurantId: this.restaurantId,
-          tableId: this.tableId,
-          status: 'OPEN',
-          roundCount: 1,
-          subtotal: this.subtotal || 0,
-          tax: this.tax || 0,
-          total: this.total || 0,
-          openedAt: this.createdAt || new Date(),
-        });
-        await session.save();
-      }
-      if (!this.sessionId) {
-        this.sessionId = session._id;
-      }
-      if (!this.roundNumber) {
-        this.roundNumber = session.roundCount || 1;
-      }
-    }
-  } catch (err) {
-    console.error('Error in order pre-validate hook for sessionId auto-heal:', err);
+// Sync sessionId with diningSessionId for backwards compatibility
+orderSchema.pre('validate', function (this: any, next) {
+  if (this.diningSessionId && !this.sessionId) {
+    this.sessionId = this.diningSessionId;
+  } else if (this.sessionId && !this.diningSessionId) {
+    this.diningSessionId = this.sessionId;
   }
   next();
 });
@@ -234,7 +233,7 @@ orderSchema.pre('save', async function (this: any, next) {
     const settings = await RestaurantSettings.findOne({ restaurantId: this.restaurantId });
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
-    // Advanced Logic: If aggregate status was manually moved, sync item-level statuses
+    // If aggregate status was manually moved, sync item-level statuses
     if (this.isModified('status')) {
       const targetStatus: string = this.status;
       if (targetStatus === 'SERVED') {
@@ -267,17 +266,11 @@ orderSchema.pre('save', async function (this: any, next) {
 });
 
 // Indexes
-// 1. Unique index: Ensure orderNumber is strictly sequential and unique per restaurant tenant
 orderSchema.index({ restaurantId: 1, orderNumber: 1 }, { unique: true });
-
-// 2. Query compound index on restaurantId + status (critical for active order list filters)
+orderSchema.index({ diningSessionId: 1, roundNumber: 1 });
 orderSchema.index({ restaurantId: 1, status: 1 });
-
-// 3. Query compound index on restaurantId + createdAt (critical for paginated histories and reports)
 orderSchema.index({ restaurantId: 1, createdAt: -1 });
-
-// 4. Query compound index on restaurantId + orderMode + createdAt
 orderSchema.index({ restaurantId: 1, orderMode: 1, createdAt: -1 });
 
-export const Order = (mongoose.models.Order as any) || model<IOrder>('Order', orderSchema);
+export const Order = (mongoose.models.Order as mongoose.Model<IOrder>) || model<IOrder>('Order', orderSchema);
 export default Order;

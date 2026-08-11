@@ -62,32 +62,39 @@ const publicGetLimiter = rateLimit({
 // NEW TENANT-AWARE SUBDOMAIN ROUTES (Host-Based)
 // ====================================================
 router.get('/table/:tableToken', publicGetLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.resolveTable);
+router.post('/table/:tableToken/join', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.joinSession);
 router.get('/menu', publicGetLimiter, tenantResolverMiddleware, publicController.getSessionlessMenu);
 router.get('/table/:tableToken/menu', publicGetLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.getMenu);
 router.get('/taxes', publicGetLimiter, tenantResolverMiddleware, publicController.getTaxes);
 
 router.post('/table/:tableToken/orders', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.createOrder);
+router.post('/table/:tableToken/checkout/prepaid', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.createPrepaidCheckout);
+router.post('/checkout/prepaid/confirm', orderCreationLimiter, publicController.confirmPrepaidPayment);
 router.post('/orders', orderCreationLimiter, tenantResolverMiddleware, publicController.createSessionlessOrder);
-router.post('/table/:tableToken/payments/intent', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.createPaymentIntent);
-router.post('/payments/intent', orderCreationLimiter, tenantResolverMiddleware, publicController.createPaymentIntent);
 router.post('/table/:tableToken/clear-session', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.clearTableSession);
 
 // ====================================================
 // LEGACY PATH-BASED ROUTES (Backward Compatibility)
 // ====================================================
 router.get('/restaurants/:restaurantSlug/tables/:tableToken', publicGetLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.resolveTable);
+router.post('/restaurants/:restaurantSlug/tables/:tableToken/join', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.joinSession);
 router.get('/restaurants/:restaurantSlug/tables/:tableToken/menu', publicGetLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.getMenu);
 router.get('/restaurants/:restaurantSlug/menu', publicGetLimiter, tenantResolverMiddleware, publicController.getSessionlessMenu);
 
 // Public taxes (Legacy)
 router.get('/restaurants/:restaurantId/taxes', publicGetLimiter, publicController.getTaxes);
 
-// Public Order Creation & Payment Intent (Legacy)
+// Public Order Creation & Prepaid Checkout (Legacy)
 router.post('/restaurants/:restaurantSlug/tables/:tableToken/orders', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.createOrder);
+router.post('/restaurants/:restaurantSlug/tables/:tableToken/checkout/prepaid', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.createPrepaidCheckout);
 router.post('/restaurants/:restaurantSlug/orders', orderCreationLimiter, tenantResolverMiddleware, publicController.createSessionlessOrder);
-router.post('/restaurants/:restaurantSlug/tables/:tableToken/payments/intent', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.createPaymentIntent);
-router.post('/restaurants/:restaurantSlug/payments/intent', orderCreationLimiter, tenantResolverMiddleware, publicController.createPaymentIntent);
 router.post('/restaurants/:restaurantSlug/tables/:tableToken/clear-session', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.clearTableSession);
+
+// Bill requests and reopening
+router.post('/table-sessions/:sessionId/bill/request', orderCreationLimiter, tenantResolverMiddleware, publicController.requestBill);
+router.post('/table-sessions/:sessionId/reopen', orderCreationLimiter, tenantResolverMiddleware, publicController.reopenSession);
+router.post('/restaurants/:restaurantSlug/table-sessions/:sessionId/bill/request', orderCreationLimiter, tenantResolverMiddleware, publicController.requestBill);
+router.post('/restaurants/:restaurantSlug/table-sessions/:sessionId/reopen', orderCreationLimiter, tenantResolverMiddleware, publicController.reopenSession);
 
 // Session & Order status lookups by ID
 router.get('/orders/:orderId', publicGetLimiter, publicController.getOrder);

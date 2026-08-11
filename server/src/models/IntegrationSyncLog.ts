@@ -1,7 +1,15 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
 export type IntegrationSyncOperation = 'SYNC_MENU' | 'PUSH_ORDER' | 'UPDATE_STATUS';
-export type IntegrationSyncStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'ORDER_SYNC_PENDING' | 'ORDER_SYNCED' | 'ORDER_SYNC_FAILED';
+export type IntegrationSyncStatus =
+  | 'PENDING'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'RETRYING'
+  | 'MANUAL_INTERVENTION'
+  | 'ORDER_SYNC_PENDING'
+  | 'ORDER_SYNCED'
+  | 'ORDER_SYNC_FAILED';
 
 export interface IIntegrationSyncLog extends Document {
   restaurantId: Types.ObjectId;
@@ -10,6 +18,10 @@ export interface IIntegrationSyncLog extends Document {
   operation: IntegrationSyncOperation;
   status: IntegrationSyncStatus;
   syncAttempts: number;
+  maxRetries: number;
+  lastAttemptAt?: Date;
+  nextRetryAt?: Date | null;
+  isLocked?: boolean;
   errorMessage?: string;
   errorLog?: string;
   payloadSnapshot?: Record<string, any>;
@@ -31,10 +43,23 @@ const integrationSyncLogSchema = new Schema<IIntegrationSyncLog>(
     status: {
       type: String,
       required: true,
-      enum: ['PENDING', 'SUCCESS', 'FAILED', 'ORDER_SYNC_PENDING', 'ORDER_SYNCED', 'ORDER_SYNC_FAILED'],
+      enum: [
+        'PENDING',
+        'SUCCESS',
+        'FAILED',
+        'RETRYING',
+        'MANUAL_INTERVENTION',
+        'ORDER_SYNC_PENDING',
+        'ORDER_SYNCED',
+        'ORDER_SYNC_FAILED',
+      ],
       default: 'PENDING',
     },
     syncAttempts: { type: Number, required: true, default: 1 },
+    maxRetries: { type: Number, required: true, default: 5 },
+    lastAttemptAt: { type: Date, default: Date.now },
+    nextRetryAt: { type: Date },
+    isLocked: { type: Boolean, default: false },
     errorMessage: { type: String, trim: true },
     errorLog: { type: String, trim: true },
     payloadSnapshot: { type: Schema.Types.Mixed },
@@ -49,6 +74,8 @@ const integrationSyncLogSchema = new Schema<IIntegrationSyncLog>(
 integrationSyncLogSchema.index({ restaurantId: 1, createdAt: -1 });
 integrationSyncLogSchema.index({ restaurantId: 1, status: 1 });
 integrationSyncLogSchema.index({ orderId: 1 });
+integrationSyncLogSchema.index({ status: 1, nextRetryAt: 1 });
 
-export const IntegrationSyncLog = model<IIntegrationSyncLog>('IntegrationSyncLog', integrationSyncLogSchema);
+export const IntegrationSyncLog =
+  (model<IIntegrationSyncLog>('IntegrationSyncLog', integrationSyncLogSchema) as any);
 export default IntegrationSyncLog;

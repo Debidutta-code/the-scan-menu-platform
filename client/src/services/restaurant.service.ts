@@ -357,11 +357,23 @@ export const managerService = {
 };
 
 export const publicService = {
-  async resolveTable(restaurantSlug: string | undefined, tableToken: string) {
+  async resolveTable(restaurantSlug: string | undefined, tableToken: string, guestToken?: string) {
     const url = restaurantSlug
       ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}`
       : `/public/table/${tableToken}`;
-    const res = await apiClient.get(url);
+    const headers: Record<string, string> = {};
+    if (guestToken) {
+      headers['x-guest-token'] = guestToken;
+    }
+    const res = await apiClient.get(url, { headers });
+    return res.data;
+  },
+
+  async joinSession(restaurantSlug: string | undefined, tableToken: string, data: { guestName?: string; joinPin?: string; forceNew?: boolean }) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/join`
+      : `/public/table/${tableToken}/join`;
+    const res = await apiClient.post(url, data);
     return res.data;
   },
 
@@ -370,6 +382,43 @@ export const publicService = {
       ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/menu`
       : `/public/table/${tableToken}/menu`;
     const res = await apiClient.get(url);
+    return res.data;
+  },
+
+  async createPrepaidCheckout(restaurantSlug: string | undefined, tableToken: string, data: any) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/checkout/prepaid`
+      : `/public/table/${tableToken}/checkout/prepaid`;
+    const res = await apiClient.post(url, data);
+    return res.data;
+  },
+
+  async confirmPrepaidPayment(checkoutAttemptId: string, gatewayPaymentId: string) {
+    const res = await apiClient.post('/public/checkout/prepaid/confirm', {
+      checkoutAttemptId,
+      gatewayPaymentId,
+    });
+    return res.data;
+  },
+
+  async requestBill(restaurantSlug: string | undefined, sessionId: string) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/table-sessions/${sessionId}/bill/request`
+      : `/public/table-sessions/${sessionId}/bill/request`;
+    const res = await apiClient.post(url);
+    return res.data;
+  },
+
+  async reopenSession(restaurantSlug: string | undefined, sessionId: string) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/table-sessions/${sessionId}/reopen`
+      : `/public/table-sessions/${sessionId}/reopen`;
+    const res = await apiClient.post(url);
+    return res.data;
+  },
+
+  async getTableSession(sessionId: string) {
+    const res = await apiClient.get(`/public/table-sessions/${sessionId}`);
     return res.data;
   },
 };

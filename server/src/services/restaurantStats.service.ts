@@ -10,26 +10,24 @@ export class RestaurantStatsService {
    * Retrieves or creates initial stats for a restaurant.
    */
   async getOrCreateStats(restaurantId: string | Types.ObjectId, session?: ClientSession): Promise<IRestaurantStats> {
-    let stats = await RestaurantStats.findOne({ restaurantId }).session(session || null);
-    if (!stats) {
-      const [newStats] = await RestaurantStats.create(
-        [{ restaurantId }],
-        { session }
-      );
-      stats = newStats;
-    }
-    return stats;
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const stats = await RestaurantStats.findOneAndUpdate(
+      { restaurantId: rId },
+      { $setOnInsert: { restaurantId: rId } },
+      { upsert: true, new: true, session }
+    );
+    return stats!;
   }
 
   /**
    * Increments or decrements menuItemsCount explicitly.
    */
   async incrementMenuItems(restaurantId: string | Types.ObjectId, delta = 1, session?: ClientSession) {
-    await this.getOrCreateStats(restaurantId, session);
+    const rId = new Types.ObjectId(restaurantId.toString());
     return await RestaurantStats.findOneAndUpdate(
-      { restaurantId },
+      { restaurantId: rId },
       { $inc: { menuItemsCount: delta } },
-      { new: true, session }
+      { upsert: true, new: true, session }
     );
   }
 
@@ -37,11 +35,11 @@ export class RestaurantStatsService {
    * Increments or decrements tablesCount explicitly.
    */
   async incrementTables(restaurantId: string | Types.ObjectId, delta = 1, session?: ClientSession) {
-    await this.getOrCreateStats(restaurantId, session);
+    const rId = new Types.ObjectId(restaurantId.toString());
     return await RestaurantStats.findOneAndUpdate(
-      { restaurantId },
+      { restaurantId: rId },
       { $inc: { tablesCount: delta } },
-      { new: true, session }
+      { upsert: true, new: true, session }
     );
   }
 
@@ -49,23 +47,23 @@ export class RestaurantStatsService {
    * Increments or decrements staffCount explicitly.
    */
   async incrementStaff(restaurantId: string | Types.ObjectId, delta = 1, session?: ClientSession) {
-    await this.getOrCreateStats(restaurantId, session);
+    const rId = new Types.ObjectId(restaurantId.toString());
     return await RestaurantStats.findOneAndUpdate(
-      { restaurantId },
+      { restaurantId: rId },
       { $inc: { staffCount: delta } },
-      { new: true, session }
+      { upsert: true, new: true, session }
     );
   }
 
   /**
-   * Records a new order created (increments ordersCount and activeOrders, todayOrders).
+   * Record when a new order is placed.
    */
   async recordOrderCreated(restaurantId: string | Types.ObjectId, session?: ClientSession) {
-    await this.getOrCreateStats(restaurantId, session);
+    const rId = new Types.ObjectId(restaurantId.toString());
     return await RestaurantStats.findOneAndUpdate(
-      { restaurantId },
-      { $inc: { ordersCount: 1, activeOrders: 1, todayOrders: 1 } },
-      { new: true, session }
+      { restaurantId: rId },
+      { $inc: { totalOrdersCount: 1, activeOrdersCount: 1 } },
+      { upsert: true, new: true, session }
     );
   }
 

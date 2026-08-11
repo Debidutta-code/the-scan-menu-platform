@@ -1,18 +1,14 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { Order, OrderStatus } from '../models/Order';
-import { getNextOrderNumber } from '../utils/orderCounter';
-import { TableSession } from '../models/TableSession';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { MenuItem } from '../models/MenuItem';
-import { Tax } from '../models/Tax';
-import { restaurantStatsService } from '../services/restaurantStats.service';
-import { validateStatusTransition } from '../utils/orderStateMachine';
-import { sendSuccess, sendError } from '../utils/response';
-import { NotificationService } from '../services/notification.service';
-import { posIntegrationService } from '../services/posIntegration.service';
-import { inventoryService } from '../services/inventory.service';
+import { DiningSession } from '../models/DiningSession';
+import { Bill } from '../models/Bill';
+import { orderService } from '../services/order.service';
+import { diningSessionService } from '../services/diningSession.service';
+import { billService } from '../services/bill.service';
 import { analyticsService } from '../services/analytics.service';
+import { posIntegrationService } from '../services/posIntegration.service';
+import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
 export class OrderController {
@@ -26,13 +22,15 @@ export class OrderController {
     this.getAnalytics = this.getAnalytics.bind(this);
     this.updateItemStatus = this.updateItemStatus.bind(this);
     this.getTableSession = this.getTableSession.bind(this);
+    this.settleTableSession = this.settleTableSession.bind(this);
     this.closeTableSession = this.closeTableSession.bind(this);
+    this.abandonTableSession = this.abandonTableSession.bind(this);
+    this.retryPosSync = this.retryPosSync.bind(this);
   }
 
   async getAnalytics(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-
       const start = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const end = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
@@ -104,23 +102,13 @@ export class OrderController {
     try {
       const { restaurantId } = req.params;
 
-      const settings = await RestaurantSettings.findOne({ restaurantId });
-      const isPrepaid = settings?.paymentConfig?.activeMode === 'PREPAID';
-      const hasDigitalPayment = settings?.paymentConfig?.activeProvider && settings.paymentConfig.activeProvider !== 'CASH';
-
-      // Active orders are defined as anything not SERVED and not CANCELLED
-      const query: any = {
+      const orders = await Order.find({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        status: { $nin: ['SERVED', 'CANCELLED'] },
-      };
-
-      if (isPrepaid || hasDigitalPayment) {
-        query.paymentStatus = { $ne: 'PENDING' };
-      }
-
-      const orders = await Order.find(query)
+        status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'] },
+      })
         .sort({ createdAt: 1 })
-        .populate('tableId', 'displayName tableNumber'); // Oldest first for kitchen prep queues
+        .populate('tableId', 'displayName tableNumber');
+
       sendSuccess(res, orders, 'Active orders retrieved successfully');
     } catch (error) {
       next(error);
@@ -130,158 +118,28 @@ export class OrderController {
   async createCounterOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { items, customerNote, customerName, customerPhone, paymentStatus } = req.body;
+      const { items, customerNote, customerName, customerPhone, orderMode, tableId, diningSessionId, paymentStatus, source } = req.body;
 
-      if (!items || !Array.isArray(items) || items.length === 0) {
-        sendError(res, 'BAD_REQUEST', 'Order items are required and must be a non-empty array', null, 400);
-        return;
-      }
-
-      const validatedItems = [];
-      for (const item of items) {
-        if (!item.itemId) {
-          sendError(res, 'BAD_REQUEST', 'Each order item must specify an itemId', null, 400);
-          return;
-        }
-
-        const menuItem = await MenuItem.findById(item.itemId);
-        if (!menuItem || menuItem.restaurantId.toString() !== restaurantId) {
-          sendError(res, 'BAD_REQUEST', `Item ${item.itemId} not found`, null, 400);
-          return;
-        }
-
-        if (!menuItem.isAvailable) {
-          sendError(res, 'ITEMS_UNAVAILABLE', `Item ${menuItem.name} is currently unavailable`, null, 400);
-          return;
-        }
-
-        let unitPriceSnapshot = menuItem.price;
-        const selectedAddOns = [];
-
-        if (item.selectedAddOns && Array.isArray(item.selectedAddOns)) {
-          for (const selected of item.selectedAddOns) {
-            const match = menuItem.addOns?.find((addon: any) => addon.name === selected.name);
-            if (match) {
-              unitPriceSnapshot += match.priceDelta;
-              selectedAddOns.push({
-                name: match.name,
-                priceDelta: match.priceDelta,
-              });
-            }
-          }
-        }
-
-        validatedItems.push({
-          menuItemId: menuItem._id,
-          nameSnapshot: menuItem.name,
-          unitPriceSnapshot,
-          quantity: item.quantity || 1,
-          selectedAddOns,
-          specialInstructions: item.specialInstructions || '',
-          prepTimeMinutesSnapshot: menuItem.prepTimeMinutes,
-          itemStatus: 'PENDING',
-        });
-      }
-
-      const stockResult = await inventoryService.validateAndDecrementStock(
+      const order = await orderService.createOrder({
         restaurantId,
-        validatedItems.map((vi) => ({
-          itemId: vi.menuItemId.toString(),
-          quantity: vi.quantity,
-          name: vi.nameSnapshot,
-        }))
-      );
-
-      if (!stockResult.success) {
-        sendError(
-          res,
-          'ITEMS_UNAVAILABLE',
-          'Some items in your order are currently unavailable.',
-          stockResult.failedItems || [],
-          400
-        );
-        return;
-      }
-
-      const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
-      const activeTaxes: any[] = await Tax.find({ restaurantId, isActive: true });
-
-      let tax = 0;
-      const taxBreakdown: any[] = [];
-      const groups = activeTaxes.filter((t) => t.type === 'GROUP');
-      const standardTaxes = activeTaxes.filter((t) => t.type === 'TAX');
-
-      for (const group of groups) {
-        const subTaxes = standardTaxes.filter((t) => t.groupId?.toString() === group._id.toString());
-        if (subTaxes.length === 0) continue;
-
-        let groupAmount = 0;
-        let groupPercentage = 0;
-        const subTaxesBreakdown = subTaxes.map((st) => {
-          const amt = Math.round(subtotal * (st.percentage / 100));
-          groupAmount += amt;
-          groupPercentage += st.percentage;
-          return { name: st.name, percentage: st.percentage, amount: amt };
-        });
-
-        tax += groupAmount;
-        taxBreakdown.push({
-          name: group.name,
-          percentage: groupPercentage,
-          amount: groupAmount,
-          subTaxes: subTaxesBreakdown,
-        });
-      }
-
-      const standaloneTaxes = standardTaxes.filter((t) => !t.groupId);
-      for (const st of standaloneTaxes) {
-        const amount = Math.round(subtotal * (st.percentage / 100));
-        tax += amount;
-        taxBreakdown.push({
-          name: st.name,
-          percentage: st.percentage,
-          amount,
-          subTaxes: [],
-        });
-      }
-
-      const total = subtotal + tax;
-
-      const orderNumber = await getNextOrderNumber(restaurantId);
-
-      const order = new Order({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        orderMode: 'COUNTER',
-        isMerged: false,
-        orderNumber,
-        items: validatedItems,
-        subtotal,
-        tax,
-        taxBreakdown,
-        total,
-        customerNote: customerNote || '',
-        status: 'PENDING',
-        source: 'POS',
-        customerName: customerName ? customerName.trim() : 'Walk-in Customer',
-        customerPhone: customerPhone ? customerPhone.trim() : undefined,
-        paymentStatus: paymentStatus || 'PAID',
-        integrationMetadata: {},
+        tableId,
+        diningSessionId,
+        orderMode: orderMode || 'COUNTER',
+        items,
+        customerNote,
+        customerName,
+        customerPhone,
+        source: source || 'POS',
+        paymentStatus: paymentStatus || (orderMode === 'COUNTER' ? 'PAID' : 'PENDING'),
       });
 
-      await order.save();
-      await restaurantStatsService.recordOrderCreated(restaurantId);
-
-      posIntegrationService.pushOrderAsync(restaurantId, order);
-
-      try {
-        NotificationService.getInstance().notifyOrderCreated(restaurantId, order);
-      } catch (err) {
-        console.error('Failed to notify counter order creation:', err);
-      }
-
       sendSuccess(res, order, 'Counter order created successfully', 201);
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
     }
   }
 
@@ -289,22 +147,17 @@ export class OrderController {
     try {
       const { restaurantId, orderId } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(orderId)) {
-        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
-        return;
-      }
-
       const order = await Order.findOne({
         _id: new mongoose.Types.ObjectId(orderId),
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      }).populate('tableId', 'displayName tableNumber');
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
         return;
       }
 
-      sendSuccess(res, order, 'Order retrieved successfully');
+      sendSuccess(res, order, 'Order details retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -314,17 +167,24 @@ export class OrderController {
     try {
       const { restaurantId, orderId } = req.params;
       const { status: nextStatus } = req.body;
-      const user = req.user!;
 
-      if (!nextStatus) {
-        sendError(res, 'BAD_REQUEST', 'Status body parameter is required', null, 400);
-        return;
-      }
+      const userRole = (req.user?.role as any) || 'STAFF';
+      const order = await orderService.updateOrderStatus(restaurantId, orderId, nextStatus as OrderStatus, userRole);
 
-      if (!mongoose.Types.ObjectId.isValid(orderId)) {
-        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
-        return;
+      sendSuccess(res, order, 'Order status updated successfully');
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
       }
+    }
+  }
+
+  async updateItemStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, orderId, itemIndex } = req.params;
+      const { itemStatus } = req.body;
 
       const order = await Order.findOne({
         _id: new mongoose.Types.ObjectId(orderId),
@@ -336,53 +196,19 @@ export class OrderController {
         return;
       }
 
-      // Fetch restaurant's orderWorkflowMode from settings
-      const settings = await RestaurantSettings.findOne({ restaurantId }).select('workflow');
-      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
-
-      // Check transition validity using central state machine logic
-      const validation = validateStatusTransition(
-        order.status,
-        nextStatus as OrderStatus,
-        user.role as 'SUPER_ADMIN' | 'MANAGER' | 'STAFF',
-        workflowMode
-      );
-
-      if (!validation.isValid) {
-        if (validation.errorCode === 'FORBIDDEN') {
-          sendError(res, 'FORBIDDEN', validation.errorMessage || 'Access denied.', null, 403);
-        } else {
-          sendError(res, 'INVALID_STATUS_TRANSITION', validation.errorMessage || 'Invalid transition.', null, 400);
-        }
+      const index = parseInt(itemIndex, 10);
+      if (isNaN(index) || index < 0 || index >= order.items.length) {
+        sendError(res, 'ITEM_NOT_FOUND', 'Specified item index is out of bounds', null, 404);
         return;
       }
 
-      const prevStatus = order.status;
-      order.status = nextStatus as OrderStatus;
+      order.items[index].itemStatus = itemStatus;
+      if (itemStatus === 'SERVED' && !order.items[index].servedAt) {
+        order.items[index].servedAt = new Date();
+      }
       await order.save();
 
-      posIntegrationService.updateOrderStatusAsync(restaurantId, orderId, nextStatus);
-
-      // Update statistics explicitly on terminal status transitions
-      if (nextStatus === 'SERVED' && prevStatus !== 'SERVED') {
-        await restaurantStatsService.recordOrderCompleted(restaurantId, order.total);
-      } else if (nextStatus === 'CANCELLED' && prevStatus !== 'CANCELLED') {
-        await restaurantStatsService.recordOrderCancelled(restaurantId);
-      }
-
-      // Emit order:status_updated via central NotificationService
-      try {
-        NotificationService.getInstance().notifyOrderStatusUpdated(
-          order.restaurantId.toString(),
-          order._id.toString(),
-          order.status,
-          order.updatedAt
-        );
-      } catch (err) {
-        console.error('Failed to notify order status update:', err);
-      }
-
-      sendSuccess(res, order, 'Order status updated successfully');
+      sendSuccess(res, order, 'Item status updated successfully');
     } catch (error) {
       next(error);
     }
@@ -391,167 +217,16 @@ export class OrderController {
   async cancelOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, orderId } = req.params;
-      const user = req.user!;
+      const { reason } = req.body;
 
-      // STAFF is blocked from cancel
-      if (user.role !== 'MANAGER' && user.role !== 'SUPER_ADMIN') {
-        sendError(res, 'FORBIDDEN', 'Only managers can cancel orders', null, 403);
-        return;
-      }
-
-      if (!mongoose.Types.ObjectId.isValid(orderId)) {
-        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
-        return;
-      }
-
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
-
-      if (!order) {
-        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
-        return;
-      }
-
-      // Fetch restaurant's orderWorkflowMode from RestaurantSettings
-      const settings = await RestaurantSettings.findOne({ restaurantId });
-      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
-
-      // Run status transition validator to check if cancelling from current state is allowed
-      const validation = validateStatusTransition(order.status, 'CANCELLED', user.role, workflowMode);
-
-      if (!validation.isValid) {
-        sendError(res, 'INVALID_STATUS_TRANSITION', validation.errorMessage || 'Invalid transition.', null, 400);
-        return;
-      }
-
-      order.status = 'CANCELLED';
-      await order.save();
-
-      // Emit order:status_updated via central NotificationService
-      try {
-        NotificationService.getInstance().notifyOrderStatusUpdated(
-          order.restaurantId.toString(),
-          order._id.toString(),
-          order.status,
-          order.updatedAt
-        );
-      } catch (err) {
-        console.error('Failed to notify order status update on cancel:', err);
-      }
-
+      const order = await orderService.cancelOrder(restaurantId, orderId, req.user?.id, reason);
       sendSuccess(res, order, 'Order cancelled successfully');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async updateItemStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { restaurantId, orderId, itemIndex: itemIndexStr } = req.params;
-      const { itemStatus: nextItemStatus } = req.body;
-
-      const itemIndex = parseInt(itemIndexStr, 10);
-
-      if (isNaN(itemIndex) || !nextItemStatus) {
-        sendError(res, 'BAD_REQUEST', 'Item index and itemStatus are required', null, 400);
-        return;
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
       }
-
-      if (!['PENDING', 'PREPARING', 'READY', 'SERVED'].includes(nextItemStatus)) {
-        sendError(res, 'BAD_REQUEST', 'Invalid itemStatus value', null, 400);
-        return;
-      }
-
-      if (!mongoose.Types.ObjectId.isValid(orderId)) {
-        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
-        return;
-      }
-
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
-
-      if (!order) {
-        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
-        return;
-      }
-
-      if (itemIndex < 0 || itemIndex >= order.items.length) {
-        sendError(res, 'BAD_REQUEST', 'Invalid item index', null, 400);
-        return;
-      }
-
-      const item = order.items[itemIndex];
-      const currentItemStatus = item.itemStatus || 'PENDING';
-
-      // Validate simple forward-only transitions (PENDING -> PREPARING -> READY -> SERVED), no skipping backwards.
-      const statusSeverity: Record<string, number> = { PENDING: 0, PREPARING: 1, READY: 2, SERVED: 3 };
-      if (statusSeverity[nextItemStatus] < statusSeverity[currentItemStatus]) {
-        sendError(res, 'BAD_REQUEST', `Cannot change item status backwards from ${currentItemStatus} to ${nextItemStatus}`, null, 400);
-        return;
-      }
-
-      item.itemStatus = nextItemStatus as any;
-      if (nextItemStatus === 'SERVED') {
-        item.servedAt = new Date();
-      }
-
-      const previousAggregateStatus = order.status;
-
-      // This will trigger pre-save hook and save
-      await order.save();
-
-      // Emit item status updated via socket
-      try {
-        NotificationService.getInstance().notifyItemStatusUpdated(
-          order.restaurantId.toString(),
-          order._id.toString(),
-          itemIndex,
-          nextItemStatus,
-          order.updatedAt
-        );
-      } catch (err) {
-        console.error('Failed to notify item status update:', err);
-      }
-
-      // If aggregate status changed as a result of item update, emit order:status_updated and relay to POS
-      if (order.status !== previousAggregateStatus) {
-        try {
-          NotificationService.getInstance().notifyOrderStatusUpdated(
-            order.restaurantId.toString(),
-            order._id.toString(),
-            order.status,
-            order.updatedAt
-          );
-        } catch (err) {
-          console.error('Failed to notify order status update from item status update:', err);
-        }
-
-        posIntegrationService.updateOrderStatusAsync(restaurantId, orderId, order.status);
-      }
-
-      // Also notify session updated (as totals / rounds progress)
-      if (order.sessionId) {
-        try {
-          const session = await TableSession.findById(order.sessionId);
-          if (session) {
-            NotificationService.getInstance().notifySessionUpdated(
-              order.restaurantId.toString(),
-              session._id.toString(),
-              session
-            );
-          }
-        } catch (err) {
-          console.error('Failed to notify session update:', err);
-        }
-      }
-
-      sendSuccess(res, order, 'Item status updated successfully');
-    } catch (error) {
-      next(error);
     }
   }
 
@@ -559,26 +234,59 @@ export class OrderController {
     try {
       const { restaurantId, sessionId } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-        sendError(res, 'SESSION_NOT_FOUND', 'Session not found', null, 404);
-        return;
-      }
-
-      const session = await TableSession.findOne({
+      const session = await DiningSession.findOne({
         _id: new mongoose.Types.ObjectId(sessionId),
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      }).populate('tableId', 'displayName tableNumber');
 
       if (!session) {
-        sendError(res, 'SESSION_NOT_FOUND', 'Session not found', null, 404);
+        sendError(res, 'SESSION_NOT_FOUND', 'Dining session not found', null, 404);
         return;
       }
 
-      const orders = await Order.find({ sessionId: session._id }).sort({ roundNumber: 1 });
+      const orders = await Order.find({
+        diningSessionId: session._id,
+        status: { $ne: 'CANCELLED' },
+      }).sort({ roundNumber: 1, createdAt: 1 });
 
-      sendSuccess(res, { session, orders }, 'Session retrieved successfully');
+      const activeBill = await Bill.findOne({
+        diningSessionId: session._id,
+        status: { $in: ['PENDING', 'SETTLED'] },
+      }).sort({ version: -1 });
+
+      sendSuccess(res, { session, orders, bill: activeBill }, 'Table session retrieved successfully');
     } catch (error) {
       next(error);
+    }
+  }
+
+  async settleTableSession(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, sessionId } = req.params;
+      const { payments, manualDiscountAmount, discountReason } = req.body;
+
+      let bill: any = await Bill.findOne({ diningSessionId: new mongoose.Types.ObjectId(sessionId), status: 'PENDING' });
+      if (!bill) {
+        bill = await billService.requestOrGenerateBill(restaurantId, sessionId, req.user?.id, manualDiscountAmount, discountReason);
+      }
+
+      if (!bill) {
+        sendError(res, 'BILL_GENERATION_FAILED', 'Could not find or generate a bill for this session', null, 400);
+        return;
+      }
+
+      const paymentList = Array.isArray(payments) && payments.length > 0
+        ? payments
+        : [{ method: 'CASH', amount: bill.balanceDue }];
+
+      const result = await billService.settleBill(restaurantId, bill._id, paymentList, req.user?.id);
+      sendSuccess(res, result, 'Session settled successfully');
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
     }
   }
 
@@ -586,46 +294,58 @@ export class OrderController {
     try {
       const { restaurantId, sessionId } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-        sendError(res, 'SESSION_NOT_FOUND', 'Session not found', null, 404);
+      const session = await diningSessionService.closeSession(restaurantId, sessionId, req.user?.id);
+      sendSuccess(res, session, 'Dining session closed successfully');
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  async abandonTableSession(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, sessionId } = req.params;
+      const { reason } = req.body;
+
+      if (!reason || !reason.trim()) {
+        sendError(res, 'BAD_REQUEST', 'A reason is required when marking a session as abandoned', null, 400);
         return;
       }
 
-      const session = await TableSession.findOne({
-        _id: new mongoose.Types.ObjectId(sessionId),
+      const session = await diningSessionService.abandonSession(restaurantId, sessionId, reason, req.user?.id);
+      sendSuccess(res, session, 'Dining session marked as abandoned');
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  async retryPosSync(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, orderId } = req.params;
+
+      const order = await Order.findOne({
+        _id: new mongoose.Types.ObjectId(orderId),
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
       });
 
-      if (!session) {
-        sendError(res, 'SESSION_NOT_FOUND', 'Session not found', null, 404);
+      if (!order) {
+        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
         return;
       }
 
-      session.status = 'CLOSED';
-      session.closedAt = new Date();
-      await session.save();
-
-      // Settle payment status on all orders inside the session to PAID
-      await Order.updateMany(
-        { sessionId: session._id },
-        { $set: { paymentStatus: 'PAID' } }
-      );
-
-      // Notify session updated
-      try {
-        NotificationService.getInstance().notifySessionUpdated(
-          session.restaurantId.toString(),
-          session._id.toString(),
-          session
-        );
-      } catch (err) {
-        console.error('Failed to notify session update:', err);
-      }
-
-      sendSuccess(res, session, 'Table session closed and settled successfully');
+      posIntegrationService.pushOrderAsync(new mongoose.Types.ObjectId(restaurantId), order);
+      sendSuccess(res, { message: 'POS sync triggered' }, 'POS sync retry queued');
     } catch (error) {
       next(error);
     }
   }
 }
+
 export default OrderController;

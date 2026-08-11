@@ -17,6 +17,7 @@ router.get('/:restaurantId/orders/active', requireFeature('ordering') as any, re
 router.get('/:restaurantId/orders/:orderId', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getOrderDetails);
 router.patch('/:restaurantId/orders/:orderId/status', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.updateOrderStatus);
 router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.cancelOrder);
+router.post('/:restaurantId/orders/:orderId/retry-pos', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.retryPosSync);
 
 // Rapid Counter Order Entry (Staff & Manager)
 router.post('/:restaurantId/orders/counter', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.createCounterOrder);
@@ -26,6 +27,8 @@ router.patch('/:restaurantId/orders/:orderId/items/:itemIndex/status', requireFe
 
 // Table Session management
 router.get('/:restaurantId/table-sessions/:sessionId', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getTableSession);
-router.post('/:restaurantId/table-sessions/:sessionId/close', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.closeTableSession);
+router.post('/:restaurantId/table-sessions/:sessionId/settle', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.settleTableSession);
+router.post('/:restaurantId/table-sessions/:sessionId/close', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.closeTableSession);
+router.post('/:restaurantId/table-sessions/:sessionId/abandon', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.abandonTableSession);
 
 export default router;

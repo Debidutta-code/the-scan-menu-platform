@@ -29,6 +29,7 @@ import {
   VolumeX,
   Check,
   ChevronRight,
+  RefreshCw,
   History as HistoryIcon,
   Kanban as KanbanIcon
 } from 'lucide-react';
@@ -524,6 +525,20 @@ export const ManagerOrders: React.FC = () => {
     },
     onError: (err: any) => {
       toast(err.response?.data?.error?.message || 'Failed to cancel order', 'error');
+    },
+  });
+
+  const retryPosMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/retry-pos`);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast('POS synchronization retry queued!', 'success');
+      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Failed to trigger POS retry', 'error');
     },
   });
 
@@ -1030,6 +1045,27 @@ export const ManagerOrders: React.FC = () => {
                         </div>
                       );
                     })()}
+
+                    {/* POS Integration Status & Retry Action */}
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="font-bold text-slate-700">POS Integration</span>
+                        <span className="text-[10px] font-mono text-slate-400 font-semibold">• Petpooja Sync</span>
+                      </div>
+                      <button
+                        onClick={() => retryPosMutation.mutate(selectedOrder._id)}
+                        disabled={retryPosMutation.isPending}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-xl shadow-2xs transition active:scale-95"
+                      >
+                        {retryPosMutation.isPending ? (
+                          <Loader className="w-3.5 h-3.5 animate-spin text-slate-600" strokeWidth={2} />
+                        ) : (
+                          <RefreshCw className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                        )}
+                        <span>Sync POS</span>
+                      </button>
+                    </div>
 
                     {/* Ticket Items List */}
                     <div className="space-y-3">

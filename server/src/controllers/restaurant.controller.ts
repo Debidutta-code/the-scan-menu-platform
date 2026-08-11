@@ -8,6 +8,7 @@ import { Tax } from '../models/Tax';
 import { User } from '../models/User';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
+import { DiningSession } from '../models/DiningSession';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
@@ -299,7 +300,23 @@ export class RestaurantController {
       const { restaurantId } = req.params;
       const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: { $ne: true } }).sort({ tableNumber: 1 }).populate("zoneId");
 
-      sendSuccess(res, tables, 'Tables listed successfully');
+      const activeSessions = await DiningSession.find({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+      });
+
+      const sessionMap = new Map(activeSessions.map((s) => [s.tableId.toString(), s]));
+
+      const tablesWithSession = tables.map((t) => {
+        const tableObj = t.toObject();
+        const activeSession = sessionMap.get(t._id.toString());
+        return {
+          ...tableObj,
+          activeSession: activeSession || null,
+        };
+      });
+
+      sendSuccess(res, tablesWithSession, 'Tables listed successfully');
     } catch (error) {
       next(error);
     }

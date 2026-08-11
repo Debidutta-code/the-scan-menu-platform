@@ -32,6 +32,7 @@ import { SocketService } from './sockets/socket.service';
 import { logger } from './utils/logger';
 import { Order } from './models/Order';
 import { runMigration } from './utils/migrateSessions';
+import { posIntegrationService } from './services/posIntegration.service';
 
 const app = express();
 const httpServer = createServer(app);
@@ -180,6 +181,10 @@ export const startServer = async () => {
     }
 
     setupGracefulShutdown(httpServer);
+
+    // Start background POS retry worker (every 30 seconds)
+    posIntegrationService.startRetryWorker(30000);
+    logger.info('[POS] Automatic background retry worker started.');
 
     httpServer.listen(PORT, () => {
       logger.info(`Server is running in ${config.app.nodeEnv} mode on port ${PORT}`);
