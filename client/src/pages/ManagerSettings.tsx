@@ -220,7 +220,7 @@ export const ManagerSettings: React.FC = () => {
         setWhatsappNotifications(!!raw.notificationPreferences.whatsappNotifications);
       }
     }
-  }, [restaurantResponse]);
+  }, [restaurantResponse, activeRestaurantId]);
 
   // Patch mutation helper with custom section success message
   const updateSectionMutation = useMutation({
