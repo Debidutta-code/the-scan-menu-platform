@@ -1120,6 +1120,57 @@ export const PublicTable: React.FC = () => {
     setSelectedItem(null);
   };
 
+  // Helper to compute total quantity of an item in cart
+  const getItemCartQuantity = (itemId: string): number => {
+    return cartItems
+      .filter((ci) => ci.itemId === itemId)
+      .reduce((sum, ci) => sum + ci.quantity, 0);
+  };
+
+  // Helper to directly add/increment an item from the card
+  const handleQuickAdd = (item: MenuItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!item.isAvailable) return;
+
+    if (item.addOns && item.addOns.length > 0) {
+      handleItemCardClick(item);
+      return;
+    }
+
+    addItem({
+      itemId: item._id,
+      name: item.name,
+      basePrice: item.price,
+      quantity: 1,
+      selectedAddOns: [],
+      specialInstructions: '',
+    });
+    toast(`Added ${item.name} to cart`, 'success');
+  };
+
+  // Helper to increment an item already in cart
+  const handleQuickIncrement = (item: MenuItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
+    if (existingEntries.length === 0) {
+      handleQuickAdd(item, e);
+      return;
+    }
+
+    const target = existingEntries[existingEntries.length - 1];
+    updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', 1);
+  };
+
+  // Helper to decrement an item from the card
+  const handleQuickDecrement = (item: MenuItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
+    if (existingEntries.length === 0) return;
+
+    const target = existingEntries[existingEntries.length - 1];
+    updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', -1);
+  };
+
   // Request SMS/OTP confirmation modal
   const handleCheckoutTrigger = () => {
     if (cartItems.length === 0) return;
@@ -1942,11 +1993,50 @@ export const PublicTable: React.FC = () => {
                                   {formatPrice(item.price, currency)}
                                 </span>
                                 {item.isAvailable ? (
-                                  <span className="text-[10px] font-extrabold text-amber-600 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-xl transition-colors font-sans uppercase tracking-wider">
-                                    Add
-                                  </span>
+                                  (() => {
+                                    const cartQty = getItemCartQuantity(item._id);
+                                    if (cartQty > 0) {
+                                      return (
+                                        <div
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex items-center gap-1.5 bg-slate-950 text-white rounded-2xl px-2 py-1 shadow-sm border border-slate-900"
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleQuickDecrement(item, e)}
+                                            className="w-5 h-5 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-white transition active:scale-90"
+                                            title="Decrease quantity"
+                                          >
+                                            <Minus className="w-3 h-3" strokeWidth={2.5} />
+                                          </button>
+                                          <span className="w-4 text-center font-mono font-black text-xs text-amber-400">
+                                            {cartQty}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleQuickIncrement(item, e)}
+                                            className="w-5 h-5 rounded-lg bg-amber-500 hover:bg-amber-400 flex items-center justify-center text-slate-950 transition active:scale-90"
+                                            title="Increase quantity"
+                                          >
+                                            <Plus className="w-3 h-3" strokeWidth={2.5} />
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleQuickAdd(item, e)}
+                                        className="inline-flex items-center gap-1 text-[11px] font-black text-amber-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 px-3.5 py-1.5 rounded-2xl transition-all shadow-xs active:scale-95 uppercase tracking-wider"
+                                      >
+                                        <Plus className="w-3 h-3" strokeWidth={3} />
+                                        <span>Add</span>
+                                      </button>
+                                    );
+                                  })()
                                 ) : (
-                                  <span className="text-[10px] font-semibold text-slate-400">
+                                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
                                     Sold Out
                                   </span>
                                 )}
