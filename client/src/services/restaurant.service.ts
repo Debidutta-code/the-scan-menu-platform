@@ -427,4 +427,32 @@ export const publicService = {
     const res = await apiClient.get(url);
     return res.data;
   },
+
+  async placeOrder(
+    restaurantSlug: string | undefined,
+    tableToken: string,
+    payload: any,
+    options?: { customerToken?: string | null; idempotencyKey?: string }
+  ) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders`
+      : `/public/table/${tableToken}/orders`;
+    const headers: Record<string, string> = {};
+    if (options?.customerToken) {
+      headers['Authorization'] = `Bearer ${options.customerToken}`;
+    }
+    if (options?.idempotencyKey) {
+      headers['Idempotency-Key'] = options.idempotencyKey;
+    }
+    const res = await apiClient.post(url, payload, { headers });
+    return res.data;
+  },
+
+  async getOrderDetails(restaurantSlug: string | undefined, tableToken: string, orderId: string) {
+    const url = restaurantSlug
+      ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders/${orderId}`
+      : `/public/table/${tableToken}/orders/${orderId}`;
+    const res = await apiClient.get(url);
+    return res.data;
+  },
 };

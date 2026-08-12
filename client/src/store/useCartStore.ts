@@ -20,7 +20,12 @@ export interface CartState {
   items: CartItem[];
   tableToken: string | null;
   restaurantSlug: string | null;
+  customerNote: string;
+  idempotencyKey: string | null;
   setTable: (restaurantSlug: string, tableToken: string) => void;
+  setCustomerNote: (note: string) => void;
+  getOrCreateIdempotencyKey: () => string;
+  resetIdempotencyKey: () => string;
   addItem: (item: Omit<CartItem, 'price'> & { basePrice: number }) => void;
   updateQuantity: (itemId: string, selectedAddOns: CartAddOn[], specialInstructions: string, delta: number) => void;
   removeItem: (itemId: string, selectedAddOns: CartAddOn[], specialInstructions: string) => void;
@@ -45,6 +50,17 @@ export const isSameItem = (
   return sortedA.every(
     (val, index) => val.name === sortedB[index].name && val.priceDelta === sortedB[index].priceDelta
   );
+};
+
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 };
 
 const safeSessionStorage = {
@@ -72,15 +88,35 @@ export const useCartStore = create<CartState>()(
       items: [],
       tableToken: null,
       restaurantSlug: null,
+      customerNote: '',
+      idempotencyKey: null,
 
       setTable: (restaurantSlug, tableToken) => {
         const currentToken = get().tableToken;
         if (currentToken !== tableToken) {
           // Clears cart on table token mismatch/change
-          set({ items: [], restaurantSlug, tableToken });
+          set({ items: [], restaurantSlug, tableToken, customerNote: '', idempotencyKey: null });
         } else {
           set({ restaurantSlug, tableToken });
         }
+      },
+
+      setCustomerNote: (customerNote) => {
+        set({ customerNote });
+      },
+
+      getOrCreateIdempotencyKey: () => {
+        const existing = get().idempotencyKey;
+        if (existing) return existing;
+        const newKey = `idem_${generateUUID()}`;
+        set({ idempotencyKey: newKey });
+        return newKey;
+      },
+
+      resetIdempotencyKey: () => {
+        const newKey = `idem_${generateUUID()}`;
+        set({ idempotencyKey: newKey });
+        return newKey;
       },
 
       addItem: (newItem) => {
@@ -153,7 +189,7 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
-        set({ items: [] });
+        set({ items: [], customerNote: '', idempotencyKey: null });
       },
     }),
     {

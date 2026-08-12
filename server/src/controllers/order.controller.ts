@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { Order, OrderStatus } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
 import { Bill } from '../models/Bill';
+import { RestaurantSettings } from '../models/RestaurantSettings';
 import { orderService } from '../services/order.service';
 import { diningSessionService } from '../services/diningSession.service';
 import { billService } from '../services/bill.service';
@@ -103,13 +104,24 @@ export class OrderController {
     try {
       const { restaurantId } = req.params;
 
-      const orders = await Order.find({
+      // Build the base query — exclude terminal states only
+      const query: Record<string, any> = {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'] },
-      })
+        status: { $nin: ['SERVED', 'CANCELLED'] },
+      };
+
+      // For PREPAID restaurants, filter out payment-pending orders (they haven't paid yet)
+      const settings = await RestaurantSettings.findOne({ restaurantId });
+      if (settings?.paymentConfig?.activeMode === 'PREPAID') {
+        query.paymentStatus = { $ne: 'PENDING' };
+      }
+
+      const orders = await Order.find(query)
         .sort({ createdAt: 1 })
-        .populate('tableId', 'displayName tableNumber')
-        .populate('diningSessionId', 'status sessionCode closedAt');
+        .populate([
+          { path: 'tableId', select: 'displayName tableNumber' },
+          { path: 'diningSessionId', select: 'status sessionCode closedAt' },
+        ]);
 
       sendSuccess(res, orders, 'Active orders retrieved successfully');
     } catch (error) {

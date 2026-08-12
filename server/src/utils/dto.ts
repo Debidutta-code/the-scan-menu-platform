@@ -29,6 +29,8 @@ export interface CustomerSafeOrderDTO {
   orderMode: string;
   customerName: string;
   customerPhone?: string; // Redacted unless owner or staff
+  tableId?: string;
+  deliveryAddress?: Record<string, any>;
   status: string;
   paymentStatus: string;
   items: CustomerSafeOrderItemDTO[];
@@ -103,6 +105,8 @@ export function toCustomerSafeOrderDTO(
   const idStr = raw._id ? raw._id.toString() : (raw.id ? raw.id.toString() : '');
   const sessId = (raw.diningSessionId || raw.sessionId) ? (raw.diningSessionId || raw.sessionId).toString() : undefined;
 
+  const tableIdStr = raw.tableId ? raw.tableId.toString() : undefined;
+
   return {
     id: idStr,
     _id: idStr,
@@ -111,6 +115,8 @@ export function toCustomerSafeOrderDTO(
     orderMode: raw.orderMode || 'DINE_IN',
     customerName: raw.customerName || 'Guest Diner',
     customerPhone: isOwnerOrStaff ? raw.customerPhone : undefined,
+    tableId: tableIdStr,
+    deliveryAddress: raw.deliveryAddress || undefined,
     status: raw.status || 'PENDING',
     paymentStatus: raw.paymentStatus || 'PENDING',
     items: (raw.items || []).map((item: any) => {

@@ -851,6 +851,28 @@ export class PublicController {
       const effectiveCustomerName = req.customer?.name || customerName;
       const effectiveCustomerPhone = req.customer?.phone || customerPhone;
 
+      // Validate required fields for non-dine-in ordering modes
+      const effectiveMode = orderMode || 'TAKEAWAY';
+      if (['TAKEAWAY', 'DELIVERY'].includes(effectiveMode)) {
+        if (!effectiveCustomerName?.trim()) {
+          sendError(res, 'VALIDATION_ERROR', 'Customer name is required for TAKEAWAY and DELIVERY orders', null, 400);
+          if (lockAcquired && idempotencyKeyStr && restaurant) {
+            await IdempotencyRecord.deleteOne({ key: idempotencyKeyStr, restaurantId: restaurant._id }).catch(() => {});
+          }
+          return;
+        }
+      }
+
+      if (effectiveMode === 'DELIVERY') {
+        if (!deliveryAddress || typeof deliveryAddress !== 'object' || !deliveryAddress.street) {
+          sendError(res, 'VALIDATION_ERROR', 'Delivery address is required for DELIVERY orders', null, 400);
+          if (lockAcquired && idempotencyKeyStr && restaurant) {
+            await IdempotencyRecord.deleteOne({ key: idempotencyKeyStr, restaurantId: restaurant._id }).catch(() => {});
+          }
+          return;
+        }
+      }
+
       const order = await orderService.createOrder({
         restaurantId: restaurant._id,
         orderMode: orderMode || 'TAKEAWAY',

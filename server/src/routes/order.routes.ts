@@ -12,8 +12,8 @@ router.use(requireAuth as any);
 // Scoped inside a restaurantId parameter
 // NOTE: path is /orders/analytics (not /analytics) to avoid shadowing the dedicated analytics sub-router
 router.get('/:restaurantId/orders/analytics', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.getAnalytics);
-router.get('/:restaurantId/orders', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.listOrders);
 router.get('/:restaurantId/orders/active', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.listActiveOrders);
+router.get('/:restaurantId/orders', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.listOrders);
 router.get('/:restaurantId/orders/:orderId', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getOrderDetails);
 router.patch('/:restaurantId/orders/:orderId/status', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.updateOrderStatus);
 router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.cancelOrder);

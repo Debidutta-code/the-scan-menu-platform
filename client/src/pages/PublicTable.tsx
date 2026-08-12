@@ -602,10 +602,27 @@ export const PublicTable: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Zustand Cart Store
-  const { items: cartItems, setTable, addItem, updateQuantity, clearCart } = useCartStore();
+  const {
+    items: cartItems,
+    setTable,
+    addItem,
+    updateQuantity,
+    clearCart,
+    customerNote,
+    setCustomerNote,
+    getOrCreateIdempotencyKey,
+    resetIdempotencyKey,
+  } = useCartStore();
 
   // Customer Auth
-  const { customer, customerToken, isAuthenticated: isCustomerAuthenticated } = useCustomerAuth();
+  const {
+    customer,
+    customerToken,
+    isAuthenticated: isCustomerAuthenticated,
+    sendOtp,
+    verifyOtp,
+    switchCustomer,
+  } = useCustomerAuth();
 
   useEffect(() => {
     if (customer) {
@@ -684,19 +701,50 @@ export const PublicTable: React.FC = () => {
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isClearSessionModalOpen, setIsClearSessionModalOpen] = useState(false);
 
-  // Phone checkout / OTP State
+  // Customer Phone & 6-Digit OTP State
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpCooldownRemaining, setOtpCooldownRemaining] = useState<number>(0);
 
-  // Phase 5 Order Placement States
-  const [customerNote, setCustomerNote] = useState('');
+  // Order Placement & Idempotency / Recovery States
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isRecoveringOrder, setIsRecoveringOrder] = useState(false);
   const [failedOrderDetails, setFailedOrderDetails] = useState<
     { menuItemId: string; name: string; reason: 'unavailable' | 'category_inactive' }[]
   >([]);
+
+  // OTP Cooldown Timer ticker
+  useEffect(() => {
+    if (otpCooldownRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCooldownRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCooldownRemaining]);
+
+  const formatStatusFriendly = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return 'Received';
+      case 'ACCEPTED':
+        return 'Accepted';
+      case 'PREPARING':
+        return 'Cooking';
+      case 'READY':
+        return 'Ready';
+      case 'SERVED':
+        return 'Served';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  };
 
   // Socket connection for this table (shared across waiter call + session/order real-time updates)
   const { socket } = useSocket(null);
@@ -1178,41 +1226,20 @@ export const PublicTable: React.FC = () => {
   // Helper to decrement an item from the card
   const handleQuickDecrement = (item: MenuItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
+const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
     if (existingEntries.length === 0) return;
 
     const target = existingEntries[existingEntries.length - 1];
     updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', -1);
   };
 
-  // Request SMS/OTP confirmation modal
-  const handleCheckoutTrigger = () => {
-    if (cartItems.length === 0) return;
-    setIsOtpModalOpen(true);
-  };
-
-  const handleSendOtp = () => {
-    if (!customerName || customerName.trim().length === 0) {
-      toast('Please enter your name', 'error');
-      return;
-    }
-    if (!phoneNumber || phoneNumber.length < 10) {
-      toast('Please enter a valid mobile number', 'error');
-      return;
-    }
-    setOtpSent(true);
-    toast('Demo OTP sent! Type 1234 to verify.', 'info');
-  };
-
-  // Complete authenticated checkouts
-  const handleVerifyOtpAndPlaceOrder = async () => {
-    if (otpCode !== '1234') {
-      toast('Incorrect verification code. Use dummy code 1234.', 'error');
-      return;
-    }
+  // Main order submission worker
+  const submitOrderPayload = async (name: string, phone: string, tokenOverride?: string | null) => {
+    if (cartItems.length === 0 || isPlacingOrder) return;
 
     setIsPlacingOrder(true);
     setFailedOrderDetails([]);
+    const idempotencyKey = getOrCreateIdempotencyKey();
 
     try {
       const payload = {
@@ -1226,112 +1253,207 @@ export const PublicTable: React.FC = () => {
           specialInstructions: item.specialInstructions || '',
         })),
         customerNote: customerNote.trim() || undefined,
-        customerName: customerName.trim(),
-        customerPhone: phoneNumber.trim(),
+        customerName: name.trim(),
+        customerPhone: phone.trim(),
         paymentStatus: 'PENDING',
       };
 
-      const orderUrl = restaurantSlug
-        ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders`
-        : `/public/table/${tableToken}/orders`;
+      const activeCustomerToken = tokenOverride !== undefined ? tokenOverride : customerToken;
+      const res = await publicService.placeOrder(restaurantSlug, tableToken!, payload, {
+        customerToken: activeCustomerToken,
+        idempotencyKey,
+      });
 
-      const headers: Record<string, string> = {};
-      if (customerToken) {
-        headers['Authorization'] = `Bearer ${customerToken}`;
-      }
-
-      const res = await apiClient.post(orderUrl, payload, { headers });
-
-      if (res.data.success) {
+      if (res?.success) {
+        const order = res.data;
         const finalizeOrderSuccess = (orderId: string) => {
           const key = `pixora_orders_${restaurantSlug || 'subdomain'}_${tableToken}`;
           const stored = JSON.parse(localStorage.getItem(key) || '[]');
           stored.push(orderId);
           localStorage.setItem(key, JSON.stringify(stored));
 
+          resetIdempotencyKey();
           clearCart();
           queryClient.invalidateQueries({ queryKey: ['publicTable'] });
           queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
           setIsOtpModalOpen(false);
-          setCustomerNote('');
-          setPhoneNumber('');
           setOtpCode('');
           setOtpSent(false);
           setIsPlacingOrder(false);
+          setIsRecoveringOrder(false);
           updateNavigationState('cart-orders', 'orders', orderId);
         };
 
         const activeProvider = tableData?.data?.restaurant?.settings?.paymentConfig?.activeProvider;
 
         if (activeProvider === 'RAZORPAY') {
-            setIsPlacingOrder(true);
+          const isScriptLoaded = await loadRazorpay();
+          if (!isScriptLoaded) {
+            toast('Failed to load payment gateway. Please check your connection.', 'error');
+            setIsPlacingOrder(false);
+            return;
+          }
 
-            const isScriptLoaded = await loadRazorpay();
-            if (!isScriptLoaded) {
-              toast('Failed to load Razorpay SDK. Please check your connection.', 'error');
-              setIsPlacingOrder(false);
-              return;
-            }
+          try {
+            const intentUrl = restaurantSlug
+              ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/payments/intent`
+              : `/public/table/${tableToken}/payments/intent`;
 
-            try {
-               const intentUrl = restaurantSlug
-                 ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/payments/intent`
-                 : `/public/table/${tableToken}/payments/intent`;
+            const intentRes = await apiClient.post(intentUrl, {
+              amount: order.total,
+              currency: 'INR',
+              metadata: { orderId: order.id || order._id },
+            });
 
-               const intentRes = await apiClient.post(intentUrl, {
-                 amount: res.data.data.total,
-                 currency: 'INR',
-                 metadata: { orderId: res.data.data._id }
-               });
+            const { providerReferenceId, amount, currency: resCurrency, razorpayKeyId } = intentRes.data.data;
 
-               const { providerReferenceId, amount, currency, razorpayKeyId } = intentRes.data.data;
+            const options = {
+              key: razorpayKeyId,
+              amount,
+              currency: resCurrency,
+              name: tableData?.data?.restaurant?.name,
+              description: `Order #${order.orderNumber || ''}`,
+              order_id: providerReferenceId,
+              handler: function () {
+                toast('Payment processing... Please wait while we confirm your order.', 'info');
+                finalizeOrderSuccess(order.id || order._id);
+              },
+              prefill: { name, contact: phone },
+              theme: { color: tableData?.data?.restaurant?.settings?.theme?.primaryColor || '#111827' },
+              modal: {
+                ondismiss: function () {
+                  setIsPlacingOrder(false);
+                  toast('Payment dismissed. Your order is pending confirmation.', 'info');
+                  finalizeOrderSuccess(order.id || order._id);
+                },
+              },
+            };
 
-               const options = {
-                 key: razorpayKeyId,
-                 amount: amount,
-                 currency: currency,
-                 name: tableData?.data?.restaurant?.name,
-                 description: `Order #${res.data.data.orderNumber || ''}`,
-                 order_id: providerReferenceId,
-                 handler: function () {
-                    toast('Payment processing... Please wait a moment while we confirm your order.', 'info');
-                    finalizeOrderSuccess(res.data.data._id);
-                 },
-                 prefill: { name: customerName, contact: phoneNumber },
-                 theme: { color: tableData?.data?.restaurant?.settings?.theme?.primaryColor || '#111827' },
-                 modal: {
-                    ondismiss: function() {
-                       setIsPlacingOrder(false);
-                       toast('Payment cancelled.', 'error');
-                    }
-                 }
-               };
-
-               const rzp = new (window as any).Razorpay(options);
-               rzp.open();
-            } catch (err) {
-                console.error("Intent error", err);
-                toast("Failed to initiate payment", "error");
-                setIsPlacingOrder(false);
-            }
+            const rzp = new (window as any).Razorpay(options);
+            rzp.open();
+          } catch (intentErr) {
+            console.error('Payment intent error:', intentErr);
+            toast('Failed to initiate payment. Order placed as postpaid.', 'info');
+            finalizeOrderSuccess(order.id || order._id);
+          }
         } else {
-            toast('Order verified and placed successfully!', 'success');
-            finalizeOrderSuccess(res.data.data._id);
+          toast('Order received by kitchen! Preparing your food...', 'success');
+          finalizeOrderSuccess(order.id || order._id);
         }
       }
     } catch (err: any) {
       console.error('Order placement error:', err);
       const errResponse = err.response?.data?.error;
-      if (errResponse && errResponse.code === 'ITEMS_UNAVAILABLE') {
+
+      if (errResponse?.code === 'ITEMS_UNAVAILABLE') {
         const failed = errResponse.details || [];
         setFailedOrderDetails(failed);
         setIsOtpModalOpen(false);
-        toast('Some items in your basket are no longer available. Please review.', 'error');
+        toast('Some items in your basket just sold out. Please review your cart.', 'error');
+        setIsPlacingOrder(false);
+      } else if (!err.response || err.code === 'ECONNABORTED') {
+        // Network timeout / drop: Enter recovery state using idempotency
+        setIsRecoveringOrder(true);
+        toast('Checking your order status with the restaurant... Please wait.', 'info');
+
+        // Polling recovery
+        setTimeout(async () => {
+          try {
+            const sessionRes = await publicService.getTableSession(restaurantSlug, tableToken);
+            if (sessionRes?.success && sessionRes.data?.orders?.length > 0) {
+              const orders = sessionRes.data.orders;
+              const latest = orders[orders.length - 1];
+              resetIdempotencyKey();
+              clearCart();
+              queryClient.invalidateQueries({ queryKey: ['publicTable'] });
+              queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
+              setIsOtpModalOpen(false);
+              setIsPlacingOrder(false);
+              setIsRecoveringOrder(false);
+              toast('Order confirmed successfully!', 'success');
+              updateNavigationState('cart-orders', 'orders', latest.id || latest._id);
+              return;
+            }
+          } catch {
+            // Still unreachable
+          }
+          setIsPlacingOrder(false);
+          setIsRecoveringOrder(false);
+          toast('Connection lost. Please tap Place Order again to retry.', 'error');
+        }, 3000);
       } else {
-        toast(errResponse?.message || 'Failed to place order. Please try again.', 'error');
+        toast(errResponse?.message || 'Could not place order. Please try again.', 'error');
+        setIsPlacingOrder(false);
       }
+    }
+  };
+
+  // Trigger checkout: 1-Tap for returning diners, or modal for new diners
+  const handleCheckoutTrigger = () => {
+    if (cartItems.length === 0) return;
+
+    if (isCustomerAuthenticated && customer?.name && customer?.phone) {
+      // Returning customer: 1-Tap place order without OTP
+      submitOrderPayload(customer.name, customer.phone, customerToken);
+    } else {
+      // New diner: Open OTP verification modal
+      setIsOtpModalOpen(true);
+    }
+  };
+
+  // Send 6-Digit OTP
+  const handleSendOtp = async () => {
+    if (!customerName || customerName.trim().length === 0) {
+      toast('Please enter your name', 'error');
+      return;
+    }
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10) {
+      toast('Please enter a valid 10-digit Indian mobile number', 'error');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    try {
+      const res = await sendOtp(phoneNumber, restaurantSlug, restaurantId);
+      if (res?.success) {
+        setOtpSent(true);
+        setOtpCooldownRemaining(res.data?.cooldownSeconds || 60);
+        toast('6-digit verification code sent to your phone!', 'success');
+      } else {
+        toast(res?.message || 'Failed to send verification code', 'error');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to send OTP';
+      toast(msg, 'error');
     } finally {
-      setIsPlacingOrder(false);
+      setIsSendingOtp(false);
+    }
+  };
+
+  // Verify 6-digit OTP and automatically submit order in one continuous action
+  const handleVerifyOtpAndPlaceOrder = async () => {
+    if (otpCode.length !== 6) {
+      toast('Please enter the 6-digit verification code', 'error');
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    try {
+      const res = await verifyOtp(phoneNumber, otpCode, restaurantSlug, restaurantId, customerName);
+      if (res?.success && res.data?.customerToken) {
+        toast('Verified successfully!', 'success');
+        setIsVerifyingOtp(false);
+        // Seamlessly place the order with the freshly minted customer token
+        await submitOrderPayload(customerName, phoneNumber, res.data.customerToken);
+      } else {
+        toast(res?.message || 'Invalid verification code. Please check and retry.', 'error');
+        setIsVerifyingOtp(false);
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Invalid verification code';
+      toast(msg, 'error');
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -1536,15 +1658,19 @@ export const PublicTable: React.FC = () => {
 
             {/* Active Table spot info */}
             <div className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-3 animate-fade-in">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">
-                Active Dining Station
-              </span>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-bold text-lg text-slate-900 leading-none">{table.displayName}</h3>
-                  <p className="text-xs text-slate-400 font-mono mt-1">Token validation active</p>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">
+                    Dining Station
+                  </span>
+                  <h3 className="font-bold text-lg text-slate-900 leading-tight mt-0.5">{table.displayName}</h3>
+                  <p className="text-xs text-slate-500 font-medium mt-1">
+                    {activeOrderCount > 0
+                      ? `Active table session • ${activeOrderCount} round${activeOrderCount > 1 ? 's' : ''} in progress`
+                      : 'Ready for your order'}
+                  </p>
                 </div>
-                <span className="h-10 w-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 font-bold font-mono">
+                <span className="h-10 w-10 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 font-bold font-mono text-sm border border-amber-100">
                   #{table.tableNumber}
                 </span>
               </div>
@@ -2654,18 +2780,58 @@ export const PublicTable: React.FC = () => {
                          </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-1">
                         <span className="text-slate-800 font-bold text-sm">Grand Total (Incl. Taxes)</span>
                         <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
                       </div>
                     )}
 
+                    {/* Ordering Identity Display for returning diners */}
+                    {isCustomerAuthenticated && customer ? (
+                      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 animate-fade-in">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shrink-0">
+                            {customer.name?.charAt(0).toUpperCase() || 'D'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">
+                              Ordering as <span className="text-amber-900 font-extrabold">{customer.name}</span>
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-mono">{customer.phone}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={switchCustomer}
+                          className="text-[11px] font-bold text-amber-800 hover:text-amber-950 bg-white border border-amber-300 px-2.5 py-1 rounded-xl shrink-0 transition hover:shadow-xs"
+                        >
+                          Switch Diner
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {/* Recovering Order Ambient Notice */}
+                    {isRecoveringOrder && (
+                      <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center gap-2.5 text-xs text-indigo-900 animate-pulse">
+                        <Loader className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
+                        <span>Verifying your order status with the restaurant... Please don't submit again.</span>
+                      </div>
+                    )}
+
                     <button
                       onClick={handleCheckoutTrigger}
-                      disabled={cartItems.length === 0}
-                      className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white py-3.5 rounded-xl font-bold text-xs tracking-wide transition-all shadow-md active:scale-[0.99] uppercase"
+                      disabled={cartItems.length === 0 || isPlacingOrder || isRecoveringOrder}
+                      className="w-full bg-slate-950 hover:bg-slate-900 disabled:bg-slate-300 text-white py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all shadow-md active:scale-[0.99] uppercase flex items-center justify-center gap-2"
                     >
-                      Confirm Checkout & Order
+                      {isPlacingOrder ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin text-amber-400" />
+                          <span>Placing your order...</span>
+                        </>
+                      ) : isCustomerAuthenticated && customer ? (
+                        <span>Place Order as {customer.name} • {formatPrice(cartGrandTotal, currency)}</span>
+                      ) : (
+                        <span>Proceed to Checkout • {formatPrice(cartGrandTotal, currency)}</span>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -2774,6 +2940,11 @@ export const PublicTable: React.FC = () => {
                               <div>
                                 <h5 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                                   <span>Round {order.roundNumber}</span>
+                                  {order.customerName && (
+                                    <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-lg font-sans">
+                                      {order.customerName}
+                                    </span>
+                                  )}
                                   {order.isMerged && (
                                     <span className="text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                                       Merged
@@ -2838,7 +3009,7 @@ export const PublicTable: React.FC = () => {
                                             </span>
                                           )}
                                           <span className={`text-[10px] font-bold font-mono tracking-wide ${isServed ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            {item.itemStatus || 'PENDING'}
+                                            {formatStatusFriendly(item.itemStatus || 'PENDING')}
                                           </span>
                                         </div>
                                       </div>
@@ -3146,7 +3317,7 @@ export const PublicTable: React.FC = () => {
 
 
       {/* ==========================================
-          MOBILE NUMBER AND OTP CHECKOUT DIALOG
+          MOBILE NUMBER AND 6-DIGIT OTP CHECKOUT DIALOG
           ========================================== */}
       <AnimatePresence>
         {isOtpModalOpen && (
@@ -3156,7 +3327,9 @@ export const PublicTable: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
-              onClick={() => setIsOtpModalOpen(false)}
+              onClick={() => {
+                if (!isPlacingOrder && !isVerifyingOtp) setIsOtpModalOpen(false);
+              }}
             />
 
             <motion.div
@@ -3167,13 +3340,14 @@ export const PublicTable: React.FC = () => {
               className="relative bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-6 font-sans"
             >
               <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                <h3 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-1.5">
+                <h3 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
                   <Lock className="w-5 h-5 text-amber-500" strokeWidth={2} />
-                  <span>Verify Checkout</span>
+                  <span>Verify to Order</span>
                 </h3>
                 <button
                   onClick={() => setIsOtpModalOpen(false)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  disabled={isPlacingOrder || isVerifyingOtp}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                 >
                   <X className="w-5 h-5" strokeWidth={1.75} />
                 </button>
@@ -3182,71 +3356,108 @@ export const PublicTable: React.FC = () => {
               {!otpSent ? (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500 leading-normal">
-                    Enter your name and mobile number to complete authentication and place your secure kitchen order.
+                    Enter your name and mobile number to authenticate and place your kitchen order at {table.displayName}.
                   </p>
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Your Name</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="E.g., John Doe"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      placeholder="E.g., Alice Sharma"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-sans"
+                    />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Mobile Number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-xs font-mono font-bold text-slate-400 select-none">+91</span>
                       <input
                         type="tel"
-                        placeholder="E.g., +91 98765 43210"
+                        maxLength={10}
+                        placeholder="98765 43210"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="w-full pl-9 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold tracking-wide"
                       />
                     </div>
                   </div>
+
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" strokeWidth={2} />
+                    <span>Your phone number is strictly private and never shared.</span>
+                  </p>
+
                   <button
                     onClick={handleSendOtp}
-                    className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition"
+                    disabled={isSendingOtp || phoneNumber.length < 10 || !customerName.trim()}
+                    className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 uppercase tracking-wider"
                   >
-                    Send Verification SMS
+                    {isSendingOtp && <Loader className="w-4 h-4 animate-spin text-amber-400" />}
+                    <span>Send 6-Digit OTP</span>
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500 leading-normal">
-                    Enter the 4-digit verification code sent to <strong>{phoneNumber}</strong>.
+                    Enter the 6-digit verification code sent to <strong>+91 {phoneNumber}</strong>.
                   </p>
+
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">OTP Code</label>
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">6-Digit Code</label>
                     <input
                       type="text"
-                      maxLength={4}
-                      placeholder="Enter 1234"
+                      inputMode="numeric"
+                      autoFocus
+                      maxLength={6}
+                      placeholder="••••••"
                       value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center text-lg font-black font-mono tracking-widest focus:outline-none focus:border-amber-500"
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center text-xl font-black font-mono tracking-[0.3em] focus:outline-none focus:border-amber-500"
                     />
                   </div>
-                  <div className="flex gap-2">
+
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    {otpCooldownRemaining > 0 ? (
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        Resend code in {otpCooldownRemaining}s
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleSendOtp}
+                        disabled={isSendingOtp}
+                        className="text-[11px] text-amber-600 hover:text-amber-800 font-bold underline transition"
+                      >
+                        Resend OTP Code
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtpCode('');
+                      }}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 font-medium"
+                    >
+                      Change Phone
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
                     <button
                       onClick={() => setOtpSent(false)}
-                      className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl transition"
+                      disabled={isPlacingOrder || isVerifyingOtp}
+                      className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl transition hover:bg-slate-50 disabled:opacity-50"
                     >
                       Back
                     </button>
                     <button
                       onClick={handleVerifyOtpAndPlaceOrder}
-                      disabled={isPlacingOrder || otpCode.length < 4}
-                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1"
+                      disabled={isPlacingOrder || isVerifyingOtp || otpCode.length !== 6}
+                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 uppercase tracking-wide"
                     >
-                      {isPlacingOrder && <Loader className="w-4 h-4 animate-spin" />}
+                      {(isPlacingOrder || isVerifyingOtp) && <Loader className="w-4 h-4 animate-spin text-slate-950" />}
                       <span>Verify & Place Order</span>
                     </button>
                   </div>

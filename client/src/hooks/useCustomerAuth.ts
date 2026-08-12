@@ -153,6 +153,10 @@ export const useCustomerAuth = () => {
     setCustomer(null);
   };
 
+  const switchCustomer = () => {
+    logout();
+  };
+
   return {
     customer,
     customerToken,
@@ -163,6 +167,7 @@ export const useCustomerAuth = () => {
     updateProfile,
     refreshProfile,
     logout,
+    switchCustomer,
   };
 };
 

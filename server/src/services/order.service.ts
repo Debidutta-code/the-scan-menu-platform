@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { Order, IOrder, OrderStatus, OrderMode } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
+import { Bill } from '../models/Bill';
 import { MenuItem } from '../models/MenuItem';
 import { Category } from '../models/Category';
 import { Tax } from '../models/Tax';
@@ -222,7 +223,74 @@ export class OrderService {
       }
     }
 
-    // 4. Resolve or create DiningSession for Dine-In orders
+    // 4a. Round Merge: only for anonymous customer orders that have no established session context.
+    //     - Orders WITH an explicit diningSessionId are from a known session participant (joined via PIN/QR)
+    //       and must always create their own distinct round ticket.
+    //     - Only QR/anonymous orders with no session context are merged into the pending round,
+    //       modeling the "add more items before the kitchen sees it" UX.
+    //     - Staff-placed orders (WAITER, POS) always create their own separate ticket.
+    const isCustomerSource = !source || source === 'QR';
+    const isAnonymousOrder = !diningSessionId;
+    if (orderMode === 'DINE_IN' && tableId && isCustomerSource && isAnonymousOrder) {
+      // Check if the table session is in BILL_REQUESTED state before attempting merge
+      const tableSession = await DiningSession.findOne({
+        restaurantId: new Types.ObjectId(restaurantId),
+        tableId: new Types.ObjectId(tableId),
+        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+      });
+
+      if (tableSession?.status === 'BILL_REQUESTED') {
+        throw new CustomError(
+          'SESSION_BILL_REQUESTED',
+          'A bill has already been requested for this table. Please reopen the session to order more items.',
+          409
+        );
+      }
+
+      const pendingRound = await Order.findOne({
+        restaurantId: new Types.ObjectId(restaurantId),
+        tableId: new Types.ObjectId(tableId),
+        status: 'PENDING',
+      });
+
+      if (pendingRound) {
+        // Check if a Bill has been generated for this round's session.
+        // A SUPERSEDED bill signals that the session went through a bill-request/reopen cycle,
+        // which closes the merge window — new orders must start a new round.
+        const priorBill = pendingRound.diningSessionId
+          ? await Bill.findOne({ diningSessionId: pendingRound.diningSessionId })
+          : null;
+
+        if (!priorBill) {
+          // Always append as separate line items — never accumulate quantity.
+          // This preserves order history granularity per request.
+          for (const newItem of validatedItems) {
+            pendingRound.items.push(newItem as any);
+          }
+
+          const mergedSubtotal = pendingRound.items.reduce((s, i) => s + i.itemSubtotal, 0);
+          pendingRound.subtotal = mergedSubtotal;
+          pendingRound.tax = pendingRound.tax + tax;
+          pendingRound.total = mergedSubtotal + pendingRound.tax;
+          (pendingRound as any).isMerged = true;
+
+          await pendingRound.save();
+
+          // Update session totals
+          if (tableSession) {
+            await DiningSession.findByIdAndUpdate(tableSession._id, {
+              $inc: { subtotal, tax, total, balanceDue: total },
+              $set: { lastActivityAt: new Date() },
+            });
+          }
+
+          return pendingRound as any;
+        }
+        // else: priorBill exists → merge window closed → fall through to step 4b
+      }
+    }
+
+    // 4b. Resolve or create DiningSession for Dine-In orders
     let resolvedDiningSession: any = null;
     let roundNumber = 1;
 
