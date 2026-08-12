@@ -13,6 +13,8 @@ import { getNextOrderNumber } from '../utils/orderCounter';
 import { NotificationService } from './notification.service';
 import { posIntegrationService } from './posIntegration.service';
 import { restaurantStatsService } from './restaurantStats.service';
+import { customerService } from './customer.service';
+import { normalizeIndianPhoneNumber } from '../utils/phone';
 
 class CustomError extends Error {
   status: number;
@@ -323,12 +325,29 @@ export class CheckoutService {
         }
       }
 
+      // Auto-resolve or upsert customer profile if phone is provided
+      let resolvedCustomerId: Types.ObjectId | undefined;
+      if (attempt.customerPhone && typeof attempt.customerPhone === 'string' && attempt.customerPhone.trim()) {
+        try {
+          const cleanPhone = normalizeIndianPhoneNumber(attempt.customerPhone);
+          const customer = await customerService.findOrCreateCustomer(
+            attempt.restaurantId,
+            cleanPhone,
+            attempt.customerName?.trim()
+          );
+          resolvedCustomerId = customer._id as Types.ObjectId;
+        } catch (err) {
+          console.error('Error auto-upserting customer on prepaid order creation:', err);
+        }
+      }
+
       // Create Immutable Order Ticket
       const order = new Order({
         restaurantId: attempt.restaurantId,
         tableId: attempt.tableId,
         diningSessionId: attempt.diningSessionId,
         guestSessionId: attempt.guestSessionId,
+        customerId: resolvedCustomerId,
         orderNumber,
         roundNumber,
         orderMode: attempt.orderMode,
@@ -363,6 +382,10 @@ export class CheckoutService {
 
       await order.save();
       await restaurantStatsService.recordOrderCreated(attempt.restaurantId);
+
+      if (resolvedCustomerId) {
+        customerService.recordCustomerOrder(resolvedCustomerId, attempt.total);
+      }
 
       // Create Payment Transaction Record
       const payment = new Payment({

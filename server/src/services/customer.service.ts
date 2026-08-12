@@ -73,6 +73,23 @@ export class CustomerService {
   }
 
   /**
+   * Deducts customer aggregate metrics when an order is cancelled.
+   */
+  async deductCustomerOrder(customerId: Types.ObjectId | string, orderTotal: number): Promise<void> {
+    if (!customerId) return;
+    try {
+      await Customer.findByIdAndUpdate(customerId, {
+        $inc: {
+          totalOrdersCount: -1,
+          totalSpent: -(orderTotal || 0),
+        },
+      });
+    } catch (err) {
+      console.error('Failed to deduct customer order metrics:', err);
+    }
+  }
+
+  /**
    * Retrieves order history for a verified customer.
    */
   async getCustomerOrderHistory(

@@ -553,6 +553,11 @@ export class OrderService {
     order.status = 'CANCELLED';
     await order.save();
 
+    // Deduct customer aggregate stats if linked
+    if (order.customerId) {
+      customerService.deductCustomerOrder(order.customerId, order.total);
+    }
+
     // Recalculate session totals if dine-in
     if (order.diningSessionId) {
       const session = await DiningSession.findById(order.diningSessionId);
