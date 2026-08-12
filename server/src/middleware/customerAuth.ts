@@ -1,13 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { TokenService, TokenCustomerPayload } from '../services/token.service';
 import { Customer, ICustomer } from '../models/Customer';
+import { Restaurant, IRestaurant } from '../models/Restaurant';
 import { sendError } from '../utils/response';
+import config from '../config';
 
 const tokenService = new TokenService();
 
 export interface CustomerAuthenticatedRequest extends Request {
   customer?: ICustomer;
   customerPayload?: TokenCustomerPayload;
+  restaurant?: IRestaurant | null;
+  tenantId?: string;
+  tenantSlug?: string;
 }
 
 export const requireCustomerAuth = async (
@@ -58,6 +63,43 @@ export const requireCustomerAuth = async (
       return;
     }
 
+    // Tenant Isolation Check: Verify token matches target restaurant
+    let targetRestaurantId =
+      req.restaurant?._id?.toString() ||
+      req.tenantId ||
+      (req.params.restaurantId ? req.params.restaurantId.trim() : null) ||
+      (req.query.restaurantId ? (req.query.restaurantId as string).trim() : null);
+
+    if (!targetRestaurantId) {
+      const rawHost = (req.headers['x-forwarded-host'] as string) || req.headers.host || '';
+      const hostname = rawHost.split(':')[0].toLowerCase().trim();
+      const baseDomain = config.app.baseDomain;
+
+      if (hostname.endsWith(baseDomain) || hostname.endsWith('localhost')) {
+        const parts = hostname.split('.');
+        const isLocalhost = hostname.endsWith('localhost');
+        const expectedPartCount = isLocalhost ? 1 : 2;
+        if (parts.length > expectedPartCount) {
+          const subdomain = parts[0];
+          const rest = await Restaurant.findOne({ slug: subdomain });
+          if (rest) {
+            targetRestaurantId = rest._id.toString();
+          }
+        }
+      }
+    }
+
+    if (targetRestaurantId && customer.restaurantId.toString() !== targetRestaurantId) {
+      sendError(
+        res,
+        'FORBIDDEN',
+        'Customer token is not valid for this restaurant',
+        null,
+        403
+      );
+      return;
+    }
+
     req.customer = customer;
     req.customerPayload = payload;
     next();
@@ -90,8 +132,35 @@ export const optionalCustomerAuth = async (
       if (payload && payload.role === 'CUSTOMER' && payload.id) {
         const customer = await Customer.findById(payload.id);
         if (customer && !customer.isBlocked) {
-          req.customer = customer;
-          req.customerPayload = payload;
+          let targetRestaurantId =
+            req.restaurant?._id?.toString() ||
+            req.tenantId ||
+            (req.params.restaurantId ? req.params.restaurantId.trim() : null);
+
+          if (!targetRestaurantId) {
+            const rawHost = (req.headers['x-forwarded-host'] as string) || req.headers.host || '';
+            const hostname = rawHost.split(':')[0].toLowerCase().trim();
+            const baseDomain = config.app.baseDomain;
+
+            if (hostname.endsWith(baseDomain) || hostname.endsWith('localhost')) {
+              const parts = hostname.split('.');
+              const isLocalhost = hostname.endsWith('localhost');
+              const expectedPartCount = isLocalhost ? 1 : 2;
+              if (parts.length > expectedPartCount) {
+                const subdomain = parts[0];
+                const rest = await Restaurant.findOne({ slug: subdomain });
+                if (rest) {
+                  targetRestaurantId = rest._id.toString();
+                }
+              }
+            }
+          }
+
+          // Only attach if matching tenant or tenant not resolved yet
+          if (!targetRestaurantId || customer.restaurantId.toString() === targetRestaurantId) {
+            req.customer = customer;
+            req.customerPayload = payload;
+          }
         }
       }
     } catch {

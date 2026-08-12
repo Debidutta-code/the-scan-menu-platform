@@ -28,13 +28,10 @@ export class SocketService {
 
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        // Dynamic origin: echo back the requesting origin if it's in the allowed list.
-        // A static comma-separated string causes browsers to reject the response because
-        // Access-Control-Allow-Origin must contain exactly one value.
         origin: (requestOrigin, callback) => {
           if (
             !requestOrigin ||
-            allowedOrigins.includes(requestOrigin) || 
+            allowedOrigins.includes(requestOrigin) ||
             requestOrigin.includes('localhost') ||
             config.app.isTest
           ) {
@@ -51,9 +48,9 @@ export class SocketService {
     this.io.on('connection', (socket) => {
       logger.info(`Socket connected: ${socket.id}`);
 
-      // Public Join Order Room (Hardened: verifies orderId exists in DB to prevent arbitrary room snooping)
+      // Public Join Order Room (Verifies order exists to prevent arbitrary room snooping)
       socket.on('join_order', async (data) => {
-        const { orderId } = data;
+        const { orderId } = data || {};
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
           socket.emit('error', { code: 'INVALID_ORDER_ID', message: 'Invalid or missing orderId' });
           return;
@@ -77,9 +74,9 @@ export class SocketService {
         }
       });
 
-      // Public Join Session Room (Hardened: verifies sessionId exists in DB to prevent arbitrary room snooping)
+      // Public Join Session Room (Verifies DiningSession exists in DB)
       socket.on('join_session', async (data) => {
-        const { sessionId } = data;
+        const { sessionId } = data || {};
         if (!sessionId || !mongoose.Types.ObjectId.isValid(sessionId)) {
           socket.emit('error', { code: 'INVALID_SESSION_ID', message: 'Invalid or missing sessionId' });
           return;
@@ -87,8 +84,8 @@ export class SocketService {
 
         try {
           if (!config.app.isTest) {
-            const { TableSession } = await import('../models/TableSession');
-            const sessionExists = await TableSession.exists({ _id: new mongoose.Types.ObjectId(sessionId) });
+            const { DiningSession } = await import('../models/DiningSession');
+            const sessionExists = await DiningSession.exists({ _id: new mongoose.Types.ObjectId(sessionId) });
             if (!sessionExists) {
               socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'The specified table session does not exist' });
               return;
@@ -103,9 +100,9 @@ export class SocketService {
         }
       });
 
-      // Public Join Table Room (guests subscribe to their table's waiter call events)
+      // Public Join Table Room (Guests subscribe to table waiter call events)
       socket.on('join_table', async (data) => {
-        const { tableToken } = data;
+        const { tableToken } = data || {};
         if (!tableToken || typeof tableToken !== 'string') {
           socket.emit('error', { code: 'INVALID_TABLE_TOKEN', message: 'Invalid or missing tableToken' });
           return;
@@ -129,14 +126,14 @@ export class SocketService {
         }
       });
 
+      // Authenticated Staff/Manager Join Restaurant Room
       socket.on('join_restaurant', async (data) => {
-        const { restaurantId } = data;
+        const { restaurantId } = data || {};
         if (!restaurantId || !mongoose.Types.ObjectId.isValid(restaurantId)) {
           socket.emit('error', { code: 'INVALID_RESTAURANT_ID', message: 'Invalid or missing restaurantId' });
           return;
         }
 
-        // Pass token via socket.handshake.auth.token or headers
         const authHeader = socket.handshake.auth.token || socket.handshake.headers.authorization;
         if (!authHeader) {
           socket.emit('error', { code: 'UNAUTHORIZED', message: 'Access token is missing' });
@@ -148,7 +145,6 @@ export class SocketService {
         try {
           const payload = tokenService.verifyAccessToken(token);
 
-          // Bypass validation if user is SUPER_ADMIN
           if (payload.role !== 'SUPER_ADMIN') {
             const RestaurantStaff = (await import('../models/RestaurantStaff')).RestaurantStaff;
             const staffRecord = await RestaurantStaff.findOne({
@@ -193,4 +189,5 @@ export class SocketService {
     return this.io;
   }
 }
+
 export default SocketService;

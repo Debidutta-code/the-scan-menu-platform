@@ -58,7 +58,9 @@ export const runMigration = async () => {
       const session = new TableSession({
         restaurantId: firstOrder.restaurantId,
         tableId: firstOrder.tableId,
+        sessionCode: `S-${Math.floor(1000 + Math.random() * 9000)}`,
         status: 'CLOSED',
+        paymentMode: 'POSTPAID',
         roundCount: orders.length,
         subtotal,
         tax,

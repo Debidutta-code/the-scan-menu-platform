@@ -333,6 +333,14 @@ export class DiningSessionService {
     session.closedAt = new Date();
     await session.save();
 
+    await Order.updateMany(
+      {
+        $or: [{ diningSessionId: session._id }, { sessionId: session._id }],
+        status: { $ne: 'CANCELLED' },
+      },
+      { $set: { paymentStatus: 'PAID' } }
+    );
+
     await AuditLog.create({
       action: 'SESSION_CLOSED',
       actorId: staffUserId,

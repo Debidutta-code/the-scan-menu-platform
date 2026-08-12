@@ -146,9 +146,15 @@ export const PublicOrderConfirmation: React.FC = () => {
 
   // 3. Fetch order details (subtotals, receipt)
   const { data: orderData, isLoading: isOrderLoading } = useQuery({
-    queryKey: ['publicOrderDetails', orderId],
+    queryKey: ['publicOrderDetails', orderId, tableToken],
     queryFn: async () => {
-      const res = await apiClient.get(`/public/orders/${orderId}`);
+      let url = `/public/orders/${orderId}`;
+      if (tableToken) {
+        url = restaurantSlug
+          ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders/${orderId}`
+          : `/public/table/${tableToken}/orders/${orderId}`;
+      }
+      const res = await apiClient.get(url);
       return res.data;
     },
     enabled: !!orderId,

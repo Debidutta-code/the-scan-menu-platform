@@ -2,11 +2,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from '../src/index';
-import { User } from '../src/models/User';
-import { Restaurant } from '../src/models/Restaurant';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { Table } from '../src/models/Table';
+import { app, httpServer } from '../../src/index';
+import { User } from '../../src/models/User';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { Table } from '../../src/models/Table';
 import bcrypt from 'bcrypt';
 
 let mongoServer: MongoMemoryServer;

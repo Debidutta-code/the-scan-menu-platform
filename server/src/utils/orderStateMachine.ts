@@ -136,7 +136,7 @@ export function validateStatusTransition(
     if (userRole !== 'MANAGER' && userRole !== 'SUPER_ADMIN') {
       return {
         isValid: false,
-        errorCode: 'FORBIDDEN',
+        errorCode: 'CANNOT_CANCEL_UNAUTHORIZED',
         errorMessage: 'Only managers and super admins have permissions to cancel orders.',
       };
     }

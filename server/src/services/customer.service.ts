@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { Customer, ICustomer } from '../models/Customer';
 import { Order } from '../models/Order';
 import { CustomError } from '../utils/response';
+import { normalizeIndianPhoneNumber } from '../utils/phone';
 
 export class CustomerService {
   /**
@@ -14,10 +15,7 @@ export class CustomerService {
     name?: string,
     email?: string
   ): Promise<ICustomer> {
-    const cleanPhone = phone.trim();
-    if (!cleanPhone) {
-      throw new CustomError('BAD_REQUEST', 'Phone number is required', 400);
-    }
+    const cleanPhone = normalizeIndianPhoneNumber(phone);
 
     const rId = new Types.ObjectId(restaurantId);
 

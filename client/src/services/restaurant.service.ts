@@ -417,8 +417,14 @@ export const publicService = {
     return res.data;
   },
 
-  async getTableSession(sessionId: string) {
-    const res = await apiClient.get(`/public/table-sessions/${sessionId}`);
+  async getTableSession(restaurantSlug?: string, tableToken?: string, sessionId?: string) {
+    let url = `/public/table-sessions/${sessionId}`;
+    if (tableToken) {
+      url = restaurantSlug
+        ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/session`
+        : `/public/table/${tableToken}/session`;
+    }
+    const res = await apiClient.get(url);
     return res.data;
   },
 };

@@ -313,11 +313,19 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({
     };
   }, [socket, orderId]);
 
+  const { restaurantSlug, tableToken } = useParams<{ restaurantSlug?: string; tableToken?: string }>();
+
   // Query order details
   const { data: orderData, isLoading: isOrderLoading, error } = useQuery({
-    queryKey: ['publicOrderDetails', orderId],
+    queryKey: ['publicOrderDetails', orderId, tableToken],
     queryFn: async () => {
-      const res = await apiClient.get(`/public/orders/${orderId}`);
+      let url = `/public/orders/${orderId}`;
+      if (tableToken) {
+        url = restaurantSlug
+          ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders/${orderId}`
+          : `/public/table/${tableToken}/orders/${orderId}`;
+      }
+      const res = await apiClient.get(url);
       return res.data;
     },
     enabled: !!orderId,
@@ -852,9 +860,15 @@ export const PublicTable: React.FC = () => {
 
   // Fetch active session and its orders/rounds
   const { data: sessionDetailsData, isLoading: isSessionLoading } = useQuery({
-    queryKey: ['publicSessionDetails', activeSessionId],
+    queryKey: ['publicSessionDetails', activeSessionId, tableToken],
     queryFn: async () => {
-      const res = await apiClient.get(`/public/table-sessions/${activeSessionId}`);
+      let url = `/public/table-sessions/${activeSessionId}`;
+      if (tableToken) {
+        url = restaurantSlug
+          ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/session`
+          : `/public/table/${tableToken}/session`;
+      }
+      const res = await apiClient.get(url);
       return res.data;
     },
     enabled: !!activeSessionId,

@@ -1,19 +1,19 @@
 # AUTH.md - Authentication & Authorization API Specification
 
-The platform utilizes a secure JWT-based stateless session strategy with short-lived access tokens and longer-lived `HttpOnly` Secure cookies for refresh tokens.
+The platform utilizes a secure JWT-based stateless session strategy with short-lived access tokens and longer-lived `HttpOnly` Secure cookies for refresh tokens. Customer sessions use tenant-scoped customer JWTs.
 
 ## Base URL
-`/api/v1/auth`
+`/api/v1`
 
 ---
 
-## Endpoints
+## Staff & Super Admin Authentication
 
 ### 1. Login User
-Authenticates a user and issues token pairs.
+Authenticates a staff/manager/admin user and issues token pairs.
 
 - **Method:** `POST`
-- **Path:** `/login`
+- **Path:** `/api/v1/auth/login`
 - **Request Body (JSON):**
   ```json
   {
@@ -50,7 +50,7 @@ Authenticates a user and issues token pairs.
 Uses the refresh token from `HttpOnly` cookies to issue a new short-lived access token.
 
 - **Method:** `POST`
-- **Path:** `/refresh`
+- **Path:** `/api/v1/auth/refresh`
 - **Request Headers / Cookies:**
   - Cookie: `refreshToken=<token>`
 - **Response Headers:** (Includes rotated refresh token)
@@ -74,7 +74,7 @@ Uses the refresh token from `HttpOnly` cookies to issue a new short-lived access
 Revokes the refresh token and clears the authentication cookies.
 
 - **Method:** `POST`
-- **Path:** `/logout`
+- **Path:** `/api/v1/auth/logout`
 - **Request Headers / Cookies:**
   - Cookie: `refreshToken=<token>`
 - **Response Headers:**
@@ -91,10 +91,10 @@ Revokes the refresh token and clears the authentication cookies.
 ---
 
 ### 4. Get Current User Details
-Fetches the profile of the currently authenticated session.
+Fetches the profile of the currently authenticated staff/admin session.
 
 - **Method:** `GET`
-- **Path:** `/me`
+- **Path:** `/api/v1/auth/me`
 - **Request Headers:**
   - `Authorization`: `Bearer <accessToken>`
 - **Success Response (200 OK):**
@@ -119,10 +119,10 @@ Fetches the profile of the currently authenticated session.
 ---
 
 ### 5. Change Password
-Changes password for the currently logged-in user.
+Changes password for the currently logged-in staff/admin user.
 
 - **Method:** `POST`
-- **Path:** `/change-password`
+- **Path:** `/api/v1/auth/change-password`
 - **Request Headers:**
   - `Authorization`: `Bearer <accessToken>`
 - **Request Body (JSON):**
@@ -146,140 +146,14 @@ Changes password for the currently logged-in user.
 
 ---
 
-## Phase 8 Ordering Mode Endpoints
+## Phase 1 Customer Identity & OTP Endpoints
 
-### 6. Create Sessionless Order (Public Customer - Takeaway / Delivery)
-- **Method:** `POST`
-- **Path:** `/api/v1/public/restaurants/:restaurantSlug/orders`
-- **Auth:** Public (Rate-limited)
-- **Request Body (JSON):**
-  ```json
-  {
-    "orderMode": "TAKEAWAY",
-    "customerName": "John Doe",
-    "customerPhone": "9876543210",
-    "deliveryAddress": { "street": "123 Main St", "city": "Metropolis" },
-    "items": [{ "itemId": "60d0fe...", "quantity": 1 }]
-  }
-  ```
-- **Success Response (201 Created):**
-  ```json
-  {
-    "success": true,
-    "data": { "_id": "...", "orderMode": "TAKEAWAY", "orderNumber": 101 },
-    "message": "Order placed successfully"
-  }
-  ```
+### 6. Send Customer Login OTP
+Generates a cryptographically secure 6-digit OTP with a 5-minute expiry, 60-second resend cooldown, and strict Indian phone normalization (`+91XXXXXXXXXX`). Prevents user enumeration by never exposing whether the account exists.
 
-### 7. Create Counter Order (Staff / Manager)
-- **Method:** `POST`
-- **Path:** `/api/v1/restaurants/:restaurantId/orders/counter`
-- **Auth:** Required (`MANAGER`, `STAFF`)
-- **Request Body (JSON):**
-  ```json
-  {
-    "customerName": "Walk-in Customer",
-    "paymentStatus": "PAID",
-    "items": [{ "itemId": "60d0fe...", "quantity": 2 }]
-  }
-  ```
-- **Success Response (201 Created):**
-  ```json
-  {
-    "success": true,
-    "data": { "_id": "...", "orderMode": "COUNTER", "paymentStatus": "PAID" },
-    "message": "Counter order created successfully"
-  }
-  ```
-
-### 8. Create Sessionless Payment Intent (Public Customer)
-- **Method:** `POST`
-- **Path:** `/api/v1/public/restaurants/:restaurantSlug/payments/intent`
-- **Auth:** Public
-- **Request Body (JSON):**
-  ```json
-  {
-    "amount": 1500,
-    "currency": "INR",
-    "metadata": { "orderId": "60d0fe..." }
-  }
-  ```
-- **Success Response (201 Created):**
-  ```json
-  {
-    "success": true,
-    "data": { "transactionId": "...", "providerReferenceId": "order_xyz", "razorpayKeyId": "rzp_test_..." },
-    "message": "Payment intent created successfully"
-  }
-  ```
-
----
-
-### 9. View Integration Sync Logs (Manager / Super Admin)
-- **Method:** `GET`
-- **Path:** `/api/v1/restaurants/:restaurantId/integrations/sync-logs`
-- **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`). Feature flag required: `pos_integration`.
-- **Query Params:** `page` (optional), `limit` (optional), `status` (optional: `PENDING` | `SUCCESS` | `FAILED`)
-- **Success Response (200 OK):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "logs": [
-        {
-          "_id": "60d0fe...",
-          "restaurantId": "60d0fe...",
-          "orderId": "60d0fe...",
-          "provider": "NONE",
-          "operation": "PUSH_ORDER",
-          "status": "SUCCESS",
-          "syncAttempts": 1,
-          "createdAt": "2026-08-03T17:20:00.000Z"
-        }
-      ],
-      "total": 1,
-      "page": 1,
-### 10. KDS - Get Bumped Tickets History (Staff / Manager / Super Admin)
-- **Method:** `GET`
-- **Path:** `/api/v1/restaurants/:restaurantId/kds/history`
-- **Auth:** Bearer Token (Roles: `STAFF`, `MANAGER`, `SUPER_ADMIN`). Feature flag required: `kds`.
-- **Query Params:** `limit` (optional, default 25)
-- **Success Response (200 OK):**
-  ```json
-  {
-    "success": true,
-    "data": [
-      {
-        "_id": "60d0fe...",
-        "orderNumber": 101,
-        "status": "SERVED",
-        "items": [...]
-      }
-    ],
-    "message": "Bumped KDS tickets history retrieved successfully"
-  }
-  ```
-
----
-
-### 11. KDS - Recall Bumped Ticket (Staff / Manager / Super Admin)
-- **Method:** `POST`
-- **Path:** `/api/v1/restaurants/:restaurantId/kds/tickets/:orderId/recall`
-- **Auth:** Bearer Token (Roles: `STAFF`, `MANAGER`, `SUPER_ADMIN`). Feature flag required: `kds`.
-- **Success Response (200 OK):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "_id": "60d0fe...",
-      "orderNumber": 101,
----
-
-## Customer Authentication & Management Endpoints
-
-### 12. Send Customer Login OTP
 - **Method:** `POST`
 - **Path:** `/api/v1/public/customers/send-otp`
+- **Rate Limit:** 3 requests per 10 minutes per IP
 - **Request Body (JSON):**
   ```json
   {
@@ -292,26 +166,31 @@ Changes password for the currently logged-in user.
   {
     "success": true,
     "data": {
-      "phone": "9876543210",
-      "isExistingUser": true,
-      "customerName": "Alice",
-      "demoOtp": "1234"
+      "phone": "+919876543210",
+      "expiresInSeconds": 300,
+      "cooldownSeconds": 60
     },
     "message": "Verification code sent successfully"
   }
   ```
+- **Error Responses:**
+  - `400 Bad Request` (`INVALID_PHONE`: Must be a valid 10-digit Indian mobile number)
+  - `429 Too Many Requests` (`OTP_COOLDOWN`: Please wait 60 seconds before requesting another code)
 
 ---
 
-### 13. Verify Customer OTP & Login
+### 7. Verify Customer OTP & Login
+Validates 6-digit OTP in constant time (`timingSafeEqual`), limits attempts to 5 max, and marks the OTP as single-use. Customer profiles are only created/updated after successful verification.
+
 - **Method:** `POST`
 - **Path:** `/api/v1/public/customers/verify-otp`
+- **Rate Limit:** 5 verification attempts per 10 minutes per IP
 - **Request Body (JSON):**
   ```json
   {
     "phone": "9876543210",
-    "otp": "1234",
-    "name": "Alice",
+    "otp": "847291",
+    "name": "Alice Sharma",
     "restaurantSlug": "demo-cafe"
   }
   ```
@@ -322,10 +201,10 @@ Changes password for the currently logged-in user.
     "data": {
       "customer": {
         "id": "60d0fe...",
-        "name": "Alice",
-        "phone": "9876543210",
-        "totalOrdersCount": 3,
-        "totalSpent": 15000
+        "name": "Alice Sharma",
+        "phone": "+919876543210",
+        "totalOrdersCount": 0,
+        "totalSpent": 0
       },
       "customerToken": "eyJhbGciOi...",
       "restaurant": {
@@ -337,10 +216,15 @@ Changes password for the currently logged-in user.
     "message": "Customer verified and logged in successfully"
   }
   ```
+- **Error Responses:**
+  - `400 Bad Request` (`INVALID_OTP`, `OTP_MAX_ATTEMPTS_EXCEEDED`, `INVALID_OR_EXPIRED_OTP`)
+  - `403 Forbidden` (`FORBIDDEN`: Blocked customer account)
 
 ---
 
-### 14. Get Current Customer Profile
+### 8. Get Authenticated Customer Profile
+Returns the authenticated customer's own profile. Customer tokens are strictly verified against the host restaurant tenant.
+
 - **Method:** `GET`
 - **Path:** `/api/v1/public/customers/me`
 - **Request Headers:**
@@ -351,32 +235,76 @@ Changes password for the currently logged-in user.
     "success": true,
     "data": {
       "customer": {
-        "_id": "60d0fe...",
-        "name": "Alice",
-        "phone": "9876543210",
+        "id": "60d0fe...",
+        "name": "Alice Sharma",
+        "phone": "+919876543210",
         "totalOrdersCount": 3,
-        "totalSpent": 15000
+        "totalSpent": 150000
       }
     },
     "message": "Customer profile retrieved successfully"
   }
   ```
+- **Error Responses:**
+  - `401 Unauthorized` (Missing, invalid, or expired token)
+  - `403 Forbidden` (Token from another restaurant used on this tenant)
 
 ---
 
-### 15. Get Customer Order History
-- **Method:** `GET`
-- **Path:** `/api/v1/public/customers/orders`
+### 9. Update Authenticated Customer Profile
+- **Method:** `PATCH`
+- **Path:** `/api/v1/public/customers/profile`
 - **Request Headers:**
   - `Authorization`: `Bearer <customerToken>`
-- **Query Params:** `page` (optional), `limit` (optional)
+- **Request Body (JSON):**
+  ```json
+  {
+    "name": "Alice S.",
+    "email": "alice@example.com"
+  }
+  ```
 - **Success Response (200 OK):**
   ```json
   {
     "success": true,
     "data": {
-      "orders": [...],
-      "pagination": { "page": 1, "limit": 20, "total": 3, "totalPages": 1 }
+      "id": "60d0fe...",
+      "name": "Alice S.",
+      "phone": "+919876543210",
+      "email": "alice@example.com"
+    },
+    "message": "Profile updated successfully"
+  }
+  ```
+
+---
+
+### 10. Get Customer Order History
+- **Method:** `GET`
+- **Path:** `/api/v1/public/customers/orders`
+- **Request Headers:**
+  - `Authorization`: `Bearer <customerToken>`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "orders": [
+        {
+          "id": "60d0fe...",
+          "orderNumber": 101,
+          "roundNumber": 1,
+          "orderMode": "DINE_IN",
+          "customerName": "Alice S.",
+          "status": "SERVED",
+          "items": [...],
+          "subtotal": 35000,
+          "tax": 1750,
+          "total": 36750,
+          "createdAt": "2026-08-12T17:00:00.000Z"
+        }
+      ],
+      "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
     },
     "message": "Customer order history retrieved successfully"
   }
@@ -384,7 +312,139 @@ Changes password for the currently logged-in user.
 
 ---
 
-### 16. Manager Customer Directory
+## Phase 1 Hardened Public Table & Shared Dining Endpoints
+
+### 11. Resolve Physical Table Context
+Resolves table metadata, branding, and active meal status. Table tokens use 24 bytes of entropy (non-enumerable).
+
+- **Method:** `GET`
+- **Paths:**
+  - Subdomain: `/api/v1/public/table/:tableToken`
+  - Legacy Path: `/api/v1/public/restaurants/:restaurantSlug/tables/:tableToken`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "restaurant": { "id": "...", "name": "Spice Garden", "slug": "spice-garden", ... },
+      "table": { "id": "...", "displayName": "Table 12", "token": "..." },
+      "status": "ACTIVE_SESSION"
+    },
+    "message": "Table resolved successfully"
+  }
+  ```
+
+---
+
+### 12. Get Shared Dining Session & Table Orders
+Enables all diners seated at the same table to view all orders/rounds placed during the active `DiningSession`. Other diners' phone numbers are strictly redacted.
+
+- **Method:** `GET`
+- **Paths:**
+  - Subdomain: `/api/v1/public/table/:tableToken/session`
+  - Legacy Path: `/api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/session`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "60d0fe...",
+      "sessionCode": "S-4821",
+      "status": "ACTIVE",
+      "paymentMode": "POSTPAID",
+      "roundCount": 2,
+      "subtotal": 70000,
+      "tax": 3500,
+      "total": 73500,
+      "balanceDue": 73500,
+      "orders": [
+        {
+          "id": "...",
+          "orderNumber": 101,
+          "roundNumber": 1,
+          "customerName": "Alice",
+          "status": "SERVED",
+          "items": [...]
+        }
+      ]
+    },
+    "message": "Session retrieved successfully"
+  }
+  ```
+
+---
+
+### 13. Idempotent Postpaid Order Placement
+Places an order ticket within the table's active dining session. Supports concurrency locking via `Idempotency-Key` to eliminate duplicate charges/inventory deductions from rapid double-clicks.
+
+- **Method:** `POST`
+- **Paths:**
+  - Subdomain: `/api/v1/public/table/:tableToken/orders`
+  - Legacy Path: `/api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/orders`
+- **Headers:**
+  - `Idempotency-Key`: `<uuid-or-unique-string>` (Optional but recommended)
+  - `Authorization`: `Bearer <customerToken>` (Optional - auto-links profile)
+- **Request Body (JSON):**
+  ```json
+  {
+    "items": [{ "itemId": "60d0fe...", "quantity": 2 }],
+    "customerName": "Alice",
+    "customerPhone": "9876543210",
+    "customerNote": "Extra spicy"
+  }
+  ```
+- **Success Response (201 Created / 200 OK on Idempotent replay):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "60d0fe...",
+      "orderNumber": 102,
+      "roundNumber": 2,
+      "orderMode": "DINE_IN",
+      "customerName": "Alice",
+      "status": "PENDING",
+      "items": [...],
+      "subtotal": 50000,
+      "tax": 2500,
+      "total": 52500
+    },
+    "message": "Order placed successfully"
+  }
+  ```
+- **Error Responses:**
+  - `400 Bad Request` (`ITEMS_UNAVAILABLE`: Out-of-stock items)
+  - `409 Conflict` (`IDEMPOTENCY_CONFLICT`: Reused key with different payload, `ORDER_IN_PROGRESS`: Order is actively processing)
+
+---
+
+### 14. Scoped Order Lookup
+Returns order status and item details scoped to the verified table context and tenant.
+
+- **Method:** `GET`
+- **Paths:**
+  - Subdomain: `/api/v1/public/table/:tableToken/orders/:orderId`
+  - Legacy Path: `/api/v1/public/restaurants/:restaurantSlug/tables/:tableToken/orders/:orderId`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "60d0fe...",
+      "orderNumber": 102,
+      "roundNumber": 2,
+      "status": "PREPARING",
+      "items": [...]
+    },
+    "message": "Order retrieved successfully"
+  }
+  ```
+- **Error Responses:**
+  - `404 Not Found` (Order not found or belongs to another restaurant/table)
+
+---
+
+### 15. Manager Customer Directory
 - **Method:** `GET`
 - **Path:** `/api/v1/restaurants/:restaurantId/customers`
 - **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`)
@@ -400,6 +460,3 @@ Changes password for the currently logged-in user.
     "message": "Customers retrieved successfully"
   }
   ```
-
-
-

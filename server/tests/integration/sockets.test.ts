@@ -4,11 +4,11 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createServer, Server as HTTPServer } from 'http';
 import { io as ioc, Socket as ClientSocket } from 'socket.io-client';
 import express from 'express';
-import { SocketService } from '../src/sockets/socket.service';
-import { Restaurant } from '../src/models/Restaurant';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { User } from '../src/models/User';
-import { TokenService } from '../src/services/token.service';
+import { SocketService } from '../../src/sockets/socket.service';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { User } from '../../src/models/User';
+import { TokenService } from '../../src/services/token.service';
 
 let mongoServer: MongoMemoryServer;
 let server: HTTPServer;

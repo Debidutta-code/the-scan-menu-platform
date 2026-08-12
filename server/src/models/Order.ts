@@ -156,7 +156,7 @@ const orderSchema = new Schema<IOrder>(
       fullAddress: { type: String, trim: true },
       notes: { type: String, trim: true },
     },
-    roundNumber: { type: Number, required: false, default: 1 },
+    roundNumber: { type: Number, required: false },
     isMerged: { type: Boolean, required: true, default: false },
     orderNumber: { type: Number, required: true },
     items: [orderItemSchema],

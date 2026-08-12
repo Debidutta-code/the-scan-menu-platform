@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { CustomerAuthenticatedRequest } from '../middleware/customerAuth';
-import { Customer } from '../models/Customer';
 import { Restaurant } from '../models/Restaurant';
 import { customerService } from '../services/customer.service';
+import { otpService } from '../services/otp.service';
 import { TokenService } from '../services/token.service';
 import { sendSuccess, sendError } from '../utils/response';
+import { toCustomerSafeCustomerDTO } from '../utils/dto';
 import mongoose from 'mongoose';
 
 const tokenService = new TokenService();
@@ -20,18 +21,19 @@ export class CustomerAuthController {
 
   /**
    * POST /api/v1/public/customers/send-otp
-   * Initiates customer phone login via OTP.
+   * Initiates customer phone login via cryptographically secure 6-digit OTP.
+   * Enforces 60-second cooldown and 5-minute TTL without exposing user existence.
    */
   async sendOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { phone, restaurantSlug, restaurantId } = req.body;
 
       if (!phone || typeof phone !== 'string' || phone.trim().length < 6) {
-        sendError(res, 'BAD_REQUEST', 'A valid phone number is required', null, 400);
+        sendError(res, 'BAD_REQUEST', 'A valid Indian mobile phone number is required', null, 400);
         return;
       }
 
-      // Resolve restaurant
+      // Resolve restaurant tenant
       let restaurant: any = null;
       if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
         restaurant = await Restaurant.findById(restaurantId);
@@ -39,51 +41,41 @@ export class CustomerAuthController {
         restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
       }
 
-      if (!restaurant) {
+      if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant identifier is invalid or missing', null, 404);
         return;
       }
 
-      // Check if existing customer
-      const existingCustomer = await Customer.findOne({
-        restaurantId: restaurant._id,
-        phone: phone.trim(),
-      });
-
-      // Demo OTP (Production hook ready for SMS Gateway)
-      const isDemo = true;
-      const demoOtp = '1234';
+      const otpResult = await otpService.sendOtp(restaurant._id, phone);
 
       sendSuccess(
         res,
         {
-          phone: phone.trim(),
-          isExistingUser: !!existingCustomer,
-          customerName: existingCustomer?.name || null,
-          demoOtp: isDemo ? demoOtp : undefined,
+          phone: otpResult.phone,
+          cooldownSeconds: otpResult.cooldownSeconds,
+          demoOtp: otpResult.demoOtp,
         },
         'Verification code sent successfully'
       );
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
     }
   }
 
   /**
    * POST /api/v1/public/customers/verify-otp
-   * Validates OTP and logs in / registers the customer.
+   * Validates OTP and creates/updates the customer account and issues a Customer JWT.
    */
   async verifyOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { phone, otp, name, email, restaurantSlug, restaurantId } = req.body;
 
       if (!phone || !otp) {
-        sendError(res, 'BAD_REQUEST', 'Phone number and verification OTP code are required', null, 400);
-        return;
-      }
-
-      if (otp !== '1234') {
-        sendError(res, 'INVALID_OTP', 'Incorrect verification code. Please use demo code 1234.', null, 400);
+        sendError(res, 'BAD_REQUEST', 'Phone number and verification code are required', null, 400);
         return;
       }
 
@@ -95,15 +87,18 @@ export class CustomerAuthController {
         restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
       }
 
-      if (!restaurant) {
+      if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant identifier is invalid or missing', null, 404);
         return;
       }
 
-      // Find or create customer
+      // Verify OTP (throws CustomError on mismatch, expiry, or max attempts)
+      const verification = await otpService.verifyOtp(restaurant._id, phone, otp);
+
+      // Find or create customer only after successful OTP verification
       const customer = await customerService.findOrCreateCustomer(
         restaurant._id,
-        phone.trim(),
+        verification.phone,
         name,
         email
       );
@@ -113,7 +108,7 @@ export class CustomerAuthController {
         return;
       }
 
-      // Generate Customer JWT token
+      // Generate Customer JWT token (30-day validity)
       const customerToken = tokenService.generateCustomerToken({
         id: customer._id.toString(),
         phone: customer.phone,
@@ -125,19 +120,10 @@ export class CustomerAuthController {
       sendSuccess(
         res,
         {
-          customer: {
-            id: customer._id,
-            name: customer.name,
-            phone: customer.phone,
-            email: customer.email,
-            totalOrdersCount: customer.totalOrdersCount,
-            totalSpent: customer.totalSpent,
-            lastOrderAt: customer.lastOrderAt,
-            createdAt: customer.createdAt,
-          },
+          customer: toCustomerSafeCustomerDTO(customer),
           customerToken,
           restaurant: {
-            id: restaurant._id,
+            id: restaurant._id.toString(),
             name: restaurant.name,
             slug: restaurant.slug,
           },
@@ -145,8 +131,12 @@ export class CustomerAuthController {
         'Customer verified and logged in successfully',
         200
       );
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
     }
   }
 
@@ -162,12 +152,14 @@ export class CustomerAuthController {
         return;
       }
 
-      const restaurant = await Restaurant.findById(customer.restaurantId).select('name slug logoUrl currency theme');
+      const restaurant = await Restaurant.findById(customer.restaurantId).select(
+        'name slug logoUrl currency theme'
+      );
 
       sendSuccess(
         res,
         {
-          customer,
+          customer: toCustomerSafeCustomerDTO(customer),
           restaurant,
         },
         'Customer profile retrieved successfully'
@@ -203,7 +195,7 @@ export class CustomerAuthController {
 
       await customer.save();
 
-      sendSuccess(res, customer, 'Customer profile updated successfully');
+      sendSuccess(res, toCustomerSafeCustomerDTO(customer), 'Customer profile updated successfully');
     } catch (error) {
       next(error);
     }
@@ -211,7 +203,7 @@ export class CustomerAuthController {
 
   /**
    * GET /api/v1/public/customers/orders
-   * Returns order history for current customer.
+   * Returns personal order history for current customer.
    */
   async getOrders(req: CustomerAuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {

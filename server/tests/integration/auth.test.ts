@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from '../src/index';
-import { User } from '../src/models/User';
+import { app, httpServer } from '../../src/index';
+import { User } from '../../src/models/User';
 import bcrypt from 'bcrypt';
 
 let mongoServer: MongoMemoryServer;
@@ -111,7 +111,7 @@ describe('Authentication API & Role Gating Tests', () => {
 
   it('should correctly reject a non-SUPER_ADMIN token on a SUPER_ADMIN-only route', async () => {
     // Let's register a mock SUPER_ADMIN-only test endpoint
-    const { requireAuth, requireRole } = await import('../src/middleware/auth');
+    const { requireAuth, requireRole } = await import('../../src/middleware/auth');
     app.get('/api/v1/test-admin-only', requireAuth as any, requireRole('SUPER_ADMIN'), (req, res) => {
       res.json({ success: true, message: 'Welcome Admin' });
     });

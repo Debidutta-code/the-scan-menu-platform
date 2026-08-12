@@ -1,19 +1,19 @@
-import { Tax } from '../src/models/Tax';
+import { Tax } from '../../src/models/Tax';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { app, httpServer } from '../src/index';
-import { User } from '../src/models/User';
-import { Restaurant } from '../src/models/Restaurant';
-import { RestaurantSettings } from '../src/models/RestaurantSettings';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { Category } from '../src/models/Category';
-import { MenuItem } from '../src/models/MenuItem';
-import { Table } from '../src/models/Table';
-import { Order } from '../src/models/Order';
+import { app, httpServer } from '../../src/index';
+import { User } from '../../src/models/User';
+import { Restaurant } from '../../src/models/Restaurant';
+import { RestaurantSettings } from '../../src/models/RestaurantSettings';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { Category } from '../../src/models/Category';
+import { MenuItem } from '../../src/models/MenuItem';
+import { Table } from '../../src/models/Table';
+import { Order } from '../../src/models/Order';
 import bcrypt from 'bcrypt';
-import { runMigration } from '../src/utils/migrateSessions';
+import { runMigration } from '../../src/utils/migrateSessions';
 
 let mongoServer: MongoMemoryServer;
 

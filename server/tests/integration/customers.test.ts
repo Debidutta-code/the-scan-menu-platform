@@ -114,15 +114,17 @@ describe('Customer Auth, Order Auto-Upsert & Directory Tests', () => {
 
     expect(sendOtpRes.status).toBe(200);
     expect(sendOtpRes.body.success).toBe(true);
-    expect(sendOtpRes.body.data.phone).toBe('9876543210');
-    expect(sendOtpRes.body.data.demoOtp).toBe('1234');
+    expect(sendOtpRes.body.data.phone).toBe('+919876543210');
+    expect(sendOtpRes.body.data).toHaveProperty('demoOtp');
+
+    const demoOtp = sendOtpRes.body.data.demoOtp;
 
     // 3. Customer Verify OTP & Login
     const verifyOtpRes = await request(app)
       .post('/api/v1/public/customers/verify-otp')
       .send({
         phone: '9876543210',
-        otp: '1234',
+        otp: demoOtp,
         name: 'Alice Johnson',
         restaurantSlug: 'gourmet-bistro',
       });
@@ -130,7 +132,7 @@ describe('Customer Auth, Order Auto-Upsert & Directory Tests', () => {
     expect(verifyOtpRes.status).toBe(200);
     expect(verifyOtpRes.body.success).toBe(true);
     expect(verifyOtpRes.body.data.customer.name).toBe('Alice Johnson');
-    expect(verifyOtpRes.body.data.customer.phone).toBe('9876543210');
+    expect(verifyOtpRes.body.data.customer.phone).toBe('+919876543210');
     expect(verifyOtpRes.body.data).toHaveProperty('customerToken');
 
     const customerToken = verifyOtpRes.body.data.customerToken;
@@ -171,11 +173,12 @@ describe('Customer Auth, Order Auto-Upsert & Directory Tests', () => {
     expect(orderRes.body.success).toBe(true);
 
     // Verify order record has customerId linked
-    const placedOrder = await Order.findById(orderRes.body.data._id);
+    const orderId = orderRes.body.data.id || orderRes.body.data._id;
+    const placedOrder = await Order.findById(orderId);
     expect(placedOrder?.customerId).toBeDefined();
 
     // Verify Customer record total spend & orders count were updated
-    const customerInDb = await Customer.findOne({ phone: '9876543210', restaurantId: restaurant._id });
+    const customerInDb = await Customer.findOne({ phone: '+919876543210', restaurantId: restaurant._id });
     expect(customerInDb?.totalOrdersCount).toBe(1);
     expect(customerInDb?.totalSpent).toBe(3000); // 1500 * 2
 

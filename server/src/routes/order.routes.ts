@@ -16,7 +16,7 @@ router.get('/:restaurantId/orders', requireFeature('ordering') as any, requireRe
 router.get('/:restaurantId/orders/active', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.listActiveOrders);
 router.get('/:restaurantId/orders/:orderId', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getOrderDetails);
 router.patch('/:restaurantId/orders/:orderId/status', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.updateOrderStatus);
-router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.cancelOrder);
+router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.cancelOrder);
 router.post('/:restaurantId/orders/:orderId/retry-pos', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.retryPosSync);
 
 // Rapid Counter Order Entry (Staff & Manager)

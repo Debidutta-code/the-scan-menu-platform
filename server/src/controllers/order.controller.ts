@@ -173,7 +173,7 @@ export class OrderController {
       const { restaurantId, orderId } = req.params;
       const { status: nextStatus } = req.body;
 
-      const userRole = (req.user?.role as any) || 'STAFF';
+      const userRole = (req as any).staffRole || (req.user?.role as any) || 'STAFF';
       const order = await orderService.updateOrderStatus(restaurantId, orderId, nextStatus as OrderStatus, userRole);
 
       sendSuccess(res, order, 'Order status updated successfully');
@@ -204,6 +204,29 @@ export class OrderController {
       const index = parseInt(itemIndex, 10);
       if (isNaN(index) || index < 0 || index >= order.items.length) {
         sendError(res, 'ITEM_NOT_FOUND', 'Specified item index is out of bounds', null, 404);
+        return;
+      }
+
+      const currentItemStatus = order.items[index].itemStatus || 'PENDING';
+      const validItemTransitions: Record<string, string[]> = {
+        PENDING: ['PREPARING', 'READY', 'SERVED'],
+        PREPARING: ['READY', 'SERVED'],
+        READY: ['SERVED'],
+        SERVED: [],
+      };
+
+      if (
+        currentItemStatus !== itemStatus &&
+        (!validItemTransitions[currentItemStatus] ||
+          !validItemTransitions[currentItemStatus].includes(itemStatus))
+      ) {
+        sendError(
+          res,
+          'INVALID_STATUS_TRANSITION',
+          `Cannot transition item from ${currentItemStatus} to ${itemStatus}`,
+          null,
+          400
+        );
         return;
       }
 

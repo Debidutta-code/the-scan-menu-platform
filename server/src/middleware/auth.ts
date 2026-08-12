@@ -152,6 +152,7 @@ export const requireRestaurantAccess = async (
       return;
     }
 
+    (req as any).staffRole = staffRecord.role;
     next();
   } catch (error) {
     next(error);

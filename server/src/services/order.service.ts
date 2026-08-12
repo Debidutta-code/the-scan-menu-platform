@@ -12,6 +12,7 @@ import { NotificationService } from './notification.service';
 import { posIntegrationService } from './posIntegration.service';
 import { restaurantStatsService } from './restaurantStats.service';
 import { customerService } from './customer.service';
+import { normalizeIndianPhoneNumber } from '../utils/phone';
 import { AuditLog } from '../models/AuditLog';
 
 class CustomError extends Error {
@@ -88,18 +89,18 @@ export class OrderService {
     for (const item of items) {
       const menuItem = await MenuItem.findById(item.itemId);
       if (!menuItem || menuItem.restaurantId.toString() !== restaurantId.toString()) {
-        failedItems.push({ itemId: item.itemId, name: 'Unknown Item', reason: 'unavailable' });
+        failedItems.push({ itemId: item.itemId, menuItemId: item.itemId, name: 'Unknown Item', reason: 'unavailable' });
         continue;
       }
 
       const category = categoryMap.get(menuItem.categoryId.toString());
       if (!menuItem.isAvailable) {
-        failedItems.push({ itemId: item.itemId, name: menuItem.name, reason: 'unavailable' });
+        failedItems.push({ itemId: item.itemId, menuItemId: item.itemId, name: menuItem.name, reason: 'unavailable' });
         continue;
       }
 
       if (!category || !category.isActive) {
-        failedItems.push({ itemId: item.itemId, name: menuItem.name, reason: 'category_inactive' });
+        failedItems.push({ itemId: item.itemId, menuItemId: item.itemId, name: menuItem.name, reason: 'category_inactive' });
         continue;
       }
 
@@ -195,6 +196,31 @@ export class OrderService {
     }
 
     const total = subtotal + tax;
+
+    // Normalize customer phone if provided
+    let normalizedPhone: string | undefined = undefined;
+    if (customerPhone && typeof customerPhone === 'string' && customerPhone.trim()) {
+      try {
+        normalizedPhone = normalizeIndianPhoneNumber(customerPhone);
+      } catch {
+        normalizedPhone = customerPhone.trim();
+      }
+    }
+
+    // Auto-resolve or upsert customer profile if phone is provided
+    let resolvedCustomerId: Types.ObjectId | undefined = customerId ? new Types.ObjectId(customerId) : undefined;
+    if (!resolvedCustomerId && normalizedPhone) {
+      try {
+        const customer = await customerService.findOrCreateCustomer(
+          restaurantId,
+          normalizedPhone,
+          customerName?.trim()
+        );
+        resolvedCustomerId = customer._id as Types.ObjectId;
+      } catch (err) {
+        console.error('Error auto-upserting customer on order creation:', err);
+      }
+    }
 
     // 4. Resolve or create DiningSession for Dine-In orders
     let resolvedDiningSession: any = null;
@@ -295,21 +321,6 @@ export class OrderService {
     // 5. Allocate Monotonically Increasing Order Number
     const orderNumber = await getNextOrderNumber(new Types.ObjectId(restaurantId));
 
-    // Auto-resolve or upsert customer profile if phone is provided
-    let resolvedCustomerId: Types.ObjectId | undefined = customerId ? new Types.ObjectId(customerId) : undefined;
-    if (!resolvedCustomerId && customerPhone && customerPhone.trim()) {
-      try {
-        const customer = await customerService.findOrCreateCustomer(
-          restaurantId,
-          customerPhone.trim(),
-          customerName?.trim()
-        );
-        resolvedCustomerId = customer._id as Types.ObjectId;
-      } catch (err) {
-        console.error('Error auto-upserting customer on order creation:', err);
-      }
-    }
-
     // 6. Create Immutable Order Ticket
     const order = new Order({
       restaurantId: new Types.ObjectId(restaurantId),
@@ -328,7 +339,7 @@ export class OrderService {
       total,
       customerNote: customerNote || '',
       customerName: customerName ? customerName.trim() : undefined,
-      customerPhone: customerPhone ? customerPhone.trim() : undefined,
+      customerPhone: normalizedPhone,
       status: 'PENDING',
       source,
       paymentStatus,
@@ -415,7 +426,8 @@ export class OrderService {
 
     const validation = validateStatusTransition(order.status, nextStatus, userRole, workflowMode);
     if (!validation.isValid) {
-      throw new CustomError(validation.errorCode || 'INVALID_TRANSITION', validation.errorMessage || 'Invalid status transition', 400);
+      const statusCode = validation.errorCode === 'CANNOT_CANCEL_UNAUTHORIZED' ? 403 : 400;
+      throw new CustomError(validation.errorCode || 'INVALID_TRANSITION', validation.errorMessage || 'Invalid status transition', statusCode);
     }
 
     order.status = nextStatus;

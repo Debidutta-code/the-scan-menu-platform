@@ -2,15 +2,15 @@ import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-import { app } from '../src/index';
-import { MenuItem } from '../src/models/MenuItem';
-import { Category } from '../src/models/Category';
-import { Restaurant } from '../src/models/Restaurant';
-import { User } from '../src/models/User';
-import { RestaurantStaff } from '../src/models/RestaurantStaff';
-import { Table } from '../src/models/Table';
-import { InventoryLog } from '../src/models/InventoryLog';
-import { featureFlagService } from '../src/services/featureFlag.service';
+import { app } from '../../src/index';
+import { MenuItem } from '../../src/models/MenuItem';
+import { Category } from '../../src/models/Category';
+import { Restaurant } from '../../src/models/Restaurant';
+import { User } from '../../src/models/User';
+import { RestaurantStaff } from '../../src/models/RestaurantStaff';
+import { Table } from '../../src/models/Table';
+import { InventoryLog } from '../../src/models/InventoryLog';
+import { featureFlagService } from '../../src/services/featureFlag.service';
 
 describe('Phase 12 Inventory Management Test Suite', () => {
   let restAId: string;
