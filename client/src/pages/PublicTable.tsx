@@ -701,15 +701,16 @@ export const PublicTable: React.FC = () => {
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isClearSessionModalOpen, setIsClearSessionModalOpen] = useState(false);
 
-  // Customer Phone & 6-Digit OTP State
+  // Customer Phone & 4-Digit PIN State
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpCode, setOtpCode] = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
   const [otpSent, setOtpSent] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [otpCooldownRemaining, setOtpCooldownRemaining] = useState<number>(0);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null]);
 
   // Order Placement & Idempotency / Recovery States
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -1277,7 +1278,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
           queryClient.invalidateQueries({ queryKey: ['publicTable'] });
           queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
           setIsOtpModalOpen(false);
-          setOtpCode('');
+          setOtpDigits(['', '', '', '']);
           setOtpSent(false);
           setIsPlacingOrder(false);
           setIsRecoveringOrder(false);
@@ -1401,7 +1402,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
     }
   };
 
-  // Send 6-Digit OTP
+  // Send 4-Digit PIN
   const handleSendOtp = async () => {
     if (!customerName || customerName.trim().length === 0) {
       toast('Please enter your name', 'error');
@@ -1419,7 +1420,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
       if (res?.success) {
         setOtpSent(true);
         setOtpCooldownRemaining(res.data?.cooldownSeconds || 60);
-        toast('6-digit verification code sent to your phone!', 'success');
+        toast('Verification code sent! Use PIN: 0000', 'success');
       } else {
         toast(res?.message || 'Failed to send verification code', 'error');
       }
@@ -1431,10 +1432,11 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
     }
   };
 
-  // Verify 6-digit OTP and automatically submit order in one continuous action
+  // Verify 4-digit PIN and automatically submit order in one continuous action
   const handleVerifyOtpAndPlaceOrder = async () => {
-    if (otpCode.length !== 6) {
-      toast('Please enter the 6-digit verification code', 'error');
+    const otpCode = otpDigits.join('');
+    if (otpCode.length !== 4) {
+      toast('Please enter the 4-digit PIN', 'error');
       return;
     }
 
@@ -3317,7 +3319,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
 
 
       {/* ==========================================
-          MOBILE NUMBER AND 6-DIGIT OTP CHECKOUT DIALOG
+          MOBILE NUMBER AND 4-DIGIT PIN CHECKOUT DIALOG
           ========================================== */}
       <AnimatePresence>
         {isOtpModalOpen && (
@@ -3400,23 +3402,80 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-xs text-slate-500 leading-normal">
-                    Enter the 6-digit verification code sent to <strong>+91 {phoneNumber}</strong>.
-                  </p>
+                <div className="space-y-5">
+                  <div className="text-center space-y-1">
+                    <p className="text-sm text-slate-600 leading-normal">
+                      Enter the 4-digit PIN sent to <strong className="text-slate-900">+91 {phoneNumber}</strong>
+                    </p>
+                  </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">6-Digit Code</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoFocus
-                      maxLength={6}
-                      placeholder="••••••"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center text-xl font-black font-mono tracking-[0.3em] focus:outline-none focus:border-amber-500"
-                    />
+                  {/* Premium 4-Box PIN Input */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono text-center">Enter PIN</label>
+                    <div className="flex justify-center gap-3">
+                      {otpDigits.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          ref={(el) => { otpInputRefs.current[idx] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          autoFocus={idx === 0 && otpSent}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '').slice(-1);
+                            const newDigits = [...otpDigits];
+                            newDigits[idx] = val;
+                            setOtpDigits(newDigits);
+                            // Auto-advance to next box
+                            if (val && idx < 3) {
+                              otpInputRefs.current[idx + 1]?.focus();
+                            }
+                            // Auto-submit on last digit
+                            if (val && idx === 3) {
+                              const fullCode = newDigits.join('');
+                              if (fullCode.length === 4) {
+                                setTimeout(() => handleVerifyOtpAndPlaceOrder(), 80);
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Backspace' && !digit && idx > 0) {
+                              const newDigits = [...otpDigits];
+                              newDigits[idx - 1] = '';
+                              setOtpDigits(newDigits);
+                              otpInputRefs.current[idx - 1]?.focus();
+                            }
+                          }}
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+                            if (pasted) {
+                              const newDigits = ['', '', '', ''];
+                              for (let i = 0; i < pasted.length && i < 4; i++) newDigits[i] = pasted[i];
+                              setOtpDigits(newDigits);
+                              const focusIdx = Math.min(pasted.length, 3);
+                              otpInputRefs.current[focusIdx]?.focus();
+                              if (pasted.length === 4) setTimeout(() => handleVerifyOtpAndPlaceOrder(), 80);
+                            }
+                          }}
+                          className={`w-14 h-16 text-center text-2xl font-black font-mono rounded-2xl border-2 outline-none transition-all duration-150 ${
+                            digit
+                              ? 'bg-amber-50 border-amber-400 text-slate-900 shadow-md shadow-amber-100'
+                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                          } focus:border-[var(--theme-accent)] focus:ring-4 focus:ring-[var(--theme-accent)]/15 focus:bg-white focus:shadow-lg`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Demo PIN hint badge */}
+                    <div className="flex justify-center pt-1">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
+                        <span className="text-[11px] text-amber-700">Demo PIN:</span>
+                        <span className="text-[11px] font-black font-mono text-amber-700 tracking-widest">0&nbsp;0&nbsp;0&nbsp;0</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-xs pt-1">
@@ -3430,13 +3489,13 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                         disabled={isSendingOtp}
                         className="text-[11px] text-amber-600 hover:text-amber-800 font-bold underline transition"
                       >
-                        Resend OTP Code
+                        Resend PIN
                       </button>
                     )}
                     <button
                       onClick={() => {
                         setOtpSent(false);
-                        setOtpCode('');
+                        setOtpDigits(['', '', '', '']);
                       }}
                       className="text-[11px] text-slate-500 hover:text-slate-800 font-medium"
                     >
@@ -3454,7 +3513,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                     </button>
                     <button
                       onClick={handleVerifyOtpAndPlaceOrder}
-                      disabled={isPlacingOrder || isVerifyingOtp || otpCode.length !== 6}
+                      disabled={isPlacingOrder || isVerifyingOtp || otpDigits.join('').length !== 4}
                       className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 uppercase tracking-wide"
                     >
                       {(isPlacingOrder || isVerifyingOtp) && <Loader className="w-4 h-4 animate-spin text-slate-950" />}

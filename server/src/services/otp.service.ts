@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import crypto from 'crypto';
-import { OtpSession, IOtpSession } from '../models/OtpSession';
+import { OtpSession } from '../models/OtpSession';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
 import { CustomError } from '../utils/response';
 import config from '../config';
@@ -14,14 +14,16 @@ export class OtpService {
   }
 
   /**
-   * Generates a cryptographically secure 6-digit numeric OTP code.
+   * Generates a 4-digit numeric OTP code.
+   * NOTE: Currently returns '0000' as a placeholder until SMS gateway is integrated.
    */
-  private generate6DigitOtp(): string {
-    return crypto.randomInt(100000, 1000000).toString();
+  private generate4DigitOtp(): string {
+    return '0000';
   }
 
   /**
    * Initiates OTP generation and persistence with resend cooldown and TTL.
+   * Currently uses '0000' as a fixed 4-digit placeholder until SMS gateway is integrated.
    */
   async sendOtp(
     restaurantId: Types.ObjectId | string,
@@ -60,8 +62,8 @@ export class OtpService {
       await existingSession.save();
     }
 
-    // 3. Generate 6-digit secure OTP
-    const otpCode = this.generate6DigitOtp();
+    // 3. Generate 4-digit OTP (fixed '0000' placeholder until SMS gateway is integrated)
+    const otpCode = this.generate4DigitOtp();
     const otpHash = this.hashOtp(otpCode);
 
     // 4. Save new OTP Session with 5-minute TTL & 60s cooldown
@@ -94,7 +96,7 @@ export class OtpService {
   }
 
   /**
-   * Verifies an OTP code against the active session.
+   * Verifies a 4-digit PIN against the active session.
    * Enforces attempt limits, timing-safe hash comparison, and single-use invalidation.
    */
   async verifyOtp(

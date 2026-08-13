@@ -21,8 +21,9 @@ export class CustomerAuthController {
 
   /**
    * POST /api/v1/public/customers/send-otp
-   * Initiates customer phone login via cryptographically secure 6-digit OTP.
+   * Initiates customer phone login via 4-digit PIN.
    * Enforces 60-second cooldown and 5-minute TTL without exposing user existence.
+   * NOTE: Currently returns a fixed '0000' PIN until SMS gateway is integrated.
    */
   async sendOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
