@@ -113,6 +113,12 @@ export class CustomerService {
       Order.countDocuments({ restaurantId: rId, customerId: cId }),
     ]);
 
+    // Self-healing background sync of customer totalSpent and totalOrdersCount
+    const validOrders = await Order.find({ customerId: cId, status: { $ne: 'CANCELLED' } }).select('total').lean();
+    const actualSpent = validOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const actualCount = validOrders.length;
+    Customer.findByIdAndUpdate(cId, { totalSpent: actualSpent, totalOrdersCount: actualCount }).catch(() => {});
+
     return {
       orders,
       pagination: {

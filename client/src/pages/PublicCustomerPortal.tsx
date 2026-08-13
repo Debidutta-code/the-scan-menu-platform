@@ -66,6 +66,12 @@ export const PublicCustomerPortal: React.FC = () => {
 
   const orders = ordersResponse?.success ? ordersResponse.data.orders : [];
 
+  const calculatedTotalSpent = orders.length > 0
+    ? orders.filter((o: any) => o.status !== 'CANCELLED').reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+    : (customer?.totalSpent || 0);
+
+  const calculatedTotalVisits = orders.length > 0 ? orders.length : (customer?.totalOrdersCount || 0);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -183,13 +189,13 @@ export const PublicCustomerPortal: React.FC = () => {
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-150">
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block font-mono">Total Visits</span>
               <span className="text-xl font-black font-mono text-slate-900 mt-0.5 block">
-                {customer.totalOrdersCount || 0}
+                {calculatedTotalVisits}
               </span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-150">
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block font-mono">Total Spent</span>
               <span className="text-xl font-black font-mono text-emerald-600 mt-0.5 block">
-                {formatPrice(customer.totalSpent)}
+                {formatPrice(calculatedTotalSpent)}
               </span>
             </div>
             <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3.5 rounded-2xl border border-slate-150">
