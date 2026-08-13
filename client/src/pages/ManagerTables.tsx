@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion, AnimatePresence } from 'framer-motion';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
-import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { managerService, Table, TableZone } from '../services/restaurant.service';
 import {
@@ -30,9 +29,8 @@ import {
   RefreshCw,
   Utensils,
   Layers,
-  CheckSquare,
-  Square,
   RotateCw,
+  ChevronRight,
 } from 'lucide-react';
 
 const tableSchema = z.object({
@@ -77,9 +75,11 @@ export const ManagerTables: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED'>('ALL');
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
-  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
 
-  // Modals
+  // Selected table for Quick Action Modal
+  const [activeTableAction, setActiveTableAction] = useState<Table | null>(null);
+
+  // Form & Secondary Modals
   const [isFormOpen, setIsCreateOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [showQrModal, setShowQrModal] = useState<Table | null>(null);
@@ -116,23 +116,13 @@ export const ManagerTables: React.FC = () => {
       (t) => t.status === 'OCCUPIED' || (t.activeOrderCount && t.activeOrderCount > 0) || t.activeSession
     ).length;
     const reserved = tables.filter((t) => t.status === 'RESERVED').length;
-    const available = total - occupied - reserved;
-    return { total, occupied, reserved, available: Math.max(0, available) };
+    const available = Math.max(0, total - occupied - reserved);
+    return { total, occupied, reserved, available };
   }, [tables]);
 
-  // Filtered tables based on search, zone, and status
+  // Filtered tables list based on search & status
   const filteredTables = useMemo(() => {
     return tables.filter((table) => {
-      // Zone filter
-      const tableZoneId = typeof table.zoneId === 'string' ? table.zoneId : table.zoneId?._id;
-      if (activeZoneFilter !== null) {
-        if (activeZoneFilter === 'unassigned') {
-          if (tableZoneId && zones.some((z) => z._id === tableZoneId)) return false;
-        } else if (tableZoneId !== activeZoneFilter) {
-          return false;
-        }
-      }
-
       // Status filter
       if (statusFilter !== 'ALL') {
         const isOccupied =
@@ -154,40 +144,32 @@ export const ManagerTables: React.FC = () => {
 
       return true;
     });
-  }, [tables, activeZoneFilter, statusFilter, searchQuery, zones]);
+  }, [tables, statusFilter, searchQuery]);
 
-  // Multi-select helpers
-  const handleSelectTable = (id: string) => {
-    setSelectedTableIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  // Group filtered tables by Zone (including unassigned)
+  const zoneGroupings = useMemo(() => {
+    const displayZones = activeZoneFilter
+      ? zones.filter((z) => z._id === activeZoneFilter)
+      : [...zones, { _id: 'unassigned', name: 'Unassigned Tables', isActive: true } as TableZone];
 
-  const handleSelectAll = () => {
-    if (selectedTableIds.length === filteredTables.length) {
-      setSelectedTableIds([]);
-    } else {
-      setSelectedTableIds(filteredTables.map((t) => t._id));
-    }
-  };
+    return displayZones
+      .map((zone) => {
+        const isUnassigned = zone._id === 'unassigned';
+        const zoneTables = filteredTables.filter((t) => {
+          const tableZoneId = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
+          if (isUnassigned) {
+            return !tableZoneId || !zones.some((z) => z._id === tableZoneId);
+          }
+          return tableZoneId === zone._id;
+        });
 
-  // Bulk actions
-  const handleBulkClear = () => {
-    if (selectedTableIds.length === 0) return;
-    if (confirm(`Clear ${selectedTableIds.length} selected table(s)? Active dining sessions will be closed.`)) {
-      clearTablesMutation.mutate(selectedTableIds, {
-        onSuccess: () => setSelectedTableIds([]),
-      });
-    }
-  };
-
-  const handleBulkReserve = (reserved: boolean = true) => {
-    if (selectedTableIds.length === 0) return;
-    reserveTablesMutation.mutate(
-      { tableIds: selectedTableIds, reserved },
-      { onSuccess: () => setSelectedTableIds([]) }
-    );
-  };
+        return {
+          zone,
+          tables: zoneTables,
+        };
+      })
+      .filter((group) => group.tables.length > 0);
+  }, [filteredTables, zones, activeZoneFilter]);
 
   // Submit handlers
   const onSubmitTable = (values: TableFormValues) => {
@@ -229,7 +211,13 @@ export const ManagerTables: React.FC = () => {
     setIsCreateOpen(true);
   };
 
-  // QR Print & Download logic
+  const handleAddTableToZone = (zoneId: string) => {
+    setEditingTable(null);
+    tableForm.reset({ tableNumber: '', displayName: '', zoneId });
+    setIsCreateOpen(true);
+  };
+
+  // Download & Print QR
   const handleDownloadPng = () => {
     if (qrData?.data?.pngDataUri && showQrModal) {
       const link = document.createElement('a');
@@ -340,7 +328,7 @@ export const ManagerTables: React.FC = () => {
         <Loader className="w-12 h-12 text-amber-500 mb-4 animate-spin" strokeWidth={1.75} />
         <h2 className="font-display tracking-tight text-2xl font-bold text-slate-800">No Restaurant Assigned</h2>
         <p className="text-slate-500 text-sm max-w-sm mt-1">
-          You are currently not associated with any active restaurant session.
+          You are currently not associated as a manager with any active restaurant.
         </p>
       </div>
     );
@@ -359,54 +347,58 @@ export const ManagerTables: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-6 font-sans pb-24">
-      {/* Header & Main Controls */}
+    <div className="w-full space-y-6 font-sans pb-20">
+      {/* Header & Main Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display tracking-tight text-3xl sm:text-4xl font-bold text-slate-900">
-            Table Management
+            Restaurant Tables & Zones
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Monitor active table status, active orders, reservations & QR ordering setup
+            Click any table box to open quick actions, manage reservations & clear active sessions
           </p>
         </div>
+
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => refetchTables()}
-            className="p-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm"
+            className="p-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition shadow-sm"
             title="Refresh tables"
           >
             <RefreshCw className="w-4 h-4 text-slate-600" strokeWidth={1.75} />
           </button>
+
           <button
             onClick={() => {
               setEditingZone(null);
               zoneForm.reset({ name: '' });
               setIsZoneFormOpen(true);
             }}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-50 transition shadow-sm"
+            className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50 transition shadow-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Add Zone</span>
           </button>
+
           <button
             onClick={() => {
               setEditingTable(null);
               tableForm.reset({ tableNumber: '', displayName: '', zoneId: activeZoneFilter || undefined });
               setIsCreateOpen(true);
             }}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm"
+            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Add Table</span>
           </button>
+
           <button
             onClick={() => {
               setErrorMsg(null);
               bulkForm.reset({ count: 10, prefix: '', zoneId: activeZoneFilter || undefined });
               setIsBulkFormOpen(true);
             }}
-            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 transition shadow-sm"
+            className="flex items-center gap-1.5 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition shadow-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Bulk Create</span>
@@ -414,57 +406,57 @@ export const ManagerTables: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary KPI Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+      {/* Summary KPI Badges Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Tables</p>
-            <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{stats.total}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Tables</p>
+            <p className="text-xl font-extrabold text-slate-900 mt-0.5">{stats.total}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-            <Layers className="w-5 h-5" strokeWidth={1.75} />
+          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+            <Layers className="w-4 h-4" strokeWidth={1.75} />
           </div>
         </div>
 
-        <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="bg-white border border-emerald-100 rounded-xl p-3.5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Available</p>
-            <p className="text-2xl font-extrabold text-emerald-700 mt-0.5">{stats.available}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Available</p>
+            <p className="text-xl font-extrabold text-emerald-700 mt-0.5">{stats.available}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5" strokeWidth={1.75} />
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} />
           </div>
         </div>
 
-        <div className="bg-white border border-amber-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="bg-white border border-amber-100 rounded-xl p-3.5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Occupied</p>
-            <p className="text-2xl font-extrabold text-amber-700 mt-0.5">{stats.occupied}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Occupied</p>
+            <p className="text-xl font-extrabold text-amber-700 mt-0.5">{stats.occupied}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <Utensils className="w-5 h-5" strokeWidth={1.75} />
+          <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Utensils className="w-4 h-4" strokeWidth={1.75} />
           </div>
         </div>
 
-        <div className="bg-white border border-purple-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-purple-600">Reserved</p>
-            <p className="text-2xl font-extrabold text-purple-700 mt-0.5">{stats.reserved}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Reserved</p>
+            <p className="text-xl font-extrabold text-purple-700 mt-0.5">{stats.reserved}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <Bookmark className="w-5 h-5" strokeWidth={1.75} />
+          <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <Bookmark className="w-4 h-4" strokeWidth={1.75} />
           </div>
         </div>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Filter Tabs & Zone Selector */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Status Tabs */}
           <div className="flex flex-wrap items-center bg-slate-100 p-1 rounded-xl">
             {(
               [
-                { id: 'ALL', label: 'All Tables', count: stats.total },
+                { id: 'ALL', label: 'All', count: stats.total },
                 { id: 'AVAILABLE', label: 'Available', count: stats.available },
                 { id: 'OCCUPIED', label: 'Occupied', count: stats.occupied },
                 { id: 'RESERVED', label: 'Reserved', count: stats.reserved },
@@ -473,7 +465,7 @@ export const ManagerTables: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                   statusFilter === tab.id
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
@@ -491,38 +483,24 @@ export const ManagerTables: React.FC = () => {
             ))}
           </div>
 
-          {/* Search Input & Select All */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
-              <input
-                type="text"
-                placeholder="Search table or number..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <button
-              onClick={handleSelectAll}
-              className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-50 transition text-slate-700 whitespace-nowrap"
-            >
-              {selectedTableIds.length === filteredTables.length && filteredTables.length > 0 ? (
-                <CheckSquare className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
-              ) : (
-                <Square className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
-              )}
-              <span>Select All</span>
-            </button>
+          {/* Search bar */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+            <input
+              type="text"
+              placeholder="Search table..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -566,6 +544,13 @@ export const ManagerTables: React.FC = () => {
                       <Edit2 className="w-3 h-3" />
                     </button>
                     <button
+                      onClick={() => handleAddTableToZone(zone._id)}
+                      className="p-1 text-white hover:bg-amber-700 transition"
+                      title="Add Table to Zone"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <button
                       onClick={() => {
                         if (confirm(`Delete zone "${zone.name}"? ALL tables in this zone will be deleted.`)) {
                           deleteZoneMutation.mutate(zone._id);
@@ -584,242 +569,270 @@ export const ManagerTables: React.FC = () => {
         )}
       </div>
 
-      {/* Main Table Cards Grid */}
-      {filteredTables.length === 0 ? (
+      {/* Zone-Wise Compact Tables Grid (Seat layout style) */}
+      {zoneGroupings.length === 0 ? (
         <div className="text-center py-16 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
           <QrCode className="w-12 h-12 text-slate-300 mx-auto mb-3" strokeWidth={1.75} />
           <h3 className="font-bold text-slate-800 text-lg">No Tables Found</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {searchQuery
-              ? `No tables matching "${searchQuery}"`
-              : 'Click "Add Table" or "Bulk Create" to create your first restaurant table QR.'}
+            {searchQuery ? `No tables match "${searchQuery}"` : 'Click "Add Table" to set up your tables.'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          <AnimatePresence>
-            {filteredTables.map((table) => {
-              const isSelected = selectedTableIds.includes(table._id);
-              const isOccupied =
-                table.status === 'OCCUPIED' ||
-                (table.activeOrderCount && table.activeOrderCount > 0) ||
-                !!table.activeSession;
-              const isReserved = table.status === 'RESERVED';
-              const zoneObj = typeof table.zoneId === 'object' ? table.zoneId : null;
+        <div className="space-y-6">
+          {zoneGroupings.map(({ zone, tables: zoneTables }) => (
+            <div key={zone._id} className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 shadow-sm">
+              {/* Zone Header */}
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-extrabold text-slate-900">{zone.name}</h3>
+                  <span className="text-xs font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
+                    {zoneTables.length} tables
+                  </span>
+                </div>
+                {zone._id !== 'unassigned' && (
+                  <button
+                    onClick={() => handleAddTableToZone(zone._id)}
+                    className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-lg transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Table</span>
+                  </button>
+                )}
+              </div>
 
-              return (
-                <motion.div
-                  key={table._id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className={`relative group bg-white border-2 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20'
-                      : isOccupied
-                      ? 'border-amber-400/60 bg-amber-50/10'
-                      : isReserved
-                      ? 'border-purple-300 bg-purple-50/10'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  {/* Top Row: Selection Checkbox, Table Number Pill, Status Badge */}
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleSelectTable(table._id)}
-                          className="text-slate-400 hover:text-amber-500 transition"
+              {/* Compact Box Grid (Click box to open Quick Actions) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                {zoneTables.map((table) => {
+                  const isOccupied =
+                    table.status === 'OCCUPIED' ||
+                    (table.activeOrderCount && table.activeOrderCount > 0) ||
+                    !!table.activeSession;
+                  const isReserved = table.status === 'RESERVED';
+
+                  return (
+                    <button
+                      key={table._id}
+                      onClick={() => setActiveTableAction(table)}
+                      className={`relative group border-2 rounded-xl p-3 flex flex-col items-center justify-between text-center transition cursor-pointer hover:-translate-y-0.5 hover:shadow-md ${
+                        isOccupied
+                          ? 'bg-amber-50/60 border-amber-400 hover:border-amber-500'
+                          : isReserved
+                          ? 'bg-purple-50/60 border-purple-400 hover:border-purple-500'
+                          : 'bg-white border-slate-200 hover:border-amber-400'
+                      }`}
+                    >
+                      {/* Top Status Icon / Tag */}
+                      <div className="w-full flex items-center justify-between mb-2">
+                        <div
+                          className={`w-7 h-7 rounded-full font-mono font-bold text-xs flex items-center justify-center shadow-xs ${
+                            isOccupied
+                              ? 'bg-amber-500 text-white'
+                              : isReserved
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-slate-100 text-slate-800'
+                          }`}
                         >
-                          {isSelected ? (
-                            <CheckSquare className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-300 hover:text-slate-500" strokeWidth={1.75} />
-                          )}
-                        </button>
-                        <div className="w-8 h-8 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
                           {table.tableNumber}
                         </div>
+
+                        {/* Status Compact Tag */}
+                        {isOccupied ? (
+                          <div className="flex items-center gap-1 text-[9px] font-extrabold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                            <span>OCCUPIED</span>
+                          </div>
+                        ) : isReserved ? (
+                          <div className="flex items-center gap-0.5 text-[9px] font-extrabold text-purple-900 bg-purple-100 px-1.5 py-0.5 rounded-md border border-purple-300">
+                            <Bookmark className="w-2.5 h-2.5 text-purple-700" strokeWidth={2.5} />
+                            <span>RES</span>
+                          </div>
+                        ) : (
+                          <div className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
+                            FREE
+                          </div>
+                        )}
                       </div>
 
-                      {/* Status Indicator Badge */}
-                      {isOccupied ? (
-                        <div className="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
-                          <span>OCCUPIED</span>
-                        </div>
-                      ) : isReserved ? (
-                        <div className="px-2.5 py-1 rounded-full bg-purple-100 border border-purple-300 text-purple-900 text-[10px] font-extrabold flex items-center gap-1">
-                          <Bookmark className="w-3 h-3 text-purple-700" strokeWidth={2} />
-                          <span>RESERVED</span>
-                        </div>
-                      ) : (
-                        <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span>AVAILABLE</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Table Title & Zone */}
-                    <div className="mb-3">
-                      <h4 className="font-bold text-slate-900 text-sm truncate" title={table.displayName}>
+                      {/* Display Name */}
+                      <span
+                        className="text-xs font-bold text-slate-900 truncate w-full mb-1"
+                        title={table.displayName}
+                      >
                         {table.displayName}
-                      </h4>
-                      {zoneObj?.name && (
-                        <span className="inline-block mt-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
-                          {zoneObj.name}
+                      </span>
+
+                      {/* Sub-info tag if active orders exist */}
+                      {isOccupied && table.activeOrderCount !== undefined && table.activeOrderCount > 0 ? (
+                        <span className="text-[10px] font-extrabold text-amber-800 bg-amber-200/70 px-1.5 py-0.5 rounded-md">
+                          ⚡ {table.activeOrderCount} order{table.activeOrderCount > 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium text-slate-400 group-hover:text-amber-600 transition flex items-center gap-0.5">
+                          Actions <ChevronRight className="w-3 h-3" />
                         </span>
                       )}
-                    </div>
-
-                    {/* Active Order / Session Tag */}
-                    {isOccupied && (
-                      <div className="mb-3 p-2 bg-amber-50 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 space-y-1">
-                        {table.activeOrderCount !== undefined && table.activeOrderCount > 0 && (
-                          <div className="font-bold flex items-center gap-1 text-amber-800">
-                            <Utensils className="w-3 h-3 text-amber-600" />
-                            <span>{table.activeOrderCount} Active Order(s)</span>
-                          </div>
-                        )}
-                        {table.activeSession && (
-                          <div className="text-[10px] text-amber-700 font-mono">
-                            Session: #{table.activeSession.sessionCode || 'Active'}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom Quick Actions Area (Ergonomic layout per order page style & user screenshot) */}
-                  <div className="pt-3 border-t border-slate-100 space-y-2">
-                    {/* Primary Button: View QR (matches orange action button from screenshot) */}
-                    <button
-                      onClick={() => setShowQrModal(table)}
-                      className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-[0.98]"
-                    >
-                      <QrCode className="w-4 h-4" strokeWidth={2} />
-                      <span>View QR</span>
                     </button>
-
-                    {/* Secondary Quick Action Row */}
-                    <div className="flex gap-1.5">
-                      {isOccupied ? (
-                        <button
-                          onClick={() => {
-                            if (confirm(`Clear Table ${table.tableNumber}? This will close the active session.`)) {
-                              clearTablesMutation.mutate([table._id]);
-                            }
-                          }}
-                          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold py-1.5 rounded-lg transition"
-                          title="Clear Table"
-                        >
-                          Clear
-                        </button>
-                      ) : isReserved ? (
-                        <button
-                          onClick={() =>
-                            reserveTablesMutation.mutate({ tableIds: [table._id], reserved: false })
-                          }
-                          className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-800 text-[11px] font-bold py-1.5 rounded-lg transition"
-                          title="Unreserve Table"
-                        >
-                          Unreserve
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            reserveTablesMutation.mutate({ tableIds: [table._id], reserved: true })
-                          }
-                          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold py-1.5 rounded-lg transition"
-                          title="Reserve Table"
-                        >
-                          Reserve
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleEditClick(table)}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
-                        title="Edit Table"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this table? Tables with order history will be soft-archived.')) {
-                            deleteTableMutation.mutate(table._id);
-                          }
-                        }}
-                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 p-1.5 rounded-lg transition"
-                        title="Delete Table"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Floating Multi-Select Batch Operations Toolbar */}
-      <AnimatePresence>
-        {selectedTableIds.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-800"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-xs font-bold">{selectedTableIds.length} Selected</span>
-            </div>
-
-            <div className="h-4 w-px bg-slate-700" />
-
-            <div className="flex items-center gap-2">
+      {/* Table Quick Action Modal (Opened when clicking ANY table box) */}
+      {activeTableAction && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-slate-900 text-white font-mono text-xs font-bold rounded-md">
+                    #{activeTableAction.tableNumber}
+                  </span>
+                  <h3 className="font-display text-xl font-bold text-slate-900">
+                    {activeTableAction.displayName}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Status:{' '}
+                  <strong className="text-slate-800">
+                    {activeTableAction.status === 'OCCUPIED' ||
+                    (activeTableAction.activeOrderCount && activeTableAction.activeOrderCount > 0) ||
+                    activeTableAction.activeSession
+                      ? 'Occupied'
+                      : activeTableAction.status === 'RESERVED'
+                      ? 'Reserved'
+                      : 'Available'}
+                  </strong>
+                </p>
+              </div>
               <button
-                onClick={handleBulkClear}
-                disabled={clearTablesMutation.isPending}
-                className="bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                onClick={() => setActiveTableAction(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                {clearTablesMutation.isPending ? <Loader className="w-3.5 h-3.5 animate-spin" /> : 'Clear Tables'}
-              </button>
-
-              <button
-                onClick={() => handleBulkReserve(true)}
-                disabled={reserveTablesMutation.isPending}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-              >
-                Reserve
-              </button>
-
-              <button
-                onClick={() => handleBulkReserve(false)}
-                disabled={reserveTablesMutation.isPending}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition"
-              >
-                Unreserve
+                <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
 
-            <button
-              onClick={() => setSelectedTableIds([])}
-              className="text-slate-400 hover:text-white p-1 ml-2 transition"
-              title="Deselect all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Active order info summary inside modal */}
+            {activeTableAction.activeOrderCount !== undefined && activeTableAction.activeOrderCount > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2">
+                <Utensils className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>
+                  <strong>{activeTableAction.activeOrderCount} active order(s)</strong> currently in kitchen/service.
+                </span>
+              </div>
+            )}
+
+            {/* Quick Actions List (Matching user screenshot style) */}
+            <div className="space-y-2.5">
+              {/* Primary Action Button: View QR (Matching screenshot orange button) */}
+              <button
+                onClick={() => {
+                  const target = activeTableAction;
+                  setActiveTableAction(null);
+                  setShowQrModal(target);
+                }}
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-[0.98]"
+              >
+                <QrCode className="w-4.5 h-4.5" strokeWidth={2} />
+                <span>View QR Code</span>
+              </button>
+
+              {/* Clear Table button (if occupied) */}
+              {(activeTableAction.status === 'OCCUPIED' ||
+                (activeTableAction.activeOrderCount && activeTableAction.activeOrderCount > 0) ||
+                activeTableAction.activeSession) && (
+                <button
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Clear Table ${activeTableAction.tableNumber}? This will mark it Available and close any active session.`
+                      )
+                    ) {
+                      clearTablesMutation.mutate([activeTableAction._id], {
+                        onSuccess: () => setActiveTableAction(null),
+                      });
+                    }
+                  }}
+                  disabled={clearTablesMutation.isPending}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition"
+                >
+                  {clearTablesMutation.isPending ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Clear Table (Mark Available)</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Reserve / Unreserve button */}
+              {activeTableAction.status === 'RESERVED' ? (
+                <button
+                  onClick={() => {
+                    reserveTablesMutation.mutate(
+                      { tableIds: [activeTableAction._id], reserved: false },
+                      { onSuccess: () => setActiveTableAction(null) }
+                    );
+                  }}
+                  disabled={reserveTablesMutation.isPending}
+                  className="w-full bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition"
+                >
+                  <Bookmark className="w-4 h-4 text-purple-700" />
+                  <span>Unreserve Table</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    reserveTablesMutation.mutate(
+                      { tableIds: [activeTableAction._id], reserved: true },
+                      { onSuccess: () => setActiveTableAction(null) }
+                    );
+                  }}
+                  disabled={reserveTablesMutation.isPending}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition"
+                >
+                  <Bookmark className="w-4 h-4 text-slate-600" />
+                  <span>Reserve Table</span>
+                </button>
+              )}
+
+              {/* Secondary Action Row: Edit & Delete (Matching screenshot layout) */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    const target = activeTableAction;
+                    setActiveTableAction(null);
+                    handleEditClick(target);
+                  }}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition"
+                >
+                  Edit Details
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('Delete this table? Tables with order history will be soft-archived.')) {
+                      const id = activeTableAction._id;
+                      setActiveTableAction(null);
+                      deleteTableMutation.mutate(id);
+                    }
+                  }}
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-600 p-2.5 rounded-xl transition"
+                  title="Delete Table"
+                >
+                  <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Create Modal */}
       {isBulkFormOpen && (
