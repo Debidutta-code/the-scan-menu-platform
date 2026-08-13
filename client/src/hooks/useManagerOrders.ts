@@ -257,12 +257,22 @@ export function useManagerOrders({
       // 4. Optimistically update activeOrdersQueue cache
       queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
         if (!old || !old.success || !Array.isArray(old.data)) return old;
-        const updatedData = old.data.map((order: Order) => {
-          if (order._id === orderId) {
-            return { ...order, status: nextStatus as any };
+        const existingIndex = old.data.findIndex((order: Order) => order._id === orderId);
+        const updatedData = [...old.data];
+
+        if (existingIndex !== -1) {
+          updatedData[existingIndex] = { ...updatedData[existingIndex], status: nextStatus as any };
+        } else if (nextStatus !== 'SERVED' && nextStatus !== 'CANCELLED') {
+          // Order was not in active queue (e.g. was SERVED). Find in served history cache and restore to active queue!
+          const servedList = (previousServed as any)?.data?.orders || [];
+          const historyList = (previousHistory as any)?.data?.orders || [];
+          const target =
+            servedList.find((o: Order) => o._id === orderId) ||
+            historyList.find((o: Order) => o._id === orderId);
+          if (target) {
+            updatedData.unshift({ ...target, status: nextStatus as any });
           }
-          return order;
-        });
+        }
         return { ...old, data: updatedData };
       });
 
