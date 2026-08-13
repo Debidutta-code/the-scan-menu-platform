@@ -2318,24 +2318,27 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                        ))}
                     </div>
                     {sessionDetailsData?.data?.session ? (
-                      <div className="flex flex-col gap-1.5 border-t border-slate-200 pt-3 mt-1 text-xs">
-                         <div className="flex justify-between text-slate-500 font-medium">
-                            <span>Previous Orders</span>
+                      <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 mt-1 text-xs">
+                         <div className="flex justify-between text-slate-500 font-medium px-1">
+                            <span>Already Spent</span>
                             <span className="font-mono text-slate-700">{formatPrice(sessionDetailsData.data.session.total, currency)}</span>
                          </div>
-                         <div className="flex justify-between text-amber-900 font-bold">
-                            <span>This Order</span>
-                            <span className="font-mono font-black">{formatPrice(cartGrandTotal, currency)}</span>
+                         <div className="flex justify-between items-center text-amber-950 font-bold bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80 shadow-xs">
+                            <span className="flex items-center gap-1.5 font-sans">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                              <span>This Order</span>
+                            </span>
+                            <span className="font-mono font-black text-sm">{formatPrice(cartGrandTotal, currency)}</span>
                          </div>
-                         <div className="flex justify-between text-slate-900 font-bold text-sm mt-1 border-t border-slate-200 pt-2">
-                            <span>Total after order</span>
+                         <div className="flex justify-between items-center text-slate-900 font-bold text-sm mt-0.5 border-t border-slate-200 pt-2.5 px-1">
+                            <span>Total After This Order</span>
                             <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(sessionDetailsData.data.session.total + cartGrandTotal, currency)}</span>
                          </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-1">
-                        <span className="text-slate-800 font-bold text-sm">This Order</span>
-                        <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
+                      <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-1 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80">
+                        <span className="text-amber-950 font-bold text-sm">This Order</span>
+                        <span className="text-lg font-black text-amber-950 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
                       </div>
                     )}
 
@@ -2616,10 +2619,10 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                     <div className="fixed bottom-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-3 shadow-lg">
                       <div className="max-w-md mx-auto flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
-                            Total Spent So Far
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block font-mono">
+                            Table Total So Far
                           </span>
-                          <span className="text-lg font-black text-slate-900 font-mono">
+                          <span className="text-xl font-black text-slate-900 font-mono">
                             {formatPrice(session.total, currency)}
                           </span>
                         </div>
@@ -3229,7 +3232,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
 
                   {/* Total spent so far */}
                   <div className="flex justify-between items-center text-slate-900 font-black text-sm pt-2 border-t border-slate-200">
-                    <span>Total spent so far</span>
+                    <span>Table Total So Far</span>
                     <span className="text-xl font-mono text-emerald-600">
                       {formatPrice(sessionDetailsData.data.session.total, currency)}
                     </span>
