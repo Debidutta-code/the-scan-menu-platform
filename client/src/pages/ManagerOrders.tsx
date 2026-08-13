@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
-import { useSocket } from '../hooks/useSocket';
 import {
   Clock,
   CheckCircle2,
@@ -36,45 +32,7 @@ import {
   History as HistoryIcon,
   Kanban as KanbanIcon
 } from 'lucide-react';
-import apiClient from '../lib/api';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type WorkflowMode = 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP';
-
-interface OrderItem {
-  nameSnapshot: string;
-  unitPriceSnapshot: number;
-  quantity: number;
-  selectedAddOns: { name: string; priceDelta: number }[];
-  specialInstructions?: string;
-  prepTimeMinutesSnapshot?: number;
-  itemStatus?: string;
-}
-
-interface Order {
-  _id: string;
-  restaurantId: string;
-  tableId: { displayName: string; tableNumber: string } | any;
-  sessionId?: string;
-  roundNumber?: number;
-  isMerged?: boolean;
-  orderNumber: number;
-  orderMode?: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | 'COUNTER';
-  items: OrderItem[];
-  subtotal: number;
-  tax: number;
-  taxBreakdown?: { name: string; percentage: number; amount: number; subTaxes?: { name: string; percentage: number; amount: number }[] }[];
-  total: number;
-  paymentStatus?: 'PENDING' | 'PAID';
-  customerNote?: string;
-  customerName?: string;
-  customerPhone?: string;
-  status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
-  source: string;
-  integrationMetadata?: Record<string, any>;
-  createdAt: string;
-}
+import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
 
 // ─── Workflow Step Definitions ─────────────────────────────────────────────────
 
@@ -311,79 +269,14 @@ const getOrderContextDetails = (order: Order) => {
   };
 };
 
-const WORKFLOW_CACHE_PREFIX = 'pixora_workflow_mode_';
 
-function readWorkflowCache(restaurantId: string): WorkflowMode | null {
-  try {
-    const raw = localStorage.getItem(`${WORKFLOW_CACHE_PREFIX}${restaurantId}`);
-    if (raw === 'FIVE_STEP' || raw === 'FOUR_STEP' || raw === 'THREE_STEP') {
-      return raw as WorkflowMode;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function writeWorkflowCache(restaurantId: string, mode: WorkflowMode): void {
-  try {
-    localStorage.setItem(`${WORKFLOW_CACHE_PREFIX}${restaurantId}`, mode);
-  } catch {
-    // Storage quota or private mode — ignore
-  }
-}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const ManagerOrders: React.FC = () => {
-  const { activeRestaurantId } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
   const [audioEnabled, setAudioEnabled] = useState(true);
-
-  // Seed initial workflow mode from localStorage so the board renders instantly without layout jumps on refresh
-  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>(() => {
-    if (!activeRestaurantId) return 'FIVE_STEP';
-    return readWorkflowCache(activeRestaurantId) ?? 'FIVE_STEP';
-  });
-
-  // Re-seed from localStorage when activeRestaurantId changes
-  useEffect(() => {
-    if (!activeRestaurantId) return;
-    const cached = readWorkflowCache(activeRestaurantId);
-    if (cached) {
-      setWorkflowMode(cached);
-    }
-  }, [activeRestaurantId]);
-
-  // Fetch restaurant config for workflow mode
-  const { data: restaurantResponse } = useQuery({
-    queryKey: ['restaurantConfig', activeRestaurantId],
-    queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}`);
-      return res.data;
-    },
-    enabled: !!activeRestaurantId,
-    staleTime: 60_000,
-  });
-
-  // Sync server workflowMode and update localStorage
-  useEffect(() => {
-    if (restaurantResponse?.data?.orderWorkflowMode) {
-      const serverMode = restaurantResponse.data.orderWorkflowMode as WorkflowMode;
-      if (serverMode === 'FIVE_STEP' || serverMode === 'FOUR_STEP' || serverMode === 'THREE_STEP') {
-        setWorkflowMode(serverMode);
-        if (activeRestaurantId) {
-          writeWorkflowCache(activeRestaurantId, serverMode);
-        }
-      }
-    }
-  }, [restaurantResponse, activeRestaurantId]);
-
-  const workflowSteps = WORKFLOW_STEPS[workflowMode];
 
   // Mobile tab state
   const [mobileStatusTab, setMobileStatusTab] = useState<string>('PENDING');
@@ -409,6 +302,46 @@ export const ManagerOrders: React.FC = () => {
   // Live clock
   const [now, setNow] = useState<Date>(new Date());
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(historySearch);
+      setHistoryPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [historySearch]);
+
+  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setHistoryStatusFilter(e.target.value);
+    setHistoryPage(1);
+  };
+
+  // Consume optimistic orders hook
+  const {
+    activeRestaurantId,
+    workflowMode,
+    activeOrders,
+    isLoadingActive,
+    servedOrdersData,
+    isFetchingServed,
+    historyOrdersData,
+    isFetchingHistory,
+    pendingOrderIds,
+    archivedServedIds,
+    archiveServedOrder,
+    updateStatusMutation,
+    cancelOrderMutation,
+    closeSessionMutation,
+    retryPosMutation,
+  } = useManagerOrders({
+    servedPage,
+    historyPage,
+    debouncedSearch,
+    historyStatusFilter,
+    isHistoryView: viewMode === 'HISTORY',
+  });
+
+  const workflowSteps = WORKFLOW_STEPS[workflowMode];
+
   // Escape key handler to deselect or close modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -424,85 +357,7 @@ export const ManagerOrders: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [detailModalOrder, selectedCardOrder]);
 
-  // Local archived served tickets
-  const [archivedServedIds, setArchivedServedIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem(`pixora_archived_served_${activeRestaurantId}`);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-
-  const archiveServedOrder = (orderId: string) => {
-    setArchivedServedIds((prev) => {
-      const next = new Set(prev);
-      next.add(orderId);
-      try {
-        localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
-      } catch (err) {
-        console.warn('Failed to persist archived orders to localStorage:', err);
-      }
-      return next;
-    });
-    toast('Order moved to History view', 'info');
-  };
-
-  const unarchiveServedOrder = (orderId: string) => {
-    setArchivedServedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(orderId);
-      try {
-        localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
-      } catch (err) {
-        console.warn('Failed to persist unarchived orders to localStorage:', err);
-      }
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(historySearch);
-      setHistoryPage(1);
-    }, 400);
-    return () => clearTimeout(handler);
-  }, [historySearch]);
-
-  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setHistoryStatusFilter(e.target.value);
-    setHistoryPage(1);
-  };
-
-  // 1. Fetch Active Orders
-  const { data: activeOrdersResponse, isLoading: isLoadingActive } = useQuery({
-    queryKey: ['activeOrdersQueue', activeRestaurantId],
-    queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/orders/active`);
-      return res.data;
-    },
-    enabled: !!activeRestaurantId,
-    refetchInterval: 15000,
-  });
-
-  const activeOrders: Order[] = React.useMemo(() => {
-    return activeOrdersResponse?.success && Array.isArray(activeOrdersResponse.data)
-      ? activeOrdersResponse.data
-      : [];
-  }, [activeOrdersResponse]);
-
-  // 2. Fetch Served Orders (history)
-  const { data: servedOrdersData, isFetching: isFetchingServed } = useQuery({
-    queryKey: ['servedOrdersHistory', activeRestaurantId, servedPage],
-    queryFn: async () => {
-      const res = await apiClient.get(
-        `/restaurants/${activeRestaurantId}/orders?status=SERVED&page=${servedPage}&limit=15`
-      );
-      return res.data;
-    },
-    enabled: !!activeRestaurantId,
-  });
-
+  // Sync served orders pagination
   useEffect(() => {
     if (servedOrdersData?.success) {
       const fetched = servedOrdersData.data.orders || [];
@@ -519,18 +374,7 @@ export const ManagerOrders: React.FC = () => {
     }
   }, [servedOrdersData, servedPage]);
 
-  // 3. Fetch All Orders History (Paginated & Filtered)
-  const { data: historyOrdersData, isFetching: isFetchingHistory } = useQuery({
-    queryKey: ['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter],
-    queryFn: async () => {
-      const res = await apiClient.get(
-        `/restaurants/${activeRestaurantId}/orders?page=${historyPage}&limit=15&search=${encodeURIComponent(debouncedSearch)}&status=${historyStatusFilter}`
-      );
-      return res.data;
-    },
-    enabled: !!activeRestaurantId && viewMode === 'HISTORY',
-  });
-
+  // Sync history orders pagination
   useEffect(() => {
     if (historyOrdersData?.success) {
       const fetched = historyOrdersData.data.orders || [];
@@ -573,93 +417,6 @@ export const ManagerOrders: React.FC = () => {
     const timer = setInterval(() => setNow(new Date()), 10000);
     return () => clearInterval(timer);
   }, []);
-
-  // Socket real-time updates
-  const token = localStorage.getItem('accessToken');
-  const { socket } = useSocket(token);
-
-  useEffect(() => {
-    if (!socket || !activeRestaurantId) return;
-    const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
-    };
-
-    const handleStatusUpdated = (data: { orderId: string; status: string }) => {
-      invalidate();
-      if (data?.orderId && data?.status) {
-        setSelectedCardOrder((prev) => (prev && prev._id === data.orderId ? { ...prev, status: data.status as any } : prev));
-        setDetailModalOrder((prev) => (prev && prev._id === data.orderId ? { ...prev, status: data.status as any } : prev));
-      }
-    };
-
-    socket.on('order:status_updated', handleStatusUpdated);
-    socket.on('order:created', invalidate);
-    socket.on('session:updated', invalidate);
-    return () => {
-      socket.off('order:status_updated', handleStatusUpdated);
-      socket.off('order:created', invalidate);
-      socket.off('session:updated', invalidate);
-    };
-  }, [socket, activeRestaurantId, queryClient]);
-
-  // ─── Status Mutations ───────────────────────────────────────────────────────
-
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, nextStatus }: { orderId: string; nextStatus: string }) => {
-      const res = await apiClient.patch(
-        `/restaurants/${activeRestaurantId}/orders/${orderId}/status`,
-        { status: nextStatus }
-      );
-      return res.data;
-    },
-    onSuccess: (data) => {
-      toast(`Order #${data.data.orderNumber} updated to ${data.data.status}`, 'success');
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
-      if (archivedServedIds.has(data.data._id) && data.data.status !== 'SERVED') {
-        unarchiveServedOrder(data.data._id);
-      }
-      setSelectedCardOrder((prev) => (prev && prev._id === data.data._id ? data.data : prev));
-      setDetailModalOrder((prev) => (prev && prev._id === data.data._id ? data.data : prev));
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Failed to update order status', 'error');
-    },
-  });
-
-  const cancelOrderMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/cancel`);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      toast(`Order #${data.data.orderNumber} has been cancelled`, 'info');
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      setOrderToCancel(null);
-      setSelectedCardOrder(null);
-      setDetailModalOrder(null);
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Failed to cancel order', 'error');
-    },
-  });
-
-  const retryPosMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/retry-pos`);
-      return res.data;
-    },
-    onSuccess: () => {
-      toast('POS synchronization retry queued!', 'success');
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Failed to trigger POS retry', 'error');
-    },
-  });
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -845,6 +602,7 @@ export const ManagerOrders: React.FC = () => {
                           const ModeIcon = modeInfo.icon;
                           const nextStatus = getNextStatus(order.status, workflowMode);
                           const isSelected = selectedCardOrder?._id === order._id;
+                          const isPendingAction = pendingOrderIds.has(order._id);
 
                           return (
                             <motion.div
@@ -868,7 +626,7 @@ export const ManagerOrders: React.FC = () => {
                             >
                               {/* Order Card Top Bar */}
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-mono text-xs font-black bg-slate-900 text-white px-2 py-0.5 rounded-lg shadow-sm">
                                     #{order.orderNumber}
                                   </span>
@@ -876,6 +634,12 @@ export const ManagerOrders: React.FC = () => {
                                     <ModeIcon className="w-2.5 h-2.5" strokeWidth={2} />
                                     <span>{modeInfo.label}</span>
                                   </span>
+                                  {isPendingAction && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                      <Loader className="w-3 h-3 animate-spin text-amber-600" strokeWidth={2} />
+                                      <span>Updating...</span>
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button
@@ -941,12 +705,13 @@ export const ManagerOrders: React.FC = () => {
                                     if (!prevStatus) return null;
                                     return (
                                       <button
+                                        type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           updateStatusMutation.mutate({ orderId: order._id, nextStatus: prevStatus });
                                         }}
-                                        disabled={updateStatusMutation.isPending}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95"
+                                        disabled={isPendingAction}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                         title={`Revert to ${prevStatus}`}
                                       >
                                         <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
@@ -957,43 +722,50 @@ export const ManagerOrders: React.FC = () => {
                                   {/* Quick advance button on card */}
                                   {nextStatus && (
                                     <button
+                                      type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         updateStatusMutation.mutate({ orderId: order._id, nextStatus });
                                       }}
-                                      disabled={updateStatusMutation.isPending}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95"
+                                      disabled={isPendingAction}
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                      <span>Advance</span>
-                                      <ArrowRight className="w-3 h-3" strokeWidth={2} />
+                                      {isPendingAction ? (
+                                        <>
+                                          <Loader className="w-3 h-3 animate-spin text-white" strokeWidth={2} />
+                                          <span>Updating...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>Advance</span>
+                                          <ArrowRight className="w-3 h-3" strokeWidth={2} />
+                                        </>
+                                      )}
                                     </button>
                                   )}
 
                                   {/* Quick archive/free button on served card */}
                                   {step.status === 'SERVED' && (
                                     <button
+                                      type="button"
                                       onClick={async (e) => {
                                         e.stopPropagation();
                                         const sessId = (order as any).diningSessionId?._id || order.sessionId;
                                         if (sessId && (order as any).diningSessionId?.status !== 'CLOSED') {
-                                          try {
-                                            await apiClient.post(`/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`);
-                                            archiveServedOrder(order._id);
-                                            toast('Table session closed & freed!', 'success');
-                                            queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-                                            queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
-                                            queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
-                                          } catch (err: any) {
-                                            toast(err.response?.data?.error?.message || 'Failed to close session', 'error');
-                                          }
+                                          closeSessionMutation.mutate({ sessionId: sessId, orderId: order._id });
                                         } else {
                                           archiveServedOrder(order._id);
                                         }
                                       }}
-                                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 flex items-center gap-1 transition active:scale-95"
+                                      disabled={isPendingAction}
+                                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 flex items-center gap-1 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                       title="Archive card to history"
                                     >
-                                      <Archive className="w-3 h-3 text-slate-500" strokeWidth={2} />
+                                      {isPendingAction ? (
+                                        <Loader className="w-3 h-3 animate-spin text-slate-500" strokeWidth={2} />
+                                      ) : (
+                                        <Archive className="w-3 h-3 text-slate-500" strokeWidth={2} />
+                                      )}
                                       <span>Archive</span>
                                     </button>
                                   )}
@@ -1096,6 +868,7 @@ export const ManagerOrders: React.FC = () => {
                 {historyOrders.map((order) => {
                   const modeInfo = getOrderModeInfo(order.orderMode);
                   const isSelected = selectedCardOrder?._id === order._id;
+                  const isPendingRow = pendingOrderIds.has(order._id);
                   return (
                     <div
                       key={order._id}
@@ -1128,10 +901,16 @@ export const ManagerOrders: React.FC = () => {
                       <div className="text-xs font-mono text-slate-500">
                         {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div>
+                      <div className="flex items-center gap-1.5">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
                           {order.status}
                         </span>
+                        {isPendingRow && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
+                            <Loader className="w-3 h-3 animate-spin text-amber-600" strokeWidth={2} />
+                            <span>Updating...</span>
+                          </span>
+                        )}
                       </div>
                       <div className="font-mono text-xs font-black text-slate-900 md:text-right">
                         {formatAmount(order.total)}
@@ -1199,6 +978,12 @@ export const ManagerOrders: React.FC = () => {
                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-amber-400 border border-slate-700 uppercase">
                     {liveSelectedOrder.status}
                   </span>
+                  {pendingOrderIds.has(liveSelectedOrder._id) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                      <Loader className="w-3 h-3 animate-spin text-amber-400" strokeWidth={2} />
+                      <span>Updating...</span>
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
                   <span>{liveSelectedOrder.items.length} items</span>
@@ -1220,6 +1005,7 @@ export const ManagerOrders: React.FC = () => {
               {(() => {
                 const prevStatus = getPreviousStatus(liveSelectedOrder.status, workflowMode);
                 if (!prevStatus) return null;
+                const isPending = pendingOrderIds.has(liveSelectedOrder._id);
                 return (
                   <button
                     onClick={() =>
@@ -1228,8 +1014,8 @@ export const ManagerOrders: React.FC = () => {
                         nextStatus: prevStatus,
                       })
                     }
-                    disabled={updateStatusMutation.isPending}
-                    className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95"
+                    disabled={isPending}
+                    className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     title={`Revert to ${prevStatus}`}
                   >
                     <RotateCcw className="w-4 h-4 text-amber-400" strokeWidth={2} />
@@ -1241,6 +1027,7 @@ export const ManagerOrders: React.FC = () => {
               {/* Quick Advance Button */}
               {(() => {
                 const nextStatus = getNextStatus(liveSelectedOrder.status, workflowMode);
+                const isPending = pendingOrderIds.has(liveSelectedOrder._id);
                 if (nextStatus) {
                   const nextAction = getNextActionLabel(liveSelectedOrder.status, workflowMode);
                   const ActionIcon = nextAction.icon;
@@ -1252,11 +1039,20 @@ export const ManagerOrders: React.FC = () => {
                           nextStatus,
                         })
                       }
-                      disabled={updateStatusMutation.isPending}
-                      className={`px-4 py-2 sm:py-2.5 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 ${nextAction.gradient}`}
+                      disabled={isPending}
+                      className={`px-4 py-2 sm:py-2.5 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${nextAction.gradient}`}
                     >
-                      <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
-                      <span>{nextAction.label}</span>
+                      {isPending ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin text-white" strokeWidth={2} />
+                          <span>Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
+                          <span>{nextAction.label}</span>
+                        </>
+                      )}
                     </button>
                   );
                 }
@@ -1267,25 +1063,20 @@ export const ManagerOrders: React.FC = () => {
                     <button
                       onClick={async () => {
                         if (sessId && (liveSelectedOrder as any).diningSessionId?.status !== 'CLOSED') {
-                          try {
-                            await apiClient.post(`/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`);
-                            archiveServedOrder(liveSelectedOrder._id);
-                            setSelectedCardOrder(null);
-                            toast('Table session closed & freed!', 'success');
-                            queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-                            queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
-                            queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
-                          } catch (err: any) {
-                            toast(err.response?.data?.error?.message || 'Failed to close session', 'error');
-                          }
+                          closeSessionMutation.mutate({ sessionId: sessId, orderId: liveSelectedOrder._id });
                         } else {
                           archiveServedOrder(liveSelectedOrder._id);
                           setSelectedCardOrder(null);
                         }
                       }}
-                      className="px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95"
+                      disabled={isPending}
+                      className="px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Receipt className="w-4 h-4" strokeWidth={2} />
+                      {isPending ? (
+                        <Loader className="w-4 h-4 animate-spin text-white" strokeWidth={2} />
+                      ) : (
+                        <Receipt className="w-4 h-4" strokeWidth={2} />
+                      )}
                       <span>Free Table</span>
                     </button>
                   );
@@ -1348,10 +1139,17 @@ export const ManagerOrders: React.FC = () => {
                       <span className="font-mono text-base font-black bg-slate-900 text-white px-3 py-1 rounded-xl shadow-inner">
                         Order #{liveDetailOrder.orderNumber}
                       </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black font-mono tracking-wide bg-amber-50 text-amber-800 border border-amber-200">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                        {liveDetailOrder.status}
-                      </span>
+                      {pendingOrderIds.has(liveDetailOrder._id) ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black font-mono tracking-wide bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                          <Loader className="w-3.5 h-3.5 animate-spin text-amber-600" strokeWidth={2} />
+                          Updating...
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black font-mono tracking-wide bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          {liveDetailOrder.status}
+                        </span>
+                      )}
                     </div>
 
                     <button
@@ -1418,7 +1216,7 @@ export const ManagerOrders: React.FC = () => {
                       <button
                         onClick={() => retryPosMutation.mutate(liveDetailOrder._id)}
                         disabled={retryPosMutation.isPending}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-xl shadow-2xs transition active:scale-95"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-xl shadow-2xs transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {retryPosMutation.isPending ? (
                           <Loader className="w-3.5 h-3.5 animate-spin text-slate-600" strokeWidth={2} />
@@ -1544,7 +1342,8 @@ export const ManagerOrders: React.FC = () => {
                       {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(liveDetailOrder.status) && (
                         <button
                           onClick={() => setOrderToCancel(liveDetailOrder)}
-                          className="py-3.5 px-4 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition active:scale-98"
+                          disabled={pendingOrderIds.has(liveDetailOrder._id)}
+                          className="py-3.5 px-4 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Cancel Ticket
                         </button>
@@ -1556,6 +1355,7 @@ export const ManagerOrders: React.FC = () => {
                         if (!prevStatus) return null;
                         const prevAction = getPreviousActionLabel(prevStatus);
                         const PrevIcon = prevAction.icon;
+                        const isPending = pendingOrderIds.has(liveDetailOrder._id);
 
                         return (
                           <button
@@ -1565,8 +1365,8 @@ export const ManagerOrders: React.FC = () => {
                                 nextStatus: prevStatus,
                               })
                             }
-                            disabled={updateStatusMutation.isPending}
-                            className="py-3.5 px-4 border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98"
+                            disabled={isPending}
+                            className="py-3.5 px-4 border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                             title={`Revert to ${prevStatus}`}
                           >
                             <PrevIcon className="w-4 h-4 text-slate-500" strokeWidth={2} />
@@ -1578,6 +1378,7 @@ export const ManagerOrders: React.FC = () => {
                       {/* Primary Advance CTA */}
                       {(() => {
                         const nextStatus = getNextStatus(liveDetailOrder.status, workflowMode);
+                        const isPending = pendingOrderIds.has(liveDetailOrder._id);
                         if (nextStatus) {
                           const nextAction = getNextActionLabel(liveDetailOrder.status, workflowMode);
                           const ActionIcon = nextAction.icon;
@@ -1590,11 +1391,14 @@ export const ManagerOrders: React.FC = () => {
                                   nextStatus,
                                 })
                               }
-                              disabled={updateStatusMutation.isPending}
-                              className={`flex-1 py-3.5 px-6 text-white text-xs font-black rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-98 ${nextAction.gradient}`}
+                              disabled={isPending}
+                              className={`flex-1 py-3.5 px-6 text-white text-xs font-black rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed ${nextAction.gradient}`}
                             >
-                              {updateStatusMutation.isPending ? (
-                                <Loader className="w-4 h-4 animate-spin text-white" strokeWidth={2} />
+                              {isPending ? (
+                                <>
+                                  <Loader className="w-4 h-4 animate-spin text-white" strokeWidth={2} />
+                                  <span>Updating...</span>
+                                </>
                               ) : (
                                 <>
                                   <ActionIcon className="w-4 h-4" strokeWidth={2} />
@@ -1621,23 +1425,13 @@ export const ManagerOrders: React.FC = () => {
                         {liveDetailOrder.sessionId || (liveDetailOrder as any).diningSessionId ? (
                           <button
                             onClick={async () => {
-                              try {
-                                const sessId = (liveDetailOrder as any).diningSessionId?._id || liveDetailOrder.sessionId;
-                                await apiClient.post(
-                                  `/restaurants/${activeRestaurantId}/table-sessions/${sessId}/close`
-                                );
-                                archiveServedOrder(liveDetailOrder._id);
-                                toast('Table settled and session closed! Ticket archived to history.', 'success');
-                                setDetailModalOrder(null);
-                                setSelectedCardOrder(null);
-                                queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-                                queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
-                                queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
-                              } catch (err: any) {
-                                toast(err.response?.data?.error?.message || 'Failed to settle table', 'error');
-                              }
+                              const sessId = (liveDetailOrder as any).diningSessionId?._id || liveDetailOrder.sessionId;
+                              closeSessionMutation.mutate({ sessionId: sessId, orderId: liveDetailOrder._id });
+                              setDetailModalOrder(null);
+                              setSelectedCardOrder(null);
                             }}
-                            className="flex-1 py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-98"
+                            disabled={pendingOrderIds.has(liveDetailOrder._id)}
+                            className="flex-1 py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Receipt className="w-4 h-4 text-amber-400" strokeWidth={2} />
                             <span>Close Session &amp; Free Table</span>
@@ -1650,7 +1444,8 @@ export const ManagerOrders: React.FC = () => {
                             setDetailModalOrder(null);
                             setSelectedCardOrder(null);
                           }}
-                          className="py-3.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98"
+                          disabled={pendingOrderIds.has(liveDetailOrder._id)}
+                          className="py-3.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Archive className="w-4 h-4 text-slate-500" strokeWidth={2} />
                           <span>Archive to History</span>
@@ -1696,11 +1491,24 @@ export const ManagerOrders: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => cancelOrderMutation.mutate(orderToCancel._id)}
-                      disabled={cancelOrderMutation.isPending}
-                      className="w-1/2 py-3 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition shadow-sm"
+                      onClick={() => {
+                        const targetId = orderToCancel._id;
+                        setOrderToCancel(null);
+                        setSelectedCardOrder(null);
+                        setDetailModalOrder(null);
+                        cancelOrderMutation.mutate(targetId);
+                      }}
+                      disabled={pendingOrderIds.has(orderToCancel._id)}
+                      className="w-1/2 py-3 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                     >
-                      {cancelOrderMutation.isPending ? 'Cancelling...' : 'Yes, Cancel'}
+                      {pendingOrderIds.has(orderToCancel._id) ? (
+                        <>
+                          <Loader className="w-3.5 h-3.5 animate-spin text-white" strokeWidth={2} />
+                          <span>Cancelling...</span>
+                        </>
+                      ) : (
+                        'Yes, Cancel'
+                      )}
                     </button>
                   </div>
                 </motion.div>
