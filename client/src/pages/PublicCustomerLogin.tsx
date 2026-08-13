@@ -59,7 +59,7 @@ export const PublicCustomerLogin: React.FC = () => {
         if (res.data.customerName) {
           setName(res.data.customerName);
         }
-        toast('Demo OTP sent! Use code 1234 to verify.', 'info');
+        toast('Demo OTP sent! Use PIN: 0000 to verify.', 'info');
       }
     } catch (err: any) {
       toast(err.response?.data?.error?.message || 'Failed to send OTP', 'error');
@@ -171,7 +171,7 @@ export const PublicCustomerLogin: React.FC = () => {
 
               <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl flex items-center gap-2.5 text-[11px] text-amber-900">
                 <Sparkles className="w-4 h-4 text-amber-600 shrink-0" strokeWidth={1.75} />
-                <span>Demo mode active. Verification code will be <strong>1234</strong>.</span>
+                <span>Demo mode active. Verification code will be <strong>0000</strong>.</span>
               </div>
             </motion.form>
           ) : (
@@ -231,7 +231,7 @@ export const PublicCustomerLogin: React.FC = () => {
                     required
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    placeholder="1234"
+                    placeholder="0000"
                     className="w-full pl-10 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-base font-mono font-black tracking-widest text-center text-slate-950 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
                   />
                 </div>

@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn } from '../services/restaurant.service';
 import { useCartStore } from '../store/useCartStore';
-import { useToast } from '../hooks/useToast';
+
 import { useCustomerAuth } from '../hooks/useCustomerAuth';
 import { Link } from 'react-router-dom';
 import apiClient from '../lib/api';
@@ -182,7 +182,7 @@ const ClappingHandsOutlineIcon: React.FC<{ className?: string }> = ({ className 
 
 export const PublicTable: React.FC = () => {
   const { restaurantSlug, tableToken } = useParams<{ restaurantSlug?: string; tableToken?: string }>();
-  const { toast } = useToast();
+
   const queryClient = useQueryClient();
 
   // Zustand Cart Store
@@ -380,7 +380,7 @@ export const PublicTable: React.FC = () => {
       setWaiterCallState('waiting');
     };
 
-    const handleWaiterCallResolved = (data?: any) => {
+    const handleWaiterCallResolved = (_data?: any) => {
       // Instantly unlock the button and clear cooldown when manager acknowledges or resolves
       setWaiterCallState('idle');
       setCooldownRemaining(0);
@@ -390,12 +390,7 @@ export const PublicTable: React.FC = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['activeWaiterCall', tableToken] });
 
-      const isAck = data?.status === 'ACKNOWLEDGED';
-      if (isAck) {
-        toast('Staff has acknowledged your call and is on their way!', 'success');
-      } else {
-        toast('Your table request has been resolved by our staff.', 'success');
-      }
+      // Staff resolved — no toast on public table
     };
 
     socket.on('waiter_call:created', handleWaiterCallCreated);
@@ -407,7 +402,7 @@ export const PublicTable: React.FC = () => {
       socket.off('waiter_call:resolved', handleWaiterCallResolved);
       socket.off('waiter_call:acknowledged', handleWaiterCallResolved);
     };
-  }, [socket, tableToken, restaurantSlug, queryClient, toast]);
+  }, [socket, tableToken, restaurantSlug, queryClient]);
 
 
   // Bottom Sheet States for Item Detail
@@ -449,12 +444,11 @@ export const PublicTable: React.FC = () => {
       return res.data;
     },
     onSuccess: () => {
-      toast('Session cleared successfully', 'success');
       queryClient.invalidateQueries({ queryKey: ['publicTable'] });
       queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
     },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Failed to clear session', 'error');
+    onError: () => {
+      // silently fail — user can retry
     },
   });
 
@@ -841,7 +835,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
         if (activeProvider === 'RAZORPAY') {
           const isScriptLoaded = await loadRazorpay();
           if (!isScriptLoaded) {
-            toast('Failed to load payment gateway. Please check your connection.', 'error');
             setIsPlacingOrder(false);
             return;
           }
@@ -867,7 +860,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
               description: `Order #${order.orderNumber || ''}`,
               order_id: providerReferenceId,
               handler: function () {
-                toast('Payment processing... Please wait while we confirm your order.', 'info');
                 finalizeOrderSuccess(order.id || order._id);
               },
               prefill: { name, contact: phone },
@@ -875,7 +867,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
               modal: {
                 ondismiss: function () {
                   setIsPlacingOrder(false);
-                  toast('Payment dismissed. Your order is pending confirmation.', 'info');
                   finalizeOrderSuccess(order.id || order._id);
                 },
               },
@@ -885,11 +876,9 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
             rzp.open();
           } catch (intentErr) {
             console.error('Payment intent error:', intentErr);
-            toast('Failed to initiate payment. Order placed as postpaid.', 'info');
             finalizeOrderSuccess(order.id || order._id);
           }
         } else {
-          toast('Order received by kitchen! Preparing your food...', 'success');
           finalizeOrderSuccess(order.id || order._id);
         }
       }
@@ -901,12 +890,10 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
         const failed = errResponse.details || [];
         setFailedOrderDetails(failed);
         setIsOtpModalOpen(false);
-        toast('Some items in your basket just sold out. Please review your cart.', 'error');
         setIsPlacingOrder(false);
       } else if (!err.response || err.code === 'ECONNABORTED') {
         // Network timeout / drop: Enter recovery state using idempotency
         setIsRecoveringOrder(true);
-        toast('Checking your order status with the restaurant... Please wait.', 'info');
 
         // Polling recovery
         setTimeout(async () => {
@@ -922,7 +909,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
               setIsOtpModalOpen(false);
               setIsPlacingOrder(false);
               setIsRecoveringOrder(false);
-              toast('Order confirmed successfully!', 'success');
               updateNavigationState('cart-orders', 'orders', latest.id || latest._id);
               return;
             }
@@ -931,10 +917,8 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
           }
           setIsPlacingOrder(false);
           setIsRecoveringOrder(false);
-          toast('Connection lost. Please tap Place Order again to retry.', 'error');
         }, 3000);
       } else {
-        toast(errResponse?.message || 'Could not place order. Please try again.', 'error');
         setIsPlacingOrder(false);
       }
     }
@@ -955,15 +939,9 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
 
   // Send 4-Digit PIN
   const handleSendOtp = async () => {
-    if (!customerName || customerName.trim().length === 0) {
-      toast('Please enter your name', 'error');
-      return;
-    }
+    if (!customerName || customerName.trim().length === 0) return;
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
-    if (cleanPhone.length < 10) {
-      toast('Please enter a valid 10-digit Indian mobile number', 'error');
-      return;
-    }
+    if (cleanPhone.length < 10) return;
 
     setIsSendingOtp(true);
     try {
@@ -971,13 +949,9 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
       if (res?.success) {
         setOtpSent(true);
         setOtpCooldownRemaining(res.data?.cooldownSeconds || 60);
-        toast('Verification code sent! Use PIN: 0000', 'success');
-      } else {
-        toast(res?.message || 'Failed to send verification code', 'error');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.error?.message || err.message || 'Failed to send OTP';
-      toast(msg, 'error');
+      console.error('OTP send error:', err);
     } finally {
       setIsSendingOtp(false);
     }
@@ -986,36 +960,27 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
   // Verify 4-digit PIN and automatically submit order in one continuous action
   const handleVerifyOtpAndPlaceOrder = async () => {
     const otpCode = otpDigits.join('');
-    if (otpCode.length !== 4) {
-      toast('Please enter the 4-digit PIN', 'error');
-      return;
-    }
+    if (otpCode.length !== 4) return;
 
     setIsVerifyingOtp(true);
     try {
       const res = await verifyOtp(phoneNumber, otpCode, restaurantSlug, restaurantId, customerName);
       if (res?.success && res.data?.customerToken) {
-        toast('Verified successfully!', 'success');
         setIsVerifyingOtp(false);
         // Seamlessly place the order with the freshly minted customer token
         await submitOrderPayload(customerName, phoneNumber, res.data.customerToken);
       } else {
-        toast(res?.message || 'Invalid verification code. Please check and retry.', 'error');
         setIsVerifyingOtp(false);
       }
     } catch (err: any) {
-      const msg = err.response?.data?.error?.message || err.message || 'Invalid verification code';
-      toast(msg, 'error');
+      console.error('OTP verify error:', err);
       setIsVerifyingOtp(false);
     }
   };
 
   // Trigger public waiter assistance request directly by type
   const handleTriggerWaiterCall = async (type: 'CALL_WAITER' | 'REQUEST_BILL' | 'WATER' | 'TISSUE' | 'OTHER') => {
-    if (cooldownRemaining > 0) {
-      toast(`Please wait ${formatCooldown(cooldownRemaining)} before requesting again.`, 'info');
-      return;
-    }
+    if (cooldownRemaining > 0) return;
 
     setSelectedRequestType(type);
     setWaiterCallState('pulsing');
@@ -1024,7 +989,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
       await apiClient.post(`/public/tables/${tableToken}/waiter-call`, {
         requestType: type,
       });
-      toast(`Request for ${type.replace('_', ' ').toLowerCase()} sent!`, 'success');
       queryClient.invalidateQueries({ queryKey: ['activeWaiterCall', tableToken] });
 
       // Start Cooldown Rate Limit
@@ -1049,7 +1013,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
       }, 500);
     } catch (err: any) {
       console.error(err);
-      toast('Failed to alert floor staff. Please retry.', 'error');
       setWaiterCallState('idle');
     }
   };
@@ -2774,7 +2737,6 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
         onConfirm={() => {
           clearCart();
           setIsClearCartModalOpen(false);
-          toast('Basket cleared', 'info');
         }}
         onCancel={() => setIsClearCartModalOpen(false)}
       />
@@ -2920,11 +2882,11 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
 
 
       {/* ==========================================
-          MOBILE NUMBER AND 4-DIGIT PIN CHECKOUT DIALOG
+          MOBILE NUMBER AND 4-DIGIT PIN CHECKOUT (BOTTOM SHEET)
           ========================================== */}
       <AnimatePresence>
         {isOtpModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-end justify-center">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -2936,204 +2898,207 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="relative bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-6 font-sans"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              className="relative bg-white w-full max-w-xl rounded-t-3xl shadow-2xl font-sans overflow-hidden"
             >
-              <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                <h3 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-amber-500" strokeWidth={2} />
-                  <span>Verify to Order</span>
-                </h3>
-                <button
-                  onClick={() => setIsOtpModalOpen(false)}
-                  disabled={isPlacingOrder || isVerifyingOtp}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-                >
-                  <X className="w-5 h-5" strokeWidth={1.75} />
-                </button>
-              </div>
+              {/* Drag handle */}
+              <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto my-3" />
 
-              {!otpSent ? (
-                <div className="space-y-4">
-                  <p className="text-xs text-slate-500 leading-normal">
-                    Enter your name and mobile number to authenticate and place your kitchen order at {table.displayName}.
-                  </p>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Your Name</label>
-                    <input
-                      type="text"
-                      placeholder="E.g., Alice Sharma"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-sans"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Mobile Number</label>
-                    <div className="relative flex items-center">
-                      <span className="absolute left-3 text-xs font-mono font-bold text-slate-400 select-none">+91</span>
-                      <input
-                        type="tel"
-                        maxLength={10}
-                        placeholder="98765 43210"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold tracking-wide"
-                      />
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" strokeWidth={2} />
-                    <span>Your phone number is strictly private and never shared.</span>
-                  </p>
-
+              <div className="px-6 pb-8 space-y-5">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-50">
+                  <h3 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-amber-500" strokeWidth={2} />
+                    <span>Verify to Order</span>
+                  </h3>
                   <button
-                    onClick={handleSendOtp}
-                    disabled={isSendingOtp || phoneNumber.length < 10 || !customerName.trim()}
-                    className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 uppercase tracking-wider"
+                    onClick={() => setIsOtpModalOpen(false)}
+                    disabled={isPlacingOrder || isVerifyingOtp}
+                    className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                   >
-                    {isSendingOtp && <Loader className="w-4 h-4 animate-spin text-amber-400" />}
-                    <span>Send 6-Digit OTP</span>
+                    <X className="w-5 h-5" strokeWidth={1.75} />
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="text-center space-y-1">
-                    <p className="text-sm text-slate-600 leading-normal">
-                      Enter the 4-digit PIN sent to <strong className="text-slate-900">+91 {phoneNumber}</strong>
-                    </p>
-                  </div>
 
-                  {/* Premium 4-Box PIN Input */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono text-center">Enter PIN</label>
-                    <div className="flex justify-center gap-3">
-                      {otpDigits.map((digit, idx) => (
-                        <input
-                          key={idx}
-                          ref={(el) => { otpInputRefs.current[idx] = el; }}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          autoFocus={idx === 0 && otpSent}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '').slice(-1);
-                            const newDigits = [...otpDigits];
-                            newDigits[idx] = val;
-                            setOtpDigits(newDigits);
-                            // Auto-advance to next box
-                            if (val && idx < 3) {
-                              otpInputRefs.current[idx + 1]?.focus();
-                            }
-                            // Auto-submit on last digit
-                            if (val && idx === 3) {
-                              const fullCode = newDigits.join('');
-                              if (fullCode.length === 4) {
-                                setTimeout(() => handleVerifyOtpAndPlaceOrder(), 80);
-                              }
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Backspace' && !digit && idx > 0) {
-                              const newDigits = [...otpDigits];
-                              newDigits[idx - 1] = '';
-                              setOtpDigits(newDigits);
-                              otpInputRefs.current[idx - 1]?.focus();
-                            }
-                          }}
-                          onPaste={(e) => {
-                            e.preventDefault();
-                            const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
-                            if (pasted) {
-                              const newDigits = ['', '', '', ''];
-                              for (let i = 0; i < pasted.length && i < 4; i++) newDigits[i] = pasted[i];
-                              setOtpDigits(newDigits);
-                              const focusIdx = Math.min(pasted.length, 3);
-                              otpInputRefs.current[focusIdx]?.focus();
-                              if (pasted.length === 4) setTimeout(() => handleVerifyOtpAndPlaceOrder(), 80);
-                            }
-                          }}
-                          className={`w-14 h-16 text-center text-2xl font-black font-mono rounded-2xl border-2 outline-none transition-all duration-150 ${
-                            digit
-                              ? 'bg-amber-50 border-amber-400 text-slate-900 shadow-md shadow-amber-100'
-                              : 'bg-slate-50 border-slate-200 text-slate-400'
-                          } focus:border-[var(--theme-accent)] focus:ring-4 focus:ring-[var(--theme-accent)]/15 focus:bg-white focus:shadow-lg`}
-                        />
-                      ))}
+                {!otpSent ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-500 leading-normal">
+                      Enter your name and mobile number to place your kitchen order at {table.displayName}.
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Your Name</label>
+                      <input
+                        type="text"
+                        placeholder="E.g., Alice Sharma"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-sans"
+                      />
                     </div>
 
-                    {/* Demo PIN hint badge */}
-                    <div className="flex justify-center pt-1">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
-                        <span className="text-[11px] text-amber-700">Demo PIN:</span>
-                        <span className="text-[11px] font-black font-mono text-amber-700 tracking-widest">0&nbsp;0&nbsp;0&nbsp;0</span>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Mobile Number</label>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 text-xs font-mono font-bold text-slate-400 select-none">+91</span>
+                        <input
+                          type="tel"
+                          maxLength={10}
+                          placeholder="98765 43210"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold tracking-wide"
+                        />
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    {otpCooldownRemaining > 0 ? (
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        Resend code in {otpCooldownRemaining}s
-                      </span>
-                    ) : (
+                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" strokeWidth={2} />
+                      <span>Your phone number is strictly private and never shared.</span>
+                    </p>
+
+                    <button
+                      onClick={handleSendOtp}
+                      disabled={isSendingOtp || phoneNumber.length < 10 || !customerName.trim()}
+                      className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 uppercase tracking-wider"
+                    >
+                      {isSendingOtp && <Loader className="w-4 h-4 animate-spin text-amber-400" />}
+                      <span>Get 4-Digit PIN</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="text-center space-y-1">
+                      <p className="text-sm text-slate-600 leading-normal">
+                        Enter the 4-digit PIN sent to <strong className="text-slate-900">+91 {phoneNumber}</strong>
+                      </p>
+                    </div>
+
+                    {/* Premium 4-Box PIN Input */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono text-center">Enter PIN</label>
+                      <div className="flex justify-center gap-3">
+                        {otpDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => { otpInputRefs.current[idx] = el; }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            autoFocus={idx === 0 && otpSent}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9]/g, '').slice(-1);
+                              const newDigits = [...otpDigits];
+                              newDigits[idx] = val;
+                              setOtpDigits(newDigits);
+                              if (val && idx < 3) {
+                                otpInputRefs.current[idx + 1]?.focus();
+                              }
+                              if (val && idx === 3) {
+                                const fullCode = newDigits.join('');
+                                if (fullCode.length === 4) {
+                                  setTimeout(() => handleVerifyOtpAndPlaceOrder(), 80);
+                                }
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Backspace' && !digit && idx > 0) {
+                                const newDigits = [...otpDigits];
+                                newDigits[idx - 1] = '';
+                                setOtpDigits(newDigits);
+                                otpInputRefs.current[idx - 1]?.focus();
+                              }
+                            }}
+                            onPaste={(e) => {
+                              e.preventDefault();
+                              const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+                              if (pasted) {
+                                const newDigits = ['', '', '', ''];
+                                for (let i = 0; i < pasted.length && i < 4; i++) newDigits[i] = pasted[i];
+                                setOtpDigits(newDigits);
+                                const focusIdx = Math.min(pasted.length, 3);
+                                otpInputRefs.current[focusIdx]?.focus();
+                                if (pasted.length === 4) setTimeout(() => handleVerifyOtpAndPlaceOrder(), 80);
+                              }
+                            }}
+                            className={`w-14 h-16 text-center text-2xl font-black font-mono rounded-2xl border-2 outline-none transition-all duration-150 ${
+                              digit
+                                ? 'bg-amber-50 border-amber-400 text-slate-900 shadow-md shadow-amber-100'
+                                : 'bg-slate-50 border-slate-200 text-slate-400'
+                            } focus:border-[var(--theme-accent)] focus:ring-4 focus:ring-[var(--theme-accent)]/15 focus:bg-white focus:shadow-lg`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Demo PIN hint badge */}
+                      <div className="flex justify-center pt-1">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
+                          <span className="text-[11px] text-amber-700">Demo PIN:</span>
+                          <span className="text-[11px] font-black font-mono text-amber-700 tracking-widest">0&nbsp;0&nbsp;0&nbsp;0</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      {otpCooldownRemaining > 0 ? (
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          Resend in {otpCooldownRemaining}s
+                        </span>
+                      ) : (
+                        <button
+                          onClick={handleSendOtp}
+                          disabled={isSendingOtp}
+                          className="text-[11px] text-amber-600 hover:text-amber-800 font-bold underline transition"
+                        >
+                          Resend PIN
+                        </button>
+                      )}
                       <button
-                        onClick={handleSendOtp}
-                        disabled={isSendingOtp}
-                        className="text-[11px] text-amber-600 hover:text-amber-800 font-bold underline transition"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setOtpDigits(['', '', '', '']);
+                        }}
+                        className="text-[11px] text-slate-500 hover:text-slate-800 font-medium"
                       >
-                        Resend PIN
+                        Change Phone
                       </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setOtpSent(false);
-                        setOtpDigits(['', '', '', '']);
-                      }}
-                      className="text-[11px] text-slate-500 hover:text-slate-800 font-medium"
-                    >
-                      Change Phone
-                    </button>
-                  </div>
+                    </div>
 
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={() => setOtpSent(false)}
-                      disabled={isPlacingOrder || isVerifyingOtp}
-                      className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl transition hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={handleVerifyOtpAndPlaceOrder}
-                      disabled={isPlacingOrder || isVerifyingOtp || otpDigits.join('').length !== 4}
-                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 uppercase tracking-wide"
-                    >
-                      {(isPlacingOrder || isVerifyingOtp) && <Loader className="w-4 h-4 animate-spin text-slate-950" />}
-                      <span>Verify & Place Order</span>
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setOtpSent(false)}
+                        disabled={isPlacingOrder || isVerifyingOtp}
+                        className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl transition hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={handleVerifyOtpAndPlaceOrder}
+                        disabled={isPlacingOrder || isVerifyingOtp || otpDigits.join('').length !== 4}
+                        className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 uppercase tracking-wide"
+                      >
+                        {(isPlacingOrder || isVerifyingOtp) && <Loader className="w-4 h-4 animate-spin text-slate-950" />}
+                        <span>Verify & Place Order</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
       {/* ==========================================
-          VIEW BILL MODAL DIALOG
+          VIEW BILL BOTTOM SHEET
           ========================================== */}
       <AnimatePresence>
         {isViewBillModalOpen && sessionDetailsData?.data?.session && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-end justify-center">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3143,12 +3108,15 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="relative bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-5 font-sans"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              className="relative bg-white w-full max-w-xl rounded-t-3xl shadow-2xl font-sans overflow-hidden"
             >
+              {/* Drag handle */}
+              <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto my-3" />
+              <div className="px-6 pb-8 space-y-5">
               <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-amber-500" strokeWidth={2} />
@@ -3246,6 +3214,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
               >
                 Close Bill
               </button>
+              </div>
             </motion.div>
           </div>
         )}
