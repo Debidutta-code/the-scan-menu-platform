@@ -248,48 +248,64 @@ export const ManagerTaxes: React.FC = () => {
 
           {/* STANDALONE TAXES */}
           {standaloneTaxes.length > 0 && (
-             <div className="mt-8">
-                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">Standalone Taxes</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {standaloneTaxes.map((tax) => (
-                      <div
-                        key={tax._id}
-                        className={`bg-white rounded-2xl p-6 border shadow-sm transition-all flex flex-col justify-between ${
-                          !tax.isActive ? 'border-slate-200 opacity-75' : 'border-slate-100'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-bold text-slate-900 text-lg">{tax.name}</h3>
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${tax.isActive ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                              {tax.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-500 font-mono text-xl mt-4">
-                             <Calculator className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-                             <span>{tax.percentage.toFixed(2)}%</span>
-                          </div>
-                        </div>
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+              <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl">
+                    <Tag className="w-5 h-5" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base font-display">Standalone Tax Rates</h3>
+                    <p className="text-xs text-slate-500 font-medium">Individual taxes applied directly to orders</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold font-mono bg-slate-200/70 text-slate-700 px-2.5 py-1 rounded-lg">
+                  {standaloneTaxes.length} Rates
+                </span>
+              </div>
 
-                        <div className="flex items-center gap-2 mt-6 pt-4 border-t border-slate-50">
-                          <button
-                            onClick={() => handleEdit(tax)}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(tax)}
-                            className="flex-none p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                          </button>
-                        </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {standaloneTaxes.map((tax) => (
+                  <div
+                    key={tax._id}
+                    className={`bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 flex items-center justify-between gap-3 transition-all ${
+                      !tax.isActive ? 'opacity-65 grayscale-[0.2]' : 'hover:border-slate-300 hover:bg-slate-50 shadow-2xs'
+                    }`}
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-900 text-sm truncate">{tax.name}</h4>
+                        <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
+                          tax.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {tax.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </div>
-                    ))}
-                 </div>
-             </div>
+                      <span className="inline-flex items-center gap-1 font-mono text-xs font-black bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-md border border-amber-200/80">
+                        {tax.percentage.toFixed(2)}%
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleEdit(tax)}
+                        className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition"
+                        title="Edit Tax"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(tax)}
+                        className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg transition"
+                        title="Delete Tax"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
       </div>
 
