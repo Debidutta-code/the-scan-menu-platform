@@ -269,18 +269,24 @@ export function useManagerOrders({
       // 5. Optimistically update servedOrdersHistory cache if moving to SERVED or in served list
       queryClient.setQueryData(['servedOrdersHistory', activeRestaurantId, servedPage], (old: any) => {
         if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
-        const existingIdx = old.data.orders.findIndex((o: Order) => o._id === orderId);
-        const updatedOrders = [...old.data.orders];
-        if (existingIdx !== -1) {
-          updatedOrders[existingIdx] = { ...updatedOrders[existingIdx], status: nextStatus as any };
-        } else if (nextStatus === 'SERVED') {
-          const activeList = (previousActive as any)?.data || [];
-          const target = activeList.find((o: Order) => o._id === orderId);
-          if (target) {
-            updatedOrders.unshift({ ...target, status: 'SERVED' });
+        if (nextStatus !== 'SERVED') {
+          // If reverting or moving away from SERVED, remove from served list
+          const filteredOrders = old.data.orders.filter((o: Order) => o._id !== orderId);
+          return { ...old, data: { ...old.data, orders: filteredOrders } };
+        } else {
+          const existingIdx = old.data.orders.findIndex((o: Order) => o._id === orderId);
+          const updatedOrders = [...old.data.orders];
+          if (existingIdx !== -1) {
+            updatedOrders[existingIdx] = { ...updatedOrders[existingIdx], status: 'SERVED' };
+          } else {
+            const activeList = (previousActive as any)?.data || [];
+            const target = activeList.find((o: Order) => o._id === orderId);
+            if (target) {
+              updatedOrders.unshift({ ...target, status: 'SERVED' });
+            }
           }
+          return { ...old, data: { ...old.data, orders: updatedOrders } };
         }
-        return { ...old, data: { ...old.data, orders: updatedOrders } };
       });
 
       // 6. Optimistically update allOrdersHistory

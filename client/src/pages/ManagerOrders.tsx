@@ -465,7 +465,7 @@ export const ManagerOrders: React.FC = () => {
         const isToday = new Date(o.createdAt).toDateString() === todayStr;
         const isSessionClosed = (o as any).diningSessionId?.status === 'CLOSED';
         const isArchived = archivedServedIds.has(o._id);
-        return isToday && !isSessionClosed && !isArchived;
+        return o.status === 'SERVED' && isToday && !isSessionClosed && !isArchived;
       });
     } else {
       list = activeOrders.filter((o) => o.status === st);
