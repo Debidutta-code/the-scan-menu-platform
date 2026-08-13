@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { useToast } from './useToast';
@@ -84,6 +84,9 @@ export function useManagerOrders({
 
   // Pending set to track in-flight actions per orderId
   const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set());
+
+  // Mutation execution queue map per orderId to prevent race conditions on rapid actions
+  const mutationQueueRef = useRef<Map<string, Promise<any>>>(new Map());
 
   // Local workflow mode state
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>(() => {
@@ -234,11 +237,28 @@ export function useManagerOrders({
   // A. Optimistic Update Status Mutation (Accept, Prep, Ready, Serve, Revert)
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, nextStatus }: { orderId: string; nextStatus: string }) => {
-      const res = await apiClient.patch(
-        `/restaurants/${activeRestaurantId}/orders/${orderId}/status`,
-        { status: nextStatus }
+      // 1. Get existing promise chain for this orderId or start with resolved Promise
+      const previousPromise = mutationQueueRef.current.get(orderId) || Promise.resolve();
+
+      // 2. Chain current request onto previousPromise to execute strictly in pipeline order
+      const currentPromise = previousPromise.then(
+        async () => {
+          const res = await apiClient.patch(
+            `/restaurants/${activeRestaurantId}/orders/${orderId}/status`,
+            { status: nextStatus }
+          );
+          return res.data;
+        },
+        (prevErr) => {
+          // If upstream request in pipeline failed, abort downstream request
+          throw prevErr;
+        }
       );
-      return res.data;
+
+      // 3. Store in queue map for rapid subsequent requests on same orderId
+      mutationQueueRef.current.set(orderId, currentPromise.catch(() => {}));
+
+      return currentPromise;
     },
     onMutate: async ({ orderId, nextStatus }) => {
       // 1. Cancel in-flight refetches
@@ -333,6 +353,7 @@ export function useManagerOrders({
       }
     },
     onSettled: (_data, _error, variables) => {
+      mutationQueueRef.current.delete(variables.orderId);
       setPendingOrderIds((prev) => {
         const next = new Set(prev);
         next.delete(variables.orderId);
