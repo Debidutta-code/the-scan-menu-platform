@@ -344,10 +344,7 @@ export function useManagerOrders({
       const errMsg = err?.response?.data?.error?.message || 'Failed to update order status. Rolled back.';
       toast(errMsg, 'error');
     },
-    onSuccess: (data, variables) => {
-      const orderNum = data?.data?.orderNumber || '';
-      const finalStatus = data?.data?.status || variables.nextStatus;
-      toast(`Order #${orderNum} updated to ${finalStatus}`, 'success');
+    onSuccess: (_data, variables) => {
       if (archivedServedIds.has(variables.orderId) && variables.nextStatus !== 'SERVED') {
         unarchiveServedOrder(variables.orderId);
       }
