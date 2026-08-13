@@ -23,17 +23,20 @@ export interface TokenCustomerPayload {
 export class TokenService {
   private accessSecret: string;
   private refreshSecret: string;
+  private customerSecret: string;
 
   constructor() {
     const accessSecret = config.auth.jwtAccessSecret;
     const refreshSecret = config.auth.jwtRefreshSecret;
+    const customerSecret = config.auth.jwtCustomerSecret;
 
-    if (!accessSecret || !refreshSecret) {
-      throw new Error('FATAL ERROR: JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be defined in env.');
+    if (!accessSecret || !refreshSecret || !customerSecret) {
+      throw new Error('FATAL ERROR: JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, and JWT_CUSTOMER_SECRET must be defined in env.');
     }
 
     this.accessSecret = accessSecret;
     this.refreshSecret = refreshSecret;
+    this.customerSecret = customerSecret;
   }
 
   generateAccessToken(payload: TokenUserPayload): string {
@@ -47,13 +50,13 @@ export class TokenService {
   }
 
   generateCustomerToken(payload: TokenCustomerPayload): string {
-    return jwt.sign(payload, this.accessSecret, {
+    return jwt.sign(payload, this.customerSecret, {
       expiresIn: '30d',
     });
   }
 
   verifyCustomerToken(token: string): TokenCustomerPayload {
-    return jwt.verify(token, this.accessSecret) as TokenCustomerPayload;
+    return jwt.verify(token, this.customerSecret) as TokenCustomerPayload;
   }
 
   generateRefreshTokenString(): string {

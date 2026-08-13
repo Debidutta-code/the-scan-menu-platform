@@ -9,7 +9,10 @@ export const tableResolverMiddleware = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const tableToken = req.params.tableToken || (req.query.tableToken as string);
+    const tableToken =
+      req.params.tableToken ||
+      (req.query.tableToken as string) ||
+      (req.headers['x-table-token'] as string);
 
     if (!tableToken) {
       sendError(res, 'TABLE_REQUIRED', 'Table token is missing from request parameters', null, 400);

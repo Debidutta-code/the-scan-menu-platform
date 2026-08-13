@@ -104,9 +104,10 @@ router.post('/restaurants/:restaurantSlug/orders', orderCreationLimiter, tenantR
 router.post('/restaurants/:restaurantSlug/tables/:tableToken/clear-session', publicController.clearTableSession);
 
 // Bill requests and reopening
-router.post('/table-sessions/:sessionId/bill/request', orderCreationLimiter, tenantResolverMiddleware, publicController.requestBill);
+router.post('/table/:tableToken/bill/request', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.requestBill);
+router.post('/table-sessions/:sessionId/bill/request', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.requestBill);
 router.post('/table-sessions/:sessionId/reopen', orderCreationLimiter, tenantResolverMiddleware, publicController.reopenSession);
-router.post('/restaurants/:restaurantSlug/table-sessions/:sessionId/bill/request', orderCreationLimiter, tenantResolverMiddleware, publicController.requestBill);
+router.post('/restaurants/:restaurantSlug/table-sessions/:sessionId/bill/request', orderCreationLimiter, tenantResolverMiddleware, tableResolverMiddleware, publicController.requestBill);
 router.post('/restaurants/:restaurantSlug/table-sessions/:sessionId/reopen', orderCreationLimiter, tenantResolverMiddleware, publicController.reopenSession);
 
 // Backwards-compatible session & order status lookups (sanitized and hardened)

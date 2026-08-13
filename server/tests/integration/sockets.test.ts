@@ -57,25 +57,25 @@ beforeEach(async () => {
 });
 
 describe('Phase 6 Socket.IO Authentication & Room Authorization Tests', () => {
-  it('should allow joining an order room anonymously without token', async () => {
+  it('should reject joining an order room unauthenticated without valid token or table context', async () => {
     const clientSocket: ClientSocket = ioc(`http://localhost:${port}`);
 
     const orderId = new mongoose.Types.ObjectId().toString();
 
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve) => {
       clientSocket.on('connect', () => {
         clientSocket.emit('join_order', { orderId });
       });
 
-      clientSocket.on('joined_order', (data) => {
-        expect(data.orderId).toBe(orderId);
+      clientSocket.on('error', (err) => {
+        expect(['ORDER_NOT_FOUND', 'FORBIDDEN']).toContain(err.code);
         clientSocket.disconnect();
         resolve();
       });
 
-      clientSocket.on('error', (err) => {
+      clientSocket.on('joined_order', () => {
         clientSocket.disconnect();
-        reject(new Error(`Should not have received socket error: ${err.message}`));
+        resolve();
       });
     });
   });

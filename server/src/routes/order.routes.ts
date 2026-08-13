@@ -29,6 +29,7 @@ router.patch('/:restaurantId/orders/:orderId/items/:itemIndex/status', requireFe
 router.get('/:restaurantId/table-sessions/:sessionId', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getTableSession);
 router.post('/:restaurantId/table-sessions/:sessionId/settle', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.settleTableSession);
 router.post('/:restaurantId/table-sessions/:sessionId/close', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.closeTableSession);
+router.post('/:restaurantId/table-sessions/:sessionId/reopen', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.reopenTableSession);
 router.post('/:restaurantId/table-sessions/:sessionId/abandon', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.abandonTableSession);
 
 export default router;

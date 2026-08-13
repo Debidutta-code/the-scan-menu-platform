@@ -48,22 +48,79 @@ export class SocketService {
     this.io.on('connection', (socket) => {
       logger.info(`Socket connected: ${socket.id}`);
 
-      // Public Join Order Room (Verifies order exists to prevent arbitrary room snooping)
+      // Public Join Order Room (Verifies caller authorization for target order)
       socket.on('join_order', async (data) => {
-        const { orderId } = data || {};
+        const { orderId, tableToken, guestToken } = data || {};
         if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
           socket.emit('error', { code: 'INVALID_ORDER_ID', message: 'Invalid or missing orderId' });
           return;
         }
 
         try {
-          if (!config.app.isTest) {
-            const { Order } = await import('../models/Order');
-            const orderExists = await Order.exists({ _id: new mongoose.Types.ObjectId(orderId) });
-            if (!orderExists) {
-              socket.emit('error', { code: 'ORDER_NOT_FOUND', message: 'The specified order does not exist' });
-              return;
+          const { Order } = await import('../models/Order');
+          const order = await Order.findById(orderId);
+          if (!order) {
+            socket.emit('error', { code: 'ORDER_NOT_FOUND', message: 'The specified order does not exist' });
+            return;
+          }
+
+          let isAuthorized = false;
+          const authHeader = data?.token || socket.handshake.auth.token || socket.handshake.headers.authorization;
+
+          if (authHeader) {
+            const tokenStr = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+            try {
+              const staffPayload = tokenService.verifyAccessToken(tokenStr);
+              if (staffPayload && (staffPayload.role === 'SUPER_ADMIN' || staffPayload.id)) {
+                if (staffPayload.role === 'SUPER_ADMIN') {
+                  isAuthorized = true;
+                } else {
+                  const { RestaurantStaff } = await import('../models/RestaurantStaff');
+                  const staff = await RestaurantStaff.findOne({
+                    userId: new mongoose.Types.ObjectId(staffPayload.id),
+                    restaurantId: order.restaurantId,
+                    isActive: true,
+                  });
+                  if (staff) isAuthorized = true;
+                }
+              }
+            } catch {
+              try {
+                const customerPayload = tokenService.verifyCustomerToken(tokenStr);
+                if (
+                  customerPayload &&
+                  customerPayload.role === 'CUSTOMER' &&
+                  customerPayload.restaurantId === order.restaurantId.toString()
+                ) {
+                  if (!order.customerId || order.customerId.toString() === customerPayload.id) {
+                    isAuthorized = true;
+                  }
+                }
+              } catch {
+                // Token invalid
+              }
             }
+          }
+
+          const effectiveTableToken = tableToken || data?.tableToken || socket.handshake.auth.tableToken;
+          if (!isAuthorized && effectiveTableToken) {
+            const { Table } = await import('../models/Table');
+            const table = await Table.findOne({ token: effectiveTableToken, restaurantId: order.restaurantId });
+            if (table && order.tableId && table._id.toString() === order.tableId.toString()) {
+              isAuthorized = true;
+            }
+          }
+
+          const effectiveGuestToken = guestToken || data?.guestToken || socket.handshake.auth.guestToken;
+          if (!isAuthorized && effectiveGuestToken && order.guestSessionId) {
+            if (order.guestSessionId === effectiveGuestToken) {
+              isAuthorized = true;
+            }
+          }
+
+          if (!isAuthorized) {
+            socket.emit('error', { code: 'FORBIDDEN', message: 'Unauthorized attempt to subscribe to order room' });
+            return;
           }
 
           socket.join(`order:${orderId}`);
@@ -74,22 +131,80 @@ export class SocketService {
         }
       });
 
-      // Public Join Session Room (Verifies DiningSession exists in DB)
+      // Public Join Session Room (Verifies caller authorization for target DiningSession)
       socket.on('join_session', async (data) => {
-        const { sessionId } = data || {};
+        const { sessionId, tableToken, guestToken } = data || {};
         if (!sessionId || !mongoose.Types.ObjectId.isValid(sessionId)) {
           socket.emit('error', { code: 'INVALID_SESSION_ID', message: 'Invalid or missing sessionId' });
           return;
         }
 
         try {
-          if (!config.app.isTest) {
-            const { DiningSession } = await import('../models/DiningSession');
-            const sessionExists = await DiningSession.exists({ _id: new mongoose.Types.ObjectId(sessionId) });
-            if (!sessionExists) {
-              socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'The specified table session does not exist' });
-              return;
+          const { DiningSession } = await import('../models/DiningSession');
+          const session = await DiningSession.findById(sessionId);
+          if (!session) {
+            socket.emit('error', { code: 'SESSION_NOT_FOUND', message: 'The specified table session does not exist' });
+            return;
+          }
+
+          let isAuthorized = false;
+          const authHeader = data?.token || socket.handshake.auth.token || socket.handshake.headers.authorization;
+
+          if (authHeader) {
+            const tokenStr = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+            try {
+              const staffPayload = tokenService.verifyAccessToken(tokenStr);
+              if (staffPayload && (staffPayload.role === 'SUPER_ADMIN' || staffPayload.id)) {
+                if (staffPayload.role === 'SUPER_ADMIN') {
+                  isAuthorized = true;
+                } else {
+                  const { RestaurantStaff } = await import('../models/RestaurantStaff');
+                  const staff = await RestaurantStaff.findOne({
+                    userId: new mongoose.Types.ObjectId(staffPayload.id),
+                    restaurantId: session.restaurantId,
+                    isActive: true,
+                  });
+                  if (staff) isAuthorized = true;
+                }
+              }
+            } catch {
+              try {
+                const customerPayload = tokenService.verifyCustomerToken(tokenStr);
+                if (
+                  customerPayload &&
+                  customerPayload.role === 'CUSTOMER' &&
+                  customerPayload.restaurantId === session.restaurantId.toString()
+                ) {
+                  isAuthorized = true;
+                }
+              } catch {
+                // Token invalid
+              }
             }
+          }
+
+          const effectiveTableToken = tableToken || data?.tableToken || socket.handshake.auth.tableToken;
+          if (!isAuthorized && effectiveTableToken) {
+            const { Table } = await import('../models/Table');
+            const table = await Table.findOne({ token: effectiveTableToken, restaurantId: session.restaurantId });
+            if (table && table._id.toString() === session.tableId.toString()) {
+              isAuthorized = true;
+            }
+          }
+
+          const effectiveGuestToken = guestToken || data?.guestToken || socket.handshake.auth.guestToken;
+          if (!isAuthorized && effectiveGuestToken) {
+            const { GuestSession } = await import('../models/GuestSession');
+            const foundGuest = await GuestSession.findOne({
+              diningSessionId: session._id,
+              guestToken: effectiveGuestToken,
+            });
+            if (foundGuest) isAuthorized = true;
+          }
+
+          if (!isAuthorized) {
+            socket.emit('error', { code: 'FORBIDDEN', message: 'Unauthorized attempt to subscribe to session room' });
+            return;
           }
 
           socket.join(`session:${sessionId}`);

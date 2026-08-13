@@ -26,6 +26,7 @@ export class OrderController {
     this.settleTableSession = this.settleTableSession.bind(this);
     this.closeTableSession = this.closeTableSession.bind(this);
     this.abandonTableSession = this.abandonTableSession.bind(this);
+    this.reopenTableSession = this.reopenTableSession.bind(this);
     this.retryPosSync = this.retryPosSync.bind(this);
   }
 
@@ -384,6 +385,21 @@ export class OrderController {
       sendSuccess(res, { message: 'POS sync triggered' }, 'POS sync retry queued');
     } catch (error) {
       next(error);
+    }
+  }
+
+  async reopenTableSession(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, sessionId } = req.params;
+
+      const session = await billService.reopenSessionForOrdering(restaurantId, sessionId);
+      sendSuccess(res, session, 'Session reopened for ordering');
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
     }
   }
 }

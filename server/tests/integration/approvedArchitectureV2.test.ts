@@ -236,7 +236,8 @@ describe('Approved Architecture V2.1 Integration Test Suite', () => {
       });
 
     const billReq = await request(app)
-      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/bill/request`);
+      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/bill/request`)
+      .set('x-table-token', table.token);
     expect(billReq.status).toBe(200);
     expect(billReq.body.success).toBe(true);
     const bill = billReq.body.data;
@@ -390,7 +391,8 @@ describe('Approved Architecture V2.1 Integration Test Suite', () => {
 
     // Request Bill (Version 1 = ₹420)
     const billV1 = await request(app)
-      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/bill/request`);
+      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/bill/request`)
+      .set('x-table-token', table.token);
     expect(billV1.body.data.version).toBe(1);
     expect(billV1.body.data.netAmount).toBe(42000);
 
@@ -404,9 +406,10 @@ describe('Approved Architecture V2.1 Integration Test Suite', () => {
     expect(directOrder.status).toBe(409);
     expect(directOrder.body.error.code).toBe('SESSION_BILL_REQUESTED');
 
-    // Customer clicks "Order More" -> reopen session
+    // Customer clicks "Order More" -> staff reopens the session
     const reopenRes = await request(app)
-      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/reopen`);
+      .post(`/api/v1/restaurants/${restaurant._id}/table-sessions/${session._id}/reopen`)
+      .set('Authorization', `Bearer ${managerToken}`);
     expect(reopenRes.status).toBe(200);
 
     // Verify Bill v1 is now SUPERSEDED
@@ -424,7 +427,8 @@ describe('Approved Architecture V2.1 Integration Test Suite', () => {
 
     // Request Bill (Version 2 = ₹420 + ₹250 = ₹670)
     const billV2 = await request(app)
-      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/bill/request`);
+      .post(`/api/v1/public/restaurants/${restaurant.slug}/table-sessions/${session._id}/bill/request`)
+      .set('x-table-token', table.token);
     expect(billV2.body.data.version).toBe(2);
     expect(billV2.body.data.netAmount).toBe(67000);
   });

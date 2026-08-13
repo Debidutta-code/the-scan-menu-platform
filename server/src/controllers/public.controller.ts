@@ -469,15 +469,39 @@ export class PublicController {
     try {
       const { sessionId, restaurantSlug } = req.params;
 
-      const restaurant = req.restaurant || (await Restaurant.findOne({ slug: restaurantSlug?.toLowerCase().trim() }));
-      const restaurantId = restaurant ? restaurant._id : req.restaurant?._id;
+      const restaurant = req.restaurant || (restaurantSlug ? await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() }) : null);
+      if (!restaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant context is required to request bill', null, 404);
+        return;
+      }
 
       if (!sessionId || !mongoose.Types.ObjectId.isValid(sessionId)) {
         sendError(res, 'BAD_REQUEST', 'Valid sessionId parameter is required', null, 400);
         return;
       }
 
-      const bill = await billService.requestOrGenerateBill(restaurantId, sessionId);
+      // Authorization Guard: Require valid table context
+      if (!req.table) {
+        sendError(res, 'FORBIDDEN', 'Valid table token is required to request a bill for this session', null, 403);
+        return;
+      }
+
+      // Ownership Guard: Ensure the requested session belongs to the verified table and restaurant
+      const session = await DiningSession.findById(sessionId);
+      if (!session) {
+        sendError(res, 'SESSION_NOT_FOUND', 'Dining session not found', null, 404);
+        return;
+      }
+
+      if (
+        session.restaurantId.toString() !== restaurant._id.toString() ||
+        session.tableId.toString() !== req.table._id.toString()
+      ) {
+        sendError(res, 'FORBIDDEN', 'Session does not belong to the verified table or restaurant context', null, 403);
+        return;
+      }
+
+      const bill = await billService.requestOrGenerateBill(restaurant._id, sessionId);
       sendSuccess(res, bill, 'Bill generated successfully', 200);
     } catch (error: any) {
       if (error.code) {
@@ -489,29 +513,10 @@ export class PublicController {
   }
 
   /**
-   * POST /api/v1/public/table-sessions/:sessionId/reopen
+   * Public reopening is disabled. Reopening a session is a staff-only operation.
    */
-  async reopenSession(req: TenantRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { sessionId, restaurantSlug } = req.params;
-
-      const restaurant = req.restaurant || (await Restaurant.findOne({ slug: restaurantSlug?.toLowerCase().trim() }));
-      const restaurantId = restaurant ? restaurant._id : req.restaurant?._id;
-
-      if (!sessionId || !mongoose.Types.ObjectId.isValid(sessionId)) {
-        sendError(res, 'BAD_REQUEST', 'Valid sessionId parameter is required', null, 400);
-        return;
-      }
-
-      const session = await billService.reopenSessionForOrdering(restaurantId, sessionId);
-      sendSuccess(res, session, 'Session reopened for ordering', 200);
-    } catch (error: any) {
-      if (error.code) {
-        sendError(res, error.code, error.message, error.details, error.status);
-      } else {
-        next(error);
-      }
-    }
+  async reopenSession(_req: TenantRequest, res: Response): Promise<void> {
+    sendError(res, 'FORBIDDEN', 'Session reopening requires staff authorization', null, 403);
   }
 
   /**

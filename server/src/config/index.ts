@@ -12,6 +12,7 @@ const isDevelopment = nodeEnv === 'development';
 if (isTest) {
   process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test_access_secret_key_123_abc_456_def';
   process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test_refresh_secret_key_123_abc_456_def';
+  process.env.JWT_CUSTOMER_SECRET = process.env.JWT_CUSTOMER_SECRET || 'test_customer_secret_key_123_abc_456_def';
   process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pixora-qr-test';
   process.env.CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'mock_cloud_name';
   process.env.CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '123456789012345';
@@ -38,6 +39,7 @@ export interface DbConfig {
 export interface AuthConfig {
   jwtAccessSecret: string;
   jwtRefreshSecret: string;
+  jwtCustomerSecret: string;
   jwtAccessExpiresIn: string;
   jwtRefreshExpiresInDays: number;
   encryptionKey: string;
@@ -118,6 +120,7 @@ export const config: ServerConfig = {
   auth: {
     jwtAccessSecret: process.env.JWT_ACCESS_SECRET || (isTest ? 'test_access_secret_key_123_abc_456_def' : ''),
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || (isTest ? 'test_refresh_secret_key_123_abc_456_def' : ''),
+    jwtCustomerSecret: process.env.JWT_CUSTOMER_SECRET || (isTest ? 'test_customer_secret_key_123_abc_456_def' : ''),
     jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
     jwtRefreshExpiresInDays: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '7', 10),
     encryptionKey:
@@ -170,6 +173,7 @@ export function validateStartupConfig(): void {
   const requiredVariables: Array<{ key: string; value: string | undefined }> = [
     { key: 'JWT_ACCESS_SECRET', value: config.auth.jwtAccessSecret },
     { key: 'JWT_REFRESH_SECRET', value: config.auth.jwtRefreshSecret },
+    { key: 'JWT_CUSTOMER_SECRET', value: config.auth.jwtCustomerSecret },
     { key: 'MONGODB_URI', value: config.db.mongoUri },
     { key: 'CLOUDINARY_CLOUD_NAME', value: config.cloudinary.cloudName },
     { key: 'CLOUDINARY_API_KEY', value: config.cloudinary.apiKey },

@@ -53,15 +53,22 @@ const corsOriginRegex = new RegExp(
 app.use(
   cors({
     origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
       if (
-        !origin ||
+        config.app.isTest ||
         corsOriginRegex.test(origin) ||
         origin.includes('localhost') ||
-        config.app.isTest
+        origin.includes('127.0.0.1') ||
+        origin === config.app.clientUrl ||
+        origin === config.app.socketCorsOrigin
       ) {
         callback(null, true);
       } else {
-        callback(null, true);
+        callback(null, false);
       }
     },
     credentials: true,

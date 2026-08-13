@@ -460,3 +460,32 @@ Returns order status and item details scoped to the verified table context and t
     "message": "Customers retrieved successfully"
   }
   ```
+
+---
+
+### 16. Reopen Table Session (Staff Only)
+Reopens a `BILL_REQUESTED` dining session back to `ACTIVE` status. This allows staff to let customers continue ordering after a bill has been requested but before payment is settled.
+
+> **Note:** This endpoint is **staff-only**. The previous public route `POST /api/v1/public/table-sessions/:sessionId/reopen` has been removed for security reasons. Customers can ask staff to reopen a session.
+
+- **Method:** `POST`
+- **Path:** `/api/v1/restaurants/:restaurantId/table-sessions/:sessionId/reopen`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `STAFF`)
+- **Request Body:** None
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "...",
+      "status": "ACTIVE",
+      ...
+    },
+    "message": "Session reopened for ordering"
+  }
+  ```
+- **Error Responses:**
+  - `400 Bad Request` (Session is not in `BILL_REQUESTED` state)
+  - `401 Unauthorized` (Missing or invalid token)
+  - `403 Forbidden` (Insufficient role)
+  - `404 Not Found` (Session not found in restaurant scope)

@@ -7,6 +7,8 @@ import { Tax } from '../models/Tax';
 import { AuditLog } from '../models/AuditLog';
 import { NotificationService } from './notification.service';
 
+import { BillCounter } from '../models/BillCounter';
+
 class CustomError extends Error {
   status: number;
   code: string;
@@ -19,13 +21,49 @@ class CustomError extends Error {
 
 export class BillService {
   /**
-   * Generates a sequential invoice number for a restaurant, e.g. "INV-2026-0042"
+   * Generates a sequential, atomic invoice number for a restaurant, e.g. "INV-2026-0042"
    */
   async generateBillNumber(restaurantId: Types.ObjectId | string): Promise<string> {
+    const restId = typeof restaurantId === 'string' ? new Types.ObjectId(restaurantId) : restaurantId;
     const year = new Date().getFullYear();
-    const count = await Bill.countDocuments({ restaurantId: new Types.ObjectId(restaurantId) });
-    const seq = String(count + 1).padStart(4, '0');
-    return `INV-${year}-${seq}`;
+
+    const counter = await BillCounter.findOneAndUpdate(
+      { restaurantId: restId, year },
+      { $inc: { seq: 1 } },
+      { upsert: true, new: true }
+    );
+
+    let seq = counter.seq;
+    const candidateBillNumber = `INV-${year}-${String(seq).padStart(4, '0')}`;
+
+    // Self-healing check: if candidate bill number already exists in DB (legacy bills or direct inserts)
+    const existing = await Bill.findOne({ restaurantId: restId, billNumber: candidateBillNumber });
+    if (existing) {
+      const yearRegex = new RegExp(`^INV-${year}-(\\d+)$`);
+      const bills = await Bill.find({ restaurantId: restId, billNumber: yearRegex }).select('billNumber').lean();
+
+      let maxSeq = seq;
+      for (const b of bills) {
+        if (b.billNumber) {
+          const match = b.billNumber.match(yearRegex);
+          if (match && match[1]) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSeq) {
+              maxSeq = num;
+            }
+          }
+        }
+      }
+
+      const healed = await BillCounter.findOneAndUpdate(
+        { restaurantId: restId, year },
+        { $max: { seq: maxSeq + 1 } },
+        { new: true }
+      );
+      seq = healed!.seq;
+    }
+
+    return `INV-${year}-${String(seq).padStart(4, '0')}`;
   }
 
   /**
