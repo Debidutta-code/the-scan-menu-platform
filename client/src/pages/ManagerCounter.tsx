@@ -353,27 +353,31 @@ export const ManagerCounter: React.FC = () => {
 
                               <div className="flex items-center justify-between pt-1 border-t border-slate-100/80">
                                 {selected ? (
-                                  <div className="flex items-center gap-1 bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded-md font-mono text-[11px] font-black">
+                                  <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-lg shadow-2xs">
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         updateQuantity(item._id, selected.quantity - 1);
                                       }}
-                                      className="hover:text-white px-0.5"
+                                      className="w-7 h-7 rounded-md bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs"
+                                      title="Decrease quantity"
                                     >
-                                      -
+                                      <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
                                     </button>
-                                    <span>{selected.quantity}</span>
+                                    <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[18px] text-center">
+                                      {selected.quantity}
+                                    </span>
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         updateQuantity(item._id, selected.quantity + 1);
                                       }}
-                                      className="hover:text-white px-0.5"
+                                      className="w-7 h-7 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs"
+                                      title="Increase quantity"
                                     >
-                                      +
+                                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                                     </button>
                                   </div>
                                 ) : (
@@ -436,27 +440,31 @@ export const ManagerCounter: React.FC = () => {
 
                               <div className="flex items-center justify-between pt-1 border-t border-slate-100/80">
                                 {selected ? (
-                                  <div className="flex items-center gap-1 bg-amber-500 text-slate-950 px-1.5 py-0.5 rounded-md font-mono text-[11px] font-black">
+                                  <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-lg shadow-2xs">
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         updateQuantity(item._id, selected.quantity - 1);
                                       }}
-                                      className="hover:text-white px-0.5"
+                                      className="w-7 h-7 rounded-md bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs"
+                                      title="Decrease quantity"
                                     >
-                                      -
+                                      <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
                                     </button>
-                                    <span>{selected.quantity}</span>
+                                    <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[18px] text-center">
+                                      {selected.quantity}
+                                    </span>
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         updateQuantity(item._id, selected.quantity + 1);
                                       }}
-                                      className="hover:text-white px-0.5"
+                                      className="w-7 h-7 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs"
+                                      title="Increase quantity"
                                     >
-                                      +
+                                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                                     </button>
                                   </div>
                                 ) : (
@@ -595,17 +603,21 @@ export const ManagerCounter: React.FC = () => {
                       ₹{(item.price / 100).toFixed(2)} × {item.quantity}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 bg-white border border-slate-200 p-0.5 rounded-lg">
                     <button
                       onClick={() => updateQuantity(item.itemId, item.quantity - 1)}
-                      className="w-5 h-5 rounded hover:bg-slate-200 flex items-center justify-center text-slate-600"
+                      className="w-6.5 h-6.5 rounded-md hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center text-slate-600 transition"
+                      title="Decrease"
                     >
                       <Minus className="w-3 h-3" strokeWidth={2.5} />
                     </button>
-                    <span className="font-mono font-bold text-xs w-4 text-center">{item.quantity}</span>
+                    <span className="font-mono font-bold text-xs min-w-[18px] text-center text-slate-900">
+                      {item.quantity}
+                    </span>
                     <button
                       onClick={() => updateQuantity(item.itemId, item.quantity + 1)}
-                      className="w-5 h-5 rounded hover:bg-slate-200 flex items-center justify-center text-slate-600"
+                      className="w-6.5 h-6.5 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition"
+                      title="Increase"
                     >
                       <Plus className="w-3 h-3" strokeWidth={2.5} />
                     </button>
