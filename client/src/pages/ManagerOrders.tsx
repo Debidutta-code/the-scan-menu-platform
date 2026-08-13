@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -363,25 +363,52 @@ export const ManagerOrders: React.FC = () => {
     );
   }, [detailModalOrder, activeOrders, servedOrders, historyOrders]);
 
-  // Keyboard handler: Escape to deselect/close, Enter to rapidly advance selected/detail order
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  const getOrdersByStatus = useCallback((st: string) => {
+    let list: Order[] = [];
+    if (st === 'SERVED') {
+      const todayStr = new Date().toDateString();
+      list = servedOrders.filter((o) => {
+        const isToday = new Date(o.createdAt).toDateString() === todayStr;
+        const isSessionClosed = (o as any).diningSessionId?.status === 'CLOSED';
+        const isArchived = archivedServedIds.has(o._id);
+        return o.status === 'SERVED' && isToday && !isSessionClosed && !isArchived;
+      });
+    } else {
+      list = activeOrders.filter((o) => o.status === st);
+    }
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return timeA - timeB; // Earliest orders first in kitchen queue
+    });
+  }, [servedOrders, activeOrders, archivedServedIds]);
+
+  // Full KDS Keyboard Navigation: Arrow Keys (Up/Down/Left/Right), Enter (Advance), Backspace (Revert), Escape (Deselect/Close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      const isInputActive =
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'SELECT' ||
+          activeElement.tagName === 'TEXTAREA');
+      if (isInputActive) return;
+
       if (e.key === 'Escape') {
         if (detailModalOrder) {
           setDetailModalOrder(null);
         } else if (selectedCardOrder) {
           setSelectedCardOrder(null);
         }
-      } else if (e.key === 'Enter') {
-        const activeElement = document.activeElement;
-        const isInputActive =
-          activeElement &&
-          (activeElement.tagName === 'INPUT' ||
-            activeElement.tagName === 'SELECT' ||
-            activeElement.tagName === 'TEXTAREA');
-        if (isInputActive) return;
+        return;
+      }
 
-        const activeOrder = detailModalOrder || liveSelectedOrder;
+      const activeOrder = detailModalOrder || liveSelectedOrder;
+
+      // A. Enter -> Advance order to next stage
+      if (e.key === 'Enter') {
         if (activeOrder) {
           const nextStatus = getNextStatus(activeOrder.status, workflowMode);
           if (nextStatus) {
@@ -399,8 +426,96 @@ export const ManagerOrders: React.FC = () => {
             if (selectedCardOrder) setSelectedCardOrder(null);
           }
         }
+        return;
+      }
+
+      // B. Backspace -> Rollback / Revert order to previous stage
+      if (e.key === 'Backspace') {
+        if (activeOrder) {
+          const prevStatus = getPreviousStatus(activeOrder.status, workflowMode);
+          if (prevStatus) {
+            e.preventDefault();
+            updateStatusMutation.mutate({ orderId: activeOrder._id, nextStatus: prevStatus });
+          }
+        }
+        return;
+      }
+
+      // C. Arrow Keys -> Grid & Column Navigation across cards
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (viewMode !== 'KANBAN') return;
+        e.preventDefault();
+
+        // Find current column index C and row index R of selected order
+        let currentColIdx = -1;
+        let currentRowIdx = -1;
+
+        if (activeOrder) {
+          for (let col = 0; col < workflowSteps.length; col++) {
+            const list = getOrdersByStatus(workflowSteps[col].status);
+            const rIdx = list.findIndex((o) => o._id === activeOrder._id);
+            if (rIdx !== -1) {
+              currentColIdx = col;
+              currentRowIdx = rIdx;
+              break;
+            }
+          }
+        }
+
+        // If no order card is selected yet, default to the first available order card on the board
+        if (currentColIdx === -1) {
+          for (let col = 0; col < workflowSteps.length; col++) {
+            const list = getOrdersByStatus(workflowSteps[col].status);
+            if (list.length > 0) {
+              setSelectedCardOrder(list[0]);
+              return;
+            }
+          }
+          return;
+        }
+
+        // 1. ArrowDown -> Move to next order down in the same column
+        if (e.key === 'ArrowDown') {
+          const currentList = getOrdersByStatus(workflowSteps[currentColIdx].status);
+          if (currentRowIdx < currentList.length - 1) {
+            setSelectedCardOrder(currentList[currentRowIdx + 1]);
+          }
+        }
+
+        // 2. ArrowUp -> Move to previous order up in the same column
+        if (e.key === 'ArrowUp') {
+          const currentList = getOrdersByStatus(workflowSteps[currentColIdx].status);
+          if (currentRowIdx > 0) {
+            setSelectedCardOrder(currentList[currentRowIdx - 1]);
+          }
+        }
+
+        // 3. ArrowRight -> Jump to order in next column to the right
+        if (e.key === 'ArrowRight') {
+          for (let col = currentColIdx + 1; col < workflowSteps.length; col++) {
+            const targetList = getOrdersByStatus(workflowSteps[col].status);
+            if (targetList.length > 0) {
+              const targetRow = Math.min(currentRowIdx, targetList.length - 1);
+              setSelectedCardOrder(targetList[targetRow]);
+              break;
+            }
+          }
+        }
+
+        // 4. ArrowLeft -> Jump to order in previous column to the left
+        if (e.key === 'ArrowLeft') {
+          for (let col = currentColIdx - 1; col >= 0; col--) {
+            const targetList = getOrdersByStatus(workflowSteps[col].status);
+            if (targetList.length > 0) {
+              const targetRow = Math.min(currentRowIdx, targetList.length - 1);
+              setSelectedCardOrder(targetList[targetRow]);
+              break;
+            }
+          }
+        }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
@@ -408,6 +523,9 @@ export const ManagerOrders: React.FC = () => {
     selectedCardOrder,
     liveSelectedOrder,
     workflowMode,
+    workflowSteps,
+    viewMode,
+    getOrdersByStatus,
     updateStatusMutation,
     closeSessionMutation,
     archiveServedOrder,
@@ -447,35 +565,11 @@ export const ManagerOrders: React.FC = () => {
     }
   }, [historyOrdersData, historyPage]);
 
-
-
   // Live clock timer
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 10000);
     return () => clearInterval(timer);
   }, []);
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  const getOrdersByStatus = (st: string) => {
-    let list: Order[] = [];
-    if (st === 'SERVED') {
-      const todayStr = new Date().toDateString();
-      list = servedOrders.filter((o) => {
-        const isToday = new Date(o.createdAt).toDateString() === todayStr;
-        const isSessionClosed = (o as any).diningSessionId?.status === 'CLOSED';
-        const isArchived = archivedServedIds.has(o._id);
-        return o.status === 'SERVED' && isToday && !isSessionClosed && !isArchived;
-      });
-    } else {
-      list = activeOrders.filter((o) => o.status === st);
-    }
-    return [...list].sort((a, b) => {
-      const timeA = new Date(a.createdAt).getTime();
-      const timeB = new Date(b.createdAt).getTime();
-      return timeA - timeB; // Earliest orders first in kitchen queue
-    });
-  };
 
   // ─── Loading / Guard ──────────────────────────────────────────────────────
 
@@ -634,7 +728,7 @@ export const ManagerOrders: React.FC = () => {
                       </div>
                     ) : (
                       <AnimatePresence mode="popLayout">
-                        {ordersInColumn.map((order) => {
+                        {ordersInColumn.map((order: Order) => {
                           const modeInfo = getOrderModeInfo(order.orderMode);
                           const ModeIcon = modeInfo.icon;
                           const nextStatus = getNextStatus(order.status, workflowMode);
@@ -712,7 +806,7 @@ export const ManagerOrders: React.FC = () => {
 
                               {/* Order Items Preview */}
                               <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 space-y-1.5">
-                                {order.items.map((item, idx) => (
+                                {order.items.map((item: any, idx: number) => (
                                   <div key={idx} className="flex items-center justify-between gap-2 text-xs">
                                     <div className="flex items-center gap-1.5 truncate">
                                       <span className="font-mono font-black text-slate-900 bg-white border border-slate-200 px-1.5 py-0.2 rounded text-[10px]">
