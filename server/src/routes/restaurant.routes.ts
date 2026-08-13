@@ -28,6 +28,9 @@ router.patch('/:restaurantId/tables/:tableId', requireFeature('qr_menu') as any,
 router.delete('/:restaurantId/tables/:tableId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteTable);
 router.patch('/:restaurantId/tables/:tableId/activate', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.activateTable);
 router.patch('/:restaurantId/tables/:tableId/deactivate', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deactivateTable);
+router.post('/:restaurantId/tables/clear', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.clearTables);
+router.post('/:restaurantId/tables/reserve', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.reserveTables);
+router.patch('/:restaurantId/tables/:tableId/status', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateTableStatus);
 router.post('/:restaurantId/tables/:tableId/regenerate-qr', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.regenerateTableQr);
 
 // GET returns SVG + PNG details for the QR

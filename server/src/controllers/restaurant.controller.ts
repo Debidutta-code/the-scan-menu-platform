@@ -9,6 +9,7 @@ import { User } from '../models/User';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
 import { DiningSession } from '../models/DiningSession';
+import { diningSessionService } from '../services/diningSession.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { customerService } from '../services/customer.service';
 import { sendSuccess, sendError } from '../utils/response';
@@ -31,6 +32,9 @@ export class RestaurantController {
     this.deactivateTable = this.deactivateTable.bind(this);
     this.regenerateTableQr = this.regenerateTableQr.bind(this);
     this.getTableQr = this.getTableQr.bind(this);
+    this.updateTableStatus = this.updateTableStatus.bind(this);
+    this.clearTables = this.clearTables.bind(this);
+    this.reserveTables = this.reserveTables.bind(this);
 
     // Waiter Staff Management
     this.createStaff = this.createStaff.bind(this);
@@ -306,6 +310,8 @@ export class RestaurantController {
       const { restaurantId } = req.params;
       const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: { $ne: true } }).sort({ tableNumber: 1 }).populate("zoneId");
 
+      const tableIds = tables.map((t) => t._id);
+
       const activeSessions = await DiningSession.find({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
@@ -313,16 +319,143 @@ export class RestaurantController {
 
       const sessionMap = new Map(activeSessions.map((s) => [s.tableId.toString(), s]));
 
+      const Order = mongoose.model('Order');
+      const activeOrders = await Order.aggregate([
+        {
+          $match: {
+            restaurantId: new mongoose.Types.ObjectId(restaurantId),
+            tableId: { $in: tableIds },
+            status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
+            paymentStatus: { $ne: 'PAID' },
+          },
+        },
+        {
+          $group: {
+            _id: '$tableId',
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const orderCountMap = new Map(activeOrders.map((o: any) => [o._id.toString(), o.count]));
+
       const tablesWithSession = tables.map((t) => {
         const tableObj = t.toObject();
         const activeSession = sessionMap.get(t._id.toString());
+        const activeOrderCount = orderCountMap.get(t._id.toString()) || 0;
+
+        let computedStatus = t.status || 'AVAILABLE';
+        if (activeOrderCount > 0 || activeSession) {
+          if (computedStatus !== 'RESERVED') {
+            computedStatus = 'OCCUPIED';
+          }
+        }
+
         return {
           ...tableObj,
+          status: computedStatus,
           activeSession: activeSession || null,
+          activeOrderCount,
         };
       });
 
       sendSuccess(res, tablesWithSession, 'Tables listed successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateTableStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, tableId } = req.params;
+      const { status } = req.body;
+
+      if (!status || !['AVAILABLE', 'OCCUPIED', 'RESERVED'].includes(status)) {
+        sendError(res, 'BAD_REQUEST', 'Status must be AVAILABLE, OCCUPIED, or RESERVED', null, 400);
+        return;
+      }
+
+      const table = await Table.findOne({ _id: tableId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      if (!table) {
+        sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
+        return;
+      }
+
+      table.status = status;
+      await table.save();
+
+      // If clearing table to AVAILABLE, close any active dining session for this table
+      if (status === 'AVAILABLE') {
+        const activeSession = await DiningSession.findOne({
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          tableId: table._id,
+          status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+        });
+        if (activeSession) {
+          await diningSessionService.closeSession(restaurantId, activeSession._id, req.user?.id);
+        }
+      }
+
+      sendSuccess(res, table, `Table status updated to ${status}`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async clearTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { tableIds } = req.body;
+
+      if (!Array.isArray(tableIds) || tableIds.length === 0) {
+        sendError(res, 'BAD_REQUEST', 'tableIds must be a non-empty array', null, 400);
+        return;
+      }
+
+      const objectIds = tableIds.map((id: string) => new mongoose.Types.ObjectId(id));
+
+      // Update table statuses to AVAILABLE
+      await Table.updateMany(
+        { _id: { $in: objectIds }, restaurantId: new mongoose.Types.ObjectId(restaurantId) },
+        { $set: { status: 'AVAILABLE' } }
+      );
+
+      // Close all active dining sessions for these tables
+      const activeSessions = await DiningSession.find({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        tableId: { $in: objectIds },
+        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+      });
+
+      for (const session of activeSessions) {
+        await diningSessionService.closeSession(restaurantId, session._id, req.user?.id);
+      }
+
+      sendSuccess(res, { clearedCount: tableIds.length }, `${tableIds.length} table(s) cleared successfully`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reserveTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { tableIds, reserved = true } = req.body;
+
+      if (!Array.isArray(tableIds) || tableIds.length === 0) {
+        sendError(res, 'BAD_REQUEST', 'tableIds must be a non-empty array', null, 400);
+        return;
+      }
+
+      const objectIds = tableIds.map((id: string) => new mongoose.Types.ObjectId(id));
+      const newStatus = reserved ? 'RESERVED' : 'AVAILABLE';
+
+      await Table.updateMany(
+        { _id: { $in: objectIds }, restaurantId: new mongoose.Types.ObjectId(restaurantId) },
+        { $set: { status: newStatus } }
+      );
+
+      sendSuccess(res, { updatedCount: tableIds.length, status: newStatus }, `${tableIds.length} table(s) marked as ${newStatus}`);
     } catch (error) {
       next(error);
     }

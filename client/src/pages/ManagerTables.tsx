@@ -1,14 +1,39 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { managerService, Table, TableZone } from '../services/restaurant.service';
-import { Plus, Edit2, Trash2, QrCode, Download, X, Loader, HelpCircle, Printer } from 'lucide-react';
+import {
+  useManagerTables,
+  TableFormValues,
+  BulkTableFormValues,
+  ZoneFormValues,
+} from '../hooks/useManagerTables';
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  QrCode,
+  Download,
+  X,
+  Loader,
+  Printer,
+  Search,
+  CheckCircle2,
+  Bookmark,
+  RefreshCw,
+  Utensils,
+  Layers,
+  CheckSquare,
+  Square,
+  RotateCw,
+} from 'lucide-react';
 
 const tableSchema = z.object({
   tableNumber: z.string().optional(),
@@ -16,53 +41,52 @@ const tableSchema = z.object({
   zoneId: z.string().optional(),
 });
 
-type TableFormValues = z.infer<typeof tableSchema>;
-
 const zoneSchema = z.object({
   name: z.string().min(1, 'Zone name is required'),
 });
-type ZoneFormValues = z.infer<typeof zoneSchema>;
 
 const bulkTableSchema = z.object({
   count: z.number().min(1, 'Count must be at least 1').max(100, 'Cannot create more than 100 tables at once'),
   prefix: z.string().optional(),
   zoneId: z.string().optional(),
 });
-type BulkTableFormValues = z.infer<typeof bulkTableSchema>;
 
 export const ManagerTables: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+
+  const {
+    tables,
+    zones,
+    isLoading,
+    refetchTables,
+    createTableMutation,
+    bulkCreateMutation,
+    editTableMutation,
+    deleteTableMutation,
+    regenerateQrMutation,
+    clearTablesMutation,
+    reserveTablesMutation,
+    createZoneMutation,
+    editZoneMutation,
+    deleteZoneMutation,
+  } = useManagerTables(activeRestaurantId);
+
+  // Local UI states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED'>('ALL');
+  const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
+  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
+
+  // Modals
   const [isFormOpen, setIsCreateOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [showQrModal, setShowQrModal] = useState<Table | null>(null);
-  const [confirmRegenTable, setConfirmRegenTable] = useState<Table | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   const [isZoneFormOpen, setIsZoneFormOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
-  const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
-
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
-
-  // Fetch tables list
-  const { data: tablesData, isLoading } = useQuery({
-    queryKey: ['managerTables', activeRestaurantId],
-    queryFn: () => managerService.listTables(activeRestaurantId!),
-    enabled: !!activeRestaurantId,
-  });
-
-  const tables: Table[] = tablesData?.data || [];
-
-  // Fetch zones list
-  const { data: zonesData } = useQuery({
-    queryKey: ['managerZones', activeRestaurantId],
-    queryFn: () => managerService.listZones(activeRestaurantId!),
-    enabled: !!activeRestaurantId,
-  });
-  const zones: TableZone[] = zonesData?.data || [];
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Fetch QR info when QR modal is opened
   const { data: qrData, isLoading: isLoadingQr } = useQuery({
@@ -71,78 +95,7 @@ export const ManagerTables: React.FC = () => {
     enabled: !!activeRestaurantId && !!showQrModal?._id,
   });
 
-  // Create table
-  const createMutation = useMutation({
-    mutationFn: (data: TableFormValues) => managerService.createTable(activeRestaurantId!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
-      setIsCreateOpen(false);
-      tableForm.reset();
-      toast('Table successfully created!', 'success');
-    },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.error?.message || 'Error creating table');
-    },
-  });
-
-  const bulkCreateMutation = useMutation({
-    mutationFn: (data: BulkTableFormValues) => managerService.bulkCreateTables(activeRestaurantId!, data),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
-      setIsBulkFormOpen(false);
-      bulkForm.reset();
-      toast(`${res.data.count} tables generated!`, 'success');
-    },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.error?.message || 'Error creating tables');
-    },
-  });
-
-  // Edit table
-  const editMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      managerService.editTable(activeRestaurantId!, id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
-      setIsCreateOpen(false);
-      setEditingTable(null);
-      tableForm.reset();
-      toast('Table details successfully saved!', 'success');
-    },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.error?.message || 'Error editing table');
-    },
-  });
-
-  // Delete table
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => managerService.deleteTable(activeRestaurantId!, id),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
-      if (res.data?.archived) {
-        toast('Table has active order history; successfully soft-archived and deactivated.', 'info');
-      } else {
-        toast('Table successfully deleted.', 'success');
-      }
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error deleting table', 'error');
-    },
-  });
-
-  // Regenerate table QR
-  const regenerateMutation = useMutation({
-    mutationFn: (id: string) => managerService.regenerateTableQr(activeRestaurantId!, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
-      setConfirmRegenTable(null);
-      toast('QR code rotated and successfully updated.', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error rotating QR token', 'error');
-    },
-  });
-
+  // React Hook Forms
   const tableForm = useForm<TableFormValues>({
     resolver: zodResolver(tableSchema),
   });
@@ -152,17 +105,116 @@ export const ManagerTables: React.FC = () => {
     defaultValues: { count: 10, prefix: '', zoneId: undefined },
   });
 
-  const onBulkSubmit = (values: BulkTableFormValues) => {
-    setErrorMsg(null);
-    bulkCreateMutation.mutate(values);
+  const zoneForm = useForm<ZoneFormValues>({
+    resolver: zodResolver(zoneSchema),
+  });
+
+  // Calculate table metrics
+  const stats = useMemo(() => {
+    const total = tables.length;
+    const occupied = tables.filter(
+      (t) => t.status === 'OCCUPIED' || (t.activeOrderCount && t.activeOrderCount > 0) || t.activeSession
+    ).length;
+    const reserved = tables.filter((t) => t.status === 'RESERVED').length;
+    const available = total - occupied - reserved;
+    return { total, occupied, reserved, available: Math.max(0, available) };
+  }, [tables]);
+
+  // Filtered tables based on search, zone, and status
+  const filteredTables = useMemo(() => {
+    return tables.filter((table) => {
+      // Zone filter
+      const tableZoneId = typeof table.zoneId === 'string' ? table.zoneId : table.zoneId?._id;
+      if (activeZoneFilter !== null) {
+        if (activeZoneFilter === 'unassigned') {
+          if (tableZoneId && zones.some((z) => z._id === tableZoneId)) return false;
+        } else if (tableZoneId !== activeZoneFilter) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (statusFilter !== 'ALL') {
+        const isOccupied =
+          table.status === 'OCCUPIED' || (table.activeOrderCount && table.activeOrderCount > 0) || !!table.activeSession;
+        const isReserved = table.status === 'RESERVED';
+
+        if (statusFilter === 'OCCUPIED' && !isOccupied) return false;
+        if (statusFilter === 'RESERVED' && !isReserved) return false;
+        if (statusFilter === 'AVAILABLE' && (isOccupied || isReserved)) return false;
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesNum = table.tableNumber.toLowerCase().includes(q);
+        const matchesName = table.displayName.toLowerCase().includes(q);
+        return matchesNum || matchesName;
+      }
+
+      return true;
+    });
+  }, [tables, activeZoneFilter, statusFilter, searchQuery, zones]);
+
+  // Multi-select helpers
+  const handleSelectTable = (id: string) => {
+    setSelectedTableIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
-  const onSubmit = (values: TableFormValues) => {
+  const handleSelectAll = () => {
+    if (selectedTableIds.length === filteredTables.length) {
+      setSelectedTableIds([]);
+    } else {
+      setSelectedTableIds(filteredTables.map((t) => t._id));
+    }
+  };
+
+  // Bulk actions
+  const handleBulkClear = () => {
+    if (selectedTableIds.length === 0) return;
+    if (confirm(`Clear ${selectedTableIds.length} selected table(s)? Active dining sessions will be closed.`)) {
+      clearTablesMutation.mutate(selectedTableIds, {
+        onSuccess: () => setSelectedTableIds([]),
+      });
+    }
+  };
+
+  const handleBulkReserve = (reserved: boolean = true) => {
+    if (selectedTableIds.length === 0) return;
+    reserveTablesMutation.mutate(
+      { tableIds: selectedTableIds, reserved },
+      { onSuccess: () => setSelectedTableIds([]) }
+    );
+  };
+
+  // Submit handlers
+  const onSubmitTable = (values: TableFormValues) => {
     setErrorMsg(null);
     if (editingTable) {
-      editMutation.mutate({ id: editingTable._id, data: values });
+      editTableMutation.mutate(
+        { id: editingTable._id, data: values },
+        { onSuccess: () => setIsCreateOpen(false) }
+      );
     } else {
-      createMutation.mutate(values);
+      createTableMutation.mutate(values, { onSuccess: () => setIsCreateOpen(false) });
+    }
+  };
+
+  const onBulkSubmit = (values: BulkTableFormValues) => {
+    setErrorMsg(null);
+    bulkCreateMutation.mutate(values, { onSuccess: () => setIsBulkFormOpen(false) });
+  };
+
+  const onZoneSubmit = (values: ZoneFormValues) => {
+    if (editingZone) {
+      editZoneMutation.mutate(
+        { id: editingZone._id, data: values },
+        { onSuccess: () => setIsZoneFormOpen(false) }
+      );
+    } else {
+      createZoneMutation.mutate(values, { onSuccess: () => setIsZoneFormOpen(false) });
     }
   };
 
@@ -177,66 +229,7 @@ export const ManagerTables: React.FC = () => {
     setIsCreateOpen(true);
   };
 
-  // Zone mutations
-  const zoneForm = useForm<ZoneFormValues>({
-    resolver: zodResolver(zoneSchema),
-  });
-
-  const createZoneMutation = useMutation({
-    mutationFn: (data: ZoneFormValues) => managerService.createZone(activeRestaurantId!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerZones', activeRestaurantId] });
-      setIsZoneFormOpen(false);
-      zoneForm.reset();
-      toast('Zone created successfully', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error creating zone', 'error');
-    },
-  });
-
-  const editZoneMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<TableZone> }) =>
-      managerService.updateZone(activeRestaurantId!, id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerZones', activeRestaurantId] });
-      setIsZoneFormOpen(false);
-      setEditingZone(null);
-      zoneForm.reset();
-      toast('Zone updated successfully', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error updating zone', 'error');
-    },
-  });
-
-  const deleteZoneMutation = useMutation({
-    mutationFn: (zoneId: string) => managerService.deleteZone(activeRestaurantId!, zoneId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['managerZones', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
-      if (activeZoneFilter === variables) setActiveZoneFilter(null);
-      toast('Zone and associated tables deleted successfully', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error deleting zone', 'error');
-    },
-  });
-
-  const onZoneSubmit = (values: ZoneFormValues) => {
-    if (editingZone) {
-      editZoneMutation.mutate({ id: editingZone._id, data: values });
-    } else {
-      createZoneMutation.mutate(values);
-    }
-  };
-
-  const handleAddTableToZone = (zoneId: string) => {
-    setEditingTable(null);
-    tableForm.reset({ tableNumber: '', displayName: '', zoneId });
-    setIsCreateOpen(true);
-  };
-
+  // QR Print & Download logic
   const handleDownloadPng = () => {
     if (qrData?.data?.pngDataUri && showQrModal) {
       const link = document.createElement('a');
@@ -248,7 +241,6 @@ export const ManagerTables: React.FC = () => {
     }
   };
 
-  // Browser-native printing stylesheet layout
   const handlePrintQr = () => {
     if (!qrData?.data?.svg || !showQrModal) return;
 
@@ -318,13 +310,8 @@ export const ManagerTables: React.FC = () => {
               margin: 0;
             }
             @media print {
-              body {
-                padding: 0;
-                min-height: auto;
-              }
-              .container {
-                border: none;
-              }
+              body { padding: 0; min-height: auto; }
+              .container { border: none; }
             }
           </style>
         </head>
@@ -350,10 +337,10 @@ export const ManagerTables: React.FC = () => {
   if (!activeRestaurantId) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6 font-sans">
-        <Loader className="w-12 h-12 text-amber-500 mb-4 animate-pulse" strokeWidth={1.75} />
-        <h2 className="font-display text-2xl font-bold text-slate-800">No Restaurant Assigned</h2>
+        <Loader className="w-12 h-12 text-amber-500 mb-4 animate-spin" strokeWidth={1.75} />
+        <h2 className="font-display tracking-tight text-2xl font-bold text-slate-800">No Restaurant Assigned</h2>
         <p className="text-slate-500 text-sm max-w-sm mt-1">
-          You are currently not associated as a manager with any restaurant. Please contact a Super Admin to get assigned.
+          You are currently not associated with any active restaurant session.
         </p>
       </div>
     );
@@ -361,7 +348,7 @@ export const ManagerTables: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
       </div>
     );
@@ -371,27 +358,33 @@ export const ManagerTables: React.FC = () => {
     return <Navigate to="/manager/orders" replace />;
   }
 
-  if (!flagsLoading && !isEnabled('qr_menu')) {
-    return <Navigate to="/manager/orders" replace />;
-  }
-
   return (
-    <div className="w-full space-y-8 font-sans">
-      <div className="flex justify-between items-center">
+    <div className="w-full space-y-6 font-sans pb-24">
+      {/* Header & Main Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display tracking-tight text-4xl font-bold text-slate-900">
-            Restaurant Tables & Zones
+          <h1 className="font-display tracking-tight text-3xl sm:text-4xl font-bold text-slate-900">
+            Table Management
           </h1>
-          <p className="text-slate-500 text-sm">Create table zones and manage secure physical QR placements</p>
+          <p className="text-slate-500 text-sm mt-0.5">
+            Monitor active table status, active orders, reservations & QR ordering setup
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => refetchTables()}
+            className="p-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm"
+            title="Refresh tables"
+          >
+            <RefreshCw className="w-4 h-4 text-slate-600" strokeWidth={1.75} />
+          </button>
           <button
             onClick={() => {
               setEditingZone(null);
               zoneForm.reset({ name: '' });
               setIsZoneFormOpen(true);
             }}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-50 transition"
+            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-50 transition shadow-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Add Zone</span>
@@ -402,7 +395,7 @@ export const ManagerTables: React.FC = () => {
               tableForm.reset({ tableNumber: '', displayName: '', zoneId: activeZoneFilter || undefined });
               setIsCreateOpen(true);
             }}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Add Table</span>
@@ -413,7 +406,7 @@ export const ManagerTables: React.FC = () => {
               bulkForm.reset({ count: 10, prefix: '', zoneId: activeZoneFilter || undefined });
               setIsBulkFormOpen(true);
             }}
-            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
+            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 transition shadow-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={1.75} />
             <span>Bulk Create</span>
@@ -421,153 +414,417 @@ export const ManagerTables: React.FC = () => {
         </div>
       </div>
 
-      {/* Zones Filter */}
-      {zones.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setActiveZoneFilter(null)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-              activeZoneFilter === null
-                ? 'bg-slate-900 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            All Tables
-          </button>
-          {zones.map((zone) => (
-            <div key={zone._id} className="flex items-center">
+      {/* Summary KPI Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Tables</p>
+            <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{stats.total}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+            <Layers className="w-5 h-5" strokeWidth={1.75} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Available</p>
+            <p className="text-2xl font-extrabold text-emerald-700 mt-0.5">{stats.available}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5" strokeWidth={1.75} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-amber-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Occupied</p>
+            <p className="text-2xl font-extrabold text-amber-700 mt-0.5">{stats.occupied}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Utensils className="w-5 h-5" strokeWidth={1.75} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-purple-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-purple-600">Reserved</p>
+            <p className="text-2xl font-extrabold text-purple-700 mt-0.5">{stats.reserved}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+            <Bookmark className="w-5 h-5" strokeWidth={1.75} />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs & Search Bar */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Status Tabs */}
+          <div className="flex flex-wrap items-center bg-slate-100 p-1 rounded-xl">
+            {(
+              [
+                { id: 'ALL', label: 'All Tables', count: stats.total },
+                { id: 'AVAILABLE', label: 'Available', count: stats.available },
+                { id: 'OCCUPIED', label: 'Occupied', count: stats.occupied },
+                { id: 'RESERVED', label: 'Reserved', count: stats.reserved },
+              ] as const
+            ).map((tab) => (
               <button
-                onClick={() => setActiveZoneFilter(zone._id)}
-                className={`px-4 py-2 rounded-l-xl text-sm font-semibold border transition-colors ${
-                  activeZoneFilter === zone._id
-                    ? 'bg-amber-500 text-white border-amber-500'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 border-r-0'
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  statusFilter === tab.id
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {zone.name}
+                <span>{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${
+                    statusFilter === tab.id ? 'bg-slate-800 text-amber-300' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {tab.count}
+                </span>
               </button>
-              {activeZoneFilter === zone._id && (
-                 <div className="flex items-center border border-amber-500 bg-amber-50 rounded-r-xl overflow-hidden h-full">
+            ))}
+          </div>
+
+          {/* Search Input & Select All */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+              <input
+                type="text"
+                placeholder="Search table or number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleSelectAll}
+              className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-50 transition text-slate-700 whitespace-nowrap"
+            >
+              {selectedTableIds.length === filteredTables.length && filteredTables.length > 0 ? (
+                <CheckSquare className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+              ) : (
+                <Square className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+              )}
+              <span>Select All</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Zone Pills Filter */}
+        {zones.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Zones:</span>
+            <button
+              onClick={() => setActiveZoneFilter(null)}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                activeZoneFilter === null
+                  ? 'bg-amber-500 text-white font-bold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All Zones
+            </button>
+            {zones.map((zone) => (
+              <div key={zone._id} className="flex items-center">
+                <button
+                  onClick={() => setActiveZoneFilter(zone._id)}
+                  className={`px-3 py-1 text-xs font-semibold transition ${
+                    activeZoneFilter === zone._id
+                      ? 'bg-amber-500 text-white font-bold rounded-l-lg'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg'
+                  }`}
+                >
+                  {zone.name}
+                </button>
+                {activeZoneFilter === zone._id && (
+                  <div className="flex items-center bg-amber-600 rounded-r-lg overflow-hidden h-full">
                     <button
                       onClick={() => {
-                         setEditingZone(zone);
-                         zoneForm.reset({ name: zone.name });
-                         setIsZoneFormOpen(true);
+                        setEditingZone(zone);
+                        zoneForm.reset({ name: zone.name });
+                        setIsZoneFormOpen(true);
                       }}
-                      className="p-2 text-amber-600 hover:bg-amber-100 transition-colors"
+                      className="p-1 text-white hover:bg-amber-700 transition"
                       title="Edit Zone"
                     >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleAddTableToZone(zone._id)}
-                      className="p-2 text-amber-600 hover:bg-amber-100 transition-colors"
-                      title="Add Table to Zone"
-                    >
-                      <Plus className="w-4 h-4" />
+                      <Edit2 className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Are you sure you want to delete the zone "${zone.name}"? ALL TABLES IN THIS ZONE WILL BE DELETED.`)) {
+                        if (confirm(`Delete zone "${zone.name}"? ALL tables in this zone will be deleted.`)) {
                           deleteZoneMutation.mutate(zone._id);
                         }
                       }}
-                      className="p-2 text-red-500 hover:bg-red-50 transition-colors"
+                      className="p-1 text-white hover:bg-red-600 transition"
                       title="Delete Zone"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
-                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Movie Hall Seats style list of Tables */}
-      {tables.filter(t => !activeZoneFilter || (typeof t.zoneId === 'string' ? t.zoneId === activeZoneFilter : t.zoneId?._id === activeZoneFilter)).length === 0 ? (
-        <div className="text-center py-20 bg-slate-50/50 border border-slate-150 rounded-2xl">
-          <QrCode className="w-10 h-10 text-slate-300 mx-auto mb-3 animate-pulse" strokeWidth={1.75} />
-          <h3 className="font-bold text-slate-700">No Tables Configured</h3>
-          <p className="text-xs text-slate-400 mt-1">Click "Add Table" to set up your first table QR.</p>
+      {/* Main Table Cards Grid */}
+      {filteredTables.length === 0 ? (
+        <div className="text-center py-16 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+          <QrCode className="w-12 h-12 text-slate-300 mx-auto mb-3" strokeWidth={1.75} />
+          <h3 className="font-bold text-slate-800 text-lg">No Tables Found</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            {searchQuery
+              ? `No tables matching "${searchQuery}"`
+              : 'Click "Add Table" or "Bulk Create" to create your first restaurant table QR.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {(activeZoneFilter
-              ? [zones.find(z => z._id === activeZoneFilter), { _id: null, name: 'Unassigned' }]
-              : [...zones, { _id: null, name: 'Unassigned' }])
-            .filter(zone => zone) // Handle undefined from find
-            .map(zone => {
-              const zoneTables = tables.filter(t => {
-                const tableZoneId = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
-                return zone!._id === null
-                  ? (!tableZoneId || !zones.some(z => z._id === tableZoneId))
-                  : tableZoneId === zone!._id;
-              });
-
-              if (zoneTables.length === 0) return null;
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <AnimatePresence>
+            {filteredTables.map((table) => {
+              const isSelected = selectedTableIds.includes(table._id);
+              const isOccupied =
+                table.status === 'OCCUPIED' ||
+                (table.activeOrderCount && table.activeOrderCount > 0) ||
+                !!table.activeSession;
+              const isReserved = table.status === 'RESERVED';
+              const zoneObj = typeof table.zoneId === 'object' ? table.zoneId : null;
 
               return (
-                <div key={zone!._id || 'unassigned'} className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
-                  <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
-                    {zone!.name}
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                    {zoneTables.map(table => (
-                      <div
-                        key={table._id}
-                        className={`relative group bg-white border-2 rounded-xl p-3 flex flex-col items-center text-center hover:shadow-md transition cursor-default
-                          ${table.isActive ? 'border-amber-400/50 hover:border-amber-500' : 'border-slate-200 opacity-60'}
-                        `}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                           <span className="font-bold text-slate-700 text-sm">{table.tableNumber}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-slate-800 truncate w-full" title={table.displayName}>
-                          {table.displayName}
-                        </span>
-
-                        {/* Hover Overlay Actions */}
-                        <div className="absolute inset-0 bg-white/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex flex-col items-center justify-center gap-2 p-2 border-2 border-primary">
-                          <button
-                            onClick={() => setShowQrModal(table)}
-                            className="w-full bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 transition"
-                          >
-                            <QrCode className="w-3 h-3" /> View QR
-                          </button>
-                          <div className="flex w-full gap-1">
-                            <button
-                               onClick={() => handleEditClick(table)}
-                               className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold py-1.5 rounded-lg transition"
-                            >
-                               Edit
-                            </button>
-                            <button
-                               onClick={() => {
-                                 if (confirm('Are you sure you want to delete this table? Tables with order history will be soft-archived.')) {
-                                   deleteMutation.mutate(table._id);
-                                 }
-                               }}
-                               className="bg-red-50 hover:bg-red-100 text-red-600 p-1.5 rounded-lg transition"
-                               title="Delete"
-                            >
-                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                <motion.div
+                  key={table._id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className={`relative group bg-white border-2 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
+                    isSelected
+                      ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20'
+                      : isOccupied
+                      ? 'border-amber-400/60 bg-amber-50/10'
+                      : isReserved
+                      ? 'border-purple-300 bg-purple-50/10'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {/* Top Row: Selection Checkbox, Table Number Pill, Status Badge */}
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleSelectTable(table._id)}
+                          className="text-slate-400 hover:text-amber-500 transition"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300 hover:text-slate-500" strokeWidth={1.75} />
+                          )}
+                        </button>
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center shadow-sm">
+                          {table.tableNumber}
                         </div>
                       </div>
-                    ))}
+
+                      {/* Status Indicator Badge */}
+                      {isOccupied ? (
+                        <div className="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                          <span>OCCUPIED</span>
+                        </div>
+                      ) : isReserved ? (
+                        <div className="px-2.5 py-1 rounded-full bg-purple-100 border border-purple-300 text-purple-900 text-[10px] font-extrabold flex items-center gap-1">
+                          <Bookmark className="w-3 h-3 text-purple-700" strokeWidth={2} />
+                          <span>RESERVED</span>
+                        </div>
+                      ) : (
+                        <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>AVAILABLE</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Table Title & Zone */}
+                    <div className="mb-3">
+                      <h4 className="font-bold text-slate-900 text-sm truncate" title={table.displayName}>
+                        {table.displayName}
+                      </h4>
+                      {zoneObj?.name && (
+                        <span className="inline-block mt-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                          {zoneObj.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Active Order / Session Tag */}
+                    {isOccupied && (
+                      <div className="mb-3 p-2 bg-amber-50 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 space-y-1">
+                        {table.activeOrderCount !== undefined && table.activeOrderCount > 0 && (
+                          <div className="font-bold flex items-center gap-1 text-amber-800">
+                            <Utensils className="w-3 h-3 text-amber-600" />
+                            <span>{table.activeOrderCount} Active Order(s)</span>
+                          </div>
+                        )}
+                        {table.activeSession && (
+                          <div className="text-[10px] text-amber-700 font-mono">
+                            Session: #{table.activeSession.sessionCode || 'Active'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  {/* Bottom Quick Actions Area (Ergonomic layout per order page style & user screenshot) */}
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    {/* Primary Button: View QR (matches orange action button from screenshot) */}
+                    <button
+                      onClick={() => setShowQrModal(table)}
+                      className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-[0.98]"
+                    >
+                      <QrCode className="w-4 h-4" strokeWidth={2} />
+                      <span>View QR</span>
+                    </button>
+
+                    {/* Secondary Quick Action Row */}
+                    <div className="flex gap-1.5">
+                      {isOccupied ? (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Clear Table ${table.tableNumber}? This will close the active session.`)) {
+                              clearTablesMutation.mutate([table._id]);
+                            }
+                          }}
+                          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold py-1.5 rounded-lg transition"
+                          title="Clear Table"
+                        >
+                          Clear
+                        </button>
+                      ) : isReserved ? (
+                        <button
+                          onClick={() =>
+                            reserveTablesMutation.mutate({ tableIds: [table._id], reserved: false })
+                          }
+                          className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-800 text-[11px] font-bold py-1.5 rounded-lg transition"
+                          title="Unreserve Table"
+                        >
+                          Unreserve
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            reserveTablesMutation.mutate({ tableIds: [table._id], reserved: true })
+                          }
+                          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold py-1.5 rounded-lg transition"
+                          title="Reserve Table"
+                        >
+                          Reserve
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleEditClick(table)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition"
+                        title="Edit Table"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm('Delete this table? Tables with order history will be soft-archived.')) {
+                            deleteTableMutation.mutate(table._id);
+                          }
+                        }}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 p-1.5 rounded-lg transition"
+                        title="Delete Table"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
               );
             })}
+          </AnimatePresence>
         </div>
       )}
+
+      {/* Floating Multi-Select Batch Operations Toolbar */}
+      <AnimatePresence>
+        {selectedTableIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-800"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-bold">{selectedTableIds.length} Selected</span>
+            </div>
+
+            <div className="h-4 w-px bg-slate-700" />
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBulkClear}
+                disabled={clearTablesMutation.isPending}
+                className="bg-amber-500 hover:bg-amber-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                {clearTablesMutation.isPending ? <Loader className="w-3.5 h-3.5 animate-spin" /> : 'Clear Tables'}
+              </button>
+
+              <button
+                onClick={() => handleBulkReserve(true)}
+                disabled={reserveTablesMutation.isPending}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                Reserve
+              </button>
+
+              <button
+                onClick={() => handleBulkReserve(false)}
+                disabled={reserveTablesMutation.isPending}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition"
+              >
+                Unreserve
+              </button>
+            </div>
+
+            <button
+              onClick={() => setSelectedTableIds([])}
+              className="text-slate-400 hover:text-white p-1 ml-2 transition"
+              title="Deselect all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bulk Create Modal */}
       {isBulkFormOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-100">
             <div className="flex justify-between items-center p-6 border-b border-slate-100">
               <h2 className="text-xl font-bold text-slate-800">Bulk Create Tables</h2>
               <button
@@ -580,7 +837,7 @@ export const ManagerTables: React.FC = () => {
 
             <form onSubmit={bulkForm.handleSubmit(onBulkSubmit)} className="p-6 space-y-5">
               {errorMsg && (
-                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100">
+                <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100">
                   {errorMsg}
                 </div>
               )}
@@ -623,7 +880,9 @@ export const ManagerTables: React.FC = () => {
                   >
                     <option value="">No Zone (Unassigned)</option>
                     {zones.map((z) => (
-                      <option key={z._id} value={z._id}>{z.name}</option>
+                      <option key={z._id} value={z._id}>
+                        {z.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -640,13 +899,9 @@ export const ManagerTables: React.FC = () => {
                 <button
                   type="submit"
                   disabled={bulkCreateMutation.isPending}
-                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition flex items-center justify-center gap-2"
+                  className="w-1/2 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition flex items-center justify-center gap-2"
                 >
-                  {bulkCreateMutation.isPending ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Generate Tables'
-                  )}
+                  {bulkCreateMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : 'Generate Tables'}
                 </button>
               </div>
             </form>
@@ -659,13 +914,8 @@ export const ManagerTables: React.FC = () => {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-100">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="font-display text-2xl font-bold">
-                {editingTable ? 'Edit Table' : 'New Table'}
-              </h2>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
+              <h2 className="font-display text-2xl font-bold">{editingTable ? 'Edit Table' : 'New Table'}</h2>
+              <button onClick={() => setIsCreateOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -676,11 +926,9 @@ export const ManagerTables: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={tableForm.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={tableForm.handleSubmit(onSubmitTable)} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Zone
-                </label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Zone</label>
                 <select
                   {...tableForm.register('zoneId')}
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 bg-white font-medium text-slate-800"
@@ -701,9 +949,7 @@ export const ManagerTables: React.FC = () => {
               ) : (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Table Number
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Table Number</label>
                     <input
                       type="text"
                       placeholder="1"
@@ -713,9 +959,7 @@ export const ManagerTables: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Display Name
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Display Name</label>
                     <input
                       type="text"
                       placeholder="Table 1"
@@ -736,15 +980,67 @@ export const ManagerTables: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending || editMutation.isPending}
-                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition flex items-center justify-center gap-2"
+                  disabled={createTableMutation.isPending || editTableMutation.isPending}
+                  className="w-1/2 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition flex items-center justify-center gap-2"
                 >
-                  {createMutation.isPending || editMutation.isPending ? (
+                  {createTableMutation.isPending || editTableMutation.isPending ? (
                     <Loader className="w-4 h-4 animate-spin" />
                   ) : editingTable ? (
                     'Save Changes'
                   ) : (
                     'Auto-Generate Table'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Zone Form Modal */}
+      {isZoneFormOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-100">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="font-display text-2xl font-bold">{editingZone ? 'Edit Zone' : 'New Zone'}</h2>
+              <button onClick={() => setIsZoneFormOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" strokeWidth={1.75} />
+              </button>
+            </div>
+
+            <form onSubmit={zoneForm.handleSubmit(onZoneSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Zone Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Patio, Main Hall, Rooftop"
+                  {...zoneForm.register('name')}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                />
+                {zoneForm.formState.errors.name && (
+                  <span className="text-xs text-red-500 mt-1 block">{zoneForm.formState.errors.name.message}</span>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsZoneFormOpen(false)}
+                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createZoneMutation.isPending || editZoneMutation.isPending}
+                  className="w-1/2 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition flex items-center justify-center gap-2"
+                >
+                  {createZoneMutation.isPending || editZoneMutation.isPending ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : editingZone ? (
+                    'Save Zone'
+                  ) : (
+                    'Create Zone'
                   )}
                 </button>
               </div>
@@ -759,10 +1055,7 @@ export const ManagerTables: React.FC = () => {
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-slate-100 flex flex-col items-center">
             <div className="flex justify-between items-center w-full mb-4">
               <h3 className="font-display text-xl font-bold">{showQrModal.displayName} QR</h3>
-              <button
-                onClick={() => setShowQrModal(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
+              <button onClick={() => setShowQrModal(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -773,7 +1066,6 @@ export const ManagerTables: React.FC = () => {
               </div>
             ) : qrData?.data?.svg ? (
               <div className="space-y-4 flex flex-col items-center w-full">
-                {/* SVG QR Code rendering */}
                 <div
                   className="w-48 h-48 border border-slate-100 p-2 rounded-2xl flex items-center justify-center shadow-inner"
                   dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
@@ -793,110 +1085,34 @@ export const ManagerTables: React.FC = () => {
                   </button>
                   <button
                     onClick={handlePrintQr}
-                    className="flex items-center justify-center gap-1.5 py-2.5 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition"
+                    className="flex items-center justify-center gap-1.5 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition"
                   >
                     <Printer className="w-4 h-4" strokeWidth={1.75} />
                     <span>Print QR</span>
                   </button>
                 </div>
+
+                <button
+                  onClick={() => {
+                    if (confirm('Rotate QR token? The old printed QR code link will be invalidated.')) {
+                      regenerateQrMutation.mutate(showQrModal._id);
+                    }
+                  }}
+                  disabled={regenerateQrMutation.isPending}
+                  className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 text-rose-600 hover:bg-rose-50 text-[11px] font-bold rounded-xl transition border border-rose-100"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${regenerateQrMutation.isPending ? 'animate-spin' : ''}`} />
+                  <span>Rotate QR Token</span>
+                </button>
               </div>
             ) : (
-              <p className="text-sm text-red-500">Failed to load QR details.</p>
+              <p className="text-sm text-slate-500 py-8">Failed to load QR code.</p>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation of rotation Modal */}
-      {confirmRegenTable && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-slate-100">
-            <div className="flex items-center gap-2 text-red-600 mb-4">
-              <HelpCircle className="w-6 h-6 shrink-0" strokeWidth={1.75} />
-              <h3 className="font-bold text-lg">Regenerate QR Code?</h3>
-            </div>
-            <p className="text-slate-600 text-sm leading-relaxed mb-6">
-              This will rotate and invalidate the current printed physical QR code. Customers scanning old codes will be blocked immediately. Continue?
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmRegenTable(null)}
-                className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition"
-              >
-                No, Keep it
-              </button>
-              <button
-                type="button"
-                onClick={() => regenerateMutation.mutate(confirmRegenTable._id)}
-                className="w-1/2 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition"
-              >
-                Yes, Rotate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create / Edit Zone Modal */}
-      {isZoneFormOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-slate-100">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-display text-2xl font-bold">
-                {editingZone ? 'Edit Zone' : 'New Zone'}
-              </h2>
-              <button
-                onClick={() => setIsZoneFormOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-5 h-5" strokeWidth={1.75} />
-              </button>
-            </div>
-
-            <form onSubmit={zoneForm.handleSubmit(onZoneSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Zone Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Outdoor Patio"
-                  {...zoneForm.register('name')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                />
-                {zoneForm.formState.errors.name && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {zoneForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsZoneFormOpen(false)}
-                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createZoneMutation.isPending || editZoneMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-slate-800 transition disabled:opacity-70 flex items-center justify-center"
-                >
-                  {createZoneMutation.isPending || editZoneMutation.isPending ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Save Zone'
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
     </div>
   );
 };
+
 export default ManagerTables;

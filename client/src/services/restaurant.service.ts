@@ -65,6 +65,9 @@ export interface Table {
   token: string;
   isActive: boolean;
   qrCodeUrl: string;
+  status?: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
+  activeSession?: any;
+  activeOrderCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -289,6 +292,21 @@ export const managerService = {
 
   async getTableQr(restaurantId: string, tableId: string) {
     const res = await apiClient.get(`/restaurants/${restaurantId}/tables/${tableId}/qr`);
+    return res.data;
+  },
+
+  async updateTableStatus(restaurantId: string, tableId: string, status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED') {
+    const res = await apiClient.patch(`/restaurants/${restaurantId}/tables/${tableId}/status`, { status });
+    return res.data;
+  },
+
+  async clearTables(restaurantId: string, tableIds: string[]) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/tables/clear`, { tableIds });
+    return res.data;
+  },
+
+  async reserveTables(restaurantId: string, tableIds: string[], reserved: boolean = true) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/tables/reserve`, { tableIds, reserved });
     return res.data;
   },
 

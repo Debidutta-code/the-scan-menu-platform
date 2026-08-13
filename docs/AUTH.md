@@ -489,3 +489,82 @@ Reopens a `BILL_REQUESTED` dining session back to `ACTIVE` status. This allows s
   - `401 Unauthorized` (Missing or invalid token)
   - `403 Forbidden` (Insufficient role)
   - `404 Not Found` (Session not found in restaurant scope)
+
+---
+
+### 17. Clear Tables (Manager / Super Admin)
+Clears table status back to `AVAILABLE` and closes any active dining sessions for the specified tables.
+
+- **Method:** `POST`
+- **Path:** `/api/v1/restaurants/:restaurantId/tables/clear`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`)
+- **Request Body (JSON):**
+  ```json
+  {
+    "tableIds": ["60d0fe...", "60d0ff..."]
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "clearedCount": 2
+    },
+    "message": "2 table(s) cleared successfully"
+  }
+  ```
+
+---
+
+### 18. Reserve Tables (Manager / Super Admin)
+Marks single or multiple tables as `RESERVED` (or `AVAILABLE`).
+
+- **Method:** `POST`
+- **Path:** `/api/v1/restaurants/:restaurantId/tables/reserve`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`)
+- **Request Body (JSON):**
+  ```json
+  {
+    "tableIds": ["60d0fe..."],
+    "reserved": true
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "updatedCount": 1,
+      "status": "RESERVED"
+    },
+    "message": "1 table(s) marked as RESERVED"
+  }
+  ```
+
+---
+
+### 19. Update Table Status (Manager / Super Admin)
+Updates status for a single table (`AVAILABLE`, `OCCUPIED`, `RESERVED`).
+
+- **Method:** `PATCH`
+- **Path:** `/api/v1/restaurants/:restaurantId/tables/:tableId/status`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `SUPER_ADMIN`)
+- **Request Body (JSON):**
+  ```json
+  {
+    "status": "RESERVED"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d0fe...",
+      "status": "RESERVED"
+    },
+    "message": "Table status updated to RESERVED"
+  }
+  ```
+
