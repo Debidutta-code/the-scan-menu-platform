@@ -18,7 +18,7 @@ export function normalizeIndianPhoneNumber(rawPhone: string): string {
   }
 
   // Strip all non-digit characters except leading plus if any
-  const cleaned = rawPhone.trim().replace(/[\s\-\(\)\.]/g, '');
+  const cleaned = rawPhone.trim().replace(/[\s().-]/g, '');
 
   // Extract pure digits
   let digits = cleaned;

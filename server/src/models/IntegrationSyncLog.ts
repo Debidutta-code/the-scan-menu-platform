@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 
 export type IntegrationSyncOperation = 'SYNC_MENU' | 'PUSH_ORDER' | 'UPDATE_STATUS';
 export type IntegrationSyncStatus =
@@ -77,5 +77,6 @@ integrationSyncLogSchema.index({ orderId: 1 });
 integrationSyncLogSchema.index({ status: 1, nextRetryAt: 1 });
 
 export const IntegrationSyncLog =
-  (model<IIntegrationSyncLog>('IntegrationSyncLog', integrationSyncLogSchema) as any);
+  (mongoose.models.IntegrationSyncLog as mongoose.Model<IIntegrationSyncLog>) ||
+  model<IIntegrationSyncLog>('IntegrationSyncLog', integrationSyncLogSchema);
 export default IntegrationSyncLog;
