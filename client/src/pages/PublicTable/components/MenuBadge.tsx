@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Leaf } from 'lucide-react';
+import { Flame, Leaf, Plus, Minus } from 'lucide-react';
 
 // ==========================================
 // MENU BADGE
@@ -69,8 +69,6 @@ interface QuickAddControlProps {
 }
 
 export const QuickAddControl: React.FC<QuickAddControlProps> = ({ cartQty, onAdd, onIncrement, onDecrement }) => {
-  const { Plus, Minus } = require('lucide-react');
-
   if (cartQty > 0) {
     return (
       <div
