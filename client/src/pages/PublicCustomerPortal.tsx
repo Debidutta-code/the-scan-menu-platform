@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
@@ -30,6 +30,10 @@ const formatPrice = (amountInPaise: number, currency: string = 'INR') => {
 
 export const PublicCustomerPortal: React.FC = () => {
   const { restaurantSlug } = useParams<{ restaurantSlug?: string }>();
+  const [searchParams] = useSearchParams();
+  // `from` is the table session URL passed when navigating here from the table page.
+  // Falls back to browser history, then to the table root if neither is available.
+  const returnTo = searchParams.get('from') || null;
   const navigate = useNavigate();
   const { toast } = useToast();
   const { customer, customerToken, isAuthenticated, isLoading: isAuthLoading, logout, updateProfile } = useCustomerAuth();
@@ -104,13 +108,21 @@ export const PublicCustomerPortal: React.FC = () => {
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 py-4 shadow-xs">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {restaurantSlug && (
-              <Link
-                to={`/r/${restaurantSlug}`}
+            {(restaurantSlug || returnTo) && (
+              <button
+                onClick={() => {
+                  if (returnTo) {
+                    navigate(returnTo);
+                  } else if (restaurantSlug) {
+                    navigate(`/r/${restaurantSlug}/order`);
+                  } else {
+                    navigate(-1);
+                  }
+                }}
                 className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition"
               >
                 <ArrowLeft className="w-4 h-4" strokeWidth={2} />
-              </Link>
+              </button>
             )}
             <div>
               <h1 className="font-display tracking-tight text-xl font-bold text-slate-900">Diner Dashboard</h1>

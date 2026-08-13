@@ -30,9 +30,6 @@ import {
   Receipt,
   ClipboardList,
   ChefHat,
-  Utensils,
-  ArrowLeft,
-  XCircle,
   User as UserIcon,
 } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn } from '../services/restaurant.service';
@@ -41,8 +38,7 @@ import { useToast } from '../hooks/useToast';
 import { useCustomerAuth } from '../hooks/useCustomerAuth';
 import { Link } from 'react-router-dom';
 import apiClient from '../lib/api';
-import { useSocket, ConnectionStatus } from '../hooks/useSocket';
-import ConnectionIndicator from '../components/ConnectionIndicator';
+import { useSocket } from '../hooks/useSocket';
 
 // ==========================================
 // HELPERS
@@ -178,419 +174,7 @@ const ClappingHandsOutlineIcon: React.FC<{ className?: string }> = ({ className 
   </svg>
 );
 
-// ==========================================
-// TIMELINE COMPONENT (WITH ANIMATED CONNECTING LINES)
-// Dynamic based on restaurant's orderWorkflowMode
-// ==========================================
 
-type WorkflowMode = 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP';
-
-const WORKFLOW_TIMELINE_MAP: Record<WorkflowMode, { status: string; label: string; icon: typeof Clock }[]> = {
-  FIVE_STEP: [
-    { status: 'PENDING',   label: 'Placed',    icon: Clock },
-    { status: 'ACCEPTED',  label: 'Accepted',  icon: CheckCircle2 },
-    { status: 'PREPARING', label: 'Preparing', icon: ChefHat },
-    { status: 'READY',     label: 'Ready',     icon: Utensils },
-    { status: 'SERVED',    label: 'Served',    icon: CheckCircle2 },
-  ],
-  FOUR_STEP: [
-    { status: 'PENDING',   label: 'Placed',    icon: Clock },
-    { status: 'PREPARING', label: 'Preparing', icon: ChefHat },
-    { status: 'READY',     label: 'Ready',     icon: Utensils },
-    { status: 'SERVED',    label: 'Served',    icon: CheckCircle2 },
-  ],
-  THREE_STEP: [
-    { status: 'PENDING',   label: 'Placed',    icon: Clock },
-    { status: 'PREPARING', label: 'Preparing', icon: ChefHat },
-    { status: 'SERVED',    label: 'Served',    icon: CheckCircle2 },
-  ],
-};
-
-interface TimelineProps {
-  currentStatus: string;
-  workflowMode?: WorkflowMode;
-}
-
-const Timeline: React.FC<TimelineProps> = ({ currentStatus, workflowMode = 'FIVE_STEP' }) => {
-  const steps = WORKFLOW_TIMELINE_MAP[workflowMode] || WORKFLOW_TIMELINE_MAP['FIVE_STEP'];
-  const currentIndex = steps.findIndex((s) => s.status === currentStatus);
-
-  if (currentStatus === 'CANCELLED') return null;
-
-  return (
-    <div className="w-full bg-white rounded-3xl p-6 border border-slate-150 shadow-sm space-y-6">
-      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider text-center block border-b border-slate-50 pb-2">
-        Preparation Timeline
-      </h4>
-      <div className="relative flex justify-between items-center w-full px-2">
-        {/* Animated Connecting Line Track */}
-        <div className="absolute left-6 right-6 top-[15px] h-1 bg-slate-100 -z-10 rounded" />
-
-        {/* Active fill line drawing itself */}
-        <motion.div
-          className="absolute left-6 top-[15px] h-1 bg-emerald-500 -z-10 rounded origin-left"
-          initial={{ width: '0%' }}
-          animate={{
-            width: currentIndex > 0 ? `${(currentIndex / (steps.length - 1)) * 90}%` : '0%',
-          }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        />
-
-        {steps.map((step, idx) => {
-          const StepIcon = step.icon;
-          const isCompleted = idx <= currentIndex;
-          const isCurrent = idx === currentIndex;
-
-          return (
-            <div key={step.status} className="flex flex-col items-center space-y-2 relative">
-              {/* Timeline Node dot */}
-              <motion.div
-                layout
-                animate={{
-                  scale: isCurrent ? 1.25 : 1.0,
-                  backgroundColor: isCurrent ? '#10B981' : isCompleted ? '#34D399' : '#F1F5F9',
-                  borderColor: isCurrent ? '#D1FAE5' : isCompleted ? '#E2E8F0' : '#E2E8F0',
-                }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center border-2 text-[10px] ${
-                  isCompleted ? 'text-white' : 'text-slate-400'
-                } shadow-sm relative`}
-              >
-                <StepIcon className="w-4 h-4" strokeWidth={isCurrent ? 2.5 : 1.75} />
-              </motion.div>
-
-              {/* Label */}
-              <span
-                className={`text-[10px] font-bold tracking-wide transition-colors ${
-                  isCurrent ? 'text-emerald-600 font-extrabold' : isCompleted ? 'text-slate-800' : 'text-slate-400'
-                }`}
-              >
-                {step.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// ==========================================
-// ORDER TRACKER COMPONENT (INLINE INDEPENDENT POLLED/WS SCREEN)
-// ==========================================
-interface OrderTrackerProps {
-  orderId: string;
-  currency: string;
-
-  onBack: () => void;
-  workflowMode?: WorkflowMode;
-}
-
-const OrderTracker: React.FC<OrderTrackerProps> = ({
-  orderId,
-  currency,
-
-  onBack,
-  workflowMode = 'FIVE_STEP',
-}) => {
-  const { socket, status: connectionStatus } = useSocket(null);
-  const [liveStatus, setLiveStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!socket || !orderId) return;
-
-    // Join public order room
-    socket.emit('join_order', { orderId });
-
-    socket.on('order:status_updated', (data: { orderId: string; status: string }) => {
-      if (data.orderId === orderId) {
-        setLiveStatus(data.status);
-      }
-    });
-
-    return () => {
-      socket.off('order:status_updated');
-    };
-  }, [socket, orderId]);
-
-  const { restaurantSlug, tableToken } = useParams<{ restaurantSlug?: string; tableToken?: string }>();
-
-  // Query order details
-  const { data: orderData, isLoading: isOrderLoading, error } = useQuery({
-    queryKey: ['publicOrderDetails', orderId, tableToken],
-    queryFn: async () => {
-      let url = `/public/orders/${orderId}`;
-      if (tableToken) {
-        url = restaurantSlug
-          ? `/public/restaurants/${restaurantSlug}/tables/${tableToken}/orders/${orderId}`
-          : `/public/table/${tableToken}/orders/${orderId}`;
-      }
-      const res = await apiClient.get(url);
-      return res.data;
-    },
-    enabled: !!orderId,
-    retry: false,
-  });
-
-  const [animationCompleted, setAnimationCompleted] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnimationCompleted(true);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isOrderLoading) {
-    return (
-      <div className="py-12 bg-white rounded-3xl border border-slate-150 p-8 flex items-center justify-center">
-        <Loader className="w-6 h-6 animate-spin text-amber-500" />
-      </div>
-    );
-  }
-
-  if (error || !orderData?.success) {
-    return (
-      <div className="bg-white p-8 rounded-3xl border border-slate-150 text-center space-y-4">
-        <div className="h-12 w-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mx-auto">
-          <AlertTriangle className="w-6 h-6" />
-        </div>
-        <div className="space-y-1">
-          <h4 className="text-sm font-bold text-slate-800">Order Error</h4>
-          <p className="text-xs text-slate-400">Could not load this order. Please reach out to table service.</p>
-        </div>
-        <button
-          onClick={onBack}
-          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold"
-        >
-          Go Back
-        </button>
-      </div>
-    );
-  }
-
-  const order = orderData.data;
-  const currentStatus = liveStatus || order.status;
-
-  const statusDetails: Record<string, { title: string; desc: string; icon: React.ReactNode; color: string }> = {
-    PENDING: {
-      title: 'Order Placed',
-      desc: 'Waiting for the kitchen to accept your order.',
-      icon: <Clock className="w-6 h-6 text-amber-500" strokeWidth={1.75} />,
-      color: 'bg-amber-50 border-amber-100 text-amber-800',
-    },
-    ACCEPTED: {
-      title: 'Order Accepted',
-      desc: 'Our staff has accepted your order and is queuing it.',
-      icon: <CheckCircle2 className="w-6 h-6 text-emerald-500" strokeWidth={1.75} />,
-      color: 'bg-emerald-50 border-emerald-100 text-emerald-800',
-    },
-    PREPARING: {
-      title: 'Preparing',
-      desc: 'Our chefs are handcrafting your food right now!',
-      icon: <ChefHat className="w-6 h-6 text-indigo-500" strokeWidth={1.75} />,
-      color: 'bg-indigo-50 border-indigo-100 text-indigo-800',
-    },
-    READY: {
-      title: 'Ready for Pickup',
-      desc: 'Your order is hot, ready, and heading to your table!',
-      icon: <Utensils className="w-6 h-6 text-purple-500" strokeWidth={1.75} />,
-      color: 'bg-purple-50 border-purple-100 text-purple-800',
-    },
-    SERVED: {
-      title: 'Served',
-      desc: 'Enjoy your meal! Let us know if you need anything else.',
-      icon: <CheckCircle2 className="w-6 h-6 text-blue-500" strokeWidth={1.75} />,
-      color: 'bg-blue-50 border-blue-100 text-blue-800',
-    },
-    CANCELLED: {
-      title: 'Cancelled',
-      desc: 'This order was cancelled. Please speak to staff for details.',
-      icon: <XCircle className="w-6 h-6 text-red-500" strokeWidth={1.75} />,
-      color: 'bg-red-50 border-red-100 text-red-800',
-    },
-  };
-
-  const currentStatusInfo = statusDetails[currentStatus] || {
-    title: 'Processing',
-    desc: 'Checking order status...',
-    icon: <Clock className="w-6 h-6 text-slate-500" strokeWidth={1.75} />,
-    color: 'bg-slate-50 border-slate-100 text-slate-800',
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Header bar within tab */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-        <button
-          onClick={onBack}
-          className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition-colors shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-900" strokeWidth={2.5} />
-        </button>
-        <div className="flex items-center gap-2">
-          <ConnectionIndicator status={connectionStatus as ConnectionStatus} />
-          <span className="text-xs font-mono font-bold text-slate-400">Order #{order.orderNumber}</span>
-        </div>
-      </div>
-
-      {currentStatus !== 'CANCELLED' ? (
-        <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center flex flex-col items-center py-8 space-y-4">
-          <div className="relative">
-            <svg
-              className="w-16 h-16 text-emerald-500"
-              viewBox="0 0 52 52"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3.5"
-            >
-              <circle cx="26" cy="26" r="23" className="stroke-emerald-100" />
-              <motion.path
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                d="M14 27l8 8 16-16"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <div className="space-y-1">
-            <h4 className="font-display tracking-tight text-2xl font-normal text-slate-900">
-              Order Confirmed!
-            </h4>
-            <p className="text-xs text-slate-400 font-medium">
-              Your kitchen dispatch ticket is active
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-red-50/50 rounded-3xl p-6 border border-red-150 shadow-sm text-center flex flex-col items-center py-8 space-y-4">
-          <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center text-red-600">
-            <X className="w-6 h-6" strokeWidth={2.5} />
-          </div>
-          <div className="space-y-1">
-            <h4 className="font-display tracking-tight text-2xl font-normal text-red-900">
-              Order Cancelled
-            </h4>
-            <p className="text-xs text-red-500 font-medium">
-              This order was cancelled by dining staff.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Live Polled Status Details */}
-      <AnimatePresence>
-        {animationCompleted && (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`p-4 rounded-2xl border flex items-start gap-4 shadow-sm ${currentStatusInfo.color}`}
-          >
-            <div className="bg-white p-2 rounded-xl shadow-sm shrink-0">
-              {currentStatusInfo.icon}
-            </div>
-            <div className="space-y-1 text-left">
-              <h5 className="text-sm font-bold leading-tight">{currentStatusInfo.title}</h5>
-              <p className="text-xs opacity-90 leading-relaxed">{currentStatusInfo.desc}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Live timeline — dynamically matches restaurant workflow */}
-      {currentStatus !== 'CANCELLED' && animationCompleted && (
-        <Timeline currentStatus={currentStatus} workflowMode={workflowMode} />
-      )}
-
-      {/* Receipt summary */}
-      <AnimatePresence>
-        {animationCompleted && (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-4 text-left"
-          >
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Receipt className="w-5 h-5 text-slate-400" strokeWidth={1.75} />
-              <h5 className="text-sm font-bold text-slate-900">Receipt Summary</h5>
-            </div>
-
-            <div className="divide-y divide-slate-50 space-y-2.5">
-              {order.items.map((item: any, idx: number) => (
-                <div key={idx} className="flex justify-between py-1.5 first:pt-0">
-                  <div>
-                    <h6 className="text-xs font-bold text-slate-900">
-                      {item.nameSnapshot} <span className="font-mono text-slate-400">x{item.quantity}</span>
-                    </h6>
-                    {item.selectedAddOns.length > 0 && (
-                      <p className="text-[10px] text-slate-400">
-                        + {item.selectedAddOns.map((x: any) => x.name).join(', ')}
-                      </p>
-                    )}
-                    {item.specialInstructions && (
-                      <p className="text-[10px] text-amber-600 bg-amber-50/50 rounded px-1.5 py-0.5 inline-block mt-1 italic font-medium">
-                        Note: "{item.specialInstructions}"
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs font-bold font-mono text-slate-900">
-                    {formatPrice(item.unitPriceSnapshot * item.quantity, currency)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-slate-100 pt-3 space-y-1.5 text-xs text-slate-500">
-              <div className="flex justify-between font-medium">
-                <span>Subtotal</span>
-                <span className="font-mono">{formatPrice(order.subtotal, currency)}</span>
-              </div>
-              {order.taxBreakdown && order.taxBreakdown.length > 0 ? (
-                order.taxBreakdown.map((t: any, i: number) => (
-                  <div key={i} className="flex flex-col gap-0.5">
-                    <div className="flex justify-between font-medium">
-                      <span>{t.name} ({t.percentage}%)</span>
-                      <span className="font-mono">{formatPrice(t.amount, currency)}</span>
-                    </div>
-                    {t.subTaxes && t.subTaxes.length > 0 && (
-                      <div className="pl-3 border-l-2 border-slate-200 ml-1 space-y-0.5 my-0.5">
-                        {t.subTaxes.map((st: any, j: number) => (
-                          <div key={j} className="flex justify-between text-slate-400 text-[11px]">
-                            <span>{st.name} ({st.percentage}%)</span>
-                            <span className="font-mono text-slate-400">({formatPrice(st.amount, currency)})</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                  <div className="flex justify-between font-medium">
-                    <span>Taxes</span>
-                    <span className="font-mono">{formatPrice(order.tax, currency)}</span>
-                  </div>
-              )}
-              <div className="flex justify-between text-slate-900 font-bold text-sm border-t border-slate-50 pt-2">
-                <span>Grand Total</span>
-                <span className="font-mono">{formatPrice(order.total, currency)}</span>
-              </div>
-            </div>
-
-            {order.customerNote && (
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs">
-                <span className="font-bold text-slate-600 block mb-1">Customer Note:</span>
-                <p className="text-slate-500 leading-relaxed italic">"{order.customerNote}"</p>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
 
 // ==========================================
 // MAIN COMPONENT
@@ -636,27 +220,17 @@ export const PublicTable: React.FC = () => {
   // Primary Bottom Tab: 'landing' | 'menu' | 'waiter' | 'cart-orders'
   const activeTab = (searchParams.get('tab') as 'landing' | 'menu' | 'waiter' | 'cart-orders') || 'landing';
   const cartOrdersSubTab = (searchParams.get('sub') as 'cart' | 'orders') || 'cart';
-  const activeTrackingOrderId = searchParams.get('trackId') || null;
 
   const updateNavigationState = (
     tab: 'landing' | 'menu' | 'waiter' | 'cart-orders',
     sub?: 'cart' | 'orders',
-    trackId?: string | null
+    _trackId?: string | null
   ) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('tab', tab);
       if (sub) {
         next.set('sub', sub);
-      }
-      if (trackId !== undefined) {
-        if (trackId) {
-          next.set('trackId', trackId);
-        } else {
-          next.delete('trackId');
-        }
-      } else if (tab !== 'cart-orders') {
-        next.delete('trackId');
       }
       return next;
     });
@@ -668,10 +242,6 @@ export const PublicTable: React.FC = () => {
 
   const setCartOrdersSubTab = (sub: 'cart' | 'orders') => {
     updateNavigationState(activeTab, sub);
-  };
-
-  const setActiveTrackingOrderId = (trackId: string | null) => {
-    updateNavigationState(activeTab, cartOrdersSubTab, trackId);
   };
 
   const [recentWaiterCalls, setRecentWaiterCalls] = useState<{ type: string; timestamp: string }[]>([]);
@@ -700,6 +270,8 @@ export const PublicTable: React.FC = () => {
   const [isWaiterConfirmOpen, setIsWaiterConfirmOpen] = useState(false);
   const [isClearCartModalOpen, setIsClearCartModalOpen] = useState(false);
   const [isClearSessionModalOpen, setIsClearSessionModalOpen] = useState(false);
+  const [isViewBillModalOpen, setIsViewBillModalOpen] = useState(false);
+  const [isTaxBreakdownExpanded, setIsTaxBreakdownExpanded] = useState(false);
 
   // Customer Phone & 4-Digit PIN State
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
@@ -719,7 +291,7 @@ export const PublicTable: React.FC = () => {
     { menuItemId: string; name: string; reason: 'unavailable' | 'category_inactive' }[]
   >([]);
 
-  // OTP Cooldown Timer ticker
+  // OTP Cooldown Timer ticker / Socket connection for this table (shared across waiter call + session/order real-time updates)
   useEffect(() => {
     if (otpCooldownRemaining <= 0) return;
     const timer = setInterval(() => {
@@ -727,27 +299,6 @@ export const PublicTable: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [otpCooldownRemaining]);
-
-  const formatStatusFriendly = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return 'Received';
-      case 'ACCEPTED':
-        return 'Accepted';
-      case 'PREPARING':
-        return 'Cooking';
-      case 'READY':
-        return 'Ready';
-      case 'SERVED':
-        return 'Served';
-      case 'CANCELLED':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  };
-
-  // Socket connection for this table (shared across waiter call + session/order real-time updates)
   const { socket } = useSocket(null);
 
   // Phase 7 Waiter Call States & Cooldown Timer
@@ -1651,7 +1202,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                 </div>
               </div>
               <Link
-                to={isCustomerAuthenticated ? (restaurantSlug ? `/r/${restaurantSlug}/portal` : '/customer-login') : (restaurantSlug ? `/r/${restaurantSlug}/login?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}` : '/customer-login')}
+                to={isCustomerAuthenticated ? (restaurantSlug ? `/r/${restaurantSlug}/portal?from=${encodeURIComponent(window.location.pathname + window.location.search)}` : `/customer-portal?from=${encodeURIComponent(window.location.pathname + window.location.search)}`) : (restaurantSlug ? `/r/${restaurantSlug}/login?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}` : '/customer-login')}
                 className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-[11px] font-bold rounded-xl transition shadow-xs shrink-0"
               >
                 {isCustomerAuthenticated ? 'Dashboard' : 'Sign In'}
@@ -2767,23 +2318,23 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                        ))}
                     </div>
                     {sessionDetailsData?.data?.session ? (
-                      <div className="flex flex-col gap-1 border-t border-slate-200 pt-3 mt-1">
-                         <div className="flex justify-between text-slate-500 text-sm">
-                            <span>Current Session Total</span>
-                            <span className="font-mono">{formatPrice(sessionDetailsData.data.session.total, currency)}</span>
+                      <div className="flex flex-col gap-1.5 border-t border-slate-200 pt-3 mt-1 text-xs">
+                         <div className="flex justify-between text-slate-500 font-medium">
+                            <span>Previous Orders</span>
+                            <span className="font-mono text-slate-700">{formatPrice(sessionDetailsData.data.session.total, currency)}</span>
                          </div>
-                         <div className="flex justify-between text-slate-500 text-sm">
-                            <span>This Order Total</span>
-                            <span className="font-mono">{formatPrice(cartGrandTotal, currency)}</span>
+                         <div className="flex justify-between text-amber-900 font-bold">
+                            <span>This Order</span>
+                            <span className="font-mono font-black">{formatPrice(cartGrandTotal, currency)}</span>
                          </div>
                          <div className="flex justify-between text-slate-900 font-bold text-sm mt-1 border-t border-slate-200 pt-2">
-                            <span>Expected Final Bill</span>
+                            <span>Total after order</span>
                             <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(sessionDetailsData.data.session.total + cartGrandTotal, currency)}</span>
                          </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-1">
-                        <span className="text-slate-800 font-bold text-sm">Grand Total (Incl. Taxes)</span>
+                        <span className="text-slate-800 font-bold text-sm">This Order</span>
                         <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
                       </div>
                     )}
@@ -2843,16 +2394,8 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
 
           {/* Sub Tab: ORDERS */}
           {cartOrdersSubTab === 'orders' && (
-            <div className="space-y-6">
-              {activeTrackingOrderId ? (
-                <OrderTracker
-                  orderId={activeTrackingOrderId}
-                  currency={currency}
-
-                  onBack={() => setActiveTrackingOrderId(null)}
-                  workflowMode={(restaurant as any).orderWorkflowMode || 'FIVE_STEP'}
-                />
-              ) : !activeSessionId ? (
+            <div className="space-y-6 pb-24">
+              {!activeSessionId ? (
                 <div className="text-center py-12 bg-white rounded-3xl border border-slate-150 p-8 space-y-4">
                   <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 mx-auto">
                     <Clock className="w-6 h-6 animate-pulse" strokeWidth={1.75} />
@@ -2860,7 +2403,7 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                   <div className="space-y-1">
                     <h4 className="text-sm font-bold text-slate-800">No orders placed yet</h4>
                     <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                      Your placed kitchen orders will appear here. Place items from your basket to see live progress!
+                      Your placed kitchen orders will appear here with live preparation updates!
                     </p>
                   </div>
                   <button
@@ -2883,89 +2426,79 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                 const orders = sessionDetailsData.data.orders || [];
                 return (
                   <div className="space-y-5">
-                    <div className="flex justify-center pb-2">
-                      <button
-                        onClick={() => setIsClearSessionModalOpen(true)}
-                        className="text-xs font-semibold text-slate-500 hover:text-red-500 flex items-center gap-1.5 transition-colors"
-                      >
-                        Not your orders? Start a new session
-                      </button>
-                    </div>
-
-                    {/* Top Session Summary Card */}
-                    <div className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-4 text-left">
-                      <div className="flex justify-between items-start">
+                    {/* Header Card */}
+                    <div className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-3 text-left">
+                      <div className="flex justify-between items-center">
                         <div>
-                          <h4 className="font-display text-2xl font-normal text-slate-900 leading-snug">
-                            {table.displayName}
+                          <h4 className="font-display text-2xl font-bold text-slate-900 leading-snug">
+                            Your Orders
                           </h4>
                           <p className="text-xs text-slate-500 font-medium">
-                            Rounds {orders.map((o: any) => o.roundNumber).join(' & ')} •{' '}
-                            <strong className="text-slate-900 font-extrabold font-mono">
-                              {formatPrice(session.total, currency)} total
-                            </strong>
+                            {table.displayName} • {orders.length} order{orders.length > 1 ? 's' : ''} placed
                           </p>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100 font-mono">
-                          Session {session.status}
-                        </span>
-                      </div>
-
-                      {/* Single live status summary across the whole session */}
-                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-150 flex items-center gap-3">
-                        <Utensils className="w-5 h-5 text-amber-500 shrink-0" strokeWidth={1.75} />
-                        <div className="space-y-0.5 min-w-0 flex-1">
-                          <span className="text-xs font-bold text-slate-900">Live Status Summary</span>
-                          <p className="text-[11px] text-slate-500 truncate leading-relaxed">
-                            {orders.length} round{orders.length > 1 ? 's' : ''} placed. Items served:{' '}
-                            {orders.flatMap((o: any) => o.items).filter((i: any) => i.itemStatus === 'SERVED').length} of{' '}
-                            {orders.flatMap((o: any) => o.items).length} total.
-                          </p>
-                        </div>
+                        <button
+                          onClick={() => setIsClearSessionModalOpen(true)}
+                          className="text-[11px] font-bold text-slate-500 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 px-3 py-1.5 rounded-xl transition border border-slate-200/60"
+                        >
+                          Start New Session
+                        </button>
                       </div>
                     </div>
 
-                    {/* Compacting Rounds List */}
+                    {/* Orders List */}
                     <div className="space-y-4">
                       {orders.map((order: any) => {
                         const isExpanded = expandedRounds[order._id] ?? true;
                         const orderTime = new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         const sortedItems = [...order.items].sort((a, b) => (a.prepTimeMinutesSnapshot || 10) - (b.prepTimeMinutesSnapshot || 10));
 
+                        // Calculate progress status step
+                        let activeStep = 1; // 1: Placed, 2: Preparing, 3: Served
+                        const isCancelled = order.status === 'CANCELLED';
+                        if (!isCancelled) {
+                          const nonCancelledItems = sortedItems.filter((i: any) => i.itemStatus !== 'CANCELLED');
+                          const allServed = nonCancelledItems.length > 0 && nonCancelledItems.every((i: any) => i.itemStatus === 'SERVED');
+                          const anyPreparingOrReady = nonCancelledItems.some((i: any) => i.itemStatus === 'PREPARING' || i.itemStatus === 'READY');
+
+                          if (order.status === 'SERVED' || allServed) {
+                            activeStep = 3;
+                          } else if (order.status === 'PREPARING' || order.status === 'READY' || anyPreparingOrReady) {
+                            activeStep = 2;
+                          } else {
+                            activeStep = 1;
+                          }
+                        }
+
                         return (
                           <div key={order._id} className="bg-white rounded-3xl border border-slate-150 shadow-sm overflow-hidden text-left">
-                            {/* Compact clickable header */}
+                            {/* Card Header */}
                             <div
                               onClick={() => toggleRound(order._id)}
                               className="p-4 flex items-center justify-between border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer transition select-none"
                             >
                               <div>
-                                <h5 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                                  <span>Round {order.roundNumber}</span>
+                                <h5 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                                  <span>Order {order.roundNumber}</span>
                                   {order.customerName && (
-                                    <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-lg font-sans">
+                                    <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-lg font-sans">
                                       {order.customerName}
                                     </span>
                                   )}
-                                  {order.isMerged && (
-                                    <span className="text-[9px] bg-indigo-50 border border-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                      Merged
-                                    </span>
-                                  )}
                                 </h5>
-                                <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                <p className="text-xs text-slate-400 font-mono mt-0.5">
                                   Placed at {orderTime} • {formatPrice(order.total, currency)}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 font-mono">
+                                <span className="text-xs font-bold text-slate-500 font-mono">
                                   {sortedItems.length} item{sortedItems.length > 1 ? 's' : ''}
                                 </span>
                                 <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={2.5} />
                               </div>
                             </div>
 
-                            {/* Collapsible item checklist */}
+                            {/* Card Body */}
                             <AnimatePresence initial={false}>
                               {isExpanded && (
                                 <motion.div
@@ -2973,60 +2506,103 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                                   animate={{ height: 'auto', opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}
                                   transition={{ duration: 0.2 }}
-                                  className="divide-y divide-slate-50 px-4"
+                                  className="p-4 space-y-4"
                                 >
-                                  {sortedItems.map((item: any, itemIdx: number) => {
-                                    const isServed = item.itemStatus === 'SERVED';
-                                    const isReady = item.itemStatus === 'READY';
-                                    const isPreparing = item.itemStatus === 'PREPARING';
+                                  {/* Inline 3-Step Progress Status Bar */}
+                                  {isCancelled ? (
+                                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-center text-xs font-bold text-rose-700">
+                                      This order was cancelled
+                                    </div>
+                                  ) : (
+                                    <div className="bg-slate-50 border border-slate-150 rounded-2xl p-3.5">
+                                      <div className="relative flex justify-between items-center w-full px-3">
+                                        {/* Background Track */}
+                                        <div className="absolute left-6 right-6 top-[15px] h-1 bg-slate-200 -z-0 rounded" />
+                                        
+                                        {/* Progress Line */}
+                                        <motion.div
+                                          className="absolute left-6 top-[15px] h-1 bg-emerald-500 -z-0 rounded"
+                                          initial={{ width: '0%' }}
+                                          animate={{
+                                            width: activeStep === 1 ? '0%' : activeStep === 2 ? '50%' : '100%',
+                                          }}
+                                          transition={{ duration: 0.4 }}
+                                        />
 
-                                    return (
-                                      <div key={itemIdx} className="py-3 flex items-start justify-between gap-3 text-xs">
-                                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                          <div className="shrink-0 mt-0.5">
-                                            {isServed ? (
-                                              <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500 fill-emerald-50/30" strokeWidth={2} />
-                                            ) : isReady ? (
-                                              <Utensils className="w-4.5 h-4.5 text-purple-500 animate-pulse" strokeWidth={2} />
-                                            ) : isPreparing ? (
-                                              <ChefHat className="w-4.5 h-4.5 text-indigo-500 animate-pulse" strokeWidth={2} />
-                                            ) : (
-                                              <Clock className="w-4.5 h-4.5 text-amber-500" strokeWidth={1.75} />
-                                            )}
+                                        {/* Step 1: Placed */}
+                                        <div className="flex flex-col items-center gap-1 z-10">
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all border-2 ${
+                                            activeStep >= 1 ? 'bg-emerald-500 border-emerald-400 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-400'
+                                          }`}>
+                                            <Clock className="w-4 h-4" strokeWidth={2} />
                                           </div>
-                                          <div className="min-w-0">
-                                            <h6 className={`font-bold text-slate-900 leading-tight ${isServed ? 'line-through text-slate-400 font-normal' : ''}`}>
-                                              {item.nameSnapshot} <span className="font-mono text-slate-400 font-bold text-[10px]">x{item.quantity}</span>
-                                            </h6>
-                                            {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                              <p className="text-[10px] text-slate-400 mt-0.5">+ {item.selectedAddOns.map((x: any) => x.name).join(', ')}</p>
-                                            )}
-                                          </div>
+                                          <span className={`text-[11px] font-bold ${activeStep === 1 ? 'text-emerald-700 font-extrabold' : 'text-slate-500'}`}>
+                                            Placed
+                                          </span>
                                         </div>
 
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                          {item.prepTimeMinutesSnapshot && item.prepTimeMinutesSnapshot <= 10 && (
-                                            <span className="text-[9px] bg-amber-50 border border-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-extrabold font-sans tracking-wide uppercase shrink-0 leading-none">
-                                              Quick
-                                            </span>
-                                          )}
-                                          <span className={`text-[10px] font-bold font-mono tracking-wide ${isServed ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            {formatStatusFriendly(item.itemStatus || 'PENDING')}
+                                        {/* Step 2: Preparing */}
+                                        <div className="flex flex-col items-center gap-1 z-10">
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all border-2 ${
+                                            activeStep >= 2 ? 'bg-emerald-500 border-emerald-400 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-400'
+                                          }`}>
+                                            <ChefHat className={`w-4 h-4 ${activeStep === 2 ? 'animate-bounce' : ''}`} strokeWidth={2} />
+                                          </div>
+                                          <span className={`text-[11px] font-bold ${activeStep === 2 ? 'text-emerald-700 font-extrabold' : 'text-slate-500'}`}>
+                                            Preparing
+                                          </span>
+                                        </div>
+
+                                        {/* Step 3: Served */}
+                                        <div className="flex flex-col items-center gap-1 z-10">
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all border-2 ${
+                                            activeStep === 3 ? 'bg-emerald-500 border-emerald-400 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-400'
+                                          }`}>
+                                            <CheckCircle2 className="w-4 h-4" strokeWidth={2} />
+                                          </div>
+                                          <span className={`text-[11px] font-bold ${activeStep === 3 ? 'text-emerald-700 font-extrabold' : 'text-slate-500'}`}>
+                                            Served
                                           </span>
                                         </div>
                                       </div>
-                                    );
-                                  })}
+                                    </div>
+                                  )}
 
-                                  {/* Detailed tracking button per round card */}
-                                  <div className="py-3 flex justify-end">
-                                    <button
-                                      onClick={() => setActiveTrackingOrderId(order._id)}
-                                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-[10px] rounded-xl flex items-center gap-1 transition shadow-sm"
-                                    >
-                                      <span>Track Round Status</span>
-                                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                    </button>
+                                  {/* Item Checklist */}
+                                  <div className="divide-y divide-slate-100 border-t border-slate-100 pt-2">
+                                    {sortedItems.map((item: any, itemIdx: number) => {
+                                      const isServed = item.itemStatus === 'SERVED';
+                                      const isReady = item.itemStatus === 'READY';
+                                      const isPreparing = item.itemStatus === 'PREPARING';
+
+                                      return (
+                                        <div key={itemIdx} className="py-2.5 flex items-center justify-between gap-3 text-xs">
+                                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                            <div className="shrink-0">
+                                              {isServed ? (
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50/50" strokeWidth={2} />
+                                              ) : isReady || isPreparing ? (
+                                                <ChefHat className="w-4 h-4 text-indigo-500 animate-pulse" strokeWidth={2} />
+                                              ) : (
+                                                <Clock className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+                                              )}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <h6 className={`font-bold text-slate-900 leading-tight ${isServed ? 'line-through text-slate-400 font-normal' : ''}`}>
+                                                {item.nameSnapshot} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
+                                              </h6>
+                                              {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                                                <p className="text-[10px] text-slate-400 mt-0.5">+ {item.selectedAddOns.map((x: any) => x.name).join(', ')}</p>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          <span className="text-xs font-mono font-bold text-slate-700 shrink-0">
+                                            {formatPrice(item.unitPriceSnapshot * item.quantity, currency)}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </motion.div>
                               )}
@@ -3035,6 +2611,28 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                         );
                       })}
                     </div>
+
+                    {/* Bottom Sticky Summary Bar for Orders Screen */}
+                    <div className="fixed bottom-16 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-3 shadow-lg">
+                      <div className="max-w-md mx-auto flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
+                            Total Spent So Far
+                          </span>
+                          <span className="text-lg font-black text-slate-900 font-mono">
+                            {formatPrice(session.total, currency)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setIsViewBillModalOpen(true)}
+                          className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1.5 active:scale-[0.98]"
+                        >
+                          <Receipt className="w-4 h-4" strokeWidth={2} />
+                          <span>View Bill</span>
+                        </button>
+                      </div>
+                    </div>
+
                   </div>
                 );
               })()}
@@ -3522,6 +3120,129 @@ const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ==========================================
+          VIEW BILL MODAL DIALOG
+          ========================================== */}
+      <AnimatePresence>
+        {isViewBillModalOpen && sessionDetailsData?.data?.session && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+              onClick={() => setIsViewBillModalOpen(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="relative bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-5 font-sans"
+            >
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-amber-500" strokeWidth={2} />
+                  <h3 className="font-display text-2xl font-bold text-slate-900">
+                    Detailed Bill
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsViewBillModalOpen(false)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" strokeWidth={1.75} />
+                </button>
+              </div>
+
+              {/* Table & Orders Summary */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                  <span>Dining Station</span>
+                  <span className="font-bold text-slate-900">{table.displayName}</span>
+                </div>
+
+                {/* All items across orders */}
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 border-y border-slate-100 py-3">
+                  {(sessionDetailsData.data.orders || []).flatMap((o: any) => o.items || []).map((item: any, idx: number) => (
+                    <div key={idx} className="pt-2 first:pt-0 flex justify-between items-start text-xs">
+                      <div>
+                        <span className="font-bold text-slate-800">{item.nameSnapshot}</span>
+                        <span className="text-slate-400 font-mono ml-1.5">x{item.quantity}</span>
+                        {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                          <p className="text-[10px] text-slate-400">+ {item.selectedAddOns.map((x: any) => x.name).join(', ')}</p>
+                        )}
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">
+                        {formatPrice(item.unitPriceSnapshot * item.quantity, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Subtotal & Secondary Collapsible Tax Breakdown */}
+                <div className="space-y-2 text-xs pt-1">
+                  <div className="flex justify-between text-slate-600 font-medium">
+                    <span>Subtotal</span>
+                    <span className="font-mono">{formatPrice(sessionDetailsData.data.session.subtotal || sessionDetailsData.data.session.total, currency)}</span>
+                  </div>
+
+                  {/* Collapsible Tax Section */}
+                  <div className="border border-slate-150 rounded-xl p-2.5 bg-slate-50 space-y-2">
+                    <button
+                      onClick={() => setIsTaxBreakdownExpanded(!isTaxBreakdownExpanded)}
+                      className="w-full flex justify-between items-center text-slate-600 font-bold text-xs"
+                    >
+                      <span className="flex items-center gap-1">
+                        <span>Taxes & Charges</span>
+                        <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isTaxBreakdownExpanded ? 'rotate-90' : ''}`} strokeWidth={2.5} />
+                      </span>
+                      <span className="font-mono">{formatPrice(sessionDetailsData.data.session.tax || 0, currency)}</span>
+                    </button>
+
+                    <AnimatePresence>
+                      {isTaxBreakdownExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="pt-2 border-t border-slate-200/60 space-y-1 text-[11px] text-slate-500"
+                        >
+                          <div className="flex justify-between">
+                            <span>CGST (2.5%)</span>
+                            <span className="font-mono">{formatPrice((sessionDetailsData.data.session.tax || 0) / 2, currency)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>SGST (2.5%)</span>
+                            <span className="font-mono">{formatPrice((sessionDetailsData.data.session.tax || 0) / 2, currency)}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Total spent so far */}
+                  <div className="flex justify-between items-center text-slate-900 font-black text-sm pt-2 border-t border-slate-200">
+                    <span>Total spent so far</span>
+                    <span className="text-xl font-mono text-emerald-600">
+                      {formatPrice(sessionDetailsData.data.session.total, currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsViewBillModalOpen(false)}
+                className="w-full py-3 bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow transition"
+              >
+                Close Bill
+              </button>
             </motion.div>
           </div>
         )}
