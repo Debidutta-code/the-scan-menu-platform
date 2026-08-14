@@ -1,0 +1,73 @@
+import { Schema, model, Document, Types } from 'mongoose';
+
+export interface IAddOn {
+  name: string;
+  priceDelta: number; // in cents/paise
+}
+
+export interface IMenuItem extends Document {
+  restaurantId: Types.ObjectId;
+  categoryId: Types.ObjectId;
+  name: string;
+  description?: string;
+  price: number; // Stored as integer cents/paise
+  imageUrl?: string;
+  isAvailable: boolean;
+  trackStock: boolean;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  isVegetarian: boolean;
+  isSpicy: boolean;
+  prepTimeMinutes?: number;
+  sortOrder: number;
+  addOns?: IAddOn[];
+  externalIds?: Record<string, any>;
+  isArchived: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const addOnSchema = new Schema<IAddOn>(
+  {
+    name: { type: String, required: true, trim: true },
+    priceDelta: { type: Number, required: true, default: 0 },
+  },
+  { _id: false }
+);
+
+const menuItemSchema = new Schema<IMenuItem>(
+  {
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    categoryId: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
+    name: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    price: { type: Number, required: true }, // positive integer validated via Zod
+    imageUrl: { type: String, trim: true },
+    isAvailable: { type: Boolean, required: true, default: true },
+    trackStock: { type: Boolean, required: true, default: false },
+    stockQuantity: { type: Number, required: true, default: 0 },
+    lowStockThreshold: { type: Number, required: true, default: 5 },
+    isVegetarian: { type: Boolean, required: true, default: false },
+    isSpicy: { type: Boolean, required: true, default: false },
+    prepTimeMinutes: { type: Number },
+    sortOrder: { type: Number, required: true, default: 0 },
+    addOns: [addOnSchema],
+    externalIds: { type: Schema.Types.Mixed, default: {} },
+    isArchived: { type: Boolean, required: true, default: false },
+  },
+  {
+    timestamps: true,
+    collection: 'menu_items',
+  }
+);
+
+// Indexes:
+// 1. Optimize querying items by category inside a restaurant (Manager menu rendering)
+menuItemSchema.index({ restaurantId: 1, categoryId: 1 });
+// 2. Critical for public customer menu filtration (always searches active, available items)
+menuItemSchema.index({ restaurantId: 1, isAvailable: 1 });
+// 3. Stock tracking index for fast availability & stock queries
+menuItemSchema.index({ restaurantId: 1, isAvailable: 1, trackStock: 1 });
+
+export const MenuItem = model<IMenuItem>('MenuItem', menuItemSchema);
+export default MenuItem;
