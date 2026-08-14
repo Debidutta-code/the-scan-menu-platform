@@ -248,11 +248,6 @@ export const ManagerOrders: React.FC = () => {
   // Mobile tab state
   const [mobileStatusTab, setMobileStatusTab] = useState<string>('PENDING');
 
-  // Page for served history pagination
-  const [servedPage, setServedPage] = useState(1);
-  const [servedOrders, setServedOrders] = useState<Order[]>([]);
-  const [hasMoreServed, setHasMoreServed] = useState(true);
-
   // All Orders History States
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
@@ -290,19 +285,14 @@ export const ManagerOrders: React.FC = () => {
     workflowMode,
     activeOrders,
     isLoadingActive,
-    servedOrdersData,
-    isFetchingServed,
     historyOrdersData,
     isFetchingHistory,
     pendingOrderIds,
-    archivedServedIds,
-    archiveServedOrder,
     updateStatusMutation,
     cancelOrderMutation,
-    closeSessionMutation,
+    clearOrderMutation,
     retryPosMutation,
   } = useManagerOrders({
-    servedPage,
     historyPage,
     debouncedSearch,
     historyStatusFilter,
@@ -338,43 +328,30 @@ export const ManagerOrders: React.FC = () => {
     if (!selectedCardOrder) return null;
     return (
       activeOrders.find((o) => o._id === selectedCardOrder._id) ||
-      servedOrders.find((o) => o._id === selectedCardOrder._id) ||
       historyOrders.find((o) => o._id === selectedCardOrder._id) ||
       selectedCardOrder
     );
-  }, [selectedCardOrder, activeOrders, servedOrders, historyOrders]);
+  }, [selectedCardOrder, activeOrders, historyOrders]);
 
   const liveDetailOrder = React.useMemo(() => {
     if (!detailModalOrder) return null;
     return (
       activeOrders.find((o) => o._id === detailModalOrder._id) ||
-      servedOrders.find((o) => o._id === detailModalOrder._id) ||
       historyOrders.find((o) => o._id === detailModalOrder._id) ||
       detailModalOrder
     );
-  }, [detailModalOrder, activeOrders, servedOrders, historyOrders]);
+  }, [detailModalOrder, activeOrders, historyOrders]);
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
   const getOrdersByStatus = useCallback((st: string) => {
-    let list: Order[] = [];
-    if (st === 'SERVED') {
-      const todayStr = new Date().toDateString();
-      list = servedOrders.filter((o) => {
-        const isToday = new Date(o.createdAt).toDateString() === todayStr;
-        const isSessionClosed = (o as any).diningSessionId?.status === 'CLOSED';
-        const isArchived = archivedServedIds.has(o._id);
-        return o.status === 'SERVED' && isToday && !isSessionClosed && !isArchived;
-      });
-    } else {
-      list = activeOrders.filter((o) => o.status === st);
-    }
+    const list = activeOrders.filter((o) => o.status === st);
     return [...list].sort((a, b) => {
       const timeA = new Date(a.createdAt).getTime();
       const timeB = new Date(b.createdAt).getTime();
       return timeA - timeB; // Earliest orders first in kitchen queue
     });
-  }, [servedOrders, activeOrders, archivedServedIds]);
+  }, [activeOrders]);
 
   const handleConfirmFreeTable = useCallback((printBill: boolean) => {
     if (!freeTableOrder) return;
@@ -382,16 +359,11 @@ export const ManagerOrders: React.FC = () => {
     if (printBill) {
       printOrderTicket(target, restaurantInfo, 'CUSTOMER');
     }
-    const sessId = (target as any).diningSessionId?._id || target.sessionId;
-    if (sessId && (target as any).diningSessionId?.status !== 'CLOSED') {
-      closeSessionMutation.mutate({ sessionId: sessId, orderId: target._id });
-    } else {
-      archiveServedOrder(target._id);
-    }
+    clearOrderMutation.mutate({ orderId: target._id });
     setFreeTableOrder(null);
     if (detailModalOrder?._id === target._id) setDetailModalOrder(null);
     if (selectedCardOrder?._id === target._id) setSelectedCardOrder(null);
-  }, [freeTableOrder, restaurantInfo, closeSessionMutation, archiveServedOrder, detailModalOrder, selectedCardOrder]);
+  }, [freeTableOrder, restaurantInfo, clearOrderMutation, detailModalOrder, selectedCardOrder]);
 
   // Full KDS Keyboard Navigation: Arrow Keys (Up/Down/Left/Right), Enter (Advance / Free Table & Print), Backspace (Revert), Escape (Deselect/Close)
   useEffect(() => {
@@ -542,26 +514,8 @@ export const ManagerOrders: React.FC = () => {
     viewMode,
     getOrdersByStatus,
     updateStatusMutation,
-    closeSessionMutation,
-    archiveServedOrder,
+    clearOrderMutation,
   ]);
-
-  // Sync served orders pagination
-  useEffect(() => {
-    if (servedOrdersData?.success) {
-      const fetched = servedOrdersData.data.orders || [];
-      const pagination = servedOrdersData.data.pagination;
-      if (servedPage === 1) {
-        setServedOrders(fetched);
-      } else {
-        setServedOrders((prev) => {
-          const existingIds = new Set(prev.map((o) => o._id));
-          return [...prev, ...fetched.filter((o: Order) => !existingIds.has(o._id))];
-        });
-      }
-      setHasMoreServed(pagination ? servedPage < pagination.totalPages : false);
-    }
-  }, [servedOrdersData, servedPage]);
 
   // Sync history orders pagination
   useEffect(() => {
@@ -731,7 +685,7 @@ export const ManagerOrders: React.FC = () => {
 
                   {/* Column Orders List */}
                   <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
-                    {isLoadingActive && step.status !== 'SERVED' ? (
+                    {isLoadingActive ? (
                       <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                         <Loader className="w-6 h-6 animate-spin mb-2 text-slate-500" strokeWidth={1.75} />
                         <span className="text-xs font-semibold">Updating queue...</span>
@@ -913,21 +867,6 @@ export const ManagerOrders: React.FC = () => {
                           );
                         })}
                       </AnimatePresence>
-                    )}
-
-                    {/* Load More for Served column */}
-                    {step.status === 'SERVED' && hasMoreServed && (
-                      <button
-                        onClick={() => setServedPage((p) => p + 1)}
-                        disabled={isFetchingServed}
-                        className="w-full py-2.5 border border-slate-200 bg-white hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition shadow-sm"
-                      >
-                        {isFetchingServed ? (
-                          <Loader className="w-3.5 h-3.5 animate-spin text-slate-500" strokeWidth={2} />
-                        ) : (
-                          <span>Load More History</span>
-                        )}
-                      </button>
                     )}
                   </div>
                 </div>

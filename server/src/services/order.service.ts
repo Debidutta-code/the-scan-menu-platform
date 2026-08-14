@@ -1,6 +1,8 @@
 import { Types } from 'mongoose';
 import { Order, IOrder, OrderStatus, OrderMode } from '../models/Order';
+import { Table } from '../models/Table';
 import { DiningSession } from '../models/DiningSession';
+import { diningSessionService } from './diningSession.service';
 import { Bill } from '../models/Bill';
 import { Payment } from '../models/Payment';
 import { MenuItem } from '../models/MenuItem';
@@ -636,6 +638,99 @@ export class OrderService {
       );
     } catch (e) {
       console.error('Failed to notify order cancelled:', e);
+    }
+
+    return order;
+  }
+
+  /**
+   * Clears a served/completed order from the live active board and frees the table/closes session.
+   */
+  async clearOrder(
+    restaurantId: Types.ObjectId | string,
+    orderId: Types.ObjectId | string,
+    staffUserId?: string
+  ): Promise<IOrder> {
+    const order = await Order.findOne({
+      _id: new Types.ObjectId(orderId),
+      restaurantId: new Types.ObjectId(restaurantId),
+    });
+
+    if (!order) {
+      throw new CustomError('ORDER_NOT_FOUND', 'Order not found', 404);
+    }
+
+    order.isCleared = true;
+    order.clearedAt = new Date();
+    if (order.paymentStatus === 'PENDING') {
+      order.paymentStatus = 'PAID';
+    }
+    await order.save();
+
+    // 1. If linked to a dining session, close session and clear all orders for that session
+    const sessId = order.diningSessionId || order.sessionId;
+    if (sessId) {
+      try {
+        const session = await DiningSession.findOne({
+          _id: new Types.ObjectId(sessId),
+          restaurantId: new Types.ObjectId(restaurantId),
+        });
+        if (session && session.status !== 'CLOSED') {
+          await diningSessionService.closeSession(restaurantId, session._id, staffUserId);
+        }
+      } catch (sessErr) {
+        console.error('Error closing dining session during clearOrder:', sessErr);
+      }
+
+      await Order.updateMany(
+        {
+          restaurantId: new Types.ObjectId(restaurantId),
+          $or: [{ diningSessionId: new Types.ObjectId(sessId) }, { sessionId: new Types.ObjectId(sessId) }],
+          status: { $ne: 'CANCELLED' },
+        },
+        {
+          $set: {
+            isCleared: true,
+            clearedAt: new Date(),
+            paymentStatus: 'PAID',
+          },
+        }
+      );
+    }
+
+    // 2. If table is associated, check if any uncleared non-cancelled orders remain on this table
+    if (order.tableId) {
+      const remainingTableOrders = await Order.countDocuments({
+        restaurantId: new Types.ObjectId(restaurantId),
+        tableId: order.tableId,
+        isCleared: { $ne: true },
+        status: { $nin: ['CANCELLED'] },
+      });
+
+      if (remainingTableOrders === 0) {
+        await Table.findByIdAndUpdate(order.tableId, { $set: { status: 'AVAILABLE' } });
+      }
+    }
+
+    await AuditLog.create({
+      action: 'ORDER_CLEARED',
+      actorId: staffUserId,
+      actorRole: 'MANAGER',
+      restaurantId: restaurantId.toString(),
+      entityType: 'Order',
+      entityId: order._id,
+      details: { orderNumber: order.orderNumber, total: order.total, tableId: order.tableId },
+    });
+
+    try {
+      NotificationService.getInstance().notifyOrderStatusUpdated(
+        restaurantId.toString(),
+        order._id.toString(),
+        order.status,
+        order.updatedAt
+      );
+    } catch (err) {
+      console.error('Failed to notify order clearance:', err);
     }
 
     return order;

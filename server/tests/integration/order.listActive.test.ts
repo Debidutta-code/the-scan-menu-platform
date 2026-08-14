@@ -54,7 +54,8 @@ describe('GET /active - Active Orders Query Regression Test', () => {
     expect(response.body.data.length).toBe(2);
     expect(Order.find).toHaveBeenCalledWith(expect.objectContaining({
       restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      status: { $nin: ['SERVED', 'CANCELLED'] }
+      status: { $ne: 'CANCELLED' },
+      isCleared: { $ne: true },
     }));
   });
 
@@ -79,7 +80,8 @@ describe('GET /active - Active Orders Query Regression Test', () => {
     expect(response.status).toBe(200);
     expect(Order.find).toHaveBeenCalledWith(expect.objectContaining({
       restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      status: { $nin: ['SERVED', 'CANCELLED'] },
+      status: { $ne: 'CANCELLED' },
+      isCleared: { $ne: true },
       paymentStatus: { $ne: 'PENDING' }
     }));
   });

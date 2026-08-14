@@ -228,4 +228,45 @@ describe('Order Status Revert & Table Session Closing Integration Tests', () => 
     expect(dbSession?.status).toBe('CLOSED');
     expect(dbSession?.closedAt).toBeDefined();
   });
+
+  it('clears a served order, marks it isCleared: true, frees table and removes from active queue', async () => {
+    const order = await Order.create({
+      restaurantId: restaurant._id,
+      tableId: table._id,
+      orderNumber: 502,
+      orderMode: 'DINE_IN',
+      items: [
+        {
+          menuItemId: item._id,
+          nameSnapshot: item.name,
+          unitPriceSnapshot: item.price,
+          quantity: 1,
+          selectedAddOns: [],
+          itemStatus: 'SERVED',
+        },
+      ],
+      subtotal: 1200,
+      tax: 0,
+      total: 1200,
+      status: 'SERVED',
+      source: 'POS',
+      paymentStatus: 'PENDING',
+    });
+
+    const resClear = await request(app)
+      .post(`/api/v1/restaurants/${restaurant._id}/orders/${order._id}/clear`)
+      .set('Authorization', `Bearer ${managerToken}`);
+
+    expect(resClear.status).toBe(200);
+    expect(resClear.body.success).toBe(true);
+    expect(resClear.body.data.isCleared).toBe(true);
+    expect(resClear.body.data.paymentStatus).toBe('PAID');
+
+    // Verify it is no longer in active orders
+    const resActive = await request(app)
+      .get(`/api/v1/restaurants/${restaurant._id}/orders/active`)
+      .set('Authorization', `Bearer ${managerToken}`);
+    expect(resActive.status).toBe(200);
+    expect(resActive.body.data.some((o: any) => o._id === order._id.toString())).toBe(false);
+  });
 });

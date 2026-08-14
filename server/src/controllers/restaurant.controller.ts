@@ -9,6 +9,7 @@ import { User } from '../models/User';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { TableService } from '../services/table.service';
 import { DiningSession } from '../models/DiningSession';
+import { Order } from '../models/Order';
 import { diningSessionService } from '../services/diningSession.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { customerService } from '../services/customer.service';
@@ -433,6 +434,22 @@ export class RestaurantController {
       for (const session of activeSessions) {
         await diningSessionService.closeSession(restaurantId, session._id, req.user?.id);
       }
+
+      // Also clear all non-cancelled orders for these tables
+      await Order.updateMany(
+        {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          tableId: { $in: objectIds },
+          status: { $ne: 'CANCELLED' },
+        },
+        {
+          $set: {
+            isCleared: true,
+            clearedAt: new Date(),
+            paymentStatus: 'PAID',
+          },
+        }
+      );
 
       sendSuccess(res, { clearedCount: tableIds.length }, `${tableIds.length} table(s) cleared successfully`);
     } catch (error) {

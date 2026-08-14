@@ -339,8 +339,12 @@ export class DiningSessionService {
         $or: [{ diningSessionId: session._id }, { sessionId: session._id }],
         status: { $ne: 'CANCELLED' },
       },
-      { $set: { paymentStatus: 'PAID' } }
+      { $set: { paymentStatus: 'PAID', isCleared: true, clearedAt: new Date() } }
     );
+
+    if (session.tableId) {
+      await Table.findByIdAndUpdate(session.tableId, { $set: { status: 'AVAILABLE' } });
+    }
 
     // Record payment in transactions ledger if not already recorded
     const existingPayment = await Payment.findOne({ diningSessionId: session._id, status: 'CAPTURED' });

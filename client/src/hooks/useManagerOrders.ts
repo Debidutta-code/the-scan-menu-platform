@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { useToast } from './useToast';
@@ -64,7 +64,6 @@ function writeWorkflowCache(restaurantId: string, mode: WorkflowMode): void {
 }
 
 interface UseManagerOrdersParams {
-  servedPage: number;
   historyPage: number;
   debouncedSearch: string;
   historyStatusFilter: string;
@@ -72,7 +71,6 @@ interface UseManagerOrdersParams {
 }
 
 export function useManagerOrders({
-  servedPage,
   historyPage,
   debouncedSearch,
   historyStatusFilter,
@@ -102,43 +100,6 @@ export function useManagerOrders({
     }
   }, [activeRestaurantId]);
 
-  // Local archived served tickets
-  const [archivedServedIds, setArchivedServedIds] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem(`pixora_archived_served_${activeRestaurantId}`);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-
-  const archiveServedOrder = useCallback((orderId: string) => {
-    setArchivedServedIds((prev) => {
-      const next = new Set(prev);
-      next.add(orderId);
-      try {
-        localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
-      } catch (err) {
-        console.warn('Failed to persist archived orders to localStorage:', err);
-      }
-      return next;
-    });
-    toast('Order moved to History view', 'info');
-  }, [activeRestaurantId, toast]);
-
-  const unarchiveServedOrder = useCallback((orderId: string) => {
-    setArchivedServedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(orderId);
-      try {
-        localStorage.setItem(`pixora_archived_served_${activeRestaurantId}`, JSON.stringify([...next]));
-      } catch (err) {
-        console.warn('Failed to persist unarchived orders to localStorage:', err);
-      }
-      return next;
-    });
-  }, [activeRestaurantId]);
-
   // 1. Restaurant Config
   const { data: restaurantResponse } = useQuery({
     queryKey: ['restaurantConfig', activeRestaurantId],
@@ -162,7 +123,7 @@ export function useManagerOrders({
     }
   }, [restaurantResponse, activeRestaurantId]);
 
-  // 2. Active Orders Queue Query
+  // 2. Active Orders Queue Query (Single Source of Truth for Live Board)
   const { data: activeOrdersResponse, isLoading: isLoadingActive } = useQuery({
     queryKey: ['activeOrdersQueue', activeRestaurantId],
     queryFn: async () => {
@@ -170,7 +131,7 @@ export function useManagerOrders({
       return res.data;
     },
     enabled: !!activeRestaurantId,
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
   const activeOrders: Order[] = useMemo(() => {
@@ -179,19 +140,7 @@ export function useManagerOrders({
       : [];
   }, [activeOrdersResponse]);
 
-  // 3. Served Orders Query
-  const { data: servedOrdersData, isFetching: isFetchingServed } = useQuery({
-    queryKey: ['servedOrdersHistory', activeRestaurantId, servedPage],
-    queryFn: async () => {
-      const res = await apiClient.get(
-        `/restaurants/${activeRestaurantId}/orders?status=SERVED&page=${servedPage}&limit=15`
-      );
-      return res.data;
-    },
-    enabled: !!activeRestaurantId,
-  });
-
-  // 4. All Orders History Query
+  // 3. All Orders History Query
   const { data: historyOrdersData, isFetching: isFetchingHistory } = useQuery({
     queryKey: ['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter],
     queryFn: async () => {
@@ -211,8 +160,8 @@ export function useManagerOrders({
     if (!socket || !activeRestaurantId) return;
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
     };
 
     const handleStatusUpdated = (data: { orderId: string; status: string }) => {
@@ -224,11 +173,15 @@ export function useManagerOrders({
 
     socket.on('order:status_updated', handleStatusUpdated);
     socket.on('order:created', invalidate);
+    socket.on('order:cleared', invalidate);
     socket.on('session:updated', invalidate);
+    socket.on('table:updated', invalidate);
     return () => {
       socket.off('order:status_updated', handleStatusUpdated);
       socket.off('order:created', invalidate);
+      socket.off('order:cleared', invalidate);
       socket.off('session:updated', invalidate);
+      socket.off('table:updated', invalidate);
     };
   }, [socket, activeRestaurantId, queryClient, pendingOrderIds]);
 
@@ -263,12 +216,10 @@ export function useManagerOrders({
     onMutate: async ({ orderId, nextStatus }) => {
       // 1. Cancel in-flight refetches
       await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      await queryClient.cancelQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
       await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
 
       // 2. Snapshot current state
       const previousActive = queryClient.getQueryData(['activeOrdersQueue', activeRestaurantId]);
-      const previousServed = queryClient.getQueryData(['servedOrdersHistory', activeRestaurantId, servedPage]);
       const previousHistory = queryClient.getQueryData(['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter]);
 
       // 3. Mark pending
@@ -282,13 +233,10 @@ export function useManagerOrders({
 
         if (existingIndex !== -1) {
           updatedData[existingIndex] = { ...updatedData[existingIndex], status: nextStatus as any };
-        } else if (nextStatus !== 'SERVED' && nextStatus !== 'CANCELLED') {
-          // Order was not in active queue (e.g. was SERVED). Find in served history cache and restore to active queue!
-          const servedList = (previousServed as any)?.data?.orders || [];
+        } else if (nextStatus !== 'CANCELLED') {
+          // Order was not in active queue (e.g. from history). Restore to active queue!
           const historyList = (previousHistory as any)?.data?.orders || [];
-          const target =
-            servedList.find((o: Order) => o._id === orderId) ||
-            historyList.find((o: Order) => o._id === orderId);
+          const target = historyList.find((o: Order) => o._id === orderId);
           if (target) {
             updatedData.unshift({ ...target, status: nextStatus as any });
           }
@@ -296,30 +244,7 @@ export function useManagerOrders({
         return { ...old, data: updatedData };
       });
 
-      // 5. Optimistically update servedOrdersHistory cache if moving to SERVED or in served list
-      queryClient.setQueryData(['servedOrdersHistory', activeRestaurantId, servedPage], (old: any) => {
-        if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
-        if (nextStatus !== 'SERVED') {
-          // If reverting or moving away from SERVED, remove from served list
-          const filteredOrders = old.data.orders.filter((o: Order) => o._id !== orderId);
-          return { ...old, data: { ...old.data, orders: filteredOrders } };
-        } else {
-          const existingIdx = old.data.orders.findIndex((o: Order) => o._id === orderId);
-          const updatedOrders = [...old.data.orders];
-          if (existingIdx !== -1) {
-            updatedOrders[existingIdx] = { ...updatedOrders[existingIdx], status: 'SERVED' };
-          } else {
-            const activeList = (previousActive as any)?.data || [];
-            const target = activeList.find((o: Order) => o._id === orderId);
-            if (target) {
-              updatedOrders.unshift({ ...target, status: 'SERVED' });
-            }
-          }
-          return { ...old, data: { ...old.data, orders: updatedOrders } };
-        }
-      });
-
-      // 6. Optimistically update allOrdersHistory
+      // 5. Optimistically update allOrdersHistory
       queryClient.setQueriesData({ queryKey: ['allOrdersHistory', activeRestaurantId] }, (old: any) => {
         if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
         const updatedOrders = old.data.orders.map((o: Order) => {
@@ -329,25 +254,17 @@ export function useManagerOrders({
         return { ...old, data: { ...old.data, orders: updatedOrders } };
       });
 
-      return { previousActive, previousServed, previousHistory, orderId, nextStatus };
+      return { previousActive, previousHistory, orderId, nextStatus };
     },
     onError: (err: any, _variables, context: any) => {
       if (context?.previousActive) {
         queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], context.previousActive);
-      }
-      if (context?.previousServed) {
-        queryClient.setQueryData(['servedOrdersHistory', activeRestaurantId, servedPage], context.previousServed);
       }
       if (context?.previousHistory) {
         queryClient.setQueryData(['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter], context.previousHistory);
       }
       const errMsg = err?.response?.data?.error?.message || 'Failed to update order status. Rolled back.';
       toast(errMsg, 'error');
-    },
-    onSuccess: (_data, variables) => {
-      if (archivedServedIds.has(variables.orderId) && variables.nextStatus !== 'SERVED') {
-        unarchiveServedOrder(variables.orderId);
-      }
     },
     onSettled: (_data, _error, variables) => {
       mutationQueueRef.current.delete(variables.orderId);
@@ -357,8 +274,8 @@ export function useManagerOrders({
         return next;
       });
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
     },
   });
 
@@ -370,11 +287,9 @@ export function useManagerOrders({
     },
     onMutate: async (orderId: string) => {
       await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      await queryClient.cancelQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
       await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
 
       const previousActive = queryClient.getQueryData(['activeOrdersQueue', activeRestaurantId]);
-      const previousServed = queryClient.getQueryData(['servedOrdersHistory', activeRestaurantId, servedPage]);
       const previousHistory = queryClient.getQueryData(['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter]);
 
       setPendingOrderIds((prev) => new Set(prev).add(orderId));
@@ -390,14 +305,11 @@ export function useManagerOrders({
         return { ...old, data: updatedData };
       });
 
-      return { previousActive, previousServed, previousHistory, orderId };
+      return { previousActive, previousHistory, orderId };
     },
     onError: (err: any, _orderId, context: any) => {
       if (context?.previousActive) {
         queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], context.previousActive);
-      }
-      if (context?.previousServed) {
-        queryClient.setQueryData(['servedOrdersHistory', activeRestaurantId, servedPage], context.previousServed);
       }
       if (context?.previousHistory) {
         queryClient.setQueryData(['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter], context.previousHistory);
@@ -417,10 +329,56 @@ export function useManagerOrders({
       });
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
     },
   });
 
-  // C. Optimistic Settle/Close Session Mutation
+  // C. Optimistic Clear / Settle Order Mutation (Free Table & Clear from Live Board)
+  const clearOrderMutation = useMutation({
+    mutationFn: async ({ orderId }: { orderId: string }) => {
+      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/clear`);
+      return res.data;
+    },
+    onMutate: async ({ orderId }) => {
+      await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+      await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+
+      const previousActive = queryClient.getQueryData(['activeOrdersQueue', activeRestaurantId]);
+      setPendingOrderIds((prev) => new Set(prev).add(orderId));
+
+      queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
+        if (!old || !old.success || !Array.isArray(old.data)) return old;
+        return {
+          ...old,
+          data: old.data.filter((order: Order) => order._id !== orderId),
+        };
+      });
+
+      return { previousActive, orderId };
+    },
+    onError: (err: any, _variables, context: any) => {
+      if (context?.previousActive) {
+        queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], context.previousActive);
+      }
+      toast(err?.response?.data?.error?.message || 'Failed to clear order and free table. Rolled back.', 'error');
+    },
+    onSuccess: (data) => {
+      const orderNum = data?.data?.orderNumber || '';
+      toast(`Table freed & Order #${orderNum} cleared!`, 'success');
+    },
+    onSettled: (_data, _error, variables) => {
+      setPendingOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(variables.orderId);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
+    },
+  });
+
+  // D. Optimistic Settle/Close Session Mutation
   const closeSessionMutation = useMutation({
     mutationFn: async ({ sessionId, orderId }: { sessionId: string; orderId: string }) => {
       const res = await apiClient.post(`/restaurants/${activeRestaurantId}/table-sessions/${sessionId}/close`);
@@ -437,8 +395,7 @@ export function useManagerOrders({
       });
       toast(err?.response?.data?.error?.message || 'Failed to close session. Rolled back.', 'error');
     },
-    onSuccess: (_res, { orderId }) => {
-      archiveServedOrder(orderId);
+    onSuccess: () => {
       toast('Table session closed & freed!', 'success');
     },
     onSettled: (_data, _err, { orderId }) => {
@@ -448,12 +405,12 @@ export function useManagerOrders({
         return next;
       });
       queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['servedOrdersHistory', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
     },
   });
 
-  // D. POS Retry Sync Mutation
+  // E. POS Retry Sync Mutation
   const retryPosMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/retry-pos`);
@@ -473,16 +430,12 @@ export function useManagerOrders({
     workflowMode,
     activeOrders,
     isLoadingActive,
-    servedOrdersData,
-    isFetchingServed,
     historyOrdersData,
     isFetchingHistory,
     pendingOrderIds,
-    archivedServedIds,
-    archiveServedOrder,
-    unarchiveServedOrder,
     updateStatusMutation,
     cancelOrderMutation,
+    clearOrderMutation,
     closeSessionMutation,
     retryPosMutation,
   };

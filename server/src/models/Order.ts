@@ -100,6 +100,8 @@ export interface IOrder extends Document {
   posSyncRetries: number;
   posSyncLastError?: string;
   integrationMetadata: Record<string, any>;
+  isCleared: boolean;
+  clearedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -218,6 +220,15 @@ const orderSchema = new Schema<IOrder>(
       required: true,
       default: {},
     },
+    isCleared: {
+      type: Boolean,
+      required: true,
+      default: false,
+      index: true,
+    },
+    clearedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
@@ -276,6 +287,7 @@ orderSchema.pre('save', async function (this: any, next) {
 // Indexes
 orderSchema.index({ restaurantId: 1, orderNumber: 1 }, { unique: true });
 orderSchema.index({ diningSessionId: 1, roundNumber: 1 });
+orderSchema.index({ restaurantId: 1, isCleared: 1, status: 1 });
 orderSchema.index({ restaurantId: 1, status: 1 });
 orderSchema.index({ restaurantId: 1, createdAt: -1 });
 orderSchema.index({ restaurantId: 1, customerId: 1, createdAt: -1 });

@@ -29,6 +29,7 @@ export class OrderController {
     this.abandonTableSession = this.abandonTableSession.bind(this);
     this.reopenTableSession = this.reopenTableSession.bind(this);
     this.retryPosSync = this.retryPosSync.bind(this);
+    this.clearOrder = this.clearOrder.bind(this);
   }
 
   async getAnalytics(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
@@ -106,10 +107,11 @@ export class OrderController {
     try {
       const { restaurantId } = req.params;
 
-      // Build the base query — exclude terminal states only
+      // Build the base query — exclude cancelled and cleared orders
       const query: Record<string, any> = {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        status: { $nin: ['SERVED', 'CANCELLED'] },
+        status: { $ne: 'CANCELLED' },
+        isCleared: { $ne: true },
       };
 
       // For PREPAID restaurants, filter out payment-pending orders (they haven't paid yet)
@@ -125,7 +127,15 @@ export class OrderController {
           { path: 'diningSessionId', select: 'status sessionCode closedAt' },
         ]);
 
-      sendSuccess(res, orders, 'Active orders retrieved successfully');
+      // Filter out any legacy or edge-case orders where dining session is already CLOSED
+      const activeOrders = orders.filter((o: any) => {
+        if (o.diningSessionId && o.diningSessionId.status === 'CLOSED') {
+          return false;
+        }
+        return true;
+      });
+
+      sendSuccess(res, activeOrders, 'Active orders retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -438,6 +448,21 @@ export class OrderController {
 
       const session = await billService.reopenSessionForOrdering(restaurantId, sessionId);
       sendSuccess(res, session, 'Session reopened for ordering');
+    } catch (error: any) {
+      if (error.code) {
+        sendError(res, error.code, error.message, error.details, error.status);
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  async clearOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, orderId } = req.params;
+
+      const order = await orderService.clearOrder(restaurantId, orderId, req.user?.id);
+      sendSuccess(res, order, 'Order cleared and table freed successfully');
     } catch (error: any) {
       if (error.code) {
         sendError(res, error.code, error.message, error.details, error.status);

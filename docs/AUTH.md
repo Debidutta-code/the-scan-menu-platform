@@ -655,4 +655,29 @@ Marks a pending transaction as collected / captured and synchronizes linked orde
   }
   ```
 
+---
+
+### 23. Clear Served Order & Free Table (Staff / Manager)
+Clears a served or completed order from the live active board, frees the physical table if no other active orders remain, closes the associated dining session (if active), and sets payment status to PAID.
+
+- **Method:** `POST`
+- **Path:** `/api/v1/restaurants/:restaurantId/orders/:orderId/clear`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `STAFF`, `SUPER_ADMIN`)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d0fe...",
+      "orderNumber": 136,
+      "status": "SERVED",
+      "isCleared": true,
+      "clearedAt": "2026-08-14T10:30:00.000Z",
+      "paymentStatus": "PAID"
+    },
+    "message": "Order cleared and table freed successfully"
+  }
+  ```
+
+
 
