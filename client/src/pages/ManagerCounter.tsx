@@ -1098,7 +1098,12 @@ export const ManagerCounter: React.FC = () => {
                   }
 
                   return recentOrdersList.map((ord) => {
-                    const totalFormatted = (ord.total || 0).toLocaleString('en-IN', {
+                    const numInRupees =
+                      (ord.total || 0) > 100 && Number.isInteger(ord.total)
+                        ? ord.total / 100
+                        : ord.total || 0;
+                    const totalFormatted = numInRupees.toLocaleString('en-IN', {
+                      minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     });
                     const isPaid = ord.paymentStatus === 'PAID';

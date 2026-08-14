@@ -79,7 +79,13 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
 
   const tableLabel = getTableString(order);
   const isPaid = order.paymentStatus === 'PAID';
-  const totalFormatted = (order.total || 0).toLocaleString('en-IN', {
+  const rawTotal = order.total ?? 0;
+  const numInRupees =
+    rawTotal > 100 && Number.isInteger(rawTotal)
+      ? rawTotal / 100
+      : rawTotal;
+  const totalFormatted = numInRupees.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
