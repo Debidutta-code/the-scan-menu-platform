@@ -95,6 +95,7 @@ export interface IOrder extends Document {
   customerName?: string;
   customerPhone?: string;
   paymentStatus: 'PENDING' | 'PAID' | 'WAIVED';
+  paymentMethod?: string; // e.g. 'UPI' | 'CASH' | 'CARD' | 'RAZORPAY'
   posSyncStatus: PosSyncStatus;
   posSyncRetries: number;
   posSyncLastError?: string;
@@ -199,6 +200,11 @@ const orderSchema = new Schema<IOrder>(
       enum: ['PENDING', 'PAID', 'WAIVED'],
       default: 'PENDING',
       index: true,
+    },
+    paymentMethod: {
+      type: String,
+      trim: true,
+      default: 'CASH',
     },
     posSyncStatus: {
       type: String,

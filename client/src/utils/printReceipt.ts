@@ -212,8 +212,6 @@ export function generateCounterBillHtml(
   paperWidth: PaperWidth = '80mm',
   isCounterCopy: boolean = false
 ): string {
-  const tableLabel = getTableString(order);
-  const orderModeLabel = (order.orderMode || 'DINE_IN').toUpperCase();
   const formattedDate = formatPrintDate(order.createdAt);
   const currency = restaurant.currency || 'INR';
   const cfg = restaurant.printerConfig || {};
@@ -358,7 +356,17 @@ export function generateCounterBillHtml(
       <div style="font-size:11px;margin-bottom:6px;border-bottom:1px solid #000;padding-bottom:5px;">
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:12px;">
           <span>ORDER #${order.orderNumber}</span>
-          <span>${orderModeLabel} ${orderModeLabel === 'DINE_IN' ? `(${tableLabel})` : ''}</span>
+          <span>${(() => {
+            const rawOrderMode = (order.orderMode || 'DINE_IN').toUpperCase();
+            const rawTableLabel = getTableString(order);
+            if (rawOrderMode === 'COUNTER') return 'COUNTER POS';
+            if (rawOrderMode === 'TAKEAWAY') return 'TAKEAWAY';
+            if (rawOrderMode === 'DELIVERY') return 'DELIVERY';
+            if (rawTableLabel && !['DINE_IN', 'DINE-IN'].includes(rawTableLabel.toUpperCase())) {
+              return `DINE-IN (${rawTableLabel})`;
+            }
+            return 'DINE-IN';
+          })()}</span>
         </div>
         <div style="display:flex;justify-content:space-between;color:#333;margin-top:2px;">
           <span>Date: ${formattedDate}</span>
@@ -399,7 +407,18 @@ export function generateCounterBillHtml(
       <!-- Payment Status & Method -->
       ${showPayment ? `
         <div style="margin-top:6px;text-align:center;font-size:11px;font-weight:bold;">
-          ${isPaid ? `✓ PAID (${order.paymentMethod || 'CASH'})` : 'STATUS: PAYMENT DUE'}
+          ${(() => {
+            const rawMethod = (order.paymentMethod || 'CASH').toUpperCase();
+            const methodLabel =
+              rawMethod === 'UPI'
+                ? 'UPI'
+                : rawMethod === 'CARD'
+                ? 'CARD'
+                : rawMethod === 'RAZORPAY'
+                ? 'ONLINE'
+                : 'CASH';
+            return isPaid ? `✓ PAID (${methodLabel})` : 'STATUS: PAYMENT DUE';
+          })()}
         </div>
       ` : ''}
 

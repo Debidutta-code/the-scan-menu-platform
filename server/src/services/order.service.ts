@@ -416,6 +416,7 @@ export class OrderService {
       status: 'PENDING',
       source,
       paymentStatus,
+      paymentMethod: (paymentMethod || 'CASH').toUpperCase(),
       integrationMetadata: {},
     });
 

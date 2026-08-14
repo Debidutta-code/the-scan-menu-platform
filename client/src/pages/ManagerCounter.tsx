@@ -247,11 +247,15 @@ export const ManagerCounter: React.FC = () => {
 
       if (res.data.success) {
         const createdOrder = res.data.data;
+        const orderToPrint = {
+          ...createdOrder,
+          paymentMethod: createdOrder.paymentMethod || paymentMethod || 'UPI',
+        };
 
         // Auto print dual tickets if selected
         if (selectedPrintTarget && (selectedPrintTarget as string) !== 'NONE') {
           try {
-            printOrderTicket(createdOrder, settingsData?.data, selectedPrintTarget);
+            printOrderTicket(orderToPrint, settingsData?.data, selectedPrintTarget);
           } catch (pErr) {
             console.error('Print trigger error:', pErr);
           }
