@@ -23,6 +23,7 @@ import {
   X,
   Loader,
   Printer,
+  Receipt,
   Search,
   CheckCircle2,
   Bookmark,
@@ -34,6 +35,9 @@ import {
   LayoutGrid,
   Zap,
 } from 'lucide-react';
+import apiClient from '../lib/api';
+import { PrintOrderModal } from '../components/PrintOrderModal';
+import { printOrderTicket } from '../utils/printReceipt';
 
 const tableSchema = z.object({
   tableNumber: z.string().optional(),
@@ -100,12 +104,81 @@ export const ManagerTables: React.FC = () => {
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [printModalOrder, setPrintModalOrder] = useState<any | null>(null);
 
   const { data: qrData, isLoading: isLoadingQr } = useQuery({
     queryKey: ['tableQr', activeRestaurantId, showQrModal?._id],
     queryFn: () => managerService.getTableQr(activeRestaurantId!, showQrModal!._id),
     enabled: !!activeRestaurantId && !!showQrModal?._id,
   });
+
+  const { data: restaurantData } = useQuery({
+    queryKey: ['restaurantProfilePrint', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+  });
+
+  const { data: activeOrdersResponse } = useQuery({
+    queryKey: ['activeOrdersForTables', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/orders/active`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+    refetchInterval: 10000,
+  });
+
+  const restaurantInfo = useMemo(() => ({
+    name: restaurantData?.data?.name,
+    address: restaurantData?.data?.address,
+    phone: restaurantData?.data?.phone,
+    gstNumber: restaurantData?.data?.gstNumber,
+    logoUrl: restaurantData?.data?.branding?.logoUrl,
+    currency: restaurantData?.data?.currency || 'INR',
+    settings: restaurantData?.data?.settings,
+    printerConfig: restaurantData?.data?.printerConfig || restaurantData?.data?.settings?.printerConfig,
+    headerMessage: restaurantData?.data?.settings?.receiptHeader || 'Welcome!',
+    footerMessage: restaurantData?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
+  }), [restaurantData]);
+
+  const getTableConsolidatedOrder = (tableId: string, tableNumber: string) => {
+    const ordersList: any[] = activeOrdersResponse?.data || [];
+    const tableOrders = ordersList.filter((o) => {
+      const tId = typeof o.tableId === 'string' ? o.tableId : o.tableId?._id;
+      return tId === tableId;
+    });
+
+    const combinedItems: any[] = [];
+    let combinedSubtotal = 0;
+    let combinedTax = 0;
+    let combinedTotal = 0;
+
+    tableOrders.forEach((ord) => {
+      ord.items?.forEach((it: any) => combinedItems.push(it));
+      combinedSubtotal += ord.subtotal || 0;
+      combinedTax += ord.tax || 0;
+      combinedTotal += ord.total || (ord.subtotal || 0) + (ord.tax || 0);
+    });
+
+    return {
+      orderNumber: tableOrders[0]?.orderNumber || parseInt(tableNumber, 10) || 1,
+      orderMode: 'DINE_IN',
+      tableName: `Table ${tableNumber}`,
+      createdAt: new Date().toISOString(),
+      customerName: tableOrders[0]?.customerName || 'Dine-In Guest',
+      customerPhone: tableOrders[0]?.customerPhone,
+      items: combinedItems.length > 0 ? combinedItems : [
+        { nameSnapshot: `Table ${tableNumber} Dining Service`, unitPriceSnapshot: combinedTotal || 0, quantity: 1 }
+      ],
+      subtotal: combinedSubtotal,
+      tax: combinedTax,
+      total: combinedTotal,
+      paymentStatus: tableOrders.every((o) => o.paymentStatus === 'PAID') && tableOrders.length > 0 ? 'PAID' : 'PENDING',
+    };
+  };
 
   const tableForm = useForm<TableFormValues>({ resolver: zodResolver(tableSchema) });
   const bulkForm = useForm<BulkTableFormValues>({
@@ -452,6 +525,23 @@ export const ManagerTables: React.FC = () => {
                         }
                       `}
                     >
+                      {/* 1-Click Print Bill button on Occupied Tables */}
+                      {isOccupied && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const tableOrder = getTableConsolidatedOrder(table._id, table.tableNumber);
+                            printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                            toast(`Printed Customer Bill for Table ${table.tableNumber}`, 'success');
+                          }}
+                          className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
+                          title={`1-Click Print Customer Bill (Table ${table.tableNumber})`}
+                        >
+                          <Receipt className="w-3 h-3" strokeWidth={2} />
+                        </button>
+                      )}
+
                       {/* Table number circle */}
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shadow-sm
@@ -570,6 +660,61 @@ export const ManagerTables: React.FC = () => {
                   View QR Code
                 </button>
 
+                {/* Print Bill & Clear options for occupied table */}
+                {isOccupied && (
+                  <div className="space-y-2 pb-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tableOrder = getTableConsolidatedOrder(t._id, t.tableNumber);
+                        printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                        toast(`Printing Customer Bill for Table ${t.tableNumber}`, 'success');
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
+                      Print Customer Bill
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tableOrder = getTableConsolidatedOrder(t._id, t.tableNumber);
+                        printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                        clearTablesMutation.mutate([t._id], {
+                          onSuccess: () => {
+                            setActiveTableAction(null);
+                            toast(`Table ${t.tableNumber} bill printed and table cleared!`, 'success');
+                          },
+                        });
+                      }}
+                      disabled={clearTablesMutation.isPending}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                    >
+                      {clearTablesMutation.isPending ? (
+                        <Loader className="w-4 h-4 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <Printer className="w-4 h-4 text-white" strokeWidth={2} />
+                          <span>Print Bill &amp; Free Table</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tableOrder = getTableConsolidatedOrder(t._id, t.tableNumber);
+                        setPrintModalOrder(tableOrder);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                      <span>More Print Options (KOT / Counter)</span>
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                   {/* Clear table */}
                   {isOccupied && (
@@ -580,9 +725,9 @@ export const ManagerTables: React.FC = () => {
                         }
                       }}
                       disabled={clearTablesMutation.isPending}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition"
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
                     >
-                      {clearTablesMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Clear Table</>}
+                      {clearTablesMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Quick Clear</>}
                     </button>
                   )}
 
@@ -884,6 +1029,13 @@ export const ManagerTables: React.FC = () => {
           </div>
         </div>
       )}
+      {/* ── Print Order Modal ────────────────────────────────────────────────── */}
+      <PrintOrderModal
+        isOpen={!!printModalOrder}
+        onClose={() => setPrintModalOrder(null)}
+        order={printModalOrder}
+        restaurantInfo={restaurantInfo}
+      />
     </div>
   );
 };

@@ -28,9 +28,11 @@ import {
   RotateCcw,
   Search,
   CheckCheck,
-  TrendingUp
+  TrendingUp,
+  Printer,
 } from 'lucide-react';
 import apiClient from '../lib/api';
+import { PrintOrderModal } from '../components/PrintOrderModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,6 +146,8 @@ export const ManagerKDS: React.FC = () => {
 
   const categories: CategoryOption[] = categoriesResponse?.success ? categoriesResponse.data : [];
 
+  const [printModalOrder, setPrintModalOrder] = useState<KDSTicket | null>(null);
+
   // Fetch Restaurant Settings for workflowMode
   const { data: restaurantResponse } = useQuery({
     queryKey: ['restaurantProfile', activeRestaurantId],
@@ -154,6 +158,17 @@ export const ManagerKDS: React.FC = () => {
     enabled: !!activeRestaurantId,
     staleTime: 60_000,
   });
+
+  const restaurantInfo = useMemo(() => ({
+    name: restaurantResponse?.data?.name,
+    address: restaurantResponse?.data?.address,
+    phone: restaurantResponse?.data?.phone,
+    gstNumber: restaurantResponse?.data?.gstNumber,
+    logoUrl: restaurantResponse?.data?.branding?.logoUrl,
+    currency: restaurantResponse?.data?.currency || 'INR',
+    headerMessage: restaurantResponse?.data?.settings?.receiptHeader || 'Welcome!',
+    footerMessage: restaurantResponse?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
+  }), [restaurantResponse]);
 
   const workflowMode: 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP' =
     restaurantResponse?.data?.orderWorkflowMode || 'FIVE_STEP';
@@ -789,12 +804,20 @@ export const ManagerKDS: React.FC = () => {
                     </div>
 
                     {/* Bump Ticket Footer Button */}
-                    <div className="pt-4 border-t border-slate-150 mt-4">
+                    <div className="pt-4 border-t border-slate-150 mt-4 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPrintModalOrder(ticket)}
+                        className="p-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-2xl transition flex items-center justify-center active:scale-98"
+                        title="Print Kitchen Ticket or Bill"
+                      >
+                        <Printer className="w-4 h-4 text-amber-600" strokeWidth={2} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => bumpTicketMutation.mutate(ticket._id)}
                         disabled={allServed || bumpTicketMutation.isPending}
-                        className="w-full py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-black rounded-2xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 active:scale-98"
+                        className="flex-1 py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-black rounded-2xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 active:scale-98"
                       >
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={2} />
                         <span>Bump Entire Ticket</span>
@@ -1035,6 +1058,13 @@ export const ManagerKDS: React.FC = () => {
           </div>
         </div>
       )}
+      {/* ── Print Order Modal ────────────────────────────────────────────────── */}
+      <PrintOrderModal
+        isOpen={!!printModalOrder}
+        onClose={() => setPrintModalOrder(null)}
+        order={printModalOrder}
+        restaurantInfo={restaurantInfo}
+      />
     </div>
   );
 };

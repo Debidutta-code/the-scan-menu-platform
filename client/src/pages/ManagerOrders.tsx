@@ -26,12 +26,16 @@ import {
   ChevronRight,
   RefreshCw,
   RotateCcw,
-  Archive,
   Eye,
   History as HistoryIcon,
-  Kanban as KanbanIcon
+  Kanban as KanbanIcon,
+  Printer
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
+import { PrintOrderModal } from '../components/PrintOrderModal';
+import { printOrderTicket } from '../utils/printReceipt';
+import apiClient from '../lib/api';
 
 // â”€â”€â”€ Workflow Step Definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -261,6 +265,8 @@ export const ManagerOrders: React.FC = () => {
   const [selectedCardOrder, setSelectedCardOrder] = useState<Order | null>(null);
   const [detailModalOrder, setDetailModalOrder] = useState<Order | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const [printModalOrder, setPrintModalOrder] = useState<Order | null>(null);
+  const [freeTableOrder, setFreeTableOrder] = useState<Order | null>(null);
 
   // Live clock
   const [now, setNow] = useState<Date>(new Date());
@@ -302,6 +308,28 @@ export const ManagerOrders: React.FC = () => {
     historyStatusFilter,
     isHistoryView: viewMode === 'HISTORY',
   });
+
+  const { data: restaurantData } = useQuery({
+    queryKey: ['restaurantProfilePrint', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+  });
+
+  const restaurantInfo = React.useMemo(() => ({
+    name: restaurantData?.data?.name,
+    address: restaurantData?.data?.address,
+    phone: restaurantData?.data?.phone,
+    gstNumber: restaurantData?.data?.gstNumber,
+    logoUrl: restaurantData?.data?.branding?.logoUrl,
+    currency: restaurantData?.data?.currency || 'INR',
+    settings: restaurantData?.data?.settings,
+    printerConfig: restaurantData?.data?.printerConfig || restaurantData?.data?.settings?.printerConfig,
+    headerMessage: restaurantData?.data?.settings?.receiptHeader || 'Welcome!',
+    footerMessage: restaurantData?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
+  }), [restaurantData]);
 
   const workflowSteps = WORKFLOW_STEPS[workflowMode];
 
@@ -348,7 +376,24 @@ export const ManagerOrders: React.FC = () => {
     });
   }, [servedOrders, activeOrders, archivedServedIds]);
 
-  // Full KDS Keyboard Navigation: Arrow Keys (Up/Down/Left/Right), Enter (Advance), Backspace (Revert), Escape (Deselect/Close)
+  const handleConfirmFreeTable = useCallback((printBill: boolean) => {
+    if (!freeTableOrder) return;
+    const target = freeTableOrder;
+    if (printBill) {
+      printOrderTicket(target, restaurantInfo, 'CUSTOMER');
+    }
+    const sessId = (target as any).diningSessionId?._id || target.sessionId;
+    if (sessId && (target as any).diningSessionId?.status !== 'CLOSED') {
+      closeSessionMutation.mutate({ sessionId: sessId, orderId: target._id });
+    } else {
+      archiveServedOrder(target._id);
+    }
+    setFreeTableOrder(null);
+    if (detailModalOrder?._id === target._id) setDetailModalOrder(null);
+    if (selectedCardOrder?._id === target._id) setSelectedCardOrder(null);
+  }, [freeTableOrder, restaurantInfo, closeSessionMutation, archiveServedOrder, detailModalOrder, selectedCardOrder]);
+
+  // Full KDS Keyboard Navigation: Arrow Keys (Up/Down/Left/Right), Enter (Advance / Free Table & Print), Backspace (Revert), Escape (Deselect/Close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
@@ -358,6 +403,18 @@ export const ManagerOrders: React.FC = () => {
           activeElement.tagName === 'SELECT' ||
           activeElement.tagName === 'TEXTAREA');
       if (isInputActive) return;
+
+      // Free Table confirmation modal is active
+      if (freeTableOrder) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirmFreeTable(true);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setFreeTableOrder(null);
+        }
+        return;
+      }
 
       if (e.key === 'Escape') {
         if (detailModalOrder) {
@@ -370,7 +427,7 @@ export const ManagerOrders: React.FC = () => {
 
       const activeOrder = detailModalOrder || liveSelectedOrder;
 
-      // A. Enter -> Advance order to next stage
+      // A. Enter -> Advance order to next stage OR open Free Table on SERVED
       if (e.key === 'Enter') {
         if (activeOrder) {
           const nextStatus = getNextStatus(activeOrder.status, workflowMode);
@@ -379,14 +436,7 @@ export const ManagerOrders: React.FC = () => {
             updateStatusMutation.mutate({ orderId: activeOrder._id, nextStatus });
           } else if (activeOrder.status === 'SERVED') {
             e.preventDefault();
-            const sessId = (activeOrder as any).diningSessionId?._id || activeOrder.sessionId;
-            if (sessId && (activeOrder as any).diningSessionId?.status !== 'CLOSED') {
-              closeSessionMutation.mutate({ sessionId: sessId, orderId: activeOrder._id });
-            } else {
-              archiveServedOrder(activeOrder._id);
-            }
-            if (detailModalOrder) setDetailModalOrder(null);
-            if (selectedCardOrder) setSelectedCardOrder(null);
+            setFreeTableOrder(activeOrder);
           }
         }
         return;
@@ -793,6 +843,19 @@ export const ManagerOrders: React.FC = () => {
                                 </span>
 
                                 <div className="flex items-center gap-1.5">
+                                  {/* Quick Print Customer Bill / KOT */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPrintModalOrder(order);
+                                    }}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition active:scale-95 cursor-pointer"
+                                    title="Print Customer Bill / KOT"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" strokeWidth={2} />
+                                  </button>
+
                                   {/* Quick revert button if previous stage exists */}
                                   {(() => {
                                     const prevStatus = getPreviousStatus(order.status, workflowMode);
@@ -804,7 +867,7 @@ export const ManagerOrders: React.FC = () => {
                                           e.stopPropagation();
                                           updateStatusMutation.mutate({ orderId: order._id, nextStatus: prevStatus });
                                         }}
-                                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95"
+                                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95 cursor-pointer"
                                         title={`Revert to ${prevStatus}`}
                                       >
                                         <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
@@ -820,31 +883,26 @@ export const ManagerOrders: React.FC = () => {
                                         e.stopPropagation();
                                         updateStatusMutation.mutate({ orderId: order._id, nextStatus });
                                       }}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95"
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95 cursor-pointer"
                                     >
                                       <span>Advance</span>
                                       <ArrowRight className="w-3 h-3" strokeWidth={2} />
                                     </button>
                                   )}
 
-                                  {/* Quick archive/free button on served card */}
+                                  {/* Quick Free Table & Print Bill button on served card */}
                                   {step.status === 'SERVED' && (
                                     <button
                                       type="button"
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        const sessId = (order as any).diningSessionId?._id || order.sessionId;
-                                        if (sessId && (order as any).diningSessionId?.status !== 'CLOSED') {
-                                          closeSessionMutation.mutate({ sessionId: sessId, orderId: order._id });
-                                        } else {
-                                          archiveServedOrder(order._id);
-                                        }
+                                        setFreeTableOrder(order);
                                       }}
-                                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 flex items-center gap-1 transition active:scale-95"
-                                      title="Archive card to history"
+                                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+                                      title="Free Table & Print Bill"
                                     >
-                                      <Archive className="w-3 h-3 text-slate-500" strokeWidth={2} />
-                                      <span>Archive</span>
+                                      <Receipt className="w-3 h-3 text-emerald-700" strokeWidth={2} />
+                                      <span>Free Table</span>
                                     </button>
                                   )}
                                 </div>
@@ -993,14 +1051,36 @@ export const ManagerOrders: React.FC = () => {
                       <div className="font-mono text-xs font-black text-slate-900 md:text-right">
                         {formatAmount(order.total)}
                       </div>
-                      <div className="text-right text-slate-400">
+                      <div className="text-right text-slate-400 flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            printOrderTicket(order, restaurantInfo, 'CUSTOMER');
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition cursor-pointer"
+                          title="Print Customer Bill"
+                        >
+                          <Receipt className="w-4 h-4" strokeWidth={1.75} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPrintModalOrder(order);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition cursor-pointer"
+                          title="Print Options &amp; KOT"
+                        >
+                          <Printer className="w-4 h-4" strokeWidth={1.75} />
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDetailModalOrder(order);
                           }}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                           title="View order details"
                         >
                           <ChevronRight className="w-4 h-4" strokeWidth={2} />
@@ -1123,21 +1203,13 @@ export const ManagerOrders: React.FC = () => {
                 }
 
                 if (liveSelectedOrder.status === 'SERVED') {
-                  const sessId = (liveSelectedOrder as any).diningSessionId?._id || liveSelectedOrder.sessionId;
                   return (
                     <button
-                      onClick={async () => {
-                        if (sessId && (liveSelectedOrder as any).diningSessionId?.status !== 'CLOSED') {
-                          closeSessionMutation.mutate({ sessionId: sessId, orderId: liveSelectedOrder._id });
-                        } else {
-                          archiveServedOrder(liveSelectedOrder._id);
-                          setSelectedCardOrder(null);
-                        }
-                      }}
-                      className="px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95"
+                      onClick={() => setFreeTableOrder(liveSelectedOrder)}
+                      className="px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 cursor-pointer"
                     >
                       <Receipt className="w-4 h-4" strokeWidth={2} />
-                      <span>Free Table</span>
+                      <span>Free Table (Enter ↵)</span>
                     </button>
                   );
                 }
@@ -1145,10 +1217,29 @@ export const ManagerOrders: React.FC = () => {
                 return null;
               })()}
 
+              {/* Quick Print Customer Bill Button */}
+              <button
+                onClick={() => printOrderTicket(liveSelectedOrder, restaurantInfo, 'CUSTOMER')}
+                className="px-3 py-2 sm:py-2.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-blue-500/40 active:scale-95 cursor-pointer"
+                title="Quick Print Customer Bill"
+              >
+                <Receipt className="w-4 h-4 text-blue-400" strokeWidth={2} />
+                <span className="hidden sm:inline">Print Bill</span>
+              </button>
+
+              {/* Print Modal Button */}
+              <button
+                onClick={() => setPrintModalOrder(liveSelectedOrder)}
+                className="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95 cursor-pointer"
+                title="Print KOT & Options"
+              >
+                <Printer className="w-4 h-4 text-amber-400" strokeWidth={2} />
+              </button>
+
               {/* View Full Details Button */}
               <button
                 onClick={() => setDetailModalOrder(liveSelectedOrder)}
-                className="px-3.5 py-2 sm:py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95"
+                className="px-3.5 py-2 sm:py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
                 title="View full order details and bill breakdown"
               >
                 <FileText className="w-4 h-4 text-amber-400" strokeWidth={2} />
@@ -1207,7 +1298,7 @@ export const ManagerOrders: React.FC = () => {
                           {pendingOrderIds.has(liveDetailOrder._id) ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 animate-pulse">
                               <Loader className="w-3 h-3 animate-spin" strokeWidth={2} />
-                              Updatingâ€¦
+                              Updating…
                             </span>
                           ) : (
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
@@ -1228,12 +1319,12 @@ export const ManagerOrders: React.FC = () => {
                             <div className="flex items-center gap-1.5 text-white/55 text-xs font-medium flex-wrap">
                               <CtxIcon className="w-3.5 h-3.5" strokeWidth={2} />
                               <span>{ctx.title}</span>
-                              <span className="opacity-50">Â·</span>
+                              <span className="opacity-50">·</span>
                               <span>{ctx.badge}</span>
                               {liveDetailOrder.roundNumber && (
-                                <><span className="opacity-50">Â·</span><span>Round {liveDetailOrder.roundNumber}</span></>
+                                <><span className="opacity-50">·</span><span>Round {liveDetailOrder.roundNumber}</span></>
                               )}
-                              <span className="opacity-50">Â·</span>
+                              <span className="opacity-50">·</span>
                               <span className="font-mono">
                                 {new Date(liveDetailOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
@@ -1241,12 +1332,22 @@ export const ManagerOrders: React.FC = () => {
                           );
                         })()}
                       </div>
-                      <button
-                        onClick={() => setDetailModalOrder(null)}
-                        className="p-1.5 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition -mt-0.5 -mr-1"
-                      >
-                        <X className="w-5 h-5" strokeWidth={2} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPrintModalOrder(liveDetailOrder)}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center gap-1.5 border border-white/10 active:scale-95"
+                          title="Print Kitchen Ticket or Counter Bill"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
+                          <span>Print</span>
+                        </button>
+                        <button
+                          onClick={() => setDetailModalOrder(null)}
+                          className="p-1.5 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition -mt-0.5 -mr-1"
+                        >
+                          <X className="w-5 h-5" strokeWidth={2} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Stepper embedded in header */}
@@ -1262,7 +1363,7 @@ export const ManagerOrders: React.FC = () => {
                     <div className="px-5 py-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
-                          Items Â· {liveDetailOrder.items.length}
+                          Items · {liveDetailOrder.items.length}
                         </h3>
                         <span className="text-[11px] text-slate-400">Prepared fresh</span>
                       </div>
@@ -1272,7 +1373,7 @@ export const ManagerOrders: React.FC = () => {
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
                                 <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-900 text-white font-mono font-black text-xs flex items-center justify-center mt-0.5">
-                                  {item.quantity}Ã—
+                                  {item.quantity}×
                                 </span>
                                 <div className="min-w-0">
                                   <span className="text-sm font-bold text-slate-900 leading-snug block">{item.nameSnapshot}</span>
@@ -1323,7 +1424,7 @@ export const ManagerOrders: React.FC = () => {
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="font-semibold">POS Integration</span>
-                        <span className="text-slate-400 text-[11px]">Â· Petpooja Sync</span>
+                        <span className="text-slate-400 text-[11px]">· Petpooja Sync</span>
                       </div>
                       <button
                         onClick={() => retryPosMutation.mutate(liveDetailOrder._id)}
@@ -1361,7 +1462,7 @@ export const ManagerOrders: React.FC = () => {
                         <div>
                           <p className="text-xs font-black text-slate-900 uppercase tracking-wide">Total</p>
                           <span className={`text-[10px] font-bold ${liveDetailOrder.paymentStatus === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                            {liveDetailOrder.paymentStatus === 'PAID' ? 'âœ“ Paid' : 'Payment Pending'}
+                            {liveDetailOrder.paymentStatus === 'PAID' ? '✓ Paid' : 'Payment Pending'}
                           </span>
                         </div>
                         <span className="font-mono text-2xl font-black text-slate-950">{formatAmount(liveDetailOrder.total)}</span>
@@ -1396,6 +1497,49 @@ export const ManagerOrders: React.FC = () => {
                       );
                     })()}
 
+                    {/* Print ticket action row */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase font-mono">
+                        <span>Print Receipts &amp; Tickets</span>
+                        <button
+                          type="button"
+                          onClick={() => setPrintModalOrder(liveDetailOrder)}
+                          className="text-amber-600 hover:text-amber-700 font-bold lowercase flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>options &amp; preview →</span>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => printOrderTicket(liveDetailOrder, restaurantInfo, 'CUSTOMER')}
+                          className="py-2.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                          title="Print Customer Tax Invoice / Proforma Bill with UPI QR"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-blue-600" strokeWidth={2} />
+                          <span>Customer Bill</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => printOrderTicket(liveDetailOrder, restaurantInfo, 'KITCHEN')}
+                          className="py-2.5 px-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                          title="Print Kitchen Order Ticket"
+                        >
+                          <ChefHat className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+                          <span>Kitchen KOT</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => printOrderTicket(liveDetailOrder, restaurantInfo, 'COUNTER')}
+                          className="py-2.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+                          title="Print Counter / Cashier Audit Copy"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+                          <span>Counter Copy</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Revert + Cancel row */}
                     <div className="grid grid-cols-2 gap-2">
                       {(() => {
@@ -1428,28 +1572,13 @@ export const ManagerOrders: React.FC = () => {
                     {/* Settle served table */}
                     {liveDetailOrder.status === 'SERVED' && (
                       <div className="flex gap-2">
-                        {(liveDetailOrder.sessionId || (liveDetailOrder as any).diningSessionId) && (
-                          <button
-                            onClick={() => {
-                              const sessId = (liveDetailOrder as any).diningSessionId?._id || liveDetailOrder.sessionId;
-                              closeSessionMutation.mutate({ sessionId: sessId, orderId: liveDetailOrder._id });
-                              setDetailModalOrder(null);
-                              setSelectedCardOrder(null);
-                            }}
-                            disabled={pendingOrderIds.has(liveDetailOrder._id)}
-                            className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] disabled:opacity-50"
-                          >
-                            <Receipt className="w-4 h-4 text-amber-400" strokeWidth={2} />
-                            Close Session &amp; Free Table
-                          </button>
-                        )}
                         <button
-                          onClick={() => { archiveServedOrder(liveDetailOrder._id); setDetailModalOrder(null); setSelectedCardOrder(null); }}
+                          onClick={() => setFreeTableOrder(liveDetailOrder)}
                           disabled={pendingOrderIds.has(liveDetailOrder._id)}
-                          className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
+                          className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                         >
-                          <Archive className="w-4 h-4 text-slate-500" strokeWidth={2} />
-                          Archive
+                          <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
+                          <span>Free Table &amp; Print Bill (Enter ↵)</span>
                         </button>
                       </div>
                     )}
@@ -1461,9 +1590,9 @@ export const ManagerOrders: React.FC = () => {
           document.body
         )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* =================================================================================================
           CONFIRM CANCEL MODAL
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          ================================================================================================= */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
@@ -1519,6 +1648,121 @@ export const ManagerOrders: React.FC = () => {
           </AnimatePresence>,
           document.body
         )}
+
+      {/* =================================================================================================
+          FREE TABLE & PRINT BILL SETTLEMENT MODAL
+          ================================================================================================= */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {freeTableOrder && (
+              <div className="fixed inset-0 z-[9999] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 select-none font-sans">
+                <motion.div
+                  initial={{ scale: 0.94, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.94, opacity: 0, y: 10 }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative bg-white rounded-3xl p-6 sm:p-7 w-full max-w-md shadow-2xl border border-slate-100 z-10 space-y-5"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs">
+                        <Receipt className="w-5 h-5" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <h3 className="font-display font-bold text-lg text-slate-900 leading-tight">
+                          Free Table &amp; Settle Bill
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          Order #{freeTableOrder.orderNumber} • {freeTableOrder.tableId?.displayName || freeTableOrder.tableId?.tableNumber || 'Table'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFreeTableOrder(null)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" strokeWidth={2} />
+                    </button>
+                  </div>
+
+                  {/* Summary Card */}
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>Items:</span>
+                      <span className="font-bold text-slate-800 truncate max-w-[200px]">
+                        {freeTableOrder.items.length} items ({freeTableOrder.items.map((i) => `${i.quantity}x ${i.nameSnapshot}`).join(', ')})
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>Payment Status:</span>
+                      <span
+                        className={`font-bold px-2 py-0.5 rounded-md text-[11px] ${
+                          freeTableOrder.paymentStatus === 'PAID'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {freeTableOrder.paymentStatus === 'PAID' ? '✓ PAID' : '⚠️ PAYMENT DUE (UPI QR on bill)'}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-slate-900">Total Payable:</span>
+                      <span className="font-mono text-xl font-black text-slate-950">
+                        {formatAmount(freeTableOrder.total)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed text-center">
+                    Print the customer bill and mark this table as available for the next guests.
+                  </p>
+
+                  {/* Actions */}
+                  <div className="space-y-2 pt-1">
+                    {/* Primary Print & Free */}
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmFreeTable(true)}
+                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4 text-white" strokeWidth={2} />
+                      <span>Print Bill &amp; Free Table (Enter ↵)</span>
+                    </button>
+
+                    {/* Secondary Free Only */}
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmFreeTable(false)}
+                      className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <span>Free Table Only (Skip Print)</span>
+                    </button>
+
+                    {/* Cancel */}
+                    <button
+                      type="button"
+                      onClick={() => setFreeTableOrder(null)}
+                      className="w-full py-2 text-slate-400 hover:text-slate-600 font-medium text-xs transition cursor-pointer"
+                    >
+                      Keep Occupied (Esc)
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+      {/* ── Print Order Modal ────────────────────────────────────────────────── */}
+      <PrintOrderModal
+        isOpen={!!printModalOrder}
+        onClose={() => setPrintModalOrder(null)}
+        order={printModalOrder}
+        restaurantInfo={restaurantInfo}
+      />
     </div>
   );
 };

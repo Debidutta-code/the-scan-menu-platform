@@ -76,6 +76,28 @@ export interface IRestaurantSettingsInventory {
   auto86OnZeroStock: boolean;
 }
 
+export interface IRestaurantSettingsPrinter {
+  paperWidth: '80mm' | '58mm' | 'A4';
+  templateTheme?: 'classic' | 'modern' | 'compact';
+  showLogo?: boolean;
+  logoUrl?: string;
+  showGstNumber?: boolean;
+  gstNumber?: string;
+  showFssai?: boolean;
+  fssaiNumber?: string;
+  receiptHeader?: string;
+  receiptFooter?: string;
+  showCustomerInfo?: boolean;
+  showPaymentMode?: boolean;
+  showTaxBreakup?: boolean;
+  showPaymentQr?: boolean;
+  upiId?: string;
+  paymentQrUrl?: string;
+  kotNotes?: string;
+  kotShowServerName?: boolean;
+  defaultPrintTarget: 'BOTH' | 'KITCHEN' | 'COUNTER' | 'NONE';
+}
+
 export interface IRestaurantSettings extends Document {
   restaurantId: Types.ObjectId;
   currency: string;
@@ -88,6 +110,7 @@ export interface IRestaurantSettings extends Document {
   orderConfig: IRestaurantSettingsOrderConfig;
   inventoryConfig: IRestaurantSettingsInventory;
   uiSettings: IRestaurantSettingsUi;
+  printerConfig: IRestaurantSettingsPrinter;
   timings?: {
     open: string;
     close: string;
@@ -110,15 +133,15 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       coverImageUrl: { type: String },
     },
     branding: {
-      logoUrl: { type: String, trim: true },
-      coverImageUrl: { type: String, trim: true },
-      googleReviewUrl: { type: String, trim: true },
+      logoUrl: { type: String },
+      coverImageUrl: { type: String },
+      googleReviewUrl: { type: String },
       socialLinks: {
-        facebook: { type: String, trim: true, default: '' },
-        instagram: { type: String, trim: true, default: '' },
-        twitter: { type: String, trim: true, default: '' },
+        facebook: { type: String },
+        instagram: { type: String },
+        twitter: { type: String },
       },
-      whatsapp: { type: String, trim: true, default: '' },
+      whatsapp: { type: String },
     },
     workflow: {
       orderWorkflowMode: {
@@ -132,9 +155,17 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       },
     },
     paymentConfig: {
-      activeProvider: { type: String, enum: ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE'], default: 'CASH' },
-      activeMode: { type: String, enum: ['PREPAID', 'POSTPAID', 'HYBRID'], default: 'POSTPAID' },
-      taxRatePercent: { type: Number, required: true, default: 0 },
+      activeProvider: {
+        type: String,
+        enum: ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE'],
+        default: 'CASH',
+      },
+      activeMode: {
+        type: String,
+        enum: ['PREPAID', 'POSTPAID', 'HYBRID'],
+        default: 'POSTPAID',
+      },
+      taxRatePercent: { type: Number, default: 0 },
       paymentMethods: {
         cash: { type: Boolean, default: true },
         card: { type: Boolean, default: true },
@@ -142,14 +173,14 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
         razorpay: { type: Boolean, default: false },
       },
       razorpayConfig: {
-        keyId: { type: String, trim: true, default: '' },
-        keySecret: { type: String, trim: true, default: '' },
+        keyId: { type: String },
+        keySecret: { type: String },
       },
       integrationConfig: {
-        provider: { type: String, required: true, default: 'NONE' },
-        config: { type: Schema.Types.Mixed, required: true, default: {} },
+        provider: { type: String, default: 'NONE' },
+        config: { type: Schema.Types.Mixed, default: {} },
       },
-      gstNumber: { type: String, trim: true },
+      gstNumber: { type: String },
     },
     notificationPreferences: {
       emailNotifications: { type: Boolean, default: true },
@@ -172,6 +203,27 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       defaultLanguage: { type: String, default: 'en' },
       displayItemImages: { type: Boolean, default: true },
       enableDarkMode: { type: Boolean, default: false },
+    },
+    printerConfig: {
+      paperWidth: { type: String, enum: ['80mm', '58mm', 'A4'], default: '80mm' },
+      templateTheme: { type: String, enum: ['classic', 'modern', 'compact'], default: 'classic' },
+      showLogo: { type: Boolean, default: true },
+      logoUrl: { type: String, trim: true, default: '' },
+      showGstNumber: { type: Boolean, default: true },
+      gstNumber: { type: String, trim: true, default: '' },
+      showFssai: { type: Boolean, default: true },
+      fssaiNumber: { type: String, trim: true, default: '' },
+      receiptHeader: { type: String, trim: true, default: '' },
+      receiptFooter: { type: String, trim: true, default: '' },
+      showCustomerInfo: { type: Boolean, default: true },
+      showPaymentMode: { type: Boolean, default: true },
+      showTaxBreakup: { type: Boolean, default: true },
+      showPaymentQr: { type: Boolean, default: true },
+      upiId: { type: String, trim: true, default: '' },
+      paymentQrUrl: { type: String, trim: true, default: '' },
+      kotNotes: { type: String, trim: true, default: '' },
+      kotShowServerName: { type: Boolean, default: true },
+      defaultPrintTarget: { type: String, enum: ['BOTH', 'KITCHEN', 'COUNTER', 'NONE'], default: 'BOTH' },
     },
     timings: {
       open: { type: String, default: '09:00' },

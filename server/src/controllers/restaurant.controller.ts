@@ -217,6 +217,7 @@ export class RestaurantController {
         googleReviewUrl: settings.branding?.googleReviewUrl || '',
         whatsapp: settings.branding?.whatsapp || '',
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
+        printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
       };
 
       sendSuccess(res, responseData, 'Restaurant profile retrieved successfully');
@@ -278,6 +279,7 @@ export class RestaurantController {
       if (updateData.googleReviewUrl !== undefined) settings.branding.googleReviewUrl = updateData.googleReviewUrl;
       if (updateData.whatsapp !== undefined) settings.branding.whatsapp = updateData.whatsapp;
       if (updateData.socialLinks) settings.branding.socialLinks = { ...settings.branding.socialLinks, ...updateData.socialLinks };
+      if (updateData.printerConfig) settings.printerConfig = { ...(settings.printerConfig || {}), ...updateData.printerConfig };
 
       await settings.save();
 
@@ -297,6 +299,7 @@ export class RestaurantController {
         googleReviewUrl: settings.branding?.googleReviewUrl || '',
         whatsapp: settings.branding?.whatsapp || '',
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
+        printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
       };
 
       sendSuccess(res, responseData, 'Restaurant profile updated successfully');
