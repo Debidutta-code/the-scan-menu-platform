@@ -23,6 +23,7 @@ export class OrderController {
     this.getAnalytics = this.getAnalytics.bind(this);
     this.updateItemStatus = this.updateItemStatus.bind(this);
     this.getTableSession = this.getTableSession.bind(this);
+    this.getTableOrders = this.getTableOrders.bind(this);
     this.settleTableSession = this.settleTableSession.bind(this);
     this.closeTableSession = this.closeTableSession.bind(this);
     this.abandonTableSession = this.abandonTableSession.bind(this);
@@ -296,6 +297,45 @@ export class OrderController {
       }).sort({ version: -1 });
 
       sendSuccess(res, { session, orders, bill: activeBill }, 'Table session retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getTableOrders(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, tableId } = req.params;
+
+      // 1. Find active dining session if any
+      const activeSession = await DiningSession.findOne({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        tableId: new mongoose.Types.ObjectId(tableId),
+        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+      });
+
+      let orders: any[] = [];
+      if (activeSession) {
+        orders = await Order.find({
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          diningSessionId: activeSession._id,
+          status: { $ne: 'CANCELLED' },
+        }).sort({ createdAt: 1 });
+      }
+
+      // 2. If no active session or no session orders found, find all non-cancelled orders for this table today
+      if (orders.length === 0) {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        orders = await Order.find({
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          tableId: new mongoose.Types.ObjectId(tableId),
+          status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
+          createdAt: { $gte: startOfDay },
+        }).sort({ createdAt: 1 });
+      }
+
+      sendSuccess(res, orders, 'Table orders retrieved successfully');
     } catch (error) {
       next(error);
     }

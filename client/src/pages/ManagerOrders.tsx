@@ -532,6 +532,8 @@ export const ManagerOrders: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
+    freeTableOrder,
+    handleConfirmFreeTable,
     detailModalOrder,
     selectedCardOrder,
     liveSelectedOrder,

@@ -25,7 +25,8 @@ router.post('/:restaurantId/orders/counter', requireFeature('ordering') as any, 
 // Item status tick transitions
 router.patch('/:restaurantId/orders/:orderId/items/:itemIndex/status', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.updateItemStatus);
 
-// Table Session management
+// Table Session & Table Orders management
+router.get('/:restaurantId/tables/:tableId/orders', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getTableOrders);
 router.get('/:restaurantId/table-sessions/:sessionId', requireFeature('ordering') as any, requireRestaurantAccess as any, orderController.getTableSession);
 router.post('/:restaurantId/table-sessions/:sessionId/settle', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.settleTableSession);
 router.post('/:restaurantId/table-sessions/:sessionId/close', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF') as any, orderController.closeTableSession);

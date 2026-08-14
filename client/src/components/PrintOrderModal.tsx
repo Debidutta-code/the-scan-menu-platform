@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Printer,
@@ -44,11 +44,11 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
     (restaurantInfo.settings as any)?.printerConfig?.paperWidth ||
     '80mm';
 
-  const handlePrint = (type: TicketPrintType) => {
+  const handlePrint = useCallback((type: TicketPrintType) => {
     if (!order) return;
     printOrderTicket(order, restaurantInfo, type, resolvedPaperWidth);
     onClose();
-  };
+  }, [order, restaurantInfo, resolvedPaperWidth, onClose]);
 
   // Keyboard shortcut listener: 1: Customer, 2: KOT, 3: Counter, 4/Enter: Both, Esc: Close
   useEffect(() => {
@@ -73,7 +73,7 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, order, showPreview, restaurantInfo, resolvedPaperWidth]);
+  }, [isOpen, order, showPreview, handlePrint, onClose]);
 
   if (!isOpen || !order) return null;
 

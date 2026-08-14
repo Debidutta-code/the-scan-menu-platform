@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
-import { printOrderTicket } from '../utils/printReceipt';
+import { printOrderTicket, PrintOrderData } from '../utils/printReceipt';
 
 const tableSchema = z.object({
   tableNumber: z.string().optional(),
@@ -144,12 +144,25 @@ export const ManagerTables: React.FC = () => {
     footerMessage: restaurantData?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
   }), [restaurantData]);
 
-  const getTableConsolidatedOrder = (tableId: string, tableNumber: string) => {
-    const ordersList: any[] = activeOrdersResponse?.data || [];
-    const tableOrders = ordersList.filter((o) => {
-      const tId = typeof o.tableId === 'string' ? o.tableId : o.tableId?._id;
-      return tId === tableId;
-    });
+  const fetchTableConsolidatedOrder = async (
+    tableId: string,
+    tableNumber: string,
+    displayName?: string
+  ): Promise<PrintOrderData> => {
+    let tableOrders: any[] = [];
+    try {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/tables/${tableId}/orders`);
+      if (res.data?.success && Array.isArray(res.data?.data)) {
+        tableOrders = res.data.data;
+      }
+    } catch {
+      // Fallback to activeOrdersResponse
+      const ordersList: any[] = activeOrdersResponse?.data || [];
+      tableOrders = ordersList.filter((o) => {
+        const tId = typeof o.tableId === 'string' ? o.tableId : o.tableId?._id;
+        return tId === tableId;
+      });
+    }
 
     const combinedItems: any[] = [];
     let combinedSubtotal = 0;
@@ -163,20 +176,22 @@ export const ManagerTables: React.FC = () => {
       combinedTotal += ord.total || (ord.subtotal || 0) + (ord.tax || 0);
     });
 
+    const allPaid = tableOrders.every((o) => o.paymentStatus === 'PAID') && tableOrders.length > 0;
+
     return {
       orderNumber: tableOrders[0]?.orderNumber || parseInt(tableNumber, 10) || 1,
       orderMode: 'DINE_IN',
-      tableName: `Table ${tableNumber}`,
-      createdAt: new Date().toISOString(),
+      tableName: displayName || `Table ${tableNumber}`,
+      createdAt: tableOrders[0]?.createdAt || new Date().toISOString(),
       customerName: tableOrders[0]?.customerName || 'Dine-In Guest',
       customerPhone: tableOrders[0]?.customerPhone,
       items: combinedItems.length > 0 ? combinedItems : [
-        { nameSnapshot: `Table ${tableNumber} Dining Service`, unitPriceSnapshot: combinedTotal || 0, quantity: 1 }
+        { nameSnapshot: `${displayName || `Table ${tableNumber}`} Dining Service`, unitPriceSnapshot: combinedTotal || 0, quantity: 1 }
       ],
       subtotal: combinedSubtotal,
       tax: combinedTax,
       total: combinedTotal,
-      paymentStatus: tableOrders.every((o) => o.paymentStatus === 'PAID') && tableOrders.length > 0 ? 'PAID' : 'PENDING',
+      paymentStatus: allPaid ? 'PAID' : 'PENDING',
     };
   };
 
@@ -529,14 +544,14 @@ export const ManagerTables: React.FC = () => {
                       {isOccupied && (
                         <button
                           type="button"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            const tableOrder = getTableConsolidatedOrder(table._id, table.tableNumber);
+                            const tableOrder = await fetchTableConsolidatedOrder(table._id, table.tableNumber, table.displayName);
                             printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
-                            toast(`Printed Customer Bill for Table ${table.tableNumber}`, 'success');
+                            toast(`Printed Customer Bill for ${table.displayName}`, 'success');
                           }}
                           className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
-                          title={`1-Click Print Customer Bill (Table ${table.tableNumber})`}
+                          title={`1-Click Print Customer Bill (${table.displayName})`}
                         >
                           <Receipt className="w-3 h-3" strokeWidth={2} />
                         </button>
@@ -665,10 +680,10 @@ export const ManagerTables: React.FC = () => {
                   <div className="space-y-2 pb-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        const tableOrder = getTableConsolidatedOrder(t._id, t.tableNumber);
+                      onClick={async () => {
+                        const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
                         printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
-                        toast(`Printing Customer Bill for Table ${t.tableNumber}`, 'success');
+                        toast(`Printing Customer Bill for ${t.displayName}`, 'success');
                       }}
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] cursor-pointer"
                     >
@@ -678,13 +693,13 @@ export const ManagerTables: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        const tableOrder = getTableConsolidatedOrder(t._id, t.tableNumber);
+                      onClick={async () => {
+                        const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
                         printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
                         clearTablesMutation.mutate([t._id], {
                           onSuccess: () => {
                             setActiveTableAction(null);
-                            toast(`Table ${t.tableNumber} bill printed and table cleared!`, 'success');
+                            toast(`${t.displayName} bill printed and table cleared!`, 'success');
                           },
                         });
                       }}
@@ -703,8 +718,8 @@ export const ManagerTables: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        const tableOrder = getTableConsolidatedOrder(t._id, t.tableNumber);
+                      onClick={async () => {
+                        const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
                         setPrintModalOrder(tableOrder);
                       }}
                       className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition active:scale-[0.98] cursor-pointer"

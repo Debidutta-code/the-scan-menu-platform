@@ -568,3 +568,29 @@ Updates status for a single table (`AVAILABLE`, `OCCUPIED`, `RESERVED`).
   }
   ```
 
+---
+
+### 20. Get Table Orders & Active Session (Staff / Manager / Super Admin)
+Retrieves all orders associated with an active dining session or unclosed table orders.
+
+- **Method:** `GET`
+- **Path:** `/api/v1/restaurants/:restaurantId/tables/:tableId/orders`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `STAFF`, `SUPER_ADMIN`)
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "60d0fe...",
+        "orderNumber": 101,
+        "items": [],
+        "total": 450,
+        "paymentStatus": "PAID"
+      }
+    ],
+    "message": "Table orders retrieved successfully"
+  }
+  ```
+
+
