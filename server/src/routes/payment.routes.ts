@@ -21,6 +21,9 @@ router.get('/transactions/export', requireRole('MANAGER', 'SUPER_ADMIN') as any,
 // GET /restaurants/:restaurantId/payments/transactions/:id
 router.get('/transactions/:id', paymentController.getTransaction);
 
+// PATCH /restaurants/:restaurantId/payments/transactions/:id/capture
+router.patch('/transactions/:id/capture', requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, paymentController.captureTransaction);
+
 // PATCH /restaurants/:restaurantId/payments/config
 router.patch('/config', requireRole('MANAGER', 'SUPER_ADMIN') as any, paymentController.updateConfig);
 

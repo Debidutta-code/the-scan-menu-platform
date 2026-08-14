@@ -1,6 +1,6 @@
 import mongoose, { Schema, model, Document, Types } from 'mongoose';
 
-export type PaymentProviderType = 'CASH' | 'RAZORPAY' | 'STRIPE' | 'SQUARE';
+export type PaymentProviderType = 'CASH' | 'RAZORPAY' | 'STRIPE' | 'SQUARE' | 'UPI' | 'CARD' | 'MANUAL';
 export type PaymentMethodType = 'CASH' | 'UPI' | 'CARD' | 'NETBANKING' | 'OTHER';
 export type PaymentMode = 'PREPAID' | 'POSTPAID' | 'HYBRID';
 export type PaymentStatus = 'PENDING' | 'CAPTURED' | 'FAILED' | 'REFUNDED';
@@ -36,7 +36,7 @@ const paymentSchema = new Schema<IPayment>(
     orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
     provider: {
       type: String,
-      enum: ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE'],
+      enum: ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE', 'UPI', 'CARD', 'MANUAL'],
       required: true,
     },
     method: {

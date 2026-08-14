@@ -36,10 +36,12 @@ export class PaymentController {
   async listTransactions(req: Request, res: Response, next: NextFunction) {
     try {
       const { restaurantId } = req.params;
-      const { status, startDate, endDate, page, limit } = req.query;
+      const { status, method, search, startDate, endDate, page, limit } = req.query;
 
       const filters = {
         status: status as string,
+        method: method as string,
+        search: search as string,
         startDate: startDate as string,
         endDate: endDate as string,
       };
@@ -59,6 +61,18 @@ export class PaymentController {
       const { restaurantId, id } = req.params;
       const transaction = await paymentService.getTransaction(restaurantId, id);
       res.status(200).json({ success: true, data: transaction });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async captureTransaction(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { restaurantId, id } = req.params;
+      const { method } = req.body;
+      const staffUserId = (req as any).user?.id;
+      const transaction = await paymentService.captureTransaction(restaurantId, id, staffUserId, method);
+      res.status(200).json({ success: true, data: transaction, message: 'Transaction marked as captured' });
     } catch (error) {
       next(error);
     }

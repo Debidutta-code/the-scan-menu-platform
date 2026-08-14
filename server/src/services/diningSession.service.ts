@@ -4,6 +4,7 @@ import { GuestSession, IGuestSession } from '../models/GuestSession';
 import { Table } from '../models/Table';
 import { Restaurant } from '../models/Restaurant';
 import { Order } from '../models/Order';
+import { Payment } from '../models/Payment';
 import { AuditLog } from '../models/AuditLog';
 import { NotificationService } from './notification.service';
 import crypto from 'crypto';
@@ -340,6 +341,27 @@ export class DiningSessionService {
       },
       { $set: { paymentStatus: 'PAID' } }
     );
+
+    // Record payment in transactions ledger if not already recorded
+    const existingPayment = await Payment.findOne({ diningSessionId: session._id, status: 'CAPTURED' });
+    if (!existingPayment && session.total > 0) {
+      await Payment.create({
+        restaurantId: session.restaurantId,
+        diningSessionId: session._id,
+        tableId: session.tableId,
+        provider: 'CASH',
+        method: 'CASH',
+        mode: 'POSTPAID',
+        amount: session.total,
+        currency: 'INR',
+        status: 'CAPTURED',
+        metadata: {
+          sessionCode: session.sessionCode,
+          source: 'TABLE_SETTLEMENT',
+          closedByStaffId: staffUserId,
+        },
+      });
+    }
 
     await AuditLog.create({
       action: 'SESSION_CLOSED',

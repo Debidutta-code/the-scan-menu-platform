@@ -134,9 +134,11 @@ export class OrderController {
   async createCounterOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { items, customerNote, customerName, customerPhone, orderMode, tableId, diningSessionId, paymentStatus, source } = req.body;
+      const { items, customerNote, customerName, customerPhone, orderMode, tableId, diningSessionId, paymentStatus, paymentMethod, source } = req.body;
 
       const effectiveOrderMode = orderMode || 'COUNTER';
+      const isPaid = (paymentStatus || (effectiveOrderMode === 'COUNTER' ? 'PAID' : 'PENDING')) === 'PAID';
+
       const order = await orderService.createOrder({
         restaurantId,
         tableId,
@@ -147,7 +149,9 @@ export class OrderController {
         customerName,
         customerPhone,
         source: source || 'POS',
-        paymentStatus: paymentStatus || (effectiveOrderMode === 'COUNTER' ? 'PAID' : 'PENDING'),
+        paymentStatus: isPaid ? 'PAID' : 'PENDING',
+        paymentMethod: paymentMethod || 'CASH',
+        createdByName: (req.user as any)?.name || 'Staff',
       });
 
       sendSuccess(res, order, 'Counter order created successfully', 201);

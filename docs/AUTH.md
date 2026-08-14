@@ -585,11 +585,73 @@ Retrieves all orders associated with an active dining session or unclosed table 
         "_id": "60d0fe...",
         "orderNumber": 101,
         "items": [],
-        "total": 450,
+        "total": 45000,
         "paymentStatus": "PAID"
       }
     ],
     "message": "Table orders retrieved successfully"
+  }
+  ```
+
+---
+
+### 21. List Payment Transactions & Ledger (Staff / Manager / Super Admin)
+Retrieves paginated transactions ledger with populated order, table, and customer details along with financial summary statistics.
+
+- **Method:** `GET`
+- **Path:** `/api/v1/restaurants/:restaurantId/payments/transactions`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `STAFF`, `SUPER_ADMIN`)
+- **Query Params:** `status`, `method`, `search`, `startDate`, `endDate`, `page`, `limit`
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "transactions": [
+        {
+          "_id": "60d0fe...",
+          "provider": "UPI",
+          "method": "UPI",
+          "mode": "PREPAID",
+          "amount": 68146,
+          "status": "CAPTURED",
+          "orderId": { "orderNumber": 133, "customerName": "John" }
+        }
+      ],
+      "total": 1,
+      "summary": {
+        "totalRevenue": 68146,
+        "capturedCount": 1,
+        "pendingCount": 0,
+        "failedCount": 0
+      }
+    }
+  }
+  ```
+
+---
+
+### 22. Capture / Settle Pending Transaction (Staff / Manager / Super Admin)
+Marks a pending transaction as collected / captured and synchronizes linked order and dining session payment status.
+
+- **Method:** `PATCH`
+- **Path:** `/api/v1/restaurants/:restaurantId/payments/transactions/:id/capture`
+- **Auth:** Bearer Token (Roles: `MANAGER`, `STAFF`, `SUPER_ADMIN`)
+- **Request Body (JSON):**
+  ```json
+  {
+    "method": "CASH"
+  }
+  ```
+- **Success Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "_id": "60d0fe...",
+      "status": "CAPTURED"
+    },
+    "message": "Transaction marked as captured"
   }
   ```
 

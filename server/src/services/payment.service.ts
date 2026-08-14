@@ -39,14 +39,24 @@ export class PaymentService {
 
   async listTransactions(
     restaurantId: string | Types.ObjectId,
-    filters: { status?: string; startDate?: string; endDate?: string } = {},
+    filters: { status?: string; method?: string; search?: string; startDate?: string; endDate?: string } = {},
     page: number = 1,
     limit: number = 20
-  ): Promise<{ transactions: ITransaction[]; total: number }> {
-    const query: any = { restaurantId };
+  ): Promise<{ transactions: any[]; total: number; summary: { totalRevenue: number; capturedCount: number; pendingCount: number; failedCount: number } }> {
+    const rId = new Types.ObjectId(restaurantId);
+    const query: any = { restaurantId: rId };
 
-    if (filters.status) {
-      query.status = filters.status;
+    if (filters.status && filters.status !== 'ALL') {
+      if (['SUCCESS', 'PAID', 'CAPTURED'].includes(filters.status.toUpperCase())) {
+        query.status = 'CAPTURED';
+      } else {
+        query.status = filters.status.toUpperCase();
+      }
+    }
+
+    if (filters.method && filters.method !== 'ALL') {
+      const m = filters.method.toUpperCase();
+      query.$or = [{ method: m }, { provider: m }];
     }
 
     if (filters.startDate || filters.endDate) {
@@ -55,25 +65,151 @@ export class PaymentService {
       if (filters.endDate) query.createdAt.$lte = new Date(filters.endDate);
     }
 
+    if (filters.search && filters.search.trim()) {
+      const term = filters.search.trim();
+      const searchRegex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const orConditions: any[] = [
+        { 'metadata.customerName': searchRegex },
+        { 'metadata.customerPhone': searchRegex },
+        { providerReferenceId: searchRegex },
+      ];
+
+      const numSearch = parseInt(term, 10);
+      if (!isNaN(numSearch)) {
+        orConditions.push({ 'metadata.orderNumber': numSearch });
+      }
+
+      if (Types.ObjectId.isValid(term)) {
+        orConditions.push({ _id: new Types.ObjectId(term) });
+        orConditions.push({ orderId: new Types.ObjectId(term) });
+      }
+
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: orConditions }];
+        delete query.$or;
+      } else {
+        query.$or = orConditions;
+      }
+    }
+
     const skip = (page - 1) * limit;
 
-    const [transactions, total] = await Promise.all([
+    const [transactions, total, summaryAgg] = await Promise.all([
       Transaction.find(query)
         .sort({ createdAt: -1 })
+        .populate([
+          {
+            path: 'orderId',
+            select: 'orderNumber orderMode customerName customerPhone items total subtotal tax status paymentStatus tableId createdAt',
+            populate: { path: 'tableId', select: 'displayName tableNumber' }
+          },
+          {
+            path: 'diningSessionId',
+            select: 'sessionCode tableId status',
+            populate: { path: 'tableId', select: 'displayName tableNumber' }
+          },
+          { path: 'billId', select: 'billNumber netAmount balanceDue discountAmount' }
+        ])
         .skip(skip)
         .limit(limit)
         .lean(),
       Transaction.countDocuments(query),
+      Transaction.aggregate([
+        { $match: { restaurantId: rId } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: { $cond: [{ $eq: ['$status', 'CAPTURED'] }, '$amount', 0] }
+            },
+            capturedCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'CAPTURED'] }, 1, 0] }
+            },
+            pendingCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] }
+            },
+            failedCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] }
+            }
+          }
+        }
+      ])
     ]);
 
-    return { transactions: transactions as unknown as ITransaction[], total };
+    const summary = summaryAgg[0] || {
+      totalRevenue: 0,
+      capturedCount: 0,
+      pendingCount: 0,
+      failedCount: 0,
+    };
+
+    return { transactions: transactions as any[], total, summary };
   }
 
   async getTransaction(restaurantId: string | Types.ObjectId, transactionId: string): Promise<ITransaction> {
+    const transaction = await Transaction.findOne({ _id: transactionId, restaurantId })
+      .populate([
+        {
+          path: 'orderId',
+          select: 'orderNumber orderMode customerName customerPhone items total subtotal tax status paymentStatus tableId createdAt',
+          populate: { path: 'tableId', select: 'displayName tableNumber' }
+        },
+        {
+          path: 'diningSessionId',
+          select: 'sessionCode tableId status',
+          populate: { path: 'tableId', select: 'displayName tableNumber' }
+        },
+        { path: 'billId', select: 'billNumber netAmount balanceDue discountAmount' }
+      ]);
+    if (!transaction) {
+      throw new CustomError('Transaction not found', 404);
+    }
+    return transaction;
+  }
+
+  async captureTransaction(
+    restaurantId: string | Types.ObjectId,
+    transactionId: string,
+    staffUserId?: string,
+    method?: string
+  ): Promise<ITransaction> {
     const transaction = await Transaction.findOne({ _id: transactionId, restaurantId });
     if (!transaction) {
       throw new CustomError('Transaction not found', 404);
     }
+
+    transaction.status = 'CAPTURED';
+    if (method) {
+      transaction.method = method as any;
+      if (['UPI', 'CARD', 'CASH'].includes(method)) {
+        transaction.provider = method as any;
+      }
+    }
+    transaction.metadata = {
+      ...(transaction.metadata || {}),
+      capturedByStaffId: staffUserId,
+      capturedAt: new Date(),
+    };
+    await transaction.save();
+
+    if (transaction.orderId) {
+      const order = await Order.findById(transaction.orderId);
+      if (order && order.paymentStatus !== 'PAID') {
+        order.paymentStatus = 'PAID';
+        await order.save();
+        try {
+          NotificationService.getInstance().notifyOrderStatusUpdated(
+            restaurantId.toString(),
+            order._id.toString(),
+            order.status,
+            order.updatedAt
+          );
+        } catch (err) {
+          console.error('Failed to notify order status updated:', err);
+        }
+      }
+    }
+
     return transaction;
   }
 

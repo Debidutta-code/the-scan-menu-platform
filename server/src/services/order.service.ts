@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { Order, IOrder, OrderStatus, OrderMode } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
 import { Bill } from '../models/Bill';
+import { Payment } from '../models/Payment';
 import { MenuItem } from '../models/MenuItem';
 import { Category } from '../models/Category';
 import { Tax } from '../models/Tax';
@@ -50,6 +51,8 @@ export class OrderService {
     customerId?: Types.ObjectId | string;
     source?: 'QR' | 'POS' | 'WAITER' | 'MANUAL';
     paymentStatus?: 'PENDING' | 'PAID' | 'WAIVED';
+    paymentMethod?: string;
+    createdByName?: string;
     deliveryAddress?: Record<string, any>;
   }): Promise<IOrder> {
     const {
@@ -65,6 +68,8 @@ export class OrderService {
       customerPhone,
       source = 'QR',
       paymentStatus = 'PENDING',
+      paymentMethod,
+      createdByName,
       deliveryAddress,
     } = params;
 
@@ -419,6 +424,36 @@ export class OrderService {
 
     if (resolvedCustomerId) {
       customerService.recordCustomerOrder(resolvedCustomerId, total);
+    }
+
+    // Record Payment / Transaction Ledger Entry for this order
+    try {
+      const isPaid = order.paymentStatus === 'PAID';
+      const rawMethod = ((paymentMethod || (order.source === 'POS' ? 'CASH' : 'CASH')) as string).toUpperCase();
+      const provider = ['UPI', 'CASH', 'CARD', 'RAZORPAY', 'STRIPE'].includes(rawMethod) ? rawMethod : 'CASH';
+
+      await Payment.create({
+        restaurantId: order.restaurantId,
+        orderId: order._id,
+        diningSessionId: order.diningSessionId,
+        tableId: order.tableId,
+        provider: provider as any,
+        method: (['UPI', 'CARD', 'NETBANKING', 'OTHER'].includes(rawMethod) ? rawMethod : 'CASH') as any,
+        mode: order.orderMode === 'DINE_IN' ? 'POSTPAID' : 'PREPAID',
+        amount: order.total,
+        currency: 'INR',
+        status: isPaid ? 'CAPTURED' : 'PENDING',
+        metadata: {
+          orderNumber: order.orderNumber,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          orderMode: order.orderMode,
+          source: order.source,
+          createdByName: createdByName || (order.source === 'POS' ? 'Staff' : 'Customer'),
+        },
+      });
+    } catch (payErr) {
+      console.error('Failed to create ledger payment entry for order:', payErr);
     }
 
     // 7. Dispatch to POS & Notification
