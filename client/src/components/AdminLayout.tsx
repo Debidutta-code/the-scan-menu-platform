@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { ScanMenuLogo } from './ScanMenuLogo';
 import {
   Shield,
   LayoutGrid,
@@ -74,16 +75,16 @@ export const AdminLayout: React.FC = () => {
     <div className="h-screen flex flex-col md:flex-row bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
       {/* SIDEBAR (DESKTOP) */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-150 shrink-0 h-full">
-        <div className="p-6 border-b border-slate-150">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 flex items-center justify-center text-amber-500 shadow-sm">
-              <Shield className="w-4.5 h-4.5" strokeWidth={2} />
+        <div className="p-5 border-b border-slate-150">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-slate-950 flex items-center justify-center shadow-sm shrink-0">
+              <ScanMenuLogo size={24} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
             </div>
             <div>
-              <h2 className="font-display tracking-tight text-2xl font-bold text-slate-900 leading-none">
-                Pixora QR
+              <h2 className="font-display tracking-tight text-xl font-bold text-slate-900 leading-none">
+                The Scan Menu
               </h2>
-              <p className="text-[10px] text-amber-600 font-semibold font-mono uppercase tracking-wider mt-0.5">
+              <p className="text-[10px] text-amber-600 font-semibold font-mono uppercase tracking-wider mt-1">
                 SuperAdmin Console
               </p>
             </div>

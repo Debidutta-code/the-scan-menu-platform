@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, Share, PlusSquare, WifiOff, Smartphone, CheckCircle2 } from 'lucide-react';
+import { Download, X, Share, PlusSquare, WifiOff, CheckCircle2 } from 'lucide-react';
 import usePWAInstall from '../hooks/usePWAInstall';
+import { ScanMenuLogo } from './ScanMenuLogo';
 
 interface PWAInstallPromptProps {
   showBannerOnly?: boolean;
@@ -57,12 +58,12 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center text-slate-950 font-bold shadow-lg shrink-0">
-                  <Smartphone className="w-6 h-6" strokeWidth={2} />
+                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ring-2 ring-amber-500/20">
+                  <ScanMenuLogo size={28} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                    Install Pixora Staff
+                    Install The Scan Menu
                     <span className="text-[10px] bg-amber-500/20 text-amber-400 font-mono px-2 py-0.5 rounded-full font-bold">PWA</span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5 leading-snug">
@@ -121,14 +122,14 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 font-bold">
-                    <Smartphone className="w-5 h-5" strokeWidth={2} />
+                  <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs">
+                    <ScanMenuLogo size={22} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
                   </div>
                   <div>
                     <h2 className="font-display tracking-tight text-xl font-semibold text-slate-900">
-                      Install on iPhone / iPad
+                      Install The Scan Menu
                     </h2>
-                    <p className="text-xs text-slate-500 font-sans">Safari Web App Setup</p>
+                    <p className="text-xs text-slate-500 font-sans">iOS Safari Web App Setup</p>
                   </div>
                 </div>
                 <button

@@ -24,7 +24,7 @@ export const config: ClientConfig = {
     import.meta.env.VITE_SOCKET_URL ||
     apiBaseUrl.replace(/\/api\/v1\/?$/, '') ||
     'http://localhost:5000',
-  appName: import.meta.env.VITE_APP_NAME || 'Pixora QR',
+  appName: import.meta.env.VITE_APP_NAME || 'The Scan Menu',
   baseDomain: import.meta.env.VITE_BASE_DOMAIN || 'thescanmenu.com',
   razorpayKeyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
   isDev: import.meta.env.DEV ?? false,

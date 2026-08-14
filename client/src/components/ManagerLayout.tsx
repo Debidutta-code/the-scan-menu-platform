@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from './ConnectionIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
+import { ScanMenuLogo } from './ScanMenuLogo';
 import {
   Lock,
   Receipt,
@@ -262,8 +263,11 @@ export const ManagerLayout: React.FC = () => {
   const renderHeader = () => (
     <header className="bg-white border-b border-slate-150 px-4 md:px-6 py-4 flex items-center justify-between shadow-sm shrink-0">
       <div className="flex items-center gap-3">
-        <h1 className="font-display tracking-tight text-3xl font-semibold text-slate-900 leading-none">
-          Pixora Staff
+        <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shadow-xs">
+          <ScanMenuLogo size={20} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+        </div>
+        <h1 className="font-display tracking-tight text-2xl font-semibold text-slate-900 leading-none">
+          The Scan Menu
         </h1>
         <ConnectionIndicator status={connectionStatus as ConnectionStatus} />
       </div>
@@ -337,13 +341,18 @@ export const ManagerLayout: React.FC = () => {
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* ----------------- SIDEBAR (TABLET/DESKTOP) ----------------- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-150 shrink-0 h-full">
-        <div className="p-6 border-b border-slate-150">
-          <h2 className="font-display tracking-tight text-3xl font-normal text-slate-900">
-            Pixora QR
-          </h2>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold font-mono mt-0.5">
-            Operations Panel
-          </p>
+        <div className="p-5 border-b border-slate-150 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center shadow-sm shrink-0">
+            <ScanMenuLogo size={24} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+          </div>
+          <div>
+            <h2 className="font-display tracking-tight text-xl font-bold text-slate-900 leading-none">
+              The Scan Menu
+            </h2>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold font-mono mt-1">
+              Operations Panel
+            </p>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

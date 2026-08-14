@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png', 'icons/*.svg'],
       manifest: {
-        name: 'Pixora Staff & Manager',
-        short_name: 'Pixora Staff',
-        description: 'Pixora QR Staff & Manager Operations Portal - Real-time Orders, KDS, Counter POS, Waiter Calls, and Operations.',
+        name: 'The Scan Menu',
+        short_name: 'The Scan Menu',
+        description: 'The Scan Menu - Restaurant QR Ordering, Live KDS, Counter POS, and Operations Platform.',
         theme_color: '#111827',
         background_color: '#0B0B0F',
         display: 'standalone',

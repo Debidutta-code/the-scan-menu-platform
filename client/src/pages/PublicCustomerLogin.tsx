@@ -9,12 +9,12 @@ import {
   ArrowRight,
   Loader,
   Sparkles,
-  Utensils,
   ArrowLeft,
   CheckCircle2,
 } from 'lucide-react';
 import { useCustomerAuth } from '../hooks/useCustomerAuth';
 import { useToast } from '../hooks/useToast';
+import { ScanMenuLogo } from '../components/ScanMenuLogo';
 
 export const PublicCustomerLogin: React.FC = () => {
   const { restaurantSlug } = useParams<{ restaurantSlug?: string }>();
@@ -96,7 +96,7 @@ export const PublicCustomerLogin: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
       <Helmet>
-        <title>Diner Sign In - Pixora QR</title>
+        <title>Diner Sign In - The Scan Menu</title>
       </Helmet>
 
       {/* Decorative ambient subtle background glows */}
@@ -111,8 +111,8 @@ export const PublicCustomerLogin: React.FC = () => {
       >
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 bg-gradient-to-tr from-amber-500 to-amber-400 rounded-2xl flex items-center justify-center text-slate-950 mx-auto shadow-md shadow-amber-500/20">
-            <Utensils className="w-7 h-7" strokeWidth={2} />
+          <div className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto shadow-md ring-4 ring-amber-500/10">
+            <ScanMenuLogo size={32} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
           </div>
           <div>
             <h1 className="font-display tracking-tight text-3xl font-bold text-slate-900">

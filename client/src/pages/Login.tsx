@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { ScanMenuLogo } from '../components/ScanMenuLogo';
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required').email('Invalid email address'),
@@ -69,12 +70,15 @@ export const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 font-sans selection:bg-amber-100">
       <div className="w-full max-w-md">
         {/* Logo and Headings */}
-        <div className="text-center mb-8">
-          <h1 className="font-display tracking-tight text-5xl font-normal text-slate-900 mb-2">
-            Pixora QR
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div className="w-16 h-16 rounded-3xl bg-slate-900 shadow-md flex items-center justify-center mb-4 ring-4 ring-amber-500/10 transition-transform duration-300 hover:scale-105">
+            <ScanMenuLogo size={40} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+          </div>
+          <h1 className="font-display tracking-tight text-4xl font-semibold text-slate-900 mb-1">
+            The Scan Menu
           </h1>
-          <p className="text-sm text-slate-500 font-sans">
-            Phase 1 Standalone Authentication Platform
+          <p className="text-xs text-slate-500 font-sans font-medium tracking-wide">
+            Operations & Management Platform
           </p>
         </div>
 
