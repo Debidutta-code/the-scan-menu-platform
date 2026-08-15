@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/api_constants.dart';
 
 class SecureStorageService {
   static const _storage = FlutterSecureStorage();
@@ -50,7 +51,16 @@ class SecureStorageService {
 
   static Future<String?> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyBaseUrl);
+    final stored = prefs.getString(_keyBaseUrl);
+    // Auto-migrate legacy/deprecated URLs to the active Render service URL
+    if (stored == 'https://the-scan-menu.onrender.com' ||
+        stored == 'https://the-scan-menu.onrender.com/' ||
+        stored == null ||
+        stored.trim().isEmpty) {
+      await prefs.setString(_keyBaseUrl, ApiConstants.defaultBaseUrl);
+      return ApiConstants.defaultBaseUrl;
+    }
+    return stored;
   }
 
   // Notification Preferences

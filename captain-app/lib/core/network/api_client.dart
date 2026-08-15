@@ -40,6 +40,10 @@ class ApiClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          final currentBase = await SecureStorageService.getBaseUrl();
+          if (currentBase != null && currentBase.isNotEmpty) {
+            options.baseUrl = currentBase.trim().replaceAll(RegExp(r'/+$'), '');
+          }
           final token = await SecureStorageService.getAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
