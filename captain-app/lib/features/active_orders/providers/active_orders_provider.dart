@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audio/alert_service.dart';
 import '../../../core/constants/api_constants.dart';
@@ -122,9 +123,15 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
         state = state.copyWith(isLoading: false);
       }
     } catch (e) {
+      String msg = 'Failed to load active orders';
+      if (e is DioException) {
+        msg = _apiClient.formatDioError(e).message;
+      } else {
+        msg = e.toString();
+      }
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to load active orders: ${e.toString()}',
+        errorMessage: msg,
       );
     }
   }
