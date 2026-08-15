@@ -188,11 +188,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 20),
 
             // Preferences Card
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
+            Material(
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.cardBorder),
+                side: const BorderSide(color: AppColors.cardBorder),
               ),
               child: Column(
                 children: [

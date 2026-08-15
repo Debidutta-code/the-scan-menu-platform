@@ -97,7 +97,13 @@ class TablesNotifier extends StateNotifier<TablesState> {
 
   Future<void> fetchTablesAndZones({bool isSilent = false}) async {
     final restaurantId = _restaurantId;
-    if (restaurantId == null) return;
+    // ignore: avoid_print
+    print('[TABLES] fetchTablesAndZones called for restaurantId: $restaurantId (isSilent: $isSilent)');
+    if (restaurantId == null) {
+      // ignore: avoid_print
+      print('[TABLES] restaurantId is NULL, aborting fetch.');
+      return;
+    }
     if (!isSilent) {
       state = state.copyWith(isLoading: true, errorMessage: null);
     }
@@ -125,6 +131,9 @@ class TablesNotifier extends StateNotifier<TablesState> {
             .toList();
       }
 
+      // ignore: avoid_print
+      print('[TABLES] Loaded ${loadedTables.length} tables and ${loadedZones.length} zones successfully.');
+
       state = state.copyWith(
         isLoading: false,
         tables: loadedTables,
@@ -137,6 +146,8 @@ class TablesNotifier extends StateNotifier<TablesState> {
       } else {
         msg = e.toString();
       }
+      // ignore: avoid_print
+      print('[TABLES ERROR] $msg | Raw: $e');
       state = state.copyWith(
         isLoading: false,
         errorMessage: msg,

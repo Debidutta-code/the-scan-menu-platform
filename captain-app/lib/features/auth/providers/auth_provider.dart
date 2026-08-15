@@ -114,16 +114,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
           await _socketService.connect(savedRestaurantId);
         }
 
+        // ignore: avoid_print
+        print('[AUTH] Session Verified -> User: ${userData.email} | Role: ${userData.role} | ActiveRestId: $savedRestaurantId | Assigned: ${userData.restaurants}');
+
         state = state.copyWith(
           status: AuthStatus.authenticated,
           user: userData,
           activeRestaurant: restaurant,
         );
       } else {
+        // ignore: avoid_print
+        print('[AUTH] /me returned success=false');
         await logout();
         state = state.copyWith(status: AuthStatus.unauthenticated);
       }
     } catch (e) {
+      // ignore: avoid_print
+      print('[AUTH] checkSession Error: $e');
       await logout();
       state = state.copyWith(status: AuthStatus.unauthenticated);
     }

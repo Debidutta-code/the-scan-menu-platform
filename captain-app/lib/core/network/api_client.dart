@@ -44,10 +44,19 @@ class ApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+          // ignore: avoid_print
+          print('[HTTP REQ] ${options.method} ${options.baseUrl}${options.path} (Has Auth: ${token != null && token.isNotEmpty})');
           return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          // ignore: avoid_print
+          print('[HTTP RES ${response.statusCode}] ${response.requestOptions.path}');
+          return handler.next(response);
         },
         onError: (DioException error, handler) async {
           final response = error.response;
+          // ignore: avoid_print
+          print('[HTTP ERR ${response?.statusCode}] ${error.requestOptions.baseUrl}${error.requestOptions.path} => Response Body: ${response?.data}');
 
           // Check if token expired (401 with TOKEN_EXPIRED code)
           final isTokenExpired = response?.statusCode == 401 &&
