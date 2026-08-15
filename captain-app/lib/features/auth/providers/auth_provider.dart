@@ -72,9 +72,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
 
         String? savedRestaurantId = await SecureStorageService.getActiveRestaurantId();
-        if (savedRestaurantId == null && userData.restaurants.isNotEmpty) {
-          savedRestaurantId = userData.restaurants.first;
-          await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
+        
+        // Ensure savedRestaurantId is actually in the user's assigned restaurants
+        if (savedRestaurantId == null ||
+            (userData.role != 'SUPER_ADMIN' &&
+             userData.restaurants.isNotEmpty &&
+             !userData.restaurants.contains(savedRestaurantId))) {
+          savedRestaurantId = userData.restaurants.isNotEmpty
+              ? userData.restaurants.first
+              : null;
+          if (savedRestaurantId != null) {
+            await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
+          }
         }
 
         RestaurantProfile? restaurant;
@@ -85,7 +94,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
             if (restRes.data['success'] == true) {
               restaurant = RestaurantProfile.fromJson(restRes.data['data']);
             }
-          } catch (_) {}
+          } catch (_) {
+            // If fetching failed with stale ID, fallback to first assigned restaurant
+            if (userData.restaurants.isNotEmpty &&
+                userData.restaurants.first != savedRestaurantId) {
+              savedRestaurantId = userData.restaurants.first;
+              await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
+              try {
+                final fallbackRes = await _apiClient.dio
+                    .get(ApiConstants.restaurantProfile(savedRestaurantId));
+                if (fallbackRes.data['success'] == true) {
+                  restaurant = RestaurantProfile.fromJson(fallbackRes.data['data']);
+                }
+              } catch (_) {}
+            }
+          }
 
           // Connect socket
           await _socketService.connect(savedRestaurantId);
@@ -97,9 +120,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           activeRestaurant: restaurant,
         );
       } else {
+        await logout();
         state = state.copyWith(status: AuthStatus.unauthenticated);
       }
     } catch (e) {
+      await logout();
       state = state.copyWith(status: AuthStatus.unauthenticated);
     }
   }

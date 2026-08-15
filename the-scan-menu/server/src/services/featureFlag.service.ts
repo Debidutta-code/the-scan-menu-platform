@@ -46,7 +46,16 @@ export class FeatureFlagService {
    * Checks if a specific feature flag is enabled for a given restaurant.
    */
   async isEnabled(restaurantId: string | Types.ObjectId, key: string): Promise<boolean> {
-    const flag = await FeatureFlag.findOne({ restaurantId, key });
+    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
+      ? new Types.ObjectId(restaurantId)
+      : restaurantId;
+
+    const flag = await FeatureFlag.findOne({
+      $or: [
+        { restaurantId: targetRestId, key },
+        { restaurantId: restaurantId.toString(), key },
+      ],
+    });
     if (flag !== null) {
       return flag.enabled;
     }
@@ -55,7 +64,7 @@ export class FeatureFlagService {
     try {
       const { Restaurant } = await import('../models/Restaurant');
       const { SubscriptionPlan } = await import('../models/SubscriptionPlan');
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await Restaurant.findById(targetRestId);
       const planKey = restaurant?.subscription?.planKey || 'ENTERPRISE';
       const plan = await SubscriptionPlan.findOne({ key: planKey });
       if (plan) {
@@ -72,9 +81,12 @@ export class FeatureFlagService {
    * Enables a specific feature flag for a given restaurant.
    */
   async enable(restaurantId: string | Types.ObjectId, key: string) {
+    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
+      ? new Types.ObjectId(restaurantId)
+      : restaurantId;
     return await FeatureFlag.findOneAndUpdate(
-      { restaurantId, key },
-      { enabled: true },
+      { restaurantId: targetRestId, key },
+      { enabled: true, restaurantId: targetRestId, key },
       { new: true, upsert: true }
     );
   }
@@ -83,9 +95,12 @@ export class FeatureFlagService {
    * Disables a specific feature flag for a given restaurant.
    */
   async disable(restaurantId: string | Types.ObjectId, key: string) {
+    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
+      ? new Types.ObjectId(restaurantId)
+      : restaurantId;
     return await FeatureFlag.findOneAndUpdate(
-      { restaurantId, key },
-      { enabled: false },
+      { restaurantId: targetRestId, key },
+      { enabled: false, restaurantId: targetRestId, key },
       { new: true, upsert: true }
     );
   }
@@ -94,10 +109,19 @@ export class FeatureFlagService {
    * Bulk updates multiple feature flags for a given restaurant.
    */
   async bulkUpdate(restaurantId: string | Types.ObjectId, updates: { key: string; enabled: boolean }[], session?: ClientSession) {
+    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
+      ? new Types.ObjectId(restaurantId)
+      : restaurantId;
+
     const operations = updates.map((update) => ({
       updateOne: {
-        filter: { restaurantId, key: update.key },
-        update: { $set: { enabled: update.enabled } },
+        filter: {
+          $or: [
+            { restaurantId: targetRestId, key: update.key },
+            { restaurantId: restaurantId.toString(), key: update.key },
+          ],
+        },
+        update: { $set: { enabled: update.enabled, restaurantId: targetRestId, key: update.key } },
         upsert: true,
       },
     }));

@@ -9,6 +9,10 @@ export const requireFeature = (featureKey: string) => {
       if (config.app.isTest && !process.env.TESTING_FEATURE_FLAGS) {
         return next();
       }
+      const user = (req as any).user;
+      if (user?.role === 'SUPER_ADMIN') {
+        return next();
+      }
       const restaurantId = req.params.restaurantId || req.body.restaurantId || (req as any).restaurant?.id;
 
       if (!restaurantId) {
