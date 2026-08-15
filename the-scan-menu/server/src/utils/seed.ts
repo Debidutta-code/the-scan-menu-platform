@@ -33,12 +33,12 @@ import { logger } from './logger';
 import config from '../config';
 
 const ADMIN_EMAIL = 'admin@pixora.dev';
-const ADMIN_PASSWORD = 'PixoraDemo123!';
+const ADMIN_PASSWORD = 'Test@1234';
 
 const MANAGER_EMAIL = 'manager@democafe.com';
 const STAFF1_EMAIL = 'staff1@democafe.com';
 const STAFF2_EMAIL = 'staff2@democafe.com';
-const DEMO_PASSWORD = 'PixoraDemo123!';
+const DEMO_PASSWORD = 'Test@1234';
 const DEFAULT_PIN = '1234';
 
 export const seedDatabase = async () => {
@@ -141,9 +141,10 @@ export const seedDatabase = async () => {
       await superAdmin.save();
       logger.info('SUPER_ADMIN created successfully.');
     } else {
+      superAdmin.passwordHash = hashedPassword;
       superAdmin.pin = DEFAULT_PIN;
       await superAdmin.save();
-      logger.info(`SUPER_ADMIN already exists: ${superAdmin.email}.`);
+      logger.info(`SUPER_ADMIN password refreshed: ${superAdmin.email}.`);
     }
 
     // Initialize Sequence Counter if not exists
@@ -190,6 +191,10 @@ export const seedDatabase = async () => {
       await restaurant.save();
       logger.info('"Demo Cafe" restaurant updated with Enterprise subscription.');
     }
+
+    // Assign Enterprise subscription and sync all feature flags
+    await subscriptionService.assignPlanToRestaurant(restaurant._id, 'ENTERPRISE');
+    logger.info('"Demo Cafe" feature flags strictly synced with Enterprise plan.');
 
     // Seed/Update RestaurantSettings
     let settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
@@ -291,6 +296,7 @@ export const seedDatabase = async () => {
       await manager.save();
       logger.info(`Manager account created: ${MANAGER_EMAIL}`);
     } else {
+      manager.passwordHash = demoHashedPassword;
       manager.pin = DEFAULT_PIN;
       await manager.save();
     }
@@ -323,6 +329,7 @@ export const seedDatabase = async () => {
       await staff1.save();
       logger.info(`Staff 1 account created: ${STAFF1_EMAIL}`);
     } else {
+      staff1.passwordHash = demoHashedPassword;
       staff1.pin = DEFAULT_PIN;
       await staff1.save();
     }
@@ -355,6 +362,7 @@ export const seedDatabase = async () => {
       await staff2.save();
       logger.info(`Staff 2 account created: ${STAFF2_EMAIL}`);
     } else {
+      staff2.passwordHash = demoHashedPassword;
       staff2.pin = DEFAULT_PIN;
       await staff2.save();
     }

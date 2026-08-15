@@ -31,7 +31,7 @@ export const AdminProvision: React.FC = () => {
   // Manager details
   const [managerName, setManagerName] = useState('');
   const [managerEmail, setManagerEmail] = useState('');
-  const [managerPassword, setManagerPassword] = useState('PixoraDemo123!');
+  const [managerPassword, setManagerPassword] = useState('Test@1234');
 
   const provisionMutation = useMutation({
     mutationFn: adminService.provisionRestaurant,

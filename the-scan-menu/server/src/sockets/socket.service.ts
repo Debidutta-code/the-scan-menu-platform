@@ -20,25 +20,12 @@ export class SocketService {
     return SocketService.instance;
   }
 
-  public init(httpServer: HTTPServer, corsOrigin: string | string[]): SocketIOServer {
-    // Normalize to an array for consistent matching
-    const allowedOrigins = Array.isArray(corsOrigin)
-      ? corsOrigin.map((o) => o.trim())
-      : corsOrigin.split(',').map((o) => o.trim());
-
+  public init(httpServer: HTTPServer, _corsOrigin?: string | string[]): SocketIOServer {
     this.io = new SocketIOServer(httpServer, {
       cors: {
         origin: (requestOrigin, callback) => {
-          if (
-            !requestOrigin ||
-            allowedOrigins.includes(requestOrigin) ||
-            requestOrigin.includes('localhost') ||
-            config.app.isTest
-          ) {
-            callback(null, requestOrigin || allowedOrigins[0]);
-          } else {
-            callback(new Error(`CORS: origin '${requestOrigin}' not allowed`));
-          }
+          // Allow all incoming connections for mobile apps, local development, and web clients
+          callback(null, requestOrigin || true);
         },
         methods: ['GET', 'POST'],
         credentials: true,
@@ -249,7 +236,11 @@ export class SocketService {
           return;
         }
 
-        const authHeader = socket.handshake.auth.token || socket.handshake.headers.authorization;
+        const authHeader =
+          data?.token ||
+          data?.authToken ||
+          socket.handshake.auth?.token ||
+          socket.handshake.headers?.authorization;
         if (!authHeader) {
           socket.emit('error', { code: 'UNAUTHORIZED', message: 'Access token is missing' });
           return;

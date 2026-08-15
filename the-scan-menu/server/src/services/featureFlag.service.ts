@@ -1,5 +1,6 @@
 import { FeatureFlag } from '../models/FeatureFlag';
 import { Types, ClientSession } from 'mongoose';
+import { logger } from '../utils/logger';
 
 export const DEFAULT_FLAGS = [
   { key: 'qr_menu', description: 'Enable QR Code Menu functionality' },
@@ -46,7 +47,25 @@ export class FeatureFlagService {
    */
   async isEnabled(restaurantId: string | Types.ObjectId, key: string): Promise<boolean> {
     const flag = await FeatureFlag.findOne({ restaurantId, key });
-    return flag ? flag.enabled : false;
+    if (flag !== null) {
+      return flag.enabled;
+    }
+
+    // If flag doc does not exist yet, check restaurant subscription plan
+    try {
+      const { Restaurant } = await import('../models/Restaurant');
+      const { SubscriptionPlan } = await import('../models/SubscriptionPlan');
+      const restaurant = await Restaurant.findById(restaurantId);
+      const planKey = restaurant?.subscription?.planKey || 'ENTERPRISE';
+      const plan = await SubscriptionPlan.findOne({ key: planKey });
+      if (plan) {
+        return plan.includedFeatureKeys.includes(key);
+      }
+    } catch (err) {
+      logger.warn(`Failed to inspect fallback subscription plan for flag '${key}':`, err);
+    }
+
+    return true;
   }
 
   /**

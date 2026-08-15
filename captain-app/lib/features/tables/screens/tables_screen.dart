@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/sockets/socket_service.dart';
+import '../../../core/widgets/quick_reload_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../order_creation/providers/cart_provider.dart';
 import '../../order_creation/screens/take_order_screen.dart';
@@ -79,46 +80,64 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
           ],
         ),
         actions: [
-          // Live Socket Connection Pill
+          // Quick Reload Action Button
+          const QuickReloadButton(),
+          const SizedBox(width: 4),
+
+          // Interactive Live Socket Connection Pill
           ValueListenableBuilder<SocketConnectionState>(
             valueListenable: socketService.connectionState,
             builder: (ctx, state, _) {
               final isConnected = state == SocketConnectionState.connected;
-              return Container(
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isConnected
-                      ? AppColors.success.withValues(alpha: 0.15)
-                      : AppColors.warning.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
+              return GestureDetector(
+                onTap: () {
+                  if (!isConnected) {
+                    socketService.reconnect();
+                    ref.read(tablesProvider.notifier).fetchTablesAndZones();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Reconnecting live socket...'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
                     color: isConnected
-                        ? AppColors.success.withValues(alpha: 0.4)
-                        : AppColors.warning.withValues(alpha: 0.4),
+                        ? AppColors.success.withValues(alpha: 0.15)
+                        : AppColors.warning.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isConnected
+                          ? AppColors.success.withValues(alpha: 0.4)
+                          : AppColors.warning.withValues(alpha: 0.4),
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: isConnected ? AppColors.success : AppColors.warning,
-                        shape: BoxShape.circle,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: isConnected ? AppColors.success : AppColors.warning,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      isConnected ? 'LIVE' : 'SYNCING',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: isConnected ? AppColors.success : AppColors.warning,
+                      const SizedBox(width: 6),
+                      Text(
+                        isConnected ? 'LIVE' : 'SYNCING',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isConnected ? AppColors.success : AppColors.warning,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -225,7 +244,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                 ),
               ),
 
-            // Grid Content
+            // Grid Content / Loading / Error
             Expanded(
               child: tablesState.isLoading
                   ? const Center(
@@ -234,51 +253,96 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                             AlwaysStoppedAnimation<Color>(AppColors.primary),
                       ),
                     )
-                  : tablesState.filteredTables.isEmpty
+                  : tablesState.errorMessage != null
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(LucideIcons.layoutGrid,
-                                  size: 48, color: AppColors.textMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No tables found',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(LucideIcons.alertCircle,
+                                    size: 44, color: AppColors.warning),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Could not load tables',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Try changing your search or zone filter',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppColors.textMuted,
+                                const SizedBox(height: 6),
+                                Text(
+                                  tablesState.errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: () => ref
+                                      .read(tablesProvider.notifier)
+                                      .fetchTablesAndZones(),
+                                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                                  label: const Text('Try Again'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: AppColors.textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
-                      : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 1.15,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          itemCount: tablesState.filteredTables.length,
-                          itemBuilder: (ctx, idx) {
-                            final table = tablesState.filteredTables[idx];
-                            return TableCard(
-                              table: table,
-                              onTap: () => _onTableSelected(table),
-                            );
-                          },
-                        ),
+                      : tablesState.filteredTables.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(LucideIcons.layoutGrid,
+                                      size: 48, color: AppColors.textMuted),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No tables found',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Try changing your search or zone filter',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  const QuickReloadButton(showLabel: true),
+                                ],
+                              ),
+                            )
+                          : GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 1.15,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                              itemCount: tablesState.filteredTables.length,
+                              itemBuilder: (ctx, idx) {
+                                final table = tablesState.filteredTables[idx];
+                                return TableCard(
+                                  table: table,
+                                  onTap: () => _onTableSelected(table),
+                                );
+                              },
+                            ),
             ),
           ],
         ),

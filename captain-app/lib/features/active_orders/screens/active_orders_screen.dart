@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/quick_reload_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/active_orders_provider.dart';
 import '../widgets/order_card.dart';
@@ -55,6 +56,10 @@ class _ActiveOrdersScreenState extends ConsumerState<ActiveOrdersScreen> {
             ),
           ],
         ),
+        actions: const [
+          QuickReloadButton(),
+          SizedBox(width: 8),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () =>
@@ -139,7 +144,7 @@ class _ActiveOrdersScreenState extends ConsumerState<ActiveOrdersScreen> {
               ),
             ),
 
-            // Orders List
+            // Orders List / Loading / Error
             Expanded(
               child: ordersState.isLoading
                   ? const Center(
@@ -148,69 +153,114 @@ class _ActiveOrdersScreenState extends ConsumerState<ActiveOrdersScreen> {
                             AlwaysStoppedAnimation<Color>(AppColors.primary),
                       ),
                     )
-                  : ordersState.filteredOrders.isEmpty
+                  : ordersState.errorMessage != null
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(LucideIcons.checkCircle2,
-                                  size: 48, color: AppColors.textMuted),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No orders in this category',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(LucideIcons.alertCircle,
+                                    size: 44, color: AppColors.warning),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Could not load orders',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'New incoming orders will appear here automatically',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppColors.textMuted,
+                                const SizedBox(height: 6),
+                                Text(
+                                  ordersState.errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: () => ref
+                                      .read(activeOrdersProvider.notifier)
+                                      .fetchActiveOrders(),
+                                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                                  label: const Text('Try Again'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: AppColors.textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
-                          itemCount: ordersState.filteredOrders.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (ctx, idx) {
-                            final order = ordersState.filteredOrders[idx];
-                            final isPending = ordersState
-                                .pendingActionOrderIds
-                                .contains(order.id);
-
-                            return OrderCard(
-                              order: order,
-                              workflowMode: workflowMode,
-                              isPendingAction: isPending,
-                              onAdvanceStatus: (nextStatus) {
-                                ref
-                                    .read(activeOrdersProvider.notifier)
-                                    .advanceOrderStatus(order.id, nextStatus);
-                              },
-                              onClearOrder: () {
-                                ref
-                                    .read(activeOrdersProvider.notifier)
-                                    .clearOrder(order.id);
-                              },
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        OrderDetailScreen(order: order),
+                      : ordersState.filteredOrders.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(LucideIcons.checkCircle2,
+                                      size: 48, color: AppColors.textMuted),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No orders in this category',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'New incoming orders will appear here automatically',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  const QuickReloadButton(showLabel: true),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
+                              itemCount: ordersState.filteredOrders.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (ctx, idx) {
+                                final order = ordersState.filteredOrders[idx];
+                                final isPending = ordersState
+                                    .pendingActionOrderIds
+                                    .contains(order.id);
+
+                                return OrderCard(
+                                  order: order,
+                                  workflowMode: workflowMode,
+                                  isPendingAction: isPending,
+                                  onAdvanceStatus: (nextStatus) {
+                                    ref
+                                        .read(activeOrdersProvider.notifier)
+                                        .advanceOrderStatus(order.id, nextStatus);
+                                  },
+                                  onClearOrder: () {
+                                    ref
+                                        .read(activeOrdersProvider.notifier)
+                                        .clearOrder(order.id);
+                                  },
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            OrderDetailScreen(order: order),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
-                            );
-                          },
-                        ),
+                            ),
             ),
           ],
         ),

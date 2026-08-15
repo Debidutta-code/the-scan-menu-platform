@@ -50,6 +50,7 @@ class SocketService {
     connectionState.value = SocketConnectionState.connecting;
 
     try {
+      final tokenStr = token != null ? 'Bearer $token' : '';
       _socket = io.io(
         baseUrl,
         io.OptionBuilder()
@@ -58,7 +59,8 @@ class SocketService {
             .enableReconnection()
             .setReconnectionDelay(1000)
             .setReconnectionDelayMax(5000)
-            .setAuth({'token': 'Bearer $token'})
+            .setAuth({'token': tokenStr, 'authorization': tokenStr})
+            .setExtraHeaders({'Authorization': tokenStr})
             .build(),
       );
 
@@ -67,13 +69,21 @@ class SocketService {
         connectionState.value = SocketConnectionState.connected;
 
         // Automatically join restaurant room
-        _socket!.emit(ApiConstants.socketEventJoinRestaurant, {
-          'restaurantId': _currentRestaurantId,
-        });
+        _joinRestaurantRoom(tokenStr);
+      });
+
+      _socket!.on('reconnect', (_) {
+        debugPrint('Socket reconnected: ${_socket!.id}');
+        connectionState.value = SocketConnectionState.connected;
+        _joinRestaurantRoom(tokenStr);
       });
 
       _socket!.on(ApiConstants.socketEventJoinedRestaurant, (data) {
         debugPrint('Successfully joined restaurant socket room: $data');
+      });
+
+      _socket!.on('error', (err) {
+        debugPrint('Socket error: $err');
       });
 
       _socket!.onDisconnect((_) {
@@ -88,42 +98,49 @@ class SocketService {
 
       // Event listeners
       _socket!.on(ApiConstants.socketEventOrderCreated, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventOrderCreated}');
         if (data is Map) {
           _orderCreatedController.add(Map<String, dynamic>.from(data));
         }
       });
 
       _socket!.on(ApiConstants.socketEventOrderStatusUpdated, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventOrderStatusUpdated}');
         if (data is Map) {
           _orderStatusUpdatedController.add(Map<String, dynamic>.from(data));
         }
       });
 
       _socket!.on(ApiConstants.socketEventOrderItemStatusUpdated, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventOrderItemStatusUpdated}');
         if (data is Map) {
           _orderItemStatusUpdatedController.add(Map<String, dynamic>.from(data));
         }
       });
 
       _socket!.on(ApiConstants.socketEventWaiterCallCreated, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventWaiterCallCreated}');
         if (data is Map) {
           _waiterCallCreatedController.add(Map<String, dynamic>.from(data));
         }
       });
 
       _socket!.on(ApiConstants.socketEventWaiterCallResolved, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventWaiterCallResolved}');
         if (data is Map) {
           _waiterCallResolvedController.add(Map<String, dynamic>.from(data));
         }
       });
 
       _socket!.on(ApiConstants.socketEventInventoryUpdated, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventInventoryUpdated}');
         if (data is Map) {
           _inventoryUpdatedController.add(Map<String, dynamic>.from(data));
         }
       });
 
       _socket!.on(ApiConstants.socketEventSessionUpdated, (data) {
+        debugPrint('Received socket event: ${ApiConstants.socketEventSessionUpdated}');
         if (data is Map) {
           _sessionUpdatedController.add(Map<String, dynamic>.from(data));
         }
@@ -133,6 +150,23 @@ class SocketService {
     } catch (e) {
       debugPrint('Failed to initialize socket: $e');
       connectionState.value = SocketConnectionState.disconnected;
+    }
+  }
+
+  void _joinRestaurantRoom(String tokenStr) {
+    if (_socket != null && _currentRestaurantId != null) {
+      _socket!.emit(ApiConstants.socketEventJoinRestaurant, {
+        'restaurantId': _currentRestaurantId,
+        'token': tokenStr,
+      });
+    }
+  }
+
+  Future<void> reconnect() async {
+    final restaurantId = _currentRestaurantId ??
+        await SecureStorageService.getActiveRestaurantId();
+    if (restaurantId != null) {
+      await connect(restaurantId);
     }
   }
 
