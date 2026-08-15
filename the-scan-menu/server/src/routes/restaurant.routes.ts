@@ -20,8 +20,8 @@ router.patch('/:restaurantId/feature-flags', requireRestaurantAccess as any, req
 router.get('/:restaurantId', requireRestaurantAccess as any, restaurantController.getRestaurantProfile);
 router.patch('/:restaurantId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.editRestaurantProfile);
 
-// Tables routes (Manager/Super Admin only)
-router.get('/:restaurantId/tables', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listTables);
+// Tables routes (Staff can view, Manager/Super Admin can manage)
+router.get('/:restaurantId/tables', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listTables);
 router.post('/:restaurantId/tables', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createTable);
 router.post('/:restaurantId/tables/bulk', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.bulkCreateTables);
 router.patch('/:restaurantId/tables/:tableId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.editTable);
@@ -36,8 +36,8 @@ router.post('/:restaurantId/tables/:tableId/regenerate-qr', requireFeature('qr_m
 // GET returns SVG + PNG details for the QR
 router.get('/:restaurantId/tables/:tableId/qr', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getTableQr);
 
-// Table Zones Routes
-router.get('/:restaurantId/zones', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listZones);
+// Table Zones Routes (Staff can view, Manager/Super Admin can manage)
+router.get('/:restaurantId/zones', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listZones);
 router.post('/:restaurantId/zones', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createZone);
 router.patch('/:restaurantId/zones/:zoneId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateZone);
 router.delete('/:restaurantId/zones/:zoneId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteZone);

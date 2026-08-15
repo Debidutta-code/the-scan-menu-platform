@@ -1,0 +1,166 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/audio/alert_service.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/sockets/socket_service.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../models/waiter_call_model.dart';
+
+class WaiterCallsState {
+  final bool isLoading;
+  final List<WaiterCallModel> calls;
+  final Set<String> pendingActionCallIds;
+  final String? errorMessage;
+
+  WaiterCallsState({
+    required this.isLoading,
+    required this.calls,
+    this.pendingActionCallIds = const {},
+    this.errorMessage,
+  });
+
+  factory WaiterCallsState.initial() => WaiterCallsState(
+        isLoading: true,
+        calls: [],
+      );
+
+  List<WaiterCallModel> get activeCalls => calls
+      .where((c) =>
+          c.status == WaiterCallStatus.pending ||
+          c.status == WaiterCallStatus.acknowledged)
+      .toList();
+
+  int get pendingCount =>
+      calls.where((c) => c.status == WaiterCallStatus.pending).length;
+
+  WaiterCallsState copyWith({
+    bool? isLoading,
+    List<WaiterCallModel>? calls,
+    Set<String>? pendingActionCallIds,
+    String? errorMessage,
+  }) {
+    return WaiterCallsState(
+      isLoading: isLoading ?? this.isLoading,
+      calls: calls ?? this.calls,
+      pendingActionCallIds: pendingActionCallIds ?? this.pendingActionCallIds,
+      errorMessage: errorMessage,
+    );
+  }
+}
+
+class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
+  final ApiClient _apiClient = ApiClient();
+  final SocketService _socketService = SocketService();
+  final AlertService _alertService = AlertService();
+  final String? _restaurantId;
+
+  WaiterCallsNotifier(this._restaurantId) : super(WaiterCallsState.initial()) {
+    if (_restaurantId != null) {
+      fetchWaiterCalls();
+      _setupSocketSubscriptions();
+    } else {
+      state = state.copyWith(isLoading: false);
+    }
+  }
+
+  void _setupSocketSubscriptions() {
+    _socketService.onWaiterCallCreated.listen((data) {
+      _alertService.triggerWaiterCallAlert();
+      fetchWaiterCalls(isSilent: true);
+    });
+
+    _socketService.onWaiterCallResolved.listen((data) {
+      final callId = data['callId']?.toString();
+      if (callId != null) {
+        state = state.copyWith(
+          calls: state.calls.where((c) => c.id != callId).toList(),
+        );
+      }
+    });
+  }
+
+  Future<void> fetchWaiterCalls({bool isSilent = false}) async {
+    final restaurantId = _restaurantId;
+    if (restaurantId == null) return;
+    if (!isSilent) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+    }
+
+    try {
+      final res =
+          await _apiClient.dio.get(ApiConstants.waiterCalls(restaurantId));
+      if (res.data['success'] == true &&
+          res.data['data']?['waiterCalls'] is List) {
+        final list = (res.data['data']['waiterCalls'] as List)
+            .map((e) => WaiterCallModel.fromJson(e))
+            .toList();
+        state = state.copyWith(isLoading: false, calls: list);
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to load waiter calls: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<bool> acknowledgeCall(String callId) async {
+    final restaurantId = _restaurantId;
+    if (restaurantId == null) return false;
+
+    final pending = Set<String>.from(state.pendingActionCallIds)..add(callId);
+    state = state.copyWith(
+      pendingActionCallIds: pending,
+      calls: state.calls.map((c) {
+        if (c.id == callId) return c.copyWith(status: WaiterCallStatus.acknowledged);
+        return c;
+      }).toList(),
+    );
+
+    try {
+      final res = await _apiClient.dio.patch(
+        ApiConstants.acknowledgeWaiterCall(restaurantId, callId),
+      );
+
+      final nextPending = Set<String>.from(state.pendingActionCallIds)..remove(callId);
+      state = state.copyWith(pendingActionCallIds: nextPending);
+      return res.data['success'] == true;
+    } catch (_) {
+      fetchWaiterCalls(isSilent: true);
+      return false;
+    }
+  }
+
+  Future<bool> resolveCall(String callId) async {
+    final restaurantId = _restaurantId;
+    if (restaurantId == null) return false;
+
+    final pending = Set<String>.from(state.pendingActionCallIds)..add(callId);
+    state = state.copyWith(
+      pendingActionCallIds: pending,
+      calls: state.calls.where((c) => c.id != callId).toList(),
+    );
+
+    try {
+      final res = await _apiClient.dio.patch(
+        ApiConstants.resolveWaiterCall(restaurantId, callId),
+      );
+
+      final nextPending = Set<String>.from(state.pendingActionCallIds)..remove(callId);
+      state = state.copyWith(pendingActionCallIds: nextPending);
+      return res.data['success'] == true;
+    } catch (_) {
+      fetchWaiterCalls(isSilent: true);
+      return false;
+    }
+  }
+}
+
+final waiterCallsProvider =
+    StateNotifierProvider<WaiterCallsNotifier, WaiterCallsState>((ref) {
+  final authState = ref.watch(authProvider);
+  final restaurantId = authState.activeRestaurant?.id;
+  return WaiterCallsNotifier(restaurantId);
+});

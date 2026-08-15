@@ -75,6 +75,7 @@ export class AuthController {
         res,
         {
           accessToken,
+          refreshToken: refreshTokenStr,
           user: {
             id: user.id,
             email: user.email,
@@ -93,7 +94,7 @@ export class AuthController {
 
   async refresh(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const refreshTokenStr = req.cookies?.refreshToken;
+      const refreshTokenStr = req.body?.refreshToken || req.cookies?.refreshToken;
       if (!refreshTokenStr) {
         sendError(res, 'MISSING_REFRESH_TOKEN', 'Refresh token is missing', null, 401);
         return;
@@ -143,6 +144,7 @@ export class AuthController {
         res,
         {
           accessToken: newAccessToken,
+          refreshToken: newRefreshTokenStr,
         },
         'Token refreshed successfully'
       );
@@ -153,7 +155,7 @@ export class AuthController {
 
   async logout(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const refreshTokenStr = req.cookies?.refreshToken;
+      const refreshTokenStr = req.body?.refreshToken || req.cookies?.refreshToken;
       if (refreshTokenStr) {
         const tokenHash = this.tokenService.hashToken(refreshTokenStr);
         await this.tokenRepository.revoke(tokenHash);

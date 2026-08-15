@@ -17,8 +17,8 @@ const menuController = new MenuController();
 // Require authentication at router level
 router.use(requireAuth as any);
 
-// Categories (Manager / Super Admin only)
-router.get('/:restaurantId/categories', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, menuController.listCategories);
+// Categories (Staff can view, Manager/Super Admin can manage)
+router.get('/:restaurantId/categories', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, menuController.listCategories);
 router.post(
   '/:restaurantId/categories',
   requireRestaurantAccess as any,
