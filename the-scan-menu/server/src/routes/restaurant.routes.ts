@@ -6,6 +6,7 @@ import kdsController from '../controllers/kds.controller';
 import { requireFeature } from '../middleware/featureFlag';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
 
+// Restaurant routes: Configured to support MANAGER, STAFF (Captain Mobile App), and SUPER_ADMIN
 const router = Router({ mergeParams: true });
 const restaurantController = new RestaurantController();
 
@@ -42,8 +43,8 @@ router.post('/:restaurantId/zones', requireRestaurantAccess as any, requireRole(
 router.patch('/:restaurantId/zones/:zoneId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateZone);
 router.delete('/:restaurantId/zones/:zoneId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteZone);
 
-// Taxes Routes
-router.get('/:restaurantId/taxes', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listTaxes);
+// Taxes Routes (Staff can view, Manager/Super Admin can configure)
+router.get('/:restaurantId/taxes', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listTaxes);
 router.post('/:restaurantId/taxes', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createTax);
 router.patch('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateTax);
 router.delete('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteTax);
