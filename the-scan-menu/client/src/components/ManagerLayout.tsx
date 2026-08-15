@@ -26,7 +26,6 @@ import {
   Calculator,
   Flame,
   Code,
-  ToggleRight,
   MoreHorizontal,
   X,
   Eye,
@@ -248,15 +247,25 @@ export const ManagerLayout: React.FC = () => {
     };
   }, [socket, activeRestaurantId, toast, playChime, queryClient]);
 
-  // If STAFF tries to visit MANAGER-only routes, redirect to appropriate fallback
+  // If STAFF tries to visit MANAGER-only routes, redirect to /manager/orders
   useEffect(() => {
-    if (isStaff && (activeTab === 'menu' || activeTab === 'tables' || activeTab === 'settings' || activeTab === 'analytics')) {
-      // Redirect STAFF from full menu editor to availability-only view
-      if (activeTab === 'menu') {
-        navigate('/manager/menu/availability', { replace: true });
-      } else {
-        navigate('/manager/orders', { replace: true });
-      }
+    const managerOnlyTabs = [
+      'menu',
+      'menu-availability',
+      'counter',
+      'kds',
+      'transactions',
+      'tables',
+      'inventory',
+      'staff',
+      'customers',
+      'taxes',
+      'settings',
+      'analytics',
+      'developer',
+    ];
+    if (isStaff && managerOnlyTabs.includes(activeTab)) {
+      navigate('/manager/orders', { replace: true });
     }
   }, [activeTab, isStaff, navigate]);
 
@@ -378,8 +387,8 @@ export const ManagerLayout: React.FC = () => {
               </span>
           </button>
 
-          {/* Counter POS tab — visible only if ordering module is enabled */}
-          {isEnabled('ordering') && (
+          {/* Counter POS tab — visible only for manager/admin if ordering module is enabled */}
+          {!isStaff && isEnabled('ordering') && (
             <button
               onClick={() => navigate('/manager/counter')}
               className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -395,8 +404,8 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Kitchen (KDS) tab */}
-          {isEnabled('kds') && (
+          {/* Kitchen (KDS) tab — visible only for manager/admin if KDS module is enabled */}
+          {!isStaff && isEnabled('kds') && (
             <button
               onClick={() => navigate('/manager/kds')}
               className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -412,43 +421,45 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Transactions tab (Sidebar) */}
-          <button
-            onClick={() => navigate('/manager/transactions')}
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-              activeTab === 'transactions'
-                ? 'bg-slate-950 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <CreditCard className="w-4 h-4" strokeWidth={1.75} />
-              <span>Transactions</span>
-            </div>
-            {!isEnabled('payments') && (
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-            )}
-          </button>
+          {/* Transactions tab (Sidebar) — visible only for manager/admin */}
+          {!isStaff && (
+            <button
+              onClick={() => navigate('/manager/transactions')}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'transactions'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <CreditCard className="w-4 h-4" strokeWidth={1.75} />
+                <span>Transactions</span>
+              </div>
+              {!isEnabled('payments') && (
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+              )}
+            </button>
+          )}
 
           {/* Waiter Calls tab */}
           {isEnabled('waiter_call') && (
             <button
-            onClick={() => navigate('/manager/waiter-calls')}
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-              activeTab === 'waiter-calls'
-                ? 'bg-slate-950 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Bell className="w-4 h-4" strokeWidth={1.75} />
-              <span>Waiter Calls</span>
-            </div>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono bg-amber-500 text-slate-950 transition-opacity ${
-                activeWaiterCallsCount > 0 ? 'opacity-100 animate-pulse' : 'opacity-0'
-              }`}>
-                {activeWaiterCallsCount || ' '}
-              </span>
+              onClick={() => navigate('/manager/waiter-calls')}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'waiter-calls'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="w-4 h-4" strokeWidth={1.75} />
+                <span>Waiter Calls</span>
+              </div>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono bg-amber-500 text-slate-950 transition-opacity ${
+                  activeWaiterCallsCount > 0 ? 'opacity-100 animate-pulse' : 'opacity-0'
+                }`}>
+                  {activeWaiterCallsCount || ' '}
+                </span>
             </button>
           )}
 
@@ -479,21 +490,6 @@ export const ManagerLayout: React.FC = () => {
             >
               <Package className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
               <span>Inventory & Stock</span>
-            </button>
-          )}
-
-          {/* 86 Items tab (Staff only — availability toggle view) */}
-          {isStaff && isEnabled('qr_menu') && (
-            <button
-              onClick={() => navigate('/manager/menu/availability')}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-                activeTab === 'menu-availability'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <ToggleRight className="w-4 h-4 text-amber-600" strokeWidth={2} />
-              <span>86 Items</span>
             </button>
           )}
 
@@ -663,23 +659,25 @@ export const ManagerLayout: React.FC = () => {
         </button>
 
 
-        {/* Transactions Bottom Nav */}
-        <button
-          onClick={() => navigate('/manager/transactions')}
-          className={`flex flex-col items-center justify-center flex-1 h-full pt-1 pb-1 relative ${
-            activeTab === 'transactions' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <div className="relative mb-0.5 mt-0.5">
-            <CreditCard className={`w-[18px] h-[18px] min-[375px]:w-5 min-[375px]:h-5 ${activeTab === 'transactions' ? 'fill-amber-50 stroke-amber-500' : ''}`} strokeWidth={activeTab === 'transactions' ? 2 : 1.75} />
-            {!isEnabled('payments') && (
-              <span className="absolute -top-1 -right-2 bg-slate-100 text-slate-400 rounded-full p-0.5 shadow-sm border border-slate-200">
-                <Lock className="w-2.5 h-2.5" />
-              </span>
-            )}
-          </div>
-          <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Payments</span>
-        </button>
+        {/* Transactions Bottom Nav (Manager only) */}
+        {!isStaff && (
+          <button
+            onClick={() => navigate('/manager/transactions')}
+            className={`flex flex-col items-center justify-center flex-1 h-full pt-1 pb-1 relative ${
+              activeTab === 'transactions' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <div className="relative mb-0.5 mt-0.5">
+              <CreditCard className={`w-[18px] h-[18px] min-[375px]:w-5 min-[375px]:h-5 ${activeTab === 'transactions' ? 'fill-amber-50 stroke-amber-500' : ''}`} strokeWidth={activeTab === 'transactions' ? 2 : 1.75} />
+              {!isEnabled('payments') && (
+                <span className="absolute -top-1 -right-2 bg-slate-100 text-slate-400 rounded-full p-0.5 shadow-sm border border-slate-200">
+                  <Lock className="w-2.5 h-2.5" />
+                </span>
+              )}
+            </div>
+            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Payments</span>
+          </button>
+        )}
 
         {/* Waiter Calls */}
         {isEnabled('waiter_call') && (
@@ -699,31 +697,18 @@ export const ManagerLayout: React.FC = () => {
         </button>
         )}
 
-          {/* Menu (Manager only) */}
-          {!isStaff && isEnabled('qr_menu') && (
-            <button
-              onClick={() => navigate('/manager/menu')}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
-                activeTab === 'menu' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
-              }`}
-            >
-              <BookOpen className="w-5 h-5" strokeWidth={1.75} />
-              <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Menu</span>
-            </button>
-          )}
-
-          {/* 86 Items (Staff only — availability toggle view) */}
-          {isStaff && isEnabled('qr_menu') && (
-            <button
-              onClick={() => navigate('/manager/menu/availability')}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
-                activeTab === 'menu-availability' ? 'text-amber-600 font-bold' : 'text-slate-400 font-medium'
-              }`}
-            >
-              <ToggleRight className="w-5 h-5" strokeWidth={1.75} />
-              <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">86 Items</span>
-            </button>
-          )}
+        {/* Menu (Manager only) */}
+        {!isStaff && isEnabled('qr_menu') && (
+          <button
+            onClick={() => navigate('/manager/menu')}
+            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+              activeTab === 'menu' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <BookOpen className="w-5 h-5" strokeWidth={1.75} />
+            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Menu</span>
+          </button>
+        )}
 
         {/* Tables (Manager only) */}
         {!isStaff && isEnabled('qr_menu') && (
@@ -801,21 +786,23 @@ export const ManagerLayout: React.FC = () => {
           <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Profile</span>
         </button>
 
-        {/* More — shows Counter POS, KDS, Developer in a slide-up drawer */}
-        <button
-          id="mobile-more-menu-btn"
-          onClick={() => setMoreDrawerOpen((o) => !o)}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
-            moreDrawerOpen ? 'text-amber-500 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <MoreHorizontal className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">More</span>
-        </button>
+        {/* More — shows Counter POS, KDS, Developer in a slide-up drawer (Manager / Admin only) */}
+        {!isStaff && (
+          <button
+            id="mobile-more-menu-btn"
+            onClick={() => setMoreDrawerOpen((o) => !o)}
+            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
+              moreDrawerOpen ? 'text-amber-500 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <MoreHorizontal className="w-5 h-5" strokeWidth={1.75} />
+            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">More</span>
+          </button>
+        )}
       </nav>
 
       {/* ---- MOBILE "MORE" SLIDE-UP DRAWER ---- */}
-      {moreDrawerOpen && (
+      {!isStaff && moreDrawerOpen && (
         <>
           {/* Backdrop */}
           <div

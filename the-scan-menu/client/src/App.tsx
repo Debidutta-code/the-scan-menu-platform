@@ -108,21 +108,20 @@ export const App = () => {
               {/* Nested Manager/Staff/Super Admin routes under ManagerLayout */}
               <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'STAFF', 'SUPER_ADMIN']} />}>
                 <Route element={<ManagerLayout />}>
+                  {/* Staff & Manager shared routes */}
                   <Route path="/manager/orders" element={<ManagerOrders />} />
-                  <Route path="/manager/counter" element={<ManagerCounter />} />
-                  <Route path="/manager/kds" element={<ManagerKDS />} />
                   <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                   <Route path="/manager/profile" element={<ManagerProfile />} />
-                  <Route path="/manager/transactions" element={<ManagerTransactions />} />
-                  {/* STAFF-accessible availability-only view */}
-                  <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
 
                   {/* Manager/Super Admin only routes inside layout */}
                   <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'SUPER_ADMIN']} />}>
+                    <Route path="/manager/counter" element={<ManagerCounter />} />
+                    <Route path="/manager/kds" element={<ManagerKDS />} />
+                    <Route path="/manager/transactions" element={<ManagerTransactions />} />
+                    <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
                     <Route path="/manager/tables" element={<ManagerTables />} />
                     <Route path="/manager/menu" element={<ManagerMenu />} />
                     <Route path="/manager/inventory" element={<ManagerInventory />} />
-
                     <Route path="/manager/staff" element={<ManagerStaff />} />
                     <Route path="/manager/customers" element={<ManagerCustomers />} />
                     <Route path="/manager/taxes" element={<ManagerTaxes />} />
