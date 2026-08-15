@@ -170,7 +170,7 @@ export const Login: React.FC = () => {
 
         {/* Local Dev Disclaimer */}
         <p className="text-center text-xs text-slate-400 mt-8">
-          Local Dev Only lskdjflakjdfl: <span className="font-mono">admin@pixora.dev</span> / <span className="font-mono">PixoraDemo123!</span>
+          Local Dev Only: <span className="font-mono">admin@pixora.dev</span> / <span className="font-mono">PixoraDemo123!</span>
         </p>
       </div>
     </div>
