@@ -32,6 +32,10 @@ export class PushNotificationService {
     return PushNotificationService.instance;
   }
 
+  public isServiceInitialized(): boolean {
+    return this.isInitialized && this.messaging !== null;
+  }
+
   private initFirebase(): void {
     const existingApps = getApps();
     if (existingApps.length > 0) {
@@ -46,31 +50,61 @@ export class PushNotificationService {
 
       if (rawKey && rawKey.trim().length > 0) {
         let credentialObj: any;
+        const trimmed = rawKey.trim();
 
-        // Check if rawKey is a JSON string or file path
-        if (rawKey.trim().startsWith('{')) {
-          credentialObj = JSON.parse(rawKey);
-        } else {
-          const resolvedPath = path.resolve(process.cwd(), rawKey.trim());
+        // 1. Check if rawKey is direct JSON string
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            credentialObj = JSON.parse(trimmed);
+          } catch (jsonErr) {
+            logger.error(jsonErr, '[PushNotification] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON string');
+          }
+        }
+        // 2. Check if rawKey is base64-encoded JSON string
+        else if (!trimmed.includes('\n') && !fs.existsSync(path.resolve(process.cwd(), trimmed))) {
+          try {
+            const decoded = Buffer.from(trimmed, 'base64').toString('utf-8');
+            if (decoded.startsWith('{') && decoded.endsWith('}')) {
+              credentialObj = JSON.parse(decoded);
+            }
+          } catch (_) {
+            // Not a base64 string, proceed to file path check
+          }
+        }
+
+        // 3. Check if rawKey is a file path
+        if (!credentialObj) {
+          const resolvedPath = path.resolve(process.cwd(), trimmed);
           if (fs.existsSync(resolvedPath)) {
-            const fileData = fs.readFileSync(resolvedPath, 'utf-8');
-            credentialObj = JSON.parse(fileData);
+            try {
+              const fileData = fs.readFileSync(resolvedPath, 'utf-8');
+              credentialObj = JSON.parse(fileData);
+            } catch (fileErr) {
+              logger.error(fileErr, `[PushNotification] Failed to read/parse Firebase credentials file at: ${resolvedPath}`);
+            }
           }
         }
 
         if (credentialObj) {
+          // Normalize private key escaped newlines often introduced in cloud environment variables (e.g. Render)
+          if (typeof credentialObj.private_key === 'string') {
+            credentialObj.private_key = credentialObj.private_key.replace(/\\n/g, '\n');
+          }
+
+          const targetProjectId = config.firebase.projectId || credentialObj.project_id;
+
           this.app = initializeApp({
             credential: cert(credentialObj),
-            projectId: config.firebase.projectId || credentialObj.project_id,
+            projectId: targetProjectId,
           });
           this.messaging = getMessaging(this.app);
           this.isInitialized = true;
-          logger.info('[PushNotification] Firebase Admin initialized successfully via service account key.');
+          logger.info(`[PushNotification] Firebase Admin initialized successfully (Project: ${targetProjectId || 'default'}).`);
           return;
         }
       }
 
-      // Check default application credentials
+      // Check default application credentials (GOOGLE_APPLICATION_CREDENTIALS)
       if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         this.app = initializeApp({
           credential: applicationDefault(),
@@ -82,7 +116,7 @@ export class PushNotificationService {
         return;
       }
 
-      logger.warn('[PushNotification] Firebase credentials not configured. Push notifications will operate in fallback mode (socket events will continue).');
+      logger.warn('[PushNotification] Firebase service account credentials not configured. Push notifications will operate in fallback mode (in-app Socket.IO alerts remain active). Set FIREBASE_SERVICE_ACCOUNT_KEY in production to enable FCM.');
       this.isInitialized = false;
     } catch (err) {
       logger.error(err, '[PushNotification] Failed to initialize Firebase Admin SDK');

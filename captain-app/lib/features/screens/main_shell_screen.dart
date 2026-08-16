@@ -42,11 +42,11 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
 
     // Listen for notification taps to route directly to relevant tab
     _notifSubscription = PushNotificationService().onNotificationClick.listen((data) {
-      final type = data['type']?.toString() ?? '';
-      if (type == 'WAITER_CALL') {
-        setState(() => _currentIndex = 2); // Waiter calls tab
-      } else if (type == 'NEW_ORDER') {
-        setState(() => _currentIndex = 1); // Active orders tab
+      final type = (data['type'] ?? data['notificationType'] ?? '').toString().toUpperCase();
+      if (type == 'WAITER_CALL' || type == 'CALL') {
+        if (mounted) setState(() => _currentIndex = 2); // Waiter calls tab
+      } else if (type == 'NEW_ORDER' || type == 'ORDER') {
+        if (mounted) setState(() => _currentIndex = 1); // Active orders tab
       }
     });
   }

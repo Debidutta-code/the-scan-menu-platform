@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audio/alert_service.dart';
@@ -88,6 +89,15 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
 
   void _setupSocketSubscriptions() {
     _socketService.onOrderCreated.listen((data) {
+      final orderId = (data['_id'] ?? data['id'] ?? data['orderId'] ?? '').toString();
+      final dedupeKey = 'NEW_ORDER_$orderId';
+
+      // Deduplicate against FCM notifications
+      if (PushNotificationService().recordAndCheckDuplicate(dedupeKey)) {
+        fetchActiveOrders(isSilent: true);
+        return;
+      }
+
       final tableNum = data['tableName'] ?? data['tableNumber'] ?? 'Floor';
       final orderNum = data['orderNumber'] ?? '';
       final itemsCount = (data['items'] is List) ? (data['items'] as List).length : 1;
@@ -96,12 +106,19 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
       // 1. Audio chime and vibration
       _alertService.triggerNewOrderAlert();
 
-      // 2. Heads-up local notification banner
+      // 2. Heads-up local notification banner with valid JSON payload
+      final payloadData = {
+        'type': 'NEW_ORDER',
+        'orderId': orderId,
+        'tableNumber': tableNum.toString(),
+        'orderNumber': orderNum.toString(),
+      };
+
       PushNotificationService().showLocalNotification(
         id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         title: '🛎️ New Order: Table $tableNum',
         body: 'Order #${orderNum.toString().isNotEmpty ? orderNum : 'New'} • $itemsCount item(s) • ₹$total',
-        payload: data.toString(),
+        payload: jsonEncode(payloadData),
       );
 
       fetchActiveOrders(isSilent: true);

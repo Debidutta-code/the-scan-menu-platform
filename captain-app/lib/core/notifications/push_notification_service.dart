@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -26,6 +27,9 @@ class PushNotificationService {
   bool _isInitialized = false;
   bool _firebaseAvailable = false;
 
+  // In-memory cache to deduplicate foreground Socket.IO and FCM events
+  final Map<String, DateTime> _handledEvents = {};
+
   static const String channelId = 'scanmenu_alerts_channel';
   static const String channelName = 'ScanMenu Floor Alerts';
   static const String channelDescription = 'High priority notifications for customer orders and captain calls';
@@ -35,6 +39,21 @@ class PushNotificationService {
   Stream<Map<String, dynamic>> get onNotificationClick => _notificationClickController.stream;
 
   PushNotificationService._internal();
+
+  /// Records an event as handled and returns true if it was already processed recently
+  bool recordAndCheckDuplicate(String eventKey) {
+    if (eventKey.isEmpty) return false;
+    final now = DateTime.now();
+    // Clean up entries older than 60 seconds
+    _handledEvents.removeWhere((_, time) => now.difference(time).inSeconds > 60);
+
+    if (_handledEvents.containsKey(eventKey)) {
+      debugPrint('[PushNotificationService] Duplicate event detected and suppressed: $eventKey');
+      return true;
+    }
+    _handledEvents[eventKey] = now;
+    return false;
+  }
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -64,6 +83,13 @@ class PushNotificationService {
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           debugPrint('[LocalNotif Click] Payload: ${response.payload}');
           if (response.payload != null && response.payload!.isNotEmpty) {
+            try {
+              final decoded = jsonDecode(response.payload!);
+              if (decoded is Map<String, dynamic>) {
+                _notificationClickController.add(decoded);
+                return;
+              }
+            } catch (_) {}
             _notificationClickController.add({'payload': response.payload});
           }
         },
@@ -138,7 +164,14 @@ class PushNotificationService {
   void _handleIncomingMessage(RemoteMessage message) {
     final notification = message.notification;
     final data = message.data;
-    final type = data['type'] ?? '';
+    final type = data['type']?.toString() ?? '';
+    final eventId = data['orderId'] ?? data['callId'] ?? message.messageId ?? '';
+
+    // Deduplicate against Socket.IO events already processed in foreground
+    final dedupeKey = '${type}_$eventId';
+    if (recordAndCheckDuplicate(dedupeKey)) {
+      return;
+    }
 
     // Play appropriate floor sound & haptics
     if (type == 'WAITER_CALL') {
@@ -155,7 +188,7 @@ class PushNotificationService {
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title: title,
       body: body,
-      payload: data.toString(),
+      payload: jsonEncode(data),
     );
   }
 

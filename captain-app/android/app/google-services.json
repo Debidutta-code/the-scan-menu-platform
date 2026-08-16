@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "799828878519",
+    "project_id": "thescanmenu",
+    "storage_bucket": "thescanmenu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:799828878519:android:5a6454d6f0f0786aca9932",
+        "android_client_info": {
+          "package_name": "com.example.captain_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBK1bzsXYS7fPISA84bTMvXVgCgySxHVFk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

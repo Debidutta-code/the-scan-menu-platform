@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audio/alert_service.dart';
@@ -67,6 +68,15 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
 
   void _setupSocketSubscriptions() {
     _socketService.onWaiterCallCreated.listen((data) {
+      final callId = (data['_id'] ?? data['id'] ?? data['callId'] ?? '').toString();
+      final dedupeKey = 'WAITER_CALL_$callId';
+
+      // Deduplicate against FCM notifications
+      if (PushNotificationService().recordAndCheckDuplicate(dedupeKey)) {
+        fetchWaiterCalls(isSilent: true);
+        return;
+      }
+
       final tableNum = data['tableNumberSnapshot'] ?? data['tableNumber'] ?? 'Floor';
       final reqType = data['requestType']?.toString() ?? 'CALL_WAITER';
       final reasonLabel = reqType == 'REQUEST_BILL'
@@ -80,12 +90,20 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
       // 1. Trigger audio chime and vibration
       _alertService.triggerWaiterCallAlert();
 
-      // 2. Trigger high-priority heads-up local notification banner
+      // 2. Trigger high-priority heads-up local notification banner with valid JSON payload
+      final payloadData = {
+        'type': 'WAITER_CALL',
+        'callId': callId,
+        'tableNumber': tableNum.toString(),
+        'requestType': reqType,
+        'reason': reasonLabel,
+      };
+
       PushNotificationService().showLocalNotification(
         id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         title: '🚨 Captain Call: Table $tableNum',
         body: 'Table $tableNum • $reasonLabel',
-        payload: data.toString(),
+        payload: jsonEncode(payloadData),
       );
 
       fetchWaiterCalls(isSilent: true);

@@ -53,10 +53,11 @@ class SecureStorageService {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_keyBaseUrl);
     // Auto-migrate legacy/deprecated URLs to the active Render service URL
-    if (stored == 'https://the-scan-menu.onrender.com' ||
-        stored == 'https://the-scan-menu.onrender.com/' ||
-        stored == null ||
-        stored.trim().isEmpty) {
+    if (stored == null ||
+        stored.trim().isEmpty ||
+        stored.contains('the-scan-menu-platform.onrender.com') ||
+        stored == 'https://the-scan-menu.onrender.com' ||
+        stored == 'https://the-scan-menu.onrender.com/') {
       await prefs.setString(_keyBaseUrl, ApiConstants.defaultBaseUrl);
       return ApiConstants.defaultBaseUrl;
     }
