@@ -1,7 +1,7 @@
 import { WaiterCallStatus } from '../models/WaiterCall';
 
 export const ALLOWED_WAITER_CALL_TRANSITIONS: Record<WaiterCallStatus, WaiterCallStatus[]> = {
-  PENDING: ['ACKNOWLEDGED', 'CANCELLED'],
+  PENDING: ['ACKNOWLEDGED', 'RESOLVED', 'CANCELLED'],
   ACKNOWLEDGED: ['RESOLVED', 'CANCELLED'],
   RESOLVED: [],
   CANCELLED: [],

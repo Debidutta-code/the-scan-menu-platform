@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audio/alert_service.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/sockets/socket_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/waiter_call_model.dart';
@@ -66,7 +67,27 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
 
   void _setupSocketSubscriptions() {
     _socketService.onWaiterCallCreated.listen((data) {
+      final tableNum = data['tableNumberSnapshot'] ?? data['tableNumber'] ?? 'Floor';
+      final reqType = data['requestType']?.toString() ?? 'CALL_WAITER';
+      final reasonLabel = reqType == 'REQUEST_BILL'
+          ? 'Requesting Bill / Payment'
+          : reqType == 'WATER'
+              ? 'Water Needed'
+              : reqType == 'TISSUE'
+                  ? 'Tissues Needed'
+                  : 'Assistance Requested';
+
+      // 1. Trigger audio chime and vibration
       _alertService.triggerWaiterCallAlert();
+
+      // 2. Trigger high-priority heads-up local notification banner
+      PushNotificationService().showLocalNotification(
+        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title: '🚨 Captain Call: Table $tableNum',
+        body: 'Table $tableNum • $reasonLabel',
+        payload: data.toString(),
+      );
+
       fetchWaiterCalls(isSilent: true);
     });
 
@@ -130,13 +151,13 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
       final res = await _apiClient.dio.patch(
         ApiConstants.acknowledgeWaiterCall(restaurantId, callId),
       );
-
-      final nextPending = Set<String>.from(state.pendingActionCallIds)..remove(callId);
-      state = state.copyWith(pendingActionCallIds: nextPending);
       return res.data['success'] == true;
     } catch (_) {
       fetchWaiterCalls(isSilent: true);
       return false;
+    } finally {
+      final nextPending = Set<String>.from(state.pendingActionCallIds)..remove(callId);
+      state = state.copyWith(pendingActionCallIds: nextPending);
     }
   }
 
@@ -154,13 +175,13 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
       final res = await _apiClient.dio.patch(
         ApiConstants.resolveWaiterCall(restaurantId, callId),
       );
-
-      final nextPending = Set<String>.from(state.pendingActionCallIds)..remove(callId);
-      state = state.copyWith(pendingActionCallIds: nextPending);
       return res.data['success'] == true;
     } catch (_) {
       fetchWaiterCalls(isSilent: true);
       return false;
+    } finally {
+      final nextPending = Set<String>.from(state.pendingActionCallIds)..remove(callId);
+      state = state.copyWith(pendingActionCallIds: nextPending);
     }
   }
 }

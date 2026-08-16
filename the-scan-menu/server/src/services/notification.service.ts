@@ -86,13 +86,20 @@ export class NotificationService {
       this.getIO().to(`restaurant:${restaurantId}`).emit('waiter_call:created', waiterCall);
 
       // 2. Push Notification for background / closed captain app devices
-      const tableNumber = waiterCall?.tableNumber ?? waiterCall?.table?.tableNumber ?? 'Floor';
-      const reason = waiterCall?.reason ?? 'Customer requested captain assistance';
+      const tableNumber = waiterCall?.tableNumberSnapshot ?? waiterCall?.tableNumber ?? waiterCall?.table?.tableNumber ?? 'Floor';
+      const requestType = waiterCall?.requestType ?? waiterCall?.reason ?? 'CALL_WAITER';
+      const reasonLabel = requestType === 'REQUEST_BILL'
+        ? 'Requesting Bill / Payment'
+        : requestType === 'WATER'
+        ? 'Water Needed'
+        : requestType === 'TISSUE'
+        ? 'Tissues Needed'
+        : 'Assistance Requested';
       const callId = waiterCall?._id?.toString() ?? waiterCall?.id?.toString() ?? '';
 
       pushNotificationService.sendToRestaurant(restaurantId, {
         title: `🚨 Captain Call: Table ${tableNumber}`,
-        body: `Table ${tableNumber} - ${reason}`,
+        body: `Table ${tableNumber} • ${reasonLabel}`,
         channelId: 'scanmenu_alerts_channel',
         sound: 'call_bell',
         tag: `call_${callId}`,
@@ -101,7 +108,9 @@ export class NotificationService {
           callId,
           restaurantId,
           tableNumber: String(tableNumber),
-          reason: String(reason),
+          tableNumberSnapshot: String(tableNumber),
+          requestType: String(requestType),
+          reason: String(reasonLabel),
         },
       }).catch((pushErr) => {
         console.error('Failed to send waiter call push notification:', pushErr);

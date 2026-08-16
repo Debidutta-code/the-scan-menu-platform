@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audio/alert_service.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/sockets/socket_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/order_model.dart';
@@ -87,7 +88,22 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
 
   void _setupSocketSubscriptions() {
     _socketService.onOrderCreated.listen((data) {
+      final tableNum = data['tableName'] ?? data['tableNumber'] ?? 'Floor';
+      final orderNum = data['orderNumber'] ?? '';
+      final itemsCount = (data['items'] is List) ? (data['items'] as List).length : 1;
+      final total = data['totalAmount'] ?? data['total'] ?? 0;
+
+      // 1. Audio chime and vibration
       _alertService.triggerNewOrderAlert();
+
+      // 2. Heads-up local notification banner
+      PushNotificationService().showLocalNotification(
+        id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title: '🛎️ New Order: Table $tableNum',
+        body: 'Order #${orderNum.toString().isNotEmpty ? orderNum : 'New'} • $itemsCount item(s) • ₹$total',
+        payload: data.toString(),
+      );
+
       fetchActiveOrders(isSilent: true);
     });
 
@@ -204,21 +220,19 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
         ApiConstants.updateOrderStatus(restaurantId, orderId),
         data: {'status': nextStatus},
       );
-
-      final nextPending = Set<String>.from(state.pendingActionOrderIds)..remove(orderId);
-      state = state.copyWith(pendingActionOrderIds: nextPending);
       return res.data['success'] == true;
     } catch (_) {
       // Rollback on failure
-      final nextPending = Set<String>.from(state.pendingActionOrderIds)..remove(orderId);
       state = state.copyWith(
-        pendingActionOrderIds: nextPending,
         orders: state.orders.map((o) {
           if (o.id == orderId) return o.copyWith(status: originalStatus);
           return o;
         }).toList(),
       );
       return false;
+    } finally {
+      final nextPending = Set<String>.from(state.pendingActionOrderIds)..remove(orderId);
+      state = state.copyWith(pendingActionOrderIds: nextPending);
     }
   }
 
@@ -234,13 +248,15 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
 
     try {
       final res = await _apiClient.dio.post(ApiConstants.clearOrder(restaurantId, orderId));
-      final nextPending = Set<String>.from(state.pendingActionOrderIds)..remove(orderId);
-      state = state.copyWith(pendingActionOrderIds: nextPending);
       return res.data['success'] == true;
     } catch (_) {
       fetchActiveOrders(isSilent: true);
       return false;
+    } finally {
+      final nextPending = Set<String>.from(state.pendingActionOrderIds)..remove(orderId);
+      state = state.copyWith(pendingActionOrderIds: nextPending);
     }
+  }
   }
 }
 

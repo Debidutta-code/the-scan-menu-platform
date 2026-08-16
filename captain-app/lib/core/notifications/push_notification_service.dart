@@ -108,6 +108,18 @@ class PushNotificationService {
           _notificationClickController.add(initialMessage.data);
         }
 
+        // Fetch initial token if already permitted
+        try {
+          final token = await FirebaseMessaging.instance.getToken();
+          if (token != null) {
+            debugPrint('[FCM Initial Token] $token');
+            await SecureStorageService.saveFcmToken(token);
+            syncTokenWithServer(token: token);
+          }
+        } catch (tokErr) {
+          debugPrint('[FCM Initial Token Warning] $tokErr');
+        }
+
         // Listen for token refreshes
         FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
           debugPrint('[FCM Refresh] New token received: $newToken');
@@ -161,10 +173,16 @@ class PushNotificationService {
       channelName,
       channelDescription: channelDescription,
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max,
       playSound: soundEnabled,
       enableVibration: vibrationEnabled,
-      styleInformation: const DefaultStyleInformation(true, true),
+      channelShowBadge: true,
+      ticker: title,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: 'ScanMenu Floor Alert',
+      ),
     );
 
     const iosDetails = DarwinNotificationDetails(
