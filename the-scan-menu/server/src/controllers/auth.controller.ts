@@ -44,12 +44,14 @@ export class AuthController {
         return;
       }
 
+      const clientType = req.body?.clientType || (req.headers['x-client-type'] as string) || 'web';
       const payload = { id: user.id, email: user.email, role: user.role };
       const accessToken = this.tokenService.generateAccessToken(payload);
 
       const refreshTokenStr = this.tokenService.generateRefreshTokenString();
       const tokenHash = this.tokenService.hashToken(refreshTokenStr);
-      const expiresAt = this.tokenService.getRefreshTokenExpiry();
+      const expiresAt = this.tokenService.getRefreshTokenExpiry(clientType);
+      const expiryDays = this.tokenService.getRefreshTokenExpiryDays(clientType);
 
       await this.tokenRepository.create(user.id, tokenHash, expiresAt);
 
@@ -59,7 +61,7 @@ export class AuthController {
         secure: isProd,
         sameSite: isProd ? 'none' : 'strict',
         path: '/api/v1/auth',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: expiryDays * 24 * 60 * 60 * 1000,
       });
 
       const staffRecords = await RestaurantStaff.find({ userId: user.id, isActive: true });
@@ -122,12 +124,14 @@ export class AuthController {
       // Token rotation
       await this.tokenRepository.revoke(tokenHash);
 
+      const clientType = req.body?.clientType || (req.headers['x-client-type'] as string) || 'web';
       const payload = { id: user.id, email: user.email, role: user.role };
       const newAccessToken = this.tokenService.generateAccessToken(payload);
 
       const newRefreshTokenStr = this.tokenService.generateRefreshTokenString();
       const newRefreshTokenHash = this.tokenService.hashToken(newRefreshTokenStr);
-      const expiresAt = this.tokenService.getRefreshTokenExpiry();
+      const expiresAt = this.tokenService.getRefreshTokenExpiry(clientType);
+      const expiryDays = this.tokenService.getRefreshTokenExpiryDays(clientType);
 
       await this.tokenRepository.create(user.id, newRefreshTokenHash, expiresAt);
 
@@ -137,7 +141,7 @@ export class AuthController {
         secure: isProd,
         sameSite: isProd ? 'none' : 'strict',
         path: '/api/v1/auth',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: expiryDays * 24 * 60 * 60 * 1000,
       });
 
       sendSuccess(

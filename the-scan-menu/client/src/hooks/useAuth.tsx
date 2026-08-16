@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // No access token in memory/localStorage or it expired -> attempt silent refresh
       try {
-        const refreshResponse = await apiClient.post('/auth/refresh');
+        const refreshResponse = await apiClient.post('/auth/refresh', { clientType: 'web' });
         const newToken = refreshResponse.data.data.accessToken;
         localStorage.setItem('accessToken', newToken);
         setAccessToken(newToken);
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('/auth/login', { email, password, clientType: 'web' });
       const { accessToken: token, user: userData } = response.data.data;
       localStorage.setItem('accessToken', token);
       setAccessToken(token);

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exceptions.dart';
+import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/sockets/socket_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../models/user_model.dart';
@@ -42,6 +44,7 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient _apiClient = ApiClient();
   final SocketService _socketService = SocketService();
+  final PushNotificationService _pushNotificationService = PushNotificationService();
 
   AuthNotifier() : super(AuthState.initial()) {
     checkSession();
@@ -52,86 +55,136 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _apiClient.updateBaseUrl();
       final token = await SecureStorageService.getAccessToken();
-      if (token == null) {
+      final refreshToken = await SecureStorageService.getRefreshToken();
+
+      if (token == null && refreshToken == null) {
         state = state.copyWith(status: AuthStatus.unauthenticated);
         return;
       }
 
-      final meRes = await _apiClient.dio.get(ApiConstants.me);
-      if (meRes.data['success'] == true) {
-        final userData = UserModel.fromJson(meRes.data['data']['user']);
+      // Check cached user profile for instant offline/glitch resilience
+      UserModel? cachedUser;
+      final cachedProfileStr = await SecureStorageService.getUserProfile();
+      if (cachedProfileStr != null && cachedProfileStr.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cachedProfileStr);
+          cachedUser = UserModel.fromJson(decoded);
+        } catch (_) {}
+      }
 
-        // Check if user is staff or manager
-        if (userData.role != 'STAFF' && userData.role != 'MANAGER' && userData.role != 'SUPER_ADMIN') {
-          await logout();
+      try {
+        final meRes = await _apiClient.dio.get(ApiConstants.me);
+        if (meRes.data['success'] == true) {
+          final userData = UserModel.fromJson(meRes.data['data']['user']);
+
+          // Check if user is staff or manager
+          if (userData.role != 'STAFF' && userData.role != 'MANAGER' && userData.role != 'SUPER_ADMIN') {
+            await logout();
+            state = state.copyWith(
+              status: AuthStatus.error,
+              errorMessage: 'Access restricted to Staff and Captains only.',
+            );
+            return;
+          }
+
+          // Cache verified user profile
+          await SecureStorageService.saveUserProfile(jsonEncode(meRes.data['data']['user']));
+
+          String? savedRestaurantId = await SecureStorageService.getActiveRestaurantId();
+          
+          // Ensure savedRestaurantId is in assigned restaurants
+          if (savedRestaurantId == null ||
+              (userData.role != 'SUPER_ADMIN' &&
+               userData.restaurants.isNotEmpty &&
+               !userData.restaurants.contains(savedRestaurantId))) {
+            savedRestaurantId = userData.restaurants.isNotEmpty
+                ? userData.restaurants.first
+                : null;
+            if (savedRestaurantId != null) {
+              await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
+            }
+          }
+
+          RestaurantProfile? restaurant;
+          if (savedRestaurantId != null) {
+            try {
+              final restRes = await _apiClient.dio
+                  .get(ApiConstants.restaurantProfile(savedRestaurantId));
+              if (restRes.data['success'] == true) {
+                restaurant = RestaurantProfile.fromJson(restRes.data['data']);
+              }
+            } catch (_) {
+              if (userData.restaurants.isNotEmpty &&
+                  userData.restaurants.first != savedRestaurantId) {
+                savedRestaurantId = userData.restaurants.first;
+                await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
+                try {
+                  final fallbackRes = await _apiClient.dio
+                      .get(ApiConstants.restaurantProfile(savedRestaurantId));
+                  if (fallbackRes.data['success'] == true) {
+                    restaurant = RestaurantProfile.fromJson(fallbackRes.data['data']);
+                  }
+                } catch (_) {}
+              }
+            }
+
+            // Connect socket & sync push notification token
+            await _socketService.connect(savedRestaurantId);
+            _pushNotificationService.syncTokenWithServer(restaurantId: savedRestaurantId);
+          }
+
+          // ignore: avoid_print
+          print('[AUTH] Persistent Mobile Session Verified -> ${userData.email} | Rest: $savedRestaurantId');
+
           state = state.copyWith(
-            status: AuthStatus.error,
-            errorMessage: 'Access restricted to Staff and Captains only.',
+            status: AuthStatus.authenticated,
+            user: userData,
+            activeRestaurant: restaurant,
           );
+          return;
+        } else {
+          await logout();
+          state = state.copyWith(status: AuthStatus.unauthenticated);
+          return;
+        }
+      } on DioException catch (dioErr) {
+        final statusCode = dioErr.response?.statusCode;
+        // If explicitly unauthorized (e.g. invalid/revoked token after refresh failed)
+        if (statusCode == 401 || statusCode == 403) {
+          // ignore: avoid_print
+          print('[AUTH] Session Revoked/Unauthorized (HTTP $statusCode) -> logging out');
+          await logout();
+          state = state.copyWith(status: AuthStatus.unauthenticated);
           return;
         }
 
-        String? savedRestaurantId = await SecureStorageService.getActiveRestaurantId();
-        
-        // Ensure savedRestaurantId is actually in the user's assigned restaurants
-        if (savedRestaurantId == null ||
-            (userData.role != 'SUPER_ADMIN' &&
-             userData.restaurants.isNotEmpty &&
-             !userData.restaurants.contains(savedRestaurantId))) {
-          savedRestaurantId = userData.restaurants.isNotEmpty
-              ? userData.restaurants.first
-              : null;
+        // Connection timeout, network offline, or server restarting
+        // If we have cached credentials, maintain authenticated state and do NOT logout!
+        if (cachedUser != null) {
+          final savedRestaurantId = await SecureStorageService.getActiveRestaurantId();
+          // ignore: avoid_print
+          print('[AUTH] Offline/Network hiccup: Maintaining persistent mobile session for ${cachedUser.email}');
+
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            user: cachedUser,
+          );
+
           if (savedRestaurantId != null) {
-            await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
+            _socketService.connect(savedRestaurantId);
           }
+          return;
         }
 
-        RestaurantProfile? restaurant;
-        if (savedRestaurantId != null) {
-          try {
-            final restRes = await _apiClient.dio
-                .get(ApiConstants.restaurantProfile(savedRestaurantId));
-            if (restRes.data['success'] == true) {
-              restaurant = RestaurantProfile.fromJson(restRes.data['data']);
-            }
-          } catch (_) {
-            // If fetching failed with stale ID, fallback to first assigned restaurant
-            if (userData.restaurants.isNotEmpty &&
-                userData.restaurants.first != savedRestaurantId) {
-              savedRestaurantId = userData.restaurants.first;
-              await SecureStorageService.saveActiveRestaurantId(savedRestaurantId);
-              try {
-                final fallbackRes = await _apiClient.dio
-                    .get(ApiConstants.restaurantProfile(savedRestaurantId));
-                if (fallbackRes.data['success'] == true) {
-                  restaurant = RestaurantProfile.fromJson(fallbackRes.data['data']);
-                }
-              } catch (_) {}
-            }
-          }
-
-          // Connect socket
-          await _socketService.connect(savedRestaurantId);
-        }
-
-        // ignore: avoid_print
-        print('[AUTH] Session Verified -> User: ${userData.email} | Role: ${userData.role} | ActiveRestId: $savedRestaurantId | Assigned: ${userData.restaurants}');
-
+        // If no cached user and network failed
         state = state.copyWith(
-          status: AuthStatus.authenticated,
-          user: userData,
-          activeRestaurant: restaurant,
+          status: AuthStatus.error,
+          errorMessage: 'Network connection issue. Please check your internet.',
         );
-      } else {
-        // ignore: avoid_print
-        print('[AUTH] /me returned success=false');
-        await logout();
-        state = state.copyWith(status: AuthStatus.unauthenticated);
       }
     } catch (e) {
       // ignore: avoid_print
-      print('[AUTH] checkSession Error: $e');
-      await logout();
+      print('[AUTH] checkSession unexpected error: $e');
       state = state.copyWith(status: AuthStatus.unauthenticated);
     }
   }
@@ -145,6 +198,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         data: {
           'email': email.trim().toLowerCase(),
           'password': password,
+          'clientType': 'mobile',
         },
       );
 
@@ -163,6 +217,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           refreshToken: refreshToken,
         );
 
+        // Cache user profile for instant persistent startup
+        await SecureStorageService.saveUserProfile(jsonEncode(data['user']));
+
         String? activeRestaurantId;
         if (userData.restaurants.isNotEmpty) {
           activeRestaurantId = userData.restaurants.first;
@@ -180,6 +237,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           } catch (_) {}
 
           await _socketService.connect(activeRestaurantId);
+          _pushNotificationService.syncTokenWithServer(restaurantId: activeRestaurantId);
         }
 
         state = state.copyWith(
@@ -213,19 +271,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final restaurant = RestaurantProfile.fromJson(restRes.data['data']);
         state = state.copyWith(activeRestaurant: restaurant);
         await _socketService.connect(restaurantId);
+        _pushNotificationService.syncTokenWithServer(restaurantId: restaurantId);
       }
     } catch (_) {}
   }
 
   Future<void> logout() async {
     try {
+      // 1. Unregister device push token
+      await _pushNotificationService.unregisterToken();
+
+      // 2. Revoke refresh token on server
       final refreshToken = await SecureStorageService.getRefreshToken();
-      await _apiClient.dio.post(
-        ApiConstants.logout,
-        data: {'refreshToken': refreshToken},
-      );
+      if (refreshToken != null) {
+        await _apiClient.dio.post(
+          ApiConstants.logout,
+          data: {'refreshToken': refreshToken},
+        );
+      }
     } catch (_) {}
+    
+    // 3. Clear local tokens & cached profile
     await SecureStorageService.clearTokens();
+    await SecureStorageService.clearUserProfile();
     _socketService.disconnect();
     state = AuthState(status: AuthStatus.unauthenticated);
   }

@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/push_notification_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
@@ -246,6 +247,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       setState(() => _vibrationEnabled = val);
                       await SecureStorageService.setVibrationEnabled(val);
                     },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(LucideIcons.bellRing, color: AppColors.primary),
+                    title: Text(
+                      'Push Floor Notifications',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Alerts when app is closed or in background',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    trailing: TextButton(
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final granted = await PushNotificationService().requestPermission();
+                        if (granted) {
+                          await PushNotificationService().showLocalNotification(
+                            id: 999,
+                            title: '🛎️ Test Notification',
+                            body: 'Floor notification system is operational!',
+                          );
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Notifications active! Test alert sent.')),
+                          );
+                        } else {
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Notification permission is disabled in Android settings.')),
+                          );
+                        }
+                      },
+                      child: Text(
+                        'Test / Enable',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(

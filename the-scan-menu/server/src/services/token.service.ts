@@ -3,7 +3,6 @@ import crypto from 'crypto';
 import config from '../config';
 
 const ACCESS_TOKEN_EXPIRY = config.auth.jwtAccessExpiresIn; // Short-lived
-const REFRESH_TOKEN_EXPIRY_DAYS = config.auth.jwtRefreshExpiresInDays; // Long-lived
 
 export interface TokenUserPayload {
   id: string;
@@ -67,10 +66,17 @@ export class TokenService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  getRefreshTokenExpiry(): Date {
+  getRefreshTokenExpiry(clientType: string = 'web'): Date {
+    const isMobile = clientType.toLowerCase() === 'mobile' || clientType.toLowerCase() === 'captain_app';
+    const days = isMobile ? 365 : 1; // 1 day for web daily login, 365 days for mobile
     const expiry = new Date();
-    expiry.setDate(expiry.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+    expiry.setDate(expiry.getDate() + days);
     return expiry;
+  }
+
+  getRefreshTokenExpiryDays(clientType: string = 'web'): number {
+    const isMobile = clientType.toLowerCase() === 'mobile' || clientType.toLowerCase() === 'captain_app';
+    return isMobile ? 365 : 1; // 1 day for web daily login, 365 days for mobile
   }
 }
 

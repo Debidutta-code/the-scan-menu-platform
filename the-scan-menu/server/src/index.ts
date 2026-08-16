@@ -24,6 +24,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import openapiRoutes from './routes/openapi.routes';
 import developerRoutes from './routes/developer.routes';
 import healthRoutes from './routes/health.routes';
+import notificationRoutes from './routes/notification.routes';
 import { globalSubscriptionRoutes, restaurantSubscriptionRoutes } from './routes/subscription.routes';
 import { correlationIdMiddleware } from './middleware/correlationId.middleware';
 import { authRateLimiter } from './middleware/rateLimiter.middleware';
@@ -96,6 +97,7 @@ app.use(cookieParser());
 // Routing
 app.use('/api/v1/auth/login', authRateLimiter);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
 // Subscription plan listing (any authenticated user) and per-tenant assignment (SUPER_ADMIN only)

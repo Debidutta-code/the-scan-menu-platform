@@ -44,6 +44,7 @@ class ApiClient {
           if (currentBase != null && currentBase.isNotEmpty) {
             options.baseUrl = currentBase.trim().replaceAll(RegExp(r'/+$'), '');
           }
+          options.headers['x-client-type'] = 'mobile';
           final token = await SecureStorageService.getAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
@@ -91,7 +92,7 @@ class ApiClient {
 
               final refreshResponse = await dio.post(
                 ApiConstants.refresh,
-                data: {'refreshToken': refreshToken},
+                data: {'refreshToken': refreshToken, 'clientType': 'mobile'},
                 options: Options(extra: {'retry': true}),
               );
 

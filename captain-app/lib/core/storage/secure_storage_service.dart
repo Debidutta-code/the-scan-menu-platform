@@ -63,6 +63,45 @@ class SecureStorageService {
     return stored;
   }
 
+  static const String _keyUserProfile = 'tsm_user_profile';
+  static const String _keyFcmToken = 'tsm_fcm_token';
+  static const String _keyNotificationPromptDismissed = 'tsm_notif_prompt_dismissed';
+
+  // User Profile Cache (For instant offline boot and smooth session persistence)
+  static Future<void> saveUserProfile(String userJson) async {
+    await _storage.write(key: _keyUserProfile, value: userJson);
+  }
+
+  static Future<String?> getUserProfile() async {
+    return await _storage.read(key: _keyUserProfile);
+  }
+
+  static Future<void> clearUserProfile() async {
+    await _storage.delete(key: _keyUserProfile);
+  }
+
+  // Push Notification FCM Token
+  static Future<void> saveFcmToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyFcmToken, token);
+  }
+
+  static Future<String?> getFcmToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyFcmToken);
+  }
+
+  // Notification Permission Prompt state
+  static Future<bool> isNotificationPromptDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyNotificationPromptDismissed) ?? false;
+  }
+
+  static Future<void> setNotificationPromptDismissed(bool dismissed) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyNotificationPromptDismissed, dismissed);
+  }
+
   // Notification Preferences
   static Future<bool> isSoundEnabled() async {
     final prefs = await SharedPreferences.getInstance();

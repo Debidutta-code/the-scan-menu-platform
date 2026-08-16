@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/notifications/notification_permission_dialog.dart';
+import '../../core/notifications/push_notification_service.dart';
 import '../active_orders/providers/active_orders_provider.dart';
 import '../active_orders/screens/active_orders_screen.dart';
 import '../profile/screens/profile_screen.dart';
@@ -19,6 +22,7 @@ class MainShellScreen extends ConsumerStatefulWidget {
 
 class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   int _currentIndex = 0;
+  StreamSubscription? _notifSubscription;
 
   final List<Widget> _screens = const [
     TablesScreen(),
@@ -26,6 +30,32 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     WaiterCallsScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Check notification permission eligibility after initial layout
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationPermissionDialog.showIfEligible(context);
+    });
+
+    // Listen for notification taps to route directly to relevant tab
+    _notifSubscription = PushNotificationService().onNotificationClick.listen((data) {
+      final type = data['type']?.toString() ?? '';
+      if (type == 'WAITER_CALL') {
+        setState(() => _currentIndex = 2); // Waiter calls tab
+      } else if (type == 'NEW_ORDER') {
+        setState(() => _currentIndex = 1); // Active orders tab
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notifSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -74,6 +74,11 @@ export interface IntegrationsConfig {
   stripe: StripeIntegrationConfig;
 }
 
+export interface FirebaseConfig {
+  serviceAccountKey?: string;
+  projectId?: string;
+}
+
 export interface EmailConfig {
   enabled: boolean;
   from?: string;
@@ -97,6 +102,7 @@ export interface ServerConfig {
   auth: AuthConfig;
   cloudinary: CloudinaryConfig;
   integrations: IntegrationsConfig;
+  firebase: FirebaseConfig;
   email: EmailConfig;
   logging: LoggingConfig;
   rateLimit: RateLimitConfig;
@@ -122,7 +128,7 @@ export const config: ServerConfig = {
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || (isTest ? 'test_refresh_secret_key_123_abc_456_def' : ''),
     jwtCustomerSecret: process.env.JWT_CUSTOMER_SECRET || (isTest ? 'test_customer_secret_key_123_abc_456_def' : ''),
     jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
-    jwtRefreshExpiresInDays: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '7', 10),
+    jwtRefreshExpiresInDays: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '1', 10), // Default 1 day for web
     encryptionKey:
       process.env.ENCRYPTION_KEY ||
       (isTest || isDevelopment ? '12345678901234567890123456789012' : ''),
@@ -147,6 +153,10 @@ export const config: ServerConfig = {
       secretKey: process.env.STRIPE_SECRET_KEY,
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     },
+  },
+  firebase: {
+    serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    projectId: process.env.FIREBASE_PROJECT_ID,
   },
   email: {
     enabled: process.env.EMAIL_ENABLED === 'true',

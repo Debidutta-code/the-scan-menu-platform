@@ -10,6 +10,11 @@ class ApiConstants {
   static const String me = '$apiV1Path/auth/me';
   static const String updateProfile = '$apiV1Path/auth/profile';
 
+  // Notification endpoints
+  static const String registerDeviceToken = '$apiV1Path/notifications/devices/register';
+  static const String unregisterDeviceToken = '$apiV1Path/notifications/devices/unregister';
+  static const String testNotification = '$apiV1Path/notifications/test';
+
   // Restaurant scoped endpoints
   static String restaurantProfile(String restaurantId) =>
       '$apiV1Path/restaurants/$restaurantId';

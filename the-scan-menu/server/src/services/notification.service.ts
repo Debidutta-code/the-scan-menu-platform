@@ -1,4 +1,5 @@
 import { SocketService } from '../sockets/socket.service';
+import { pushNotificationService } from './pushNotification.service';
 
 export class NotificationService {
   private static instance: NotificationService;
@@ -18,7 +19,32 @@ export class NotificationService {
 
   public notifyOrderCreated(restaurantId: string, orderSummary: any): void {
     try {
+      // 1. Socket emission for active open web/app sessions
       this.getIO().to(`restaurant:${restaurantId}`).emit('order:created', orderSummary);
+
+      // 2. Push Notification for background / closed captain app devices
+      const tableNumber = orderSummary?.tableNumber ?? orderSummary?.table?.tableNumber ?? 'Floor';
+      const orderNumber = orderSummary?.orderNumber ?? '';
+      const itemsCount = Array.isArray(orderSummary?.items) ? orderSummary.items.length : 1;
+      const totalAmount = orderSummary?.totalAmount ?? orderSummary?.total ?? 0;
+      const orderId = orderSummary?._id?.toString() ?? orderSummary?.id?.toString() ?? '';
+
+      pushNotificationService.sendToRestaurant(restaurantId, {
+        title: `🛎️ New Order: Table ${tableNumber}`,
+        body: `Order #${orderNumber || orderId.slice(-4)} • ${itemsCount} item(s) • ₹${totalAmount}`,
+        channelId: 'scanmenu_alerts_channel',
+        sound: 'order_alert',
+        tag: `order_${orderId}`,
+        data: {
+          type: 'NEW_ORDER',
+          orderId,
+          restaurantId,
+          tableNumber: String(tableNumber),
+          orderNumber: String(orderNumber),
+        },
+      }).catch((pushErr) => {
+        console.error('Failed to send order push notification:', pushErr);
+      });
     } catch (err) {
       console.error('NotificationService notifyOrderCreated failed:', err);
     }
@@ -56,7 +82,30 @@ export class NotificationService {
 
   public notifyWaiterCallCreated(restaurantId: string, waiterCall: any): void {
     try {
+      // 1. Socket emission for active open web/app sessions
       this.getIO().to(`restaurant:${restaurantId}`).emit('waiter_call:created', waiterCall);
+
+      // 2. Push Notification for background / closed captain app devices
+      const tableNumber = waiterCall?.tableNumber ?? waiterCall?.table?.tableNumber ?? 'Floor';
+      const reason = waiterCall?.reason ?? 'Customer requested captain assistance';
+      const callId = waiterCall?._id?.toString() ?? waiterCall?.id?.toString() ?? '';
+
+      pushNotificationService.sendToRestaurant(restaurantId, {
+        title: `🚨 Captain Call: Table ${tableNumber}`,
+        body: `Table ${tableNumber} - ${reason}`,
+        channelId: 'scanmenu_alerts_channel',
+        sound: 'call_bell',
+        tag: `call_${callId}`,
+        data: {
+          type: 'WAITER_CALL',
+          callId,
+          restaurantId,
+          tableNumber: String(tableNumber),
+          reason: String(reason),
+        },
+      }).catch((pushErr) => {
+        console.error('Failed to send waiter call push notification:', pushErr);
+      });
     } catch (err) {
       console.error('NotificationService notifyWaiterCallCreated failed:', err);
     }
@@ -99,4 +148,5 @@ export class NotificationService {
     }
   }
 }
+
 export default NotificationService;

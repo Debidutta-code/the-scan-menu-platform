@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email format' }),
   password: z.string().min(1, { message: 'Password is required' }),
+  clientType: z.enum(['web', 'mobile', 'captain_app']).optional(),
 });
 
 export const changePasswordSchema = z.object({
