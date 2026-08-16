@@ -48,7 +48,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Set the backend API Base URL (e.g. https://the-scan-menu-platform.onrender.com or http://192.168.1.50:5000)',
+              'Set the backend API Base URL (e.g. https://the-scan-menu.onrender.com or http://192.168.1.50:5000)',
               style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),

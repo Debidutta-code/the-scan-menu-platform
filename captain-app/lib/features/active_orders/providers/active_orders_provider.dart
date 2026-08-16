@@ -257,7 +257,6 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
       state = state.copyWith(pendingActionOrderIds: nextPending);
     }
   }
-  }
 }
 
 final activeOrdersProvider =

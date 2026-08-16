@@ -1,6 +1,6 @@
 class ApiConstants {
   // Remote Render backend URL (or change via Login Screen settings button for local IP development)
-  static const String defaultBaseUrl = 'https://the-scan-menu-platform.onrender.com';
+  static const String defaultBaseUrl = 'https://the-scan-menu.onrender.com';
   static const String apiV1Path = '/api/v1';
 
   // Auth endpoints
