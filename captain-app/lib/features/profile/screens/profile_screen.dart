@@ -334,7 +334,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Local Server: http://192.168.31.127:5000\nCloud Server: https://the-scan-menu.onrender.com',
+                                'Local Server: http://192.168.31.127:5000\nCloud Server: https://the-scan-menu-platform.onrender.com',
                                 style: GoogleFonts.inter(
                                   color: AppColors.textSecondary,
                                   fontSize: 12,
