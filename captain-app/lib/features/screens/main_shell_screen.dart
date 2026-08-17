@@ -38,17 +38,28 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     // Check notification permission eligibility after initial layout
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationPermissionDialog.showIfEligible(context);
+
+      // Consume any cold-start launch payload (when app was launched by tapping a notification)
+      final initialData = PushNotificationService().consumeInitialPayload();
+      if (initialData != null) {
+        _handleNotificationRoute(initialData);
+      }
     });
 
     // Listen for notification taps to route directly to relevant tab
     _notifSubscription = PushNotificationService().onNotificationClick.listen((data) {
-      final type = (data['type'] ?? data['notificationType'] ?? '').toString().toUpperCase();
-      if (type == 'WAITER_CALL' || type == 'CALL') {
-        if (mounted) setState(() => _currentIndex = 2); // Waiter calls tab
-      } else if (type == 'NEW_ORDER' || type == 'ORDER') {
-        if (mounted) setState(() => _currentIndex = 1); // Active orders tab
-      }
+      _handleNotificationRoute(data);
     });
+  }
+
+  void _handleNotificationRoute(Map<String, dynamic> data) {
+    final type = (data['type'] ?? data['notificationType'] ?? '').toString().toUpperCase();
+    debugPrint('[MainShell] Notification navigation route triggered for type: $type | data: $data');
+    if (type == 'WAITER_CALL' || type == 'CALL') {
+      if (mounted) setState(() => _currentIndex = 2); // Waiter calls tab
+    } else if (type == 'NEW_ORDER' || type == 'ORDER') {
+      if (mounted) setState(() => _currentIndex = 1); // Active orders tab
+    }
   }
 
   @override

@@ -119,6 +119,8 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
         title: '🛎️ New Order: Table $tableNum',
         body: 'Order #${orderNum.toString().isNotEmpty ? orderNum : 'New'} • $itemsCount item(s) • ₹$total',
         payload: jsonEncode(payloadData),
+        channelId: PushNotificationService.channelIdOrders,
+        soundName: 'order_alert',
       );
 
       fetchActiveOrders(isSilent: true);

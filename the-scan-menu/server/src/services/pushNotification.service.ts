@@ -42,6 +42,7 @@ export class PushNotificationService {
       this.app = existingApps[0];
       this.messaging = getMessaging(this.app);
       this.isInitialized = true;
+      logger.info(`[PushNotification] Reusing existing Firebase Admin app (${this.app.name}). Messaging ready.`);
       return;
     }
 
@@ -99,7 +100,7 @@ export class PushNotificationService {
           });
           this.messaging = getMessaging(this.app);
           this.isInitialized = true;
-          logger.info(`[PushNotification] Firebase Admin initialized successfully (Project: ${targetProjectId || 'default'}).`);
+          logger.info(`[PushNotification] Firebase Admin initialized successfully -> Project: "${targetProjectId || 'default'}", Service Account: "${credentialObj.client_email || 'unknown'}"`);
           return;
         }
       }
@@ -146,25 +147,27 @@ export class PushNotificationService {
       },
       { upsert: true, new: true }
     );
-    logger.info(`[PushNotification] Registered device token for user ${userId}, restaurant ${restaurantId}, platform ${platform}`);
+    logger.info(`[PushNotification] Registered device token: User=${userId}, Restaurant=${restaurantId}, Platform=${platform}, Token=${cleanToken.substring(0, 15)}...`);
     return existing;
   }
 
   public async unregisterDevice(token: string): Promise<void> {
     if (!token) return;
-    await DeviceToken.findOneAndUpdate({ token: token.trim() }, { isActive: false });
-    logger.info('[PushNotification] Unregistered device token.');
+    const cleanToken = token.trim();
+    await DeviceToken.findOneAndUpdate({ token: cleanToken }, { isActive: false });
+    logger.info(`[PushNotification] Unregistered device token: ${cleanToken.substring(0, 15)}...`);
   }
 
   public async sendToRestaurant(restaurantId: string, payload: PushNotificationPayload): Promise<void> {
     try {
       const activeDevices = await DeviceToken.find({ restaurantId, isActive: true });
       if (activeDevices.length === 0) {
-        logger.debug(`[PushNotification] No active devices found for restaurant ${restaurantId}`);
+        logger.debug(`[PushNotification] No active devices found for restaurant ${restaurantId}. Title="${payload.title}"`);
         return;
       }
 
       const tokens = activeDevices.map((d) => d.token);
+      logger.info(`[PushNotification] Sending push to restaurant ${restaurantId} (${tokens.length} active device(s)): "${payload.title}"`);
       await this.sendMulticast(tokens, payload);
     } catch (err) {
       logger.error(err, `[PushNotification] Error sending push to restaurant ${restaurantId}`);
@@ -174,9 +177,13 @@ export class PushNotificationService {
   public async sendToUser(userId: string, payload: PushNotificationPayload): Promise<void> {
     try {
       const activeDevices = await DeviceToken.find({ userId, isActive: true });
-      if (activeDevices.length === 0) return;
+      if (activeDevices.length === 0) {
+        logger.debug(`[PushNotification] No active devices found for user ${userId}`);
+        return;
+      }
 
       const tokens = activeDevices.map((d) => d.token);
+      logger.info(`[PushNotification] Sending push to user ${userId} (${tokens.length} active device(s)): "${payload.title}"`);
       await this.sendMulticast(tokens, payload);
     } catch (err) {
       logger.error(err, `[PushNotification] Error sending push to user ${userId}`);
@@ -185,13 +192,17 @@ export class PushNotificationService {
 
   public async sendToToken(token: string, payload: PushNotificationPayload): Promise<boolean> {
     if (!this.isInitialized || !this.messaging) {
-      logger.debug('[PushNotification] Skipping send: Firebase not initialized.');
+      logger.warn('[PushNotification] Skipping send: Firebase Admin Messaging not initialized.');
       return false;
     }
 
     try {
+      const cleanToken = token.trim();
+      const channelId = payload.channelId || 'scanmenu_alerts_channel';
+      const soundName = payload.sound || 'call_bell';
+
       const message: Message = {
-        token: token.trim(),
+        token: cleanToken,
         notification: {
           title: payload.title,
           body: payload.body,
@@ -200,19 +211,19 @@ export class PushNotificationService {
         android: {
           priority: 'high',
           notification: {
-            channelId: payload.channelId || 'scanmenu_alerts_channel',
-            sound: payload.sound || 'default',
+            channelId,
+            sound: soundName,
             tag: payload.tag,
             priority: 'max',
             visibility: 'public',
             defaultVibrateTimings: true,
-            defaultSound: true,
+            defaultSound: false,
           },
         },
         apns: {
           payload: {
             aps: {
-              sound: payload.sound || 'default',
+              sound: soundName,
               badge: 1,
               contentAvailable: true,
             },
@@ -220,15 +231,17 @@ export class PushNotificationService {
         },
       };
 
-      await this.messaging.send(message);
+      const messageId = await this.messaging.send(message);
+      logger.info(`[PushNotification] Single push delivered to token ${cleanToken.substring(0, 15)}... | MessageId: ${messageId}`);
       return true;
     } catch (err: any) {
-      logger.error(err, `[PushNotification] Failed to send single push to token ${token}`);
+      logger.error(err, `[PushNotification] Failed to send single push to token ${token.substring(0, 15)}... Code: ${err.code}`);
       if (
         err.code === 'messaging/invalid-registration-token' ||
         err.code === 'messaging/registration-token-not-registered'
       ) {
         await DeviceToken.updateOne({ token: token.trim() }, { isActive: false });
+        logger.info(`[PushNotification] Deactivated stale device token: ${token.substring(0, 15)}...`);
       }
       return false;
     }
@@ -236,11 +249,14 @@ export class PushNotificationService {
 
   private async sendMulticast(tokens: string[], payload: PushNotificationPayload): Promise<void> {
     if (!this.isInitialized || !this.messaging) {
-      logger.debug(`[PushNotification] Fallback: Would send push to ${tokens.length} devices -> "${payload.title}: ${payload.body}"`);
+      logger.info(`[PushNotification Fallback] Socket.IO active. Would send FCM to ${tokens.length} devices -> "${payload.title}: ${payload.body}"`);
       return;
     }
 
     if (tokens.length === 0) return;
+
+    const channelId = payload.channelId || 'scanmenu_alerts_channel';
+    const soundName = payload.sound || 'call_bell';
 
     const batchSize = 500;
     for (let i = 0; i < tokens.length; i += batchSize) {
@@ -257,19 +273,19 @@ export class PushNotificationService {
           android: {
             priority: 'high',
             notification: {
-              channelId: payload.channelId || 'scanmenu_alerts_channel',
-              sound: payload.sound || 'default',
+              channelId,
+              sound: soundName,
               tag: payload.tag,
               priority: 'max',
               visibility: 'public',
               defaultVibrateTimings: true,
-              defaultSound: true,
+              defaultSound: false,
             },
           },
           apns: {
             payload: {
               aps: {
-                sound: payload.sound || 'default',
+                sound: soundName,
                 badge: 1,
                 contentAvailable: true,
               },
@@ -279,13 +295,18 @@ export class PushNotificationService {
 
         const response = await this.messaging.sendEachForMulticast(multicastMsg);
 
-        logger.info(`[PushNotification] Multicast sent. Success: ${response.successCount}, Failures: ${response.failureCount}`);
+        logger.info(
+          `[PushNotification] Multicast batch (${batchTokens.length} devices) sent -> Success: ${response.successCount}, Failures: ${response.failureCount}`
+        );
 
         if (response.failureCount > 0) {
           const tokensToDeactivate: string[] = [];
           response.responses.forEach((resp: any, idx: number) => {
             if (!resp.success) {
               const code = resp.error?.code;
+              logger.warn(
+                `[PushNotification] FCM send failure for token ${batchTokens[idx].substring(0, 15)}... -> Code: ${code}, Message: ${resp.error?.message}`
+              );
               if (
                 code === 'messaging/invalid-registration-token' ||
                 code === 'messaging/registration-token-not-registered'
@@ -300,7 +321,7 @@ export class PushNotificationService {
               { token: { $in: tokensToDeactivate } },
               { isActive: false }
             );
-            logger.info(`[PushNotification] Deactivated ${tokensToDeactivate.length} invalid device tokens.`);
+            logger.info(`[PushNotification] Deactivated ${tokensToDeactivate.length} invalid/unregistered device tokens.`);
           }
         }
       } catch (batchErr) {
@@ -312,3 +333,4 @@ export class PushNotificationService {
 
 export const pushNotificationService = PushNotificationService.getInstance();
 export default pushNotificationService;
+

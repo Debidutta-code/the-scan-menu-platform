@@ -104,6 +104,8 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
         title: '🚨 Captain Call: Table $tableNum',
         body: 'Table $tableNum • $reasonLabel',
         payload: jsonEncode(payloadData),
+        channelId: PushNotificationService.channelIdWaiterCalls,
+        soundName: 'call_bell',
       );
 
       fetchWaiterCalls(isSilent: true);

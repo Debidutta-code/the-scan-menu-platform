@@ -32,7 +32,7 @@ export class NotificationService {
       pushNotificationService.sendToRestaurant(restaurantId, {
         title: `🛎️ New Order: Table ${tableNumber}`,
         body: `Order #${orderNumber || orderId.slice(-4)} • ${itemsCount} item(s) • ₹${totalAmount}`,
-        channelId: 'scanmenu_alerts_channel',
+        channelId: 'scanmenu_orders',
         sound: 'order_alert',
         tag: `order_${orderId}`,
         data: {
@@ -100,7 +100,7 @@ export class NotificationService {
       pushNotificationService.sendToRestaurant(restaurantId, {
         title: `🚨 Captain Call: Table ${tableNumber}`,
         body: `Table ${tableNumber} • ${reasonLabel}`,
-        channelId: 'scanmenu_alerts_channel',
+        channelId: 'scanmenu_waiter_calls',
         sound: 'call_bell',
         tag: `call_${callId}`,
         data: {

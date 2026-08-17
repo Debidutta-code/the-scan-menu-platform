@@ -16,7 +16,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
   } catch (_) {}
-  debugPrint('[FCM Background] Handling background message: ${message.messageId} | Data: ${message.data}');
+  debugPrint('[FCM Background] Message received ID: ${message.messageId} | Data: ${message.data}');
 }
 
 class PushNotificationService {
@@ -30,15 +30,28 @@ class PushNotificationService {
   // In-memory cache to deduplicate foreground Socket.IO and FCM events
   final Map<String, DateTime> _handledEvents = {};
 
-  static const String channelId = 'scanmenu_alerts_channel';
-  static const String channelName = 'ScanMenu Floor Alerts';
-  static const String channelDescription = 'High priority notifications for customer orders and captain calls';
+  static const String channelIdDefault = 'scanmenu_alerts_channel';
+  static const String channelIdWaiterCalls = 'scanmenu_waiter_calls';
+  static const String channelIdOrders = 'scanmenu_orders';
 
   // Navigation / Action callback stream for notification taps
   final _notificationClickController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onNotificationClick => _notificationClickController.stream;
 
+  // Cached initial launch payload for cold-start navigation
+  Map<String, dynamic>? _initialPayload;
+
   PushNotificationService._internal();
+
+  /// Consumes and clears the cold-start launch payload (if any)
+  Map<String, dynamic>? consumeInitialPayload() {
+    final payload = _initialPayload;
+    if (payload != null) {
+      debugPrint('[PushNotificationService] Consuming cold-start payload: $payload');
+      _initialPayload = null;
+    }
+    return payload;
+  }
 
   /// Records an event as handled and returns true if it was already processed recently
   bool recordAndCheckDuplicate(String eventKey) {
@@ -64,6 +77,7 @@ class PushNotificationService {
         await Firebase.initializeApp();
         _firebaseAvailable = true;
         FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+        debugPrint('[PushNotificationService] Firebase Core initialized successfully.');
       } catch (fbErr) {
         debugPrint('[FCM Init Warning] Firebase Core initialization: $fbErr');
         _firebaseAvailable = false;
@@ -81,35 +95,82 @@ class PushNotificationService {
       await _localNotifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint('[LocalNotif Click] Payload: ${response.payload}');
+          debugPrint('[LocalNotif Click] Notification tapped with payload: ${response.payload}');
           if (response.payload != null && response.payload!.isNotEmpty) {
             try {
               final decoded = jsonDecode(response.payload!);
               if (decoded is Map<String, dynamic>) {
+                _initialPayload = decoded;
                 _notificationClickController.add(decoded);
                 return;
               }
             } catch (_) {}
-            _notificationClickController.add({'payload': response.payload});
+            final wrap = {'payload': response.payload};
+            _initialPayload = wrap;
+            _notificationClickController.add(wrap);
           }
         },
       );
 
-      // 3. Create Android High-Priority Notification Channel
+      // Check if local notification caused cold start
+      final launchDetails = await _localNotifications.getNotificationAppLaunchDetails();
+      if (launchDetails != null &&
+          launchDetails.didNotificationLaunchApp &&
+          launchDetails.notificationResponse?.payload != null) {
+        try {
+          final decoded = jsonDecode(launchDetails.notificationResponse!.payload!);
+          if (decoded is Map<String, dynamic>) {
+            _initialPayload = decoded;
+            debugPrint('[LocalNotif Cold Start] Initial payload captured: $_initialPayload');
+          }
+        } catch (_) {}
+      }
+
+      // 3. Create Android High-Priority Notification Channels with custom sounds
       if (!kIsWeb && Platform.isAndroid) {
         final androidPlugin = _localNotifications
             .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
         if (androidPlugin != null) {
-          const channel = AndroidNotificationChannel(
-            channelId,
-            channelName,
-            description: channelDescription,
+          // Waiter Calls channel
+          const waiterChannel = AndroidNotificationChannel(
+            channelIdWaiterCalls,
+            'ScanMenu Waiter Calls',
+            description: 'High priority alerts for guest assistance and bill requests',
             importance: Importance.max,
             playSound: true,
+            sound: RawResourceAndroidNotificationSound('call_bell'),
             enableVibration: true,
             showBadge: true,
           );
-          await androidPlugin.createNotificationChannel(channel);
+
+          // Orders channel
+          const orderChannel = AndroidNotificationChannel(
+            channelIdOrders,
+            'ScanMenu Orders',
+            description: 'High priority alerts for new customer orders',
+            importance: Importance.max,
+            playSound: true,
+            sound: RawResourceAndroidNotificationSound('order_alert'),
+            enableVibration: true,
+            showBadge: true,
+          );
+
+          // Default floor alerts fallback channel
+          const defaultChannel = AndroidNotificationChannel(
+            channelIdDefault,
+            'ScanMenu Floor Alerts',
+            description: 'High priority notifications for floor events',
+            importance: Importance.max,
+            playSound: true,
+            sound: RawResourceAndroidNotificationSound('call_bell'),
+            enableVibration: true,
+            showBadge: true,
+          );
+
+          await androidPlugin.createNotificationChannel(waiterChannel);
+          await androidPlugin.createNotificationChannel(orderChannel);
+          await androidPlugin.createNotificationChannel(defaultChannel);
+          debugPrint('[PushNotificationService] Created Android notification channels with custom sounds.');
         }
       }
 
@@ -117,38 +178,40 @@ class PushNotificationService {
       if (_firebaseAvailable) {
         // Foreground message handler
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          debugPrint('[FCM Foreground] Message received: ${message.notification?.title} | ${message.notification?.body}');
+          debugPrint('[FCM Foreground] Message received -> Title: "${message.notification?.title}" | Data: ${message.data}');
           _handleIncomingMessage(message);
         });
 
-        // Background tap handler
+        // Background tap handler (when app was in background)
         FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-          debugPrint('[FCM Opened App] User tapped notification: ${message.data}');
+          debugPrint('[FCM Opened App] User tapped background notification: ${message.data}');
+          _initialPayload = message.data;
           _notificationClickController.add(message.data);
         });
 
-        // Check if app was launched directly by tapping a notification from terminated state
+        // Cold Start handler (when app was completely terminated)
         final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
         if (initialMessage != null) {
-          debugPrint('[FCM Initial] App opened from terminated notification: ${initialMessage.data}');
+          debugPrint('[FCM Initial/Cold Start] App launched from terminated notification: ${initialMessage.data}');
+          _initialPayload = initialMessage.data;
           _notificationClickController.add(initialMessage.data);
         }
 
-        // Fetch initial token if already permitted
+        // Fetch initial token
         try {
           final token = await FirebaseMessaging.instance.getToken();
           if (token != null) {
-            debugPrint('[FCM Initial Token] $token');
+            debugPrint('[FCM Token] Initial token retrieved: ${token.substring(0, 15)}...');
             await SecureStorageService.saveFcmToken(token);
             syncTokenWithServer(token: token);
           }
         } catch (tokErr) {
-          debugPrint('[FCM Initial Token Warning] $tokErr');
+          debugPrint('[FCM Token Warning] Failed to fetch initial token: $tokErr');
         }
 
         // Listen for token refreshes
         FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-          debugPrint('[FCM Refresh] New token received: $newToken');
+          debugPrint('[FCM Token Refresh] New token received: ${newToken.substring(0, 15)}...');
           SecureStorageService.saveFcmToken(newToken);
           syncTokenWithServer(token: newToken);
         });
@@ -164,31 +227,37 @@ class PushNotificationService {
   void _handleIncomingMessage(RemoteMessage message) {
     final notification = message.notification;
     final data = message.data;
-    final type = data['type']?.toString() ?? '';
+    final type = (data['type'] ?? '').toString().toUpperCase();
     final eventId = data['orderId'] ?? data['callId'] ?? message.messageId ?? '';
 
     // Deduplicate against Socket.IO events already processed in foreground
     final dedupeKey = '${type}_$eventId';
     if (recordAndCheckDuplicate(dedupeKey)) {
+      debugPrint('[PushNotificationService] Suppressing duplicate foreground FCM alert for: $dedupeKey');
       return;
     }
 
     // Play appropriate floor sound & haptics
-    if (type == 'WAITER_CALL') {
+    if (type == 'WAITER_CALL' || type == 'CALL') {
       AlertService().triggerWaiterCallAlert();
     } else {
       AlertService().triggerNewOrderAlert();
     }
 
     // Display local high-priority notification banner
-    final title = notification?.title ?? (type == 'WAITER_CALL' ? '🚨 Captain Call' : '🛎️ New Order');
+    final title = notification?.title ?? (type == 'WAITER_CALL' || type == 'CALL' ? '🚨 Captain Call' : '🛎️ New Order');
     final body = notification?.body ?? 'New floor alert received';
+
+    final targetChannel = (type == 'WAITER_CALL' || type == 'CALL') ? channelIdWaiterCalls : channelIdOrders;
+    final targetSound = (type == 'WAITER_CALL' || type == 'CALL') ? 'call_bell' : 'order_alert';
 
     showLocalNotification(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title: title,
       body: body,
       payload: jsonEncode(data),
+      channelId: targetChannel,
+      soundName: targetSound,
     );
   }
 
@@ -197,17 +266,24 @@ class PushNotificationService {
     required String title,
     required String body,
     String? payload,
+    String channelId = channelIdDefault,
+    String soundName = 'call_bell',
   }) async {
     final soundEnabled = await SecureStorageService.isSoundEnabled();
     final vibrationEnabled = await SecureStorageService.isVibrationEnabled();
 
     final androidDetails = AndroidNotificationDetails(
       channelId,
-      channelName,
-      channelDescription: channelDescription,
+      channelId == channelIdWaiterCalls
+          ? 'ScanMenu Waiter Calls'
+          : channelId == channelIdOrders
+              ? 'ScanMenu Orders'
+              : 'ScanMenu Floor Alerts',
+      channelDescription: 'High priority real-time alerts for staff',
       importance: Importance.max,
       priority: Priority.max,
       playSound: soundEnabled,
+      sound: soundEnabled ? RawResourceAndroidNotificationSound(soundName) : null,
       enableVibration: vibrationEnabled,
       channelShowBadge: true,
       ticker: title,
@@ -264,7 +340,7 @@ class PushNotificationService {
         if (isGranted) {
           final token = await FirebaseMessaging.instance.getToken();
           if (token != null) {
-            debugPrint('[FCM] Token retrieved: $token');
+            debugPrint('[FCM] Token retrieved after permission: ${token.substring(0, 15)}...');
             await SecureStorageService.saveFcmToken(token);
             await syncTokenWithServer(token: token);
           }
@@ -308,7 +384,8 @@ class PushNotificationService {
 
       final platformStr = Platform.isIOS ? 'ios' : 'android';
 
-      await ApiClient().dio.post(
+      debugPrint('[PushNotificationService] Syncing token with backend for restaurant $targetRestaurantId (platform: $platformStr)...');
+      final res = await ApiClient().dio.post(
         ApiConstants.registerDeviceToken,
         data: {
           'token': fcmToken,
@@ -316,7 +393,7 @@ class PushNotificationService {
           'restaurantId': targetRestaurantId,
         },
       );
-      debugPrint('[PushNotificationService] Successfully synced token with backend for restaurant $targetRestaurantId');
+      debugPrint('[PushNotificationService] Token synced successfully. Response: ${res.data['message']}');
     } catch (e) {
       debugPrint('[PushNotificationService] Failed to sync token with backend: $e');
     }
@@ -327,14 +404,16 @@ class PushNotificationService {
     try {
       final fcmToken = await SecureStorageService.getFcmToken();
       if (fcmToken != null && fcmToken.isNotEmpty) {
+        debugPrint('[PushNotificationService] Unregistering device token from backend...');
         await ApiClient().dio.post(
           ApiConstants.unregisterDeviceToken,
           data: {'token': fcmToken},
         );
-        debugPrint('[PushNotificationService] Successfully unregistered device token from backend');
+        debugPrint('[PushNotificationService] Successfully unregistered device token from backend.');
       }
     } catch (e) {
       debugPrint('[PushNotificationService] Error unregistering token: $e');
     }
   }
 }
+
