@@ -384,7 +384,7 @@ export const PublicTable: React.FC = () => {
       socket.off('order:item_status_updated', handleItemStatusUpdated);
       socket.off('order:status_updated', handleOrderStatusUpdated);
     };
-  }, [socket, activeSessionId, sessionDetailsData, queryClient]);
+  }, [socket, activeSessionId, sessionDetailsData, queryClient, restaurantSlug, tableToken]);
 
   const [expandedRounds, setExpandedRounds] = useState<Record<string, boolean>>({});
 
