@@ -13,6 +13,7 @@ import { Order } from '../models/Order';
 import { diningSessionService } from '../services/diningSession.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { customerService } from '../services/customer.service';
+import { NotificationService } from '../services/notification.service';
 import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
 import mongoose from 'mongoose';
@@ -450,6 +451,14 @@ export class RestaurantController {
           },
         }
       );
+
+      // Broadcast table cleared to all connected customer tables and restaurant staff
+      const clearedTables = await Table.find({ _id: { $in: objectIds } }).select('token').lean();
+      for (const tbl of clearedTables) {
+        if (tbl?.token) {
+          NotificationService.getInstance().notifyTableCleared(tbl.token);
+        }
+      }
 
       sendSuccess(res, { clearedCount: tableIds.length }, `${tableIds.length} table(s) cleared successfully`);
     } catch (error) {

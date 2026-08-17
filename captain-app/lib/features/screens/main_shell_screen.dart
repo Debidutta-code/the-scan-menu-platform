@@ -20,7 +20,8 @@ class MainShellScreen extends ConsumerStatefulWidget {
   ConsumerState<MainShellScreen> createState() => _MainShellScreenState();
 }
 
-class _MainShellScreenState extends ConsumerState<MainShellScreen> {
+class _MainShellScreenState extends ConsumerState<MainShellScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   StreamSubscription? _notifSubscription;
 
@@ -34,6 +35,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Check notification permission eligibility after initial layout
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -52,18 +54,43 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('[MainShell] App resumed from background -> Auto-refreshing calls & orders');
+      ref.read(waiterCallsProvider.notifier).fetchWaiterCalls(isSilent: true);
+      ref.read(activeOrdersProvider.notifier).fetchActiveOrders(isSilent: true);
+    }
+  }
+
   void _handleNotificationRoute(Map<String, dynamic> data) {
     final type = (data['type'] ?? data['notificationType'] ?? '').toString().toUpperCase();
     debugPrint('[MainShell] Notification navigation route triggered for type: $type | data: $data');
     if (type == 'WAITER_CALL' || type == 'CALL') {
-      if (mounted) setState(() => _currentIndex = 2); // Waiter calls tab
+      if (mounted) {
+        setState(() => _currentIndex = 2); // Waiter calls tab
+      }
+      ref.read(waiterCallsProvider.notifier).fetchWaiterCalls(isSilent: false);
     } else if (type == 'NEW_ORDER' || type == 'ORDER') {
-      if (mounted) setState(() => _currentIndex = 1); // Active orders tab
+      if (mounted) {
+        setState(() => _currentIndex = 1); // Active orders tab
+      }
+      ref.read(activeOrdersProvider.notifier).fetchActiveOrders(isSilent: false);
+    }
+  }
+
+  void _onTabSelected(int idx) {
+    setState(() => _currentIndex = idx);
+    if (idx == 2) {
+      ref.read(waiterCallsProvider.notifier).fetchWaiterCalls(isSilent: true);
+    } else if (idx == 1) {
+      ref.read(activeOrdersProvider.notifier).fetchActiveOrders(isSilent: true);
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notifSubscription?.cancel();
     super.dispose();
   }
@@ -83,7 +110,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (idx) => setState(() => _currentIndex = idx),
+        onTap: _onTabSelected,
         items: [
           const BottomNavigationBarItem(
             icon: Icon(LucideIcons.layoutGrid),

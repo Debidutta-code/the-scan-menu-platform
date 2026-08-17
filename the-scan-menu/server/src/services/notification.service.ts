@@ -70,13 +70,27 @@ export class NotificationService {
     }
   }
 
-  public notifySessionUpdated(restaurantId: string, sessionId: string, session: any): void {
+  public notifySessionUpdated(restaurantId: string, sessionId: string, session: any, tableToken?: string): void {
     try {
       const payload = { sessionId, session };
       this.getIO().to(`restaurant:${restaurantId}`).emit('session:updated', payload);
       this.getIO().to(`session:${sessionId}`).emit('session:updated', payload);
+      if (tableToken) {
+        this.getIO().to(`table:${tableToken}`).emit('session:updated', payload);
+      }
     } catch (err) {
       console.error('NotificationService notifySessionUpdated failed:', err);
+    }
+  }
+
+  public notifyTableCleared(tableToken: string, data?: any): void {
+    try {
+      const payload = { status: 'AVAILABLE', session: null, ...(data || {}), clearedAt: new Date() };
+      this.getIO().to(`table:${tableToken}`).emit('table:cleared', payload);
+      this.getIO().to(`table:${tableToken}`).emit('session:updated', payload);
+      this.getIO().to(`table:${tableToken}`).emit('table:updated', payload);
+    } catch (err) {
+      console.error('NotificationService notifyTableCleared failed:', err);
     }
   }
 
@@ -120,9 +134,9 @@ export class NotificationService {
     }
   }
 
-  public notifyWaiterCallResolved(restaurantId: string, callId: string, status: string, resolvedAt: Date): void {
+  public notifyWaiterCallResolved(restaurantId: string, callId: string, status: string, resolvedAt: Date, metadata?: any): void {
     try {
-      const payload = { callId, status, resolvedAt };
+      const payload = { callId, status, resolvedAt, ...(metadata || {}) };
       this.getIO().to(`restaurant:${restaurantId}`).emit('waiter_call:resolved', payload);
     } catch (err) {
       console.error('NotificationService notifyWaiterCallResolved failed:', err);
@@ -139,9 +153,9 @@ export class NotificationService {
   }
 
   /** Emits waiter_call:resolved directly to the guest's table room */
-  public notifyTableWaiterCallResolved(tableToken: string, callId: string, status: string, resolvedAt: Date | undefined): void {
+  public notifyTableWaiterCallResolved(tableToken: string, callId: string, status: string, resolvedAt: Date | undefined, metadata?: any): void {
     try {
-      const payload = { callId, status, resolvedAt };
+      const payload = { callId, status, resolvedAt, ...(metadata || {}) };
       this.getIO().to(`table:${tableToken}`).emit('waiter_call:resolved', payload);
     } catch (err) {
       console.error('NotificationService notifyTableWaiterCallResolved failed:', err);

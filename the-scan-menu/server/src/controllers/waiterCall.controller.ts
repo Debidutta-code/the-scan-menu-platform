@@ -43,7 +43,18 @@ export class WaiterCallController {
         return;
       }
 
-      // 2. Deduplication rate limit check: Check for existing active PENDING/ACKNOWLEDGED call
+      // 2. Auto-expire old pending calls (> 5 mins) before checking active call
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+      await WaiterCall.updateMany(
+        {
+          tableId: table._id,
+          status: 'PENDING',
+          createdAt: { $lte: fiveMinsAgo },
+        },
+        { $set: { status: 'EXPIRED' } }
+      );
+
+      // Check for existing active PENDING/ACKNOWLEDGED call
       const existingCall = await WaiterCall.findOne({
         tableId: table._id,
         status: { $in: ['PENDING', 'ACKNOWLEDGED'] },
@@ -64,6 +75,7 @@ export class WaiterCallController {
         tableNumberSnapshot: table.tableNumber,
         status: 'PENDING',
         requestType: requestType || 'CALL_WAITER',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       });
 
       await waiterCall.save();
@@ -78,6 +90,7 @@ export class WaiterCallController {
           status: waiterCall.status,
           requestType: waiterCall.requestType,
           createdAt: waiterCall.createdAt,
+          expiresAt: waiterCall.expiresAt,
         };
         // Notify the manager/staff dashboard (restaurant room)
         NotificationService.getInstance().notifyWaiterCallCreated(restaurant._id.toString(), payload);
@@ -109,6 +122,17 @@ export class WaiterCallController {
         return;
       }
 
+      // Auto-expire old pending calls (> 5 mins)
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+      await WaiterCall.updateMany(
+        {
+          tableId: table._id,
+          status: 'PENDING',
+          createdAt: { $lte: fiveMinsAgo },
+        },
+        { $set: { status: 'EXPIRED' } }
+      );
+
       // Find any PENDING or ACKNOWLEDGED call
       const activeCall = await WaiterCall.findOne({
         tableId: table._id,
@@ -130,14 +154,29 @@ export class WaiterCallController {
       const { restaurantId } = req.params;
       const statusFilter = req.query.status as string;
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const limit = parseInt(req.query.limit as string) || 50;
       const skip = (page - 1) * limit;
+
+      // Auto-expire pending calls older than 5 mins for this restaurant
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+      await WaiterCall.updateMany(
+        {
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          status: 'PENDING',
+          createdAt: { $lte: fiveMinsAgo },
+        },
+        { $set: { status: 'EXPIRED' } }
+      );
 
       const query: Record<string, any> = {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
       };
 
-      if (statusFilter) {
+      if (statusFilter === 'ACTIVE') {
+        query.status = { $in: ['PENDING', 'ACKNOWLEDGED'] };
+      } else if (statusFilter === 'HISTORY') {
+        query.status = { $in: ['RESOLVED', 'EXPIRED', 'CANCELLED'] };
+      } else if (statusFilter) {
         query.status = statusFilter;
       }
 
@@ -166,6 +205,7 @@ export class WaiterCallController {
   async acknowledgeWaiterCall(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, callId } = req.params;
+      const user = req.user!;
 
       if (!mongoose.Types.ObjectId.isValid(callId)) {
         sendError(res, 'WAITER_CALL_NOT_FOUND', 'Waiter call record not found', null, 404);
@@ -195,17 +235,30 @@ export class WaiterCallController {
         return;
       }
 
+      const staffName = user.name || (user.email ? user.email.split('@')[0] : 'Captain');
+
       waiterCall.status = 'ACKNOWLEDGED';
       waiterCall.acknowledgedAt = new Date();
+      waiterCall.acknowledgedBy = {
+        userId: new mongoose.Types.ObjectId(user.id),
+        name: staffName,
+        role: user.role || 'STAFF',
+      };
       await waiterCall.save();
 
       // Emit status updated to keep all staff clients and the guest table in sync
       try {
+        const metadata = {
+          acknowledgedBy: waiterCall.acknowledgedBy,
+          tableNumberSnapshot: waiterCall.tableNumberSnapshot,
+        };
+
         NotificationService.getInstance().notifyWaiterCallResolved(
           restaurantId,
           waiterCall._id.toString(),
           'ACKNOWLEDGED',
-          waiterCall.acknowledgedAt
+          waiterCall.acknowledgedAt,
+          metadata
         );
         // Look up the table token so we can push to the guest's table room
         const tableForAck = await Table.findById(waiterCall.tableId).select('token').lean();
@@ -214,7 +267,8 @@ export class WaiterCallController {
             tableForAck.token,
             waiterCall._id.toString(),
             'ACKNOWLEDGED',
-            waiterCall.acknowledgedAt
+            waiterCall.acknowledgedAt,
+            metadata
           );
         }
       } catch (err) {
@@ -260,18 +314,30 @@ export class WaiterCallController {
         return;
       }
 
+      const staffName = user.name || (user.email ? user.email.split('@')[0] : 'Captain');
+
       waiterCall.status = 'RESOLVED';
       waiterCall.resolvedAt = new Date();
-      waiterCall.resolvedBy = new mongoose.Types.ObjectId(user.id);
+      waiterCall.resolvedBy = {
+        userId: new mongoose.Types.ObjectId(user.id),
+        name: staffName,
+        role: user.role || 'STAFF',
+      };
       await waiterCall.save();
 
       // Emit waiter_call:resolved to restaurant room and guest table room
       try {
+        const metadata = {
+          resolvedBy: waiterCall.resolvedBy,
+          tableNumberSnapshot: waiterCall.tableNumberSnapshot,
+        };
+
         NotificationService.getInstance().notifyWaiterCallResolved(
           restaurantId,
           waiterCall._id.toString(),
           'RESOLVED',
-          waiterCall.resolvedAt
+          waiterCall.resolvedAt,
+          metadata
         );
         // Look up the table token so we can push to the guest's table room
         const tableForResolve = await Table.findById(waiterCall.tableId).select('token').lean();
@@ -280,7 +346,8 @@ export class WaiterCallController {
             tableForResolve.token,
             waiterCall._id.toString(),
             'RESOLVED',
-            waiterCall.resolvedAt
+            waiterCall.resolvedAt,
+            metadata
           );
         }
       } catch (err) {

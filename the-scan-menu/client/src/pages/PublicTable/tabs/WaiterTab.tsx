@@ -15,6 +15,7 @@ import { formatCooldown } from '../utils';
 export const WaiterTab: React.FC<WaiterTabProps> = ({
   selectedRequestType,
   waiterCallState,
+  attendingStaffName,
   cooldownRemaining,
   recentWaiterCalls,
   onSelectRequestType,
@@ -366,8 +367,8 @@ export const WaiterTab: React.FC<WaiterTabProps> = ({
                     Request Sent!
                   </h4>
                   <p className="text-[11px] sm:text-xs text-slate-600 leading-snug">
-                    Your request has been sent successfully. <br className="hidden sm:inline" />
-                    Our team will be with you shortly.
+                    Your request has been sent to our floor team. <br className="hidden sm:inline" />
+                    A captain will be with you shortly.
                   </p>
                 </div>
               </div>
@@ -386,7 +387,7 @@ export const WaiterTab: React.FC<WaiterTabProps> = ({
                 className="w-full py-3 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-2 cursor-not-allowed select-none"
               >
                 <Clock className="w-3.5 h-3.5 text-slate-400 animate-pulse" />
-                <span>Please wait ({formatCooldown(cooldownRemaining)}) before requesting again</span>
+                <span>Waiter is on the way ({formatCooldown(cooldownRemaining)})</span>
               </button>
             ) : (
               <button
@@ -397,6 +398,41 @@ export const WaiterTab: React.FC<WaiterTabProps> = ({
                 <BellRing className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Need another service? Choose & Call</span>
               </button>
+            )}
+          </div>
+        )}
+
+        {waiterCallState === 'acknowledged' && (
+          <div className="space-y-3">
+            {/* Acknowledged Banner */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 border border-indigo-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm flex items-center justify-between gap-3 relative overflow-hidden"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 shrink-0 animate-pulse">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="font-extrabold text-sm sm:text-base text-indigo-900 tracking-tight flex items-center gap-2">
+                    <span>Captain Attending!</span>
+                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-full uppercase">
+                      On the way
+                    </span>
+                  </h4>
+                  <p className="text-[11px] sm:text-xs text-slate-700 font-medium leading-snug">
+                    <span className="font-bold text-indigo-950">{attendingStaffName || 'Staff'}</span> has accepted your call and is coming to your table.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            {cooldownRemaining > 0 && (
+              <div className="w-full py-2.5 bg-indigo-50/60 text-indigo-700 font-semibold text-xs rounded-xl border border-indigo-100/80 flex items-center justify-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-indigo-500 animate-spin" />
+                <span>Active assistance window ({formatCooldown(cooldownRemaining)})</span>
+              </div>
             )}
           </div>
         )}

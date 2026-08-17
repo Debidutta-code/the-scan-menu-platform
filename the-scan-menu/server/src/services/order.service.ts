@@ -708,7 +708,10 @@ export class OrderService {
       });
 
       if (remainingTableOrders === 0) {
-        await Table.findByIdAndUpdate(order.tableId, { $set: { status: 'AVAILABLE' } });
+        const table = await Table.findByIdAndUpdate(order.tableId, { $set: { status: 'AVAILABLE' } }, { new: true });
+        if (table?.token) {
+          NotificationService.getInstance().notifyTableCleared(table.token, { orderId: order._id });
+        }
       }
     }
 

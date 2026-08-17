@@ -155,39 +155,98 @@ class WaiterCallCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Action Buttons
-          Row(
-            children: [
-              if (isPending)
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: isPendingAction ? null : onAcknowledge,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Acknowledge'),
-                  ),
-                ),
-              if (isPending) const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: isPendingAction ? null : onResolve,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isPending ? AppColors.surfaceLight : AppColors.success,
-                    foregroundColor: isPending ? AppColors.textPrimary : AppColors.textDark,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text(
-                    'Resolve Help',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+          // Attending Staff Attribution Banner (if acknowledged)
+          if (call.status == WaiterCallStatus.acknowledged && call.acknowledgedBy != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.info.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.info.withValues(alpha: 0.25)),
               ),
-            ],
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.userCheck, size: 14, color: AppColors.info),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Attending: ${call.acknowledgedBy!.name} (${call.acknowledgedBy!.role})',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.info,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Single Progressive Action Button
+          SizedBox(
+            width: double.infinity,
+            child: isPending
+                ? ElevatedButton.icon(
+                    onPressed: isPendingAction ? null : onAcknowledge,
+                    icon: isPendingAction
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.textDark),
+                            ),
+                          )
+                        : const Icon(LucideIcons.hand, size: 16),
+                    label: Text(
+                      isPendingAction ? 'Acknowledging...' : "Acknowledge (I'm On It)",
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textDark,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                  )
+                : ElevatedButton.icon(
+                    onPressed: isPendingAction ? null : onResolve,
+                    icon: isPendingAction
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.textDark),
+                            ),
+                          )
+                        : const Icon(LucideIcons.checkCheck, size: 16),
+                    label: Text(
+                      isPendingAction ? 'Resolving...' : 'Mark Resolved (Done)',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: AppColors.textDark,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
           ),
         ],
       ),

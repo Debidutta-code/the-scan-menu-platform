@@ -112,11 +112,32 @@ class WaiterCallsNotifier extends StateNotifier<WaiterCallsState> {
     });
 
     _socketService.onWaiterCallResolved.listen((data) {
-      final callId = data['callId']?.toString();
+      final callId = (data['callId'] ?? data['_id'] ?? data['id'])?.toString();
+      final status = (data['status'] ?? '').toString().toUpperCase();
       if (callId != null) {
-        state = state.copyWith(
-          calls: state.calls.where((c) => c.id != callId).toList(),
-        );
+        if (status == 'ACKNOWLEDGED') {
+          StaffAttributionModel? ackBy;
+          if (data['acknowledgedBy'] is Map<String, dynamic>) {
+            ackBy = StaffAttributionModel.fromJson(data['acknowledgedBy']);
+          }
+          state = state.copyWith(
+            calls: state.calls.map((c) {
+              if (c.id == callId) {
+                return c.copyWith(
+                  status: WaiterCallStatus.acknowledged,
+                  acknowledgedBy: ackBy ?? c.acknowledgedBy,
+                  acknowledgedAt: DateTime.now(),
+                );
+              }
+              return c;
+            }).toList(),
+          );
+        } else {
+          // RESOLVED, EXPIRED, or CANCELLED -> remove from active list
+          state = state.copyWith(
+            calls: state.calls.where((c) => c.id != callId).toList(),
+          );
+        }
       }
     });
   }

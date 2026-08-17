@@ -378,11 +378,16 @@ export class DiningSessionService {
     });
 
     try {
+      const table = await Table.findById(session.tableId).select('token').lean();
       NotificationService.getInstance().notifySessionUpdated(
         restaurantId.toString(),
         session._id.toString(),
-        session
+        session,
+        table?.token
       );
+      if (table?.token) {
+        NotificationService.getInstance().notifyTableCleared(table.token, { sessionId: session._id });
+      }
     } catch (err) {
       console.error('Failed to notify session closed:', err);
     }
@@ -427,11 +432,16 @@ export class DiningSessionService {
     });
 
     try {
+      const table = await Table.findById(session.tableId).select('token').lean();
       NotificationService.getInstance().notifySessionUpdated(
         restaurantId.toString(),
         session._id.toString(),
-        session
+        session,
+        table?.token
       );
+      if (table?.token) {
+        NotificationService.getInstance().notifyTableCleared(table.token, { sessionId: session._id });
+      }
     } catch (err) {
       console.error('Failed to notify session abandoned:', err);
     }

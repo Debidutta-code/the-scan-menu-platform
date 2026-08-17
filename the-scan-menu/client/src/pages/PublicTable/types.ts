@@ -6,7 +6,7 @@ import { AddOn } from '../../services/restaurant.service';
 
 export type ActiveTab = 'landing' | 'menu' | 'waiter' | 'cart-orders';
 export type CartOrdersSubTab = 'cart' | 'orders';
-export type WaiterCallState = 'idle' | 'pulsing' | 'waiting';
+export type WaiterCallState = 'idle' | 'pulsing' | 'waiting' | 'acknowledged';
 export type WaiterRequestType = 'CALL_WAITER' | 'REQUEST_BILL' | 'WATER' | 'TISSUE' | 'OTHER';
 
 // ==========================================
@@ -127,6 +127,7 @@ export interface MenuTabProps {
 export interface WaiterTabProps {
   selectedRequestType: WaiterRequestType;
   waiterCallState: WaiterCallState;
+  attendingStaffName?: string;
   cooldownRemaining: number;
   recentWaiterCalls: { type: string; timestamp: string }[];
   onSelectRequestType: (type: WaiterRequestType) => void;

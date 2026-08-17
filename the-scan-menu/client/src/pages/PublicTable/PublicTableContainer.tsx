@@ -144,8 +144,9 @@ export const PublicTable: React.FC = () => {
   const { socket } = useSocket(null);
 
   // Phase 7 Waiter Call States & Cooldown Timer
+  const COOLDOWN_DURATION_SEC = 300; // 5-minute table cooldown window
   const [waiterCallState, setWaiterCallState] = useState<WaiterCallState>('idle');
-  const COOLDOWN_DURATION_SEC = 60; // 60-second cooldown rate limit
+  const [attendingStaffName, setAttendingStaffName] = useState<string | undefined>(undefined);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
 
   // Initialize and sync waiter call cooldown from localStorage
@@ -194,8 +195,24 @@ export const PublicTable: React.FC = () => {
       .get(`/public/tables/${tableToken}/waiter-call/active`)
       .then((res) => {
         if (cancelled) return;
-        if (res.data?.success) {
-          setWaiterCallState(res.data.data ? 'waiting' : 'idle');
+        if (res.data?.success && res.data.data) {
+          const call = res.data.data;
+          if (call.status === 'ACKNOWLEDGED') {
+            setWaiterCallState('acknowledged');
+            setAttendingStaffName(call.acknowledgedBy?.name || 'Captain');
+          } else {
+            setWaiterCallState('waiting');
+            setAttendingStaffName(undefined);
+          }
+          // Compute server remaining cooldown (5 min window)
+          if (call.createdAt) {
+            const createdMs = new Date(call.createdAt).getTime();
+            const remaining = Math.max(0, Math.ceil((createdMs + 5 * 60 * 1000 - Date.now()) / 1000));
+            setCooldownRemaining(remaining);
+          }
+        } else {
+          setWaiterCallState('idle');
+          setAttendingStaffName(undefined);
         }
       })
       .catch(() => { /* silently ignore — socket will keep state current */ });
@@ -203,35 +220,60 @@ export const PublicTable: React.FC = () => {
     return () => { cancelled = true; };
   }, [tableToken]);
 
-  // Join the table socket room and listen for waiter call events
+  // Join the table socket room and listen for waiter call events & table state changes
   useEffect(() => {
     if (!socket || !tableToken) return;
 
     socket.emit('join_table', { tableToken });
 
-    const handleWaiterCallCreated = () => {
+    const handleWaiterCallCreated = (_data?: any) => {
       setWaiterCallState('waiting');
-    };
-
-    const handleWaiterCallResolved = (_data?: any) => {
-      // Instantly unlock the button and clear cooldown when manager acknowledges or resolves
-      setWaiterCallState('idle');
-      setCooldownRemaining(0);
+      setAttendingStaffName(undefined);
+      setCooldownRemaining(COOLDOWN_DURATION_SEC); // 5 min cooldown window across all phones at this table
       if (restaurantSlug && tableToken) {
         const cooldownKey = `pixora_waiter_cooldown_${restaurantSlug}_${tableToken}`;
-        localStorage.removeItem(cooldownKey);
+        localStorage.setItem(cooldownKey, String(Date.now() + COOLDOWN_DURATION_SEC * 1000));
+      }
+    };
+
+    const handleWaiterCallResolved = (data?: any) => {
+      const status = (data?.status || '').toUpperCase();
+      if (status === 'ACKNOWLEDGED') {
+        setWaiterCallState('acknowledged');
+        setAttendingStaffName(data?.acknowledgedBy?.name || 'Captain');
+      } else {
+        // RESOLVED or EXPIRED or CANCELLED
+        setWaiterCallState('idle');
+        setAttendingStaffName(undefined);
+        setCooldownRemaining(0);
+        if (restaurantSlug && tableToken) {
+          const cooldownKey = `pixora_waiter_cooldown_${restaurantSlug}_${tableToken}`;
+          localStorage.removeItem(cooldownKey);
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['activeWaiterCall', tableToken] });
+    };
+
+    const handleTableStateChanged = (_data?: any) => {
+      // Instantly refresh table info and active session/orders when table is cleared/freed by staff
+      queryClient.invalidateQueries({ queryKey: ['publicTable', restaurantSlug, tableToken] });
+      queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
     };
 
     socket.on('waiter_call:created', handleWaiterCallCreated);
     socket.on('waiter_call:resolved', handleWaiterCallResolved);
     socket.on('waiter_call:acknowledged', handleWaiterCallResolved);
+    socket.on('table:cleared', handleTableStateChanged);
+    socket.on('table:updated', handleTableStateChanged);
+    socket.on('session:updated', handleTableStateChanged);
 
     return () => {
       socket.off('waiter_call:created', handleWaiterCallCreated);
       socket.off('waiter_call:resolved', handleWaiterCallResolved);
       socket.off('waiter_call:acknowledged', handleWaiterCallResolved);
+      socket.off('table:cleared', handleTableStateChanged);
+      socket.off('table:updated', handleTableStateChanged);
+      socket.off('session:updated', handleTableStateChanged);
     };
   }, [socket, tableToken, restaurantSlug, queryClient]);
 
@@ -314,7 +356,8 @@ export const PublicTable: React.FC = () => {
 
     const handleSessionUpdate = (data: { sessionId: string }) => {
       if (data.sessionId === activeSessionId) {
-        queryClient.invalidateQueries({ queryKey: ['publicSessionDetails', activeSessionId] });
+        queryClient.invalidateQueries({ queryKey: ['publicTable', restaurantSlug, tableToken] });
+        queryClient.invalidateQueries({ queryKey: ['publicSessionDetails'] });
       }
     };
 
@@ -967,6 +1010,7 @@ export const PublicTable: React.FC = () => {
         <WaiterTab
           selectedRequestType={selectedRequestType}
           waiterCallState={waiterCallState}
+          attendingStaffName={attendingStaffName}
           cooldownRemaining={cooldownRemaining}
           recentWaiterCalls={recentWaiterCalls}
           onSelectRequestType={setSelectedRequestType}
