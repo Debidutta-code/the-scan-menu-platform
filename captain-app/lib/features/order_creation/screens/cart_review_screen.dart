@@ -435,7 +435,12 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
       // Bottom Submit Bar
       bottomSheet: !cartState.isEmpty
           ? Container(
-              color: AppColors.surface,
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               child: SafeArea(
                 child: SizedBox(
@@ -443,6 +448,11 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: cartState.isSubmitting ? null : _handleSubmitOrder,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                    ),
                     child: cartState.isSubmitting
                         ? const SizedBox(
                             width: 24,
@@ -450,7 +460,7 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.textDark),
+                                  Colors.white),
                             ),
                           )
                         : Text(
@@ -458,6 +468,7 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                   ),

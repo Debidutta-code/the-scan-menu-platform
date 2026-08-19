@@ -78,7 +78,7 @@ export const AdminLayout: React.FC = () => {
         <div className="p-5 border-b border-slate-150">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-slate-950 flex items-center justify-center shadow-sm shrink-0">
-              <ScanMenuLogo size={24} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+              <ScanMenuLogo size={24} variant="white" />
             </div>
             <div>
               <h2 className="font-display tracking-tight text-xl font-bold text-slate-900 leading-none">

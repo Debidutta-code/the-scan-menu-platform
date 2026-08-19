@@ -32,40 +32,46 @@ class SplashScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(24),
+              width: 96,
+              height: 96,
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppColors.cardBorder),
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    blurRadius: 32,
-                    spreadRadius: 4,
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: const Icon(
-                LucideIcons.utensilsCrossed,
-                color: AppColors.primary,
-                size: 56,
+              clipBehavior: Clip.antiAlias,
+              padding: const EdgeInsets.all(14),
+              child: Image.asset(
+                'assets/images/thescanmenu.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  LucideIcons.qrCode,
+                  color: Colors.white,
+                  size: 48,
+                ),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              'SCANMENU',
+              'The Scan Menu',
               style: GoogleFonts.outfit(
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
-                letterSpacing: 2,
+                letterSpacing: -0.5,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               'Captain & Floor Service',
               style: GoogleFonts.inter(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
               ),

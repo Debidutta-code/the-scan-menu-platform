@@ -20,15 +20,12 @@ export const ScanMenuLogo: React.FC<ScanMenuLogoProps> = ({
   style,
   ...props
 }) => {
-  // Determine stroke colors based on variant
+  // Determine stroke colors based on variant (simple black/white combinations matching thescanmenu.svg)
   let finalReticle = 'currentColor';
   let finalSymbol = 'currentColor';
 
-  if (variant === 'brand') {
-    finalReticle = '#F59E0B'; // Amber accent
-    finalSymbol = '#0F172A';  // Deep slate
-  } else if (variant === 'dark') {
-    finalReticle = '#0F172A';
+  if (variant === 'brand' || variant === 'dark') {
+    finalReticle = '#0F172A'; // Deep slate / black
     finalSymbol = '#0F172A';
   } else if (variant === 'white') {
     finalReticle = '#FFFFFF';
@@ -109,13 +106,13 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
   size = 36,
   title = 'The Scan Menu',
   subtitle,
-  variant = 'brand',
+  variant = 'white',
   className = '',
 }) => {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <div className="p-2 rounded-2xl bg-slate-900 shadow-sm flex items-center justify-center">
-        <ScanMenuLogo size={size} variant={variant === 'brand' ? 'brand' : variant} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+        <ScanMenuLogo size={size} variant={variant} />
       </div>
       <div>
         <h1 className="font-display tracking-tight text-2xl font-bold text-slate-900 leading-tight">

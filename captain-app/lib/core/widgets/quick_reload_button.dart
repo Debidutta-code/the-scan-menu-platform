@@ -66,13 +66,16 @@ class _QuickReloadButtonState extends ConsumerState<QuickReloadButton>
               children: [
                 Icon(LucideIcons.checkCircle2, color: AppColors.success, size: 18),
                 SizedBox(width: 8),
-                Text('Synced latest floor & order data', style: TextStyle(fontSize: 13)),
+                Text('Synced latest floor & order data', style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
               ],
             ),
             backgroundColor: AppColors.surface,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: AppColors.cardBorder),
+            ),
           ),
         );
       }

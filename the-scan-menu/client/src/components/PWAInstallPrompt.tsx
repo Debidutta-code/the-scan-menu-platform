@@ -58,8 +58,8 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ring-2 ring-amber-500/20">
-                  <ScanMenuLogo size={28} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center shadow-lg shrink-0">
+                  <ScanMenuLogo size={28} variant="white" />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5">
@@ -123,7 +123,7 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs">
-                    <ScanMenuLogo size={22} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+                    <ScanMenuLogo size={22} variant="white" />
                   </div>
                   <div>
                     <h2 className="font-display tracking-tight text-xl font-semibold text-slate-900">

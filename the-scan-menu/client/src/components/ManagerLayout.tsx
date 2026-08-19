@@ -32,6 +32,8 @@ import {
   Package,
   Maximize2,
   Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -42,6 +44,25 @@ export const ManagerLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isEnabled } = useFeatureFlags();
+
+  // Sidebar collapsible state with localStorage persistence
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('manager_sidebar_open');
+      if (saved !== null) return saved === 'true';
+    }
+    return true;
+  });
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('manager_sidebar_open', String(next));
+      }
+      return next;
+    });
+  }, []);
 
   // Sound/notification toggles
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -270,12 +291,26 @@ export const ManagerLayout: React.FC = () => {
   }, [activeTab, isStaff, navigate]);
 
   const renderHeader = () => (
-    <header className="bg-white border-b border-slate-150 px-4 md:px-6 py-4 flex items-center justify-between shadow-sm shrink-0">
+    <header className="bg-white border-b border-slate-150 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-xs shrink-0 z-10">
       <div className="flex items-center gap-3">
+        {/* Toggle / Expand Sidebar Button */}
+        <button
+          onClick={toggleSidebar}
+          className="hidden md:flex p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition active:scale-95 items-center justify-center shadow-2xs"
+          title={isSidebarOpen ? 'Close / Hide Sidebar' : 'Open Sidebar'}
+          aria-label={isSidebarOpen ? 'Close / Hide Sidebar' : 'Open Sidebar'}
+        >
+          {isSidebarOpen ? (
+            <PanelLeftClose className="w-4 h-4 text-slate-700" strokeWidth={1.75} />
+          ) : (
+            <PanelLeftOpen className="w-4 h-4 text-slate-700" strokeWidth={1.75} />
+          )}
+        </button>
+
         <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shadow-xs">
-          <ScanMenuLogo size={20} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+          <ScanMenuLogo size={20} variant="white" />
         </div>
-        <h1 className="font-display tracking-tight text-2xl font-semibold text-slate-900 leading-none">
+        <h1 className="font-display tracking-tight text-xl md:text-2xl font-semibold text-slate-900 leading-none">
           The Scan Menu
         </h1>
         <ConnectionIndicator status={connectionStatus as ConnectionStatus} />
@@ -347,24 +382,42 @@ export const ManagerLayout: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* ----------------- SIDEBAR (TABLET/DESKTOP) ----------------- */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-150 shrink-0 h-full">
-        <div className="p-5 border-b border-slate-150 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center shadow-sm shrink-0">
-            <ScanMenuLogo size={24} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+      <aside
+        className={`hidden md:flex flex-col bg-white shrink-0 h-full transition-all duration-300 ease-in-out ${
+          isSidebarOpen
+            ? 'w-64 border-r border-slate-150 opacity-100'
+            : 'w-0 border-r-0 opacity-0 pointer-events-none'
+        } overflow-hidden`}
+      >
+        <div className="p-4 md:p-5 border-b border-slate-150 flex items-center justify-between min-w-[16rem]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center shadow-sm shrink-0">
+              <ScanMenuLogo size={24} variant="white" />
+            </div>
+            <div>
+              <h2 className="font-display tracking-tight text-xl font-bold text-slate-900 leading-none">
+                The Scan Menu
+              </h2>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold font-mono mt-1">
+                Operations Panel
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-display tracking-tight text-xl font-bold text-slate-900 leading-none">
-              The Scan Menu
-            </h2>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold font-mono mt-1">
-              Operations Panel
-            </p>
-          </div>
+
+          {/* Close / Collapse Sidebar button */}
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition active:scale-95"
+            title="Close / Hide Sidebar"
+            aria-label="Close / Hide Sidebar"
+          >
+            <PanelLeftClose className="w-4 h-4" strokeWidth={1.75} />
+          </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-w-[16rem]">
           {/* Orders tab */}
           <button
             onClick={() => navigate('/manager/orders')}
@@ -613,7 +666,7 @@ export const ManagerLayout: React.FC = () => {
         </nav>
 
         {/* User Footnote */}
-        <div className="p-4 border-t border-slate-150 bg-slate-50/50">
+        <div className="p-4 border-t border-slate-150 bg-slate-50/50 min-w-[16rem]">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 font-bold shrink-0 text-sm">
               {user?.name?.charAt(0).toUpperCase()}

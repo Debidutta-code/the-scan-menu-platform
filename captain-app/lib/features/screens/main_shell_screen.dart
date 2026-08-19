@@ -108,58 +108,98 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabSelected,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.layoutGrid),
-            activeIcon: Icon(LucideIcons.layoutGrid, color: AppColors.primary),
-            label: 'Tables',
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppColors.cardBorder, width: 1),
           ),
-          BottomNavigationBarItem(
-            icon: badges.Badge(
-              showBadge: activeOrdersCount > 0,
-              badgeContent: Text(
-                '$activeOrdersCount',
-                style: const TextStyle(
-                  color: AppColors.textDark,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              badgeStyle: const badges.BadgeStyle(
-                badgeColor: AppColors.primary,
-                padding: EdgeInsets.all(4),
-              ),
-              child: const Icon(LucideIcons.receipt),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _onTabSelected,
+          items: [
+            const BottomNavigationBarItem(
+              icon: Icon(LucideIcons.layoutGrid),
+              activeIcon: Icon(LucideIcons.layoutGrid, color: AppColors.primaryDark),
+              label: 'Tables',
             ),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: badges.Badge(
-              showBadge: pendingCallsCount > 0,
-              badgeContent: Text(
-                '$pendingCallsCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+            BottomNavigationBarItem(
+              icon: badges.Badge(
+                showBadge: activeOrdersCount > 0,
+                badgeContent: Text(
+                  '$activeOrdersCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                badgeStyle: const badges.BadgeStyle(
+                  badgeColor: AppColors.primaryDark,
+                  padding: EdgeInsets.all(4),
+                ),
+                child: const Icon(LucideIcons.receipt),
               ),
-              badgeStyle: const badges.BadgeStyle(
-                badgeColor: AppColors.error,
-                padding: EdgeInsets.all(4),
+              activeIcon: badges.Badge(
+                showBadge: activeOrdersCount > 0,
+                badgeContent: Text(
+                  '$activeOrdersCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                badgeStyle: const badges.BadgeStyle(
+                  badgeColor: AppColors.primaryDark,
+                  padding: EdgeInsets.all(4),
+                ),
+                child: const Icon(LucideIcons.receipt, color: AppColors.primaryDark),
               ),
-              child: const Icon(LucideIcons.bellRing),
+              label: 'Orders',
             ),
-            label: 'Calls',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.user),
-            label: 'Profile',
-          ),
-        ],
+            BottomNavigationBarItem(
+              icon: badges.Badge(
+                showBadge: pendingCallsCount > 0,
+                badgeContent: Text(
+                  '$pendingCallsCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                badgeStyle: const badges.BadgeStyle(
+                  badgeColor: AppColors.error,
+                  padding: EdgeInsets.all(4),
+                ),
+                child: const Icon(LucideIcons.bellRing),
+              ),
+              activeIcon: badges.Badge(
+                showBadge: pendingCallsCount > 0,
+                badgeContent: Text(
+                  '$pendingCallsCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                badgeStyle: const badges.BadgeStyle(
+                  badgeColor: AppColors.error,
+                  padding: EdgeInsets.all(4),
+                ),
+                child: const Icon(LucideIcons.bellRing, color: AppColors.primaryDark),
+              ),
+              label: 'Calls',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(LucideIcons.user),
+              activeIcon: Icon(LucideIcons.user, color: AppColors.primaryDark),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -111,8 +111,8 @@ export const PublicCustomerLogin: React.FC = () => {
       >
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto shadow-md ring-4 ring-amber-500/10">
-            <ScanMenuLogo size={32} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+          <div className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto shadow-md ring-4 ring-slate-900/5">
+            <ScanMenuLogo size={32} variant="white" />
           </div>
           <div>
             <h1 className="font-display tracking-tight text-3xl font-bold text-slate-900">

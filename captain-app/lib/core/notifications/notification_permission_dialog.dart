@@ -131,7 +131,7 @@ class NotificationPermissionDialog extends StatelessWidget {
                       if (context.mounted) Navigator.of(context).pop();
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textMuted,
+                      foregroundColor: AppColors.textSecondary,
                       side: const BorderSide(color: AppColors.cardBorder),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -143,6 +143,7 @@ class NotificationPermissionDialog extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ),

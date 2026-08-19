@@ -71,8 +71,8 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo and Headings */}
         <div className="text-center mb-8 flex flex-col items-center">
-          <div className="w-16 h-16 rounded-3xl bg-slate-900 shadow-md flex items-center justify-center mb-4 ring-4 ring-amber-500/10 transition-transform duration-300 hover:scale-105">
-            <ScanMenuLogo size={40} reticleColor="#F59E0B" symbolColor="#FFFFFF" />
+          <div className="w-16 h-16 rounded-3xl bg-slate-900 shadow-md flex items-center justify-center mb-4 ring-4 ring-slate-900/5 transition-transform duration-300 hover:scale-105">
+            <ScanMenuLogo size={40} variant="white" />
           </div>
           <h1 className="font-display tracking-tight text-4xl font-semibold text-slate-900 mb-1">
             The Scan Menu

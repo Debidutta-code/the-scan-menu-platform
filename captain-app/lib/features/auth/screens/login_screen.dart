@@ -142,21 +142,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.cardBorder),
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(22),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            blurRadius: 24,
-                            spreadRadius: 2,
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        LucideIcons.utensilsCrossed,
-                        color: AppColors.primary,
-                        size: 40,
+                      clipBehavior: Clip.antiAlias,
+                      padding: const EdgeInsets.all(12),
+                      child: Image.asset(
+                        'assets/images/thescanmenu.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          LucideIcons.qrCode,
+                          color: Colors.white,
+                          size: 36,
+                        ),
                       ),
                     ),
                   ),
@@ -188,7 +193,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.errorBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
@@ -197,7 +202,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Expanded(
                             child: Text(
                               authState.errorMessage!,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              style: const TextStyle(
+                                color: AppColors.error,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -259,13 +268,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     height: 52,
                     child: ElevatedButton(
                       onPressed: isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
                       child: isLoading
                           ? const SizedBox(
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.textDark),
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Text(
@@ -273,6 +288,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
                     ),

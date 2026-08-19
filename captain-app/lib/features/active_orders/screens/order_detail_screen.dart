@@ -272,7 +272,12 @@ class OrderDetailScreen extends ConsumerWidget {
       // Advance Action Bottom Bar
       bottomSheet: nextStatus != null
           ? Container(
-              color: AppColors.surface,
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               child: SafeArea(
                 child: SizedBox(

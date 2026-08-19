@@ -305,7 +305,10 @@ class OrderCard extends StatelessWidget {
                     onPressed: () => onAdvanceStatus(nextStatus),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: statusColor,
-                      foregroundColor: AppColors.textDark,
+                      foregroundColor: (statusColor == AppColors.warning || statusColor == AppColors.primary)
+                          ? AppColors.textDark
+                          : Colors.white,
+                      elevation: 0,
                     ),
                     child: Text(
                       _getActionLabel(nextStatus),
@@ -323,7 +326,7 @@ class OrderCard extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: onClearOrder,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.surfaceLight),
+                      side: const BorderSide(color: AppColors.cardBorder),
                     ),
                     child: const Text('Clear Order from Live Board'),
                   ),

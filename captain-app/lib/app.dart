@@ -10,7 +10,7 @@ class CaptainApp extends StatelessWidget {
     return MaterialApp(
       title: 'ScanMenu Captain',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
       home: const SplashScreen(),
     );
   }

@@ -239,7 +239,7 @@ class WaiterCallCard extends StatelessWidget {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.success,
-                      foregroundColor: AppColors.textDark,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
