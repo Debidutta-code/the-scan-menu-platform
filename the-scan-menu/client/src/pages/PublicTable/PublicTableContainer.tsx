@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { publicService, PublicCategory, MenuItem, AddOn } from '../../services/restaurant.service';
+import { publicService, PublicCategory, MenuItem, AddOn, MenuItemVariant } from '../../services/restaurant.service';
 import { useCartStore } from '../../store/useCartStore';
 import { useCustomerAuth } from '../../hooks/useCustomerAuth';
 import apiClient from '../../lib/api';
@@ -106,6 +106,7 @@ export const PublicTable: React.FC = () => {
   // Category Scrolling State
   const [activeCategoryId, setActiveCategoryId] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<MenuItemVariant | null>(null);
 
   // Waiter request types and confirm states
   const [selectedRequestType, setSelectedRequestType] = useState<WaiterRequestType>('CALL_WAITER');
@@ -567,6 +568,12 @@ export const PublicTable: React.FC = () => {
   const handleItemCardClick = (item: MenuItem) => {
     if (!item.isAvailable) return;
     setSelectedItem(item);
+    if (item.pricingType === 'PORTION' && item.variants && item.variants.length > 0) {
+      const defaultV = item.variants.find((v) => v.isDefault) || item.variants[0];
+      setSelectedVariant(defaultV);
+    } else {
+      setSelectedVariant(null);
+    }
     setDetailQuantity(1);
     setDetailSelectedAddOns([]);
     setDetailSpecialInstructions('');
@@ -586,16 +593,38 @@ export const PublicTable: React.FC = () => {
   const handleAddToCart = () => {
     if (!selectedItem) return;
 
+    const isPortion = selectedItem.pricingType === 'PORTION' && selectedItem.variants && selectedItem.variants.length > 0;
+    const chosenVariant = isPortion ? selectedVariant || selectedItem.variants![0] : null;
+    const basePrice = chosenVariant ? chosenVariant.price : selectedItem.price;
+    const nameToUse = chosenVariant ? `${selectedItem.name} (${chosenVariant.name})` : selectedItem.name;
+
     addItem({
       itemId: selectedItem._id,
-      name: selectedItem.name,
-      basePrice: selectedItem.price,
+      name: nameToUse,
+      variantName: chosenVariant ? chosenVariant.name : undefined,
+      basePrice,
       quantity: detailQuantity,
       selectedAddOns: detailSelectedAddOns,
       specialInstructions: detailSpecialInstructions,
     });
 
     setSelectedItem(null);
+    setSelectedVariant(null);
+  };
+
+  // Helper to directly add a specific portion variant
+  const handleVariantAdd = (item: MenuItem, variant: MenuItemVariant, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!item.isAvailable) return;
+    addItem({
+      itemId: item._id,
+      name: `${item.name} (${variant.name})`,
+      variantName: variant.name,
+      basePrice: variant.price,
+      quantity: 1,
+      selectedAddOns: [],
+      specialInstructions: '',
+    });
   };
 
   // Helper to compute total quantity of an item in cart
@@ -610,8 +639,9 @@ export const PublicTable: React.FC = () => {
     e.stopPropagation();
     if (!item.isAvailable) return;
 
-    // Only open bottom sheet if there are explicitly mandatory choices
-    const hasMandatoryChoices = (item as any).hasRequiredOptions === true;
+    // Only open bottom sheet if there are explicitly mandatory choices or multiple portion options
+    const isPortion = item.pricingType === 'PORTION' && item.variants && item.variants.length > 0;
+    const hasMandatoryChoices = (item as any).hasRequiredOptions === true || isPortion;
     if (hasMandatoryChoices) {
       handleItemCardClick(item);
       return;
@@ -998,6 +1028,7 @@ export const PublicTable: React.FC = () => {
           onCategoryClick={handleCategoryClick}
           onItemCardClick={handleItemCardClick}
           onQuickAdd={handleQuickAdd}
+          onAddVariant={handleVariantAdd}
           onQuickIncrement={handleQuickIncrement}
           onQuickDecrement={handleQuickDecrement}
           onTrackOrders={(orderId) => updateNavigationState('cart-orders', 'orders', orderId)}
@@ -1112,7 +1143,12 @@ export const PublicTable: React.FC = () => {
         detailQuantity={detailQuantity}
         detailSelectedAddOns={detailSelectedAddOns}
         detailSpecialInstructions={detailSpecialInstructions}
-        onClose={() => setSelectedItem(null)}
+        selectedVariant={selectedVariant}
+        onVariantChange={setSelectedVariant}
+        onClose={() => {
+          setSelectedItem(null);
+          setSelectedVariant(null);
+        }}
         onAddToCart={handleAddToCart}
         onAddOnToggle={handleAddOnToggle}
         onQuantityChange={setDetailQuantity}

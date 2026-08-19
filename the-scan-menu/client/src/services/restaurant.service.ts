@@ -88,13 +88,29 @@ export interface Staff {
   updatedAt?: string;
 }
 
+export interface MenuItemVariant {
+  name: string;
+  price: number;
+  isDefault?: boolean;
+}
+
+export interface ComboItem {
+  menuItemId?: string;
+  name: string;
+  categoryName?: string;
+  quantity: number;
+  imageUrl?: string;
+}
+
 export interface MenuItem {
   _id: string;
   restaurantId: string;
   categoryId: string;
   name: string;
   description?: string;
+  pricingType?: 'SINGLE' | 'PORTION';
   price: number; // in cents/paise
+  variants?: MenuItemVariant[];
   imageUrl?: string;
   isAvailable: boolean;
   trackStock?: boolean;
@@ -105,6 +121,9 @@ export interface MenuItem {
   prepTimeMinutes?: number;
   sortOrder: number;
   addOns?: AddOn[];
+  attachedAddOnGroupIds?: string[];
+  isCombo?: boolean;
+  comboItems?: ComboItem[];
   createdAt: string;
   updatedAt: string;
 }

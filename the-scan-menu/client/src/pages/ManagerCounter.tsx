@@ -34,9 +34,12 @@ import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
 import { printOrderTicket, TicketPrintType } from '../utils/printReceipt';
 import { PrintOrderModal } from '../components/PrintOrderModal';
+import { MenuBadge } from './PublicTable/components/MenuBadge';
 
 interface SelectedCounterItem {
   itemId: string;
+  baseItemId?: string;
+  variantName?: string;
   name: string;
   price: number;
   quantity: number;
@@ -215,22 +218,36 @@ export const ManagerCounter: React.FC = () => {
   const allMenuItems = menuItemsData?.data || [];
   const isLoading = isLoadingCats || isLoadingItems;
 
-  const addItemToCart = (item: any) => {
+  const addItemToCart = (item: any, variant?: any) => {
     if (!item.isAvailable || (item.trackStock && item.stockQuantity <= 0)) {
       toast(`"${item.name}" is currently sold out / 86'd!`, 'error');
       return;
     }
 
+    const targetId = variant ? `${item._id}_${variant.name}` : item._id;
+    const targetName = variant ? `${item.name} (${variant.name})` : item.name;
+    const targetPrice = variant ? variant.price : item.price;
+
     setCartItems((prev) => {
-      const existing = prev.find((i) => i.itemId === item._id);
+      const existing = prev.find((i) => i.itemId === targetId);
       if (existing) {
         if (item.trackStock && existing.quantity >= item.stockQuantity) {
           toast(`Only ${item.stockQuantity} portions left for "${item.name}"!`, 'error');
           return prev;
         }
-        return prev.map((i) => (i.itemId === item._id ? { ...i, quantity: i.quantity + 1 } : i));
+        return prev.map((i) => (i.itemId === targetId ? { ...i, quantity: i.quantity + 1 } : i));
       }
-      return [...prev, { itemId: item._id, name: item.name, price: item.price, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          itemId: targetId,
+          baseItemId: item._id,
+          variantName: variant?.name,
+          name: targetName,
+          price: targetPrice,
+          quantity: 1,
+        },
+      ];
     });
   };
 
@@ -637,7 +654,8 @@ export const ManagerCounter: React.FC = () => {
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                         {catItems.map((item: any) => {
-                          const selected = cartItems.find((i) => i.itemId === item._id);
+                          const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
+                          const selected = !isPortion ? cartItems.find((i) => i.itemId === item._id) : null;
                           const isTracked = !!item.trackStock;
                           const qty = item.stockQuantity || 0;
                           const threshold = item.lowStockThreshold || 5;
@@ -647,7 +665,7 @@ export const ManagerCounter: React.FC = () => {
                           return (
                             <div
                               key={item._id}
-                              onClick={() => !isOut && addItemToCart(item)}
+                              onClick={() => !isOut && !isPortion && addItemToCart(item)}
                               className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col justify-between gap-3 select-none active:scale-[0.98] shadow-2xs relative ${
                                 isOut
                                   ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
@@ -658,70 +676,116 @@ export const ManagerCounter: React.FC = () => {
                             >
                               <div className="min-w-0">
                                 <div className="flex items-start justify-between gap-1 mb-1">
-                                  <h4 className={`text-xs font-bold leading-snug truncate ${isOut ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
-                                    {item.name}
-                                  </h4>
-                                  {isOut ? (
-                                    <span className="text-[9px] font-mono font-black uppercase text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded shrink-0">
-                                      86'D
-                                    </span>
-                                  ) : isLow ? (
-                                    <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded shrink-0">
-                                      ⚡ {qty} left
-                                    </span>
-                                  ) : isTracked ? (
-                                    <span className="text-[9px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded shrink-0">
-                                      {qty} left
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <span className="font-mono text-xs font-black text-slate-800 block">
-                                  ₹{(item.price / 100).toFixed(2)}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                                {isOut ? (
-                                  <span className="text-[10px] font-bold text-rose-600 font-mono w-full text-center py-1">
-                                    Out of Stock
-                                  </span>
-                                ) : selected ? (
-                                  <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-xl shadow-2xs w-full justify-between">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateQuantity(item._id, selected.quantity - 1);
-                                      }}
-                                      className="w-7 h-7 rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs cursor-pointer"
-                                      title="Decrease quantity"
-                                    >
-                                      <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                    </button>
-                                    <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[20px] text-center">
-                                      {selected.quantity}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateQuantity(item._id, selected.quantity + 1);
-                                      }}
-                                      className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer"
-                                      title="Increase quantity"
-                                    >
-                                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                    </button>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                    <h4 className={`text-xs font-bold leading-snug truncate ${isOut ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                                      {item.name}
+                                    </h4>
                                   </div>
-                                ) : (
-                                  <>
-                                    <span className="text-[10px] font-bold text-slate-400">Click to add</span>
-                                    <span className="w-7 h-7 rounded-xl bg-slate-100 hover:bg-amber-100 hover:text-amber-700 flex items-center justify-center text-slate-600 transition shadow-2xs">
-                                      <Plus className="w-4 h-4" strokeWidth={2.5} />
-                                    </span>
-                                  </>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {item.isCombo && (
+                                      <span className="text-[8px] font-black uppercase text-amber-950 bg-amber-300 px-1.5 py-0.2 rounded shadow-2xs">
+                                        COMBO
+                                      </span>
+                                    )}
+                                    {isOut ? (
+                                      <span className="text-[9px] font-mono font-black uppercase text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded shrink-0">
+                                        86'D
+                                      </span>
+                                    ) : isLow ? (
+                                      <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded shrink-0">
+                                        ⚡ {qty} left
+                                      </span>
+                                    ) : isTracked ? (
+                                      <span className="text-[9px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded shrink-0">
+                                        {qty} left
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                {!isPortion && (
+                                  <span className="font-mono text-xs font-black text-slate-800 block">
+                                    ₹{(item.price / 100).toFixed(2)}
+                                  </span>
                                 )}
                               </div>
+
+                              {isPortion ? (
+                                <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
+                                  {item.variants.map((v: any) => {
+                                    const variantId = `${item._id}_${v.name}`;
+                                    const selectedVar = cartItems.find((ci) => ci.itemId === variantId);
+                                    return (
+                                      <button
+                                        key={v.name}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          !isOut && addItemToCart(item, v);
+                                        }}
+                                        className={`px-2 py-1 rounded-xl text-[11px] font-bold border transition active:scale-95 flex items-center gap-1 shadow-2xs ${
+                                          selectedVar
+                                            ? 'bg-amber-100 border-amber-400 text-amber-950 ring-1 ring-amber-400/40'
+                                            : 'bg-amber-50/80 hover:bg-amber-100 border-amber-300/80 text-amber-900'
+                                        }`}
+                                        title={`Add ${item.name} (${v.name})`}
+                                      >
+                                        <span className="text-[10px] uppercase font-extrabold">{v.name}</span>
+                                        <span className="font-mono font-black text-[10px]">₹{(v.price / 100).toFixed(2)}</span>
+                                        {selectedVar && (
+                                          <span className="w-4 h-4 rounded-full bg-slate-900 text-white font-mono text-[9px] flex items-center justify-center font-bold">
+                                            {selectedVar.quantity}
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                                  {isOut ? (
+                                    <span className="text-[10px] font-bold text-rose-600 font-mono w-full text-center py-1">
+                                      Out of Stock
+                                    </span>
+                                  ) : selected ? (
+                                    <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-xl shadow-2xs w-full justify-between">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateQuantity(item._id, selected.quantity - 1);
+                                        }}
+                                        className="w-7 h-7 rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs cursor-pointer"
+                                        title="Decrease quantity"
+                                      >
+                                        <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                      </button>
+                                      <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[20px] text-center">
+                                        {selected.quantity}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateQuantity(item._id, selected.quantity + 1);
+                                        }}
+                                        className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer"
+                                        title="Increase quantity"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <span className="text-[10px] font-bold text-slate-400">Click to add</span>
+                                      <span className="w-7 h-7 rounded-xl bg-slate-100 hover:bg-amber-100 hover:text-amber-700 flex items-center justify-center text-slate-600 transition shadow-2xs">
+                                        <Plus className="w-4 h-4" strokeWidth={2.5} />
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

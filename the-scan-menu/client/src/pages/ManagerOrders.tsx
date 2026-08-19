@@ -776,20 +776,30 @@ export const ManagerOrders: React.FC = () => {
                               {/* Order Items Preview */}
                               <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 space-y-1.5">
                                 {order.items.map((item: any, idx: number) => (
-                                  <div key={idx} className="flex items-center justify-between gap-2 text-xs">
-                                    <div className="flex items-center gap-1.5 truncate">
-                                      <span className="font-mono font-black text-slate-900 bg-white border border-slate-200 px-1.5 py-0.2 rounded text-[10px]">
-                                        {item.quantity}x
-                                      </span>
-                                      <span className="truncate font-semibold text-slate-800">
-                                        {item.nameSnapshot}
-                                      </span>
+                                  <div key={idx} className="space-y-0.5 text-xs">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-1.5 truncate">
+                                        <span className="font-mono font-black text-slate-900 bg-white border border-slate-200 px-1.5 py-0.2 rounded text-[10px]">
+                                          {item.quantity}x
+                                        </span>
+                                        <span className="truncate font-semibold text-slate-800">
+                                          {item.nameSnapshot}
+                                        </span>
+                                      </div>
                                     </div>
                                     {item.specialInstructions && (
-                                      <FileText className="w-3 h-3 text-amber-500 shrink-0" strokeWidth={2} />
+                                      <div className="pl-6 text-[10px] font-bold text-amber-900 bg-amber-100/80 border border-amber-300/80 px-1.5 py-0.5 rounded italic truncate">
+                                        ⚠️ "{item.specialInstructions}"
+                                      </div>
                                     )}
                                   </div>
                                 ))}
+
+                                {order.customerNote && (
+                                  <div className="text-[10px] font-medium text-amber-900 bg-amber-100/70 border border-amber-200 px-2 py-1 rounded-lg italic line-clamp-1 mt-1">
+                                    <strong>Table Note:</strong> "{order.customerNote}"
+                                  </div>
+                                )}
                               </div>
 
                               {/* Card Footer with Fast Action Button */}

@@ -9,6 +9,8 @@ import {
   createMenuItemSchema,
   updateMenuItemSchema,
   updateStockSchema,
+  createCustomizationGroupSchema,
+  updateCustomizationGroupSchema,
 } from '../validators/menu.validator';
 
 const router = Router({ mergeParams: true });
@@ -75,6 +77,38 @@ router.patch(
 
 router.patch('/:restaurantId/menu-items-bulk-availability', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, menuController.bulkAvailability);
 router.patch('/:restaurantId/menu-items-reorder', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, menuController.reorderMenuItems);
+
+// Customization & Add-on Groups
+router.get(
+  '/:restaurantId/customization-groups',
+  requireFeature('qr_menu') as any,
+  requireRestaurantAccess as any,
+  requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any,
+  menuController.listCustomizationGroups
+);
+router.post(
+  '/:restaurantId/customization-groups',
+  requireFeature('qr_menu') as any,
+  requireRestaurantAccess as any,
+  requireRole('MANAGER', 'SUPER_ADMIN') as any,
+  validateBody(createCustomizationGroupSchema),
+  menuController.createCustomizationGroup
+);
+router.put(
+  '/:restaurantId/customization-groups/:id',
+  requireFeature('qr_menu') as any,
+  requireRestaurantAccess as any,
+  requireRole('MANAGER', 'SUPER_ADMIN') as any,
+  validateBody(updateCustomizationGroupSchema),
+  menuController.editCustomizationGroup
+);
+router.delete(
+  '/:restaurantId/customization-groups/:id',
+  requireFeature('qr_menu') as any,
+  requireRestaurantAccess as any,
+  requireRole('MANAGER', 'SUPER_ADMIN') as any,
+  menuController.deleteCustomizationGroup
+);
 
 // Uploads
 router.post('/:restaurantId/uploads/signature', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, menuController.getUploadSignature);

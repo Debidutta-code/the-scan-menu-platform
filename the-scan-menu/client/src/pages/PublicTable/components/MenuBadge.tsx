@@ -1,27 +1,52 @@
 import React from 'react';
-import { Flame, Leaf, Plus, Minus } from 'lucide-react';
+import { Flame, Plus, Minus } from 'lucide-react';
 
 // ==========================================
 // MENU BADGE
 // ==========================================
 
 interface MenuBadgeProps {
-  variant: 'veg' | 'spicy';
+  variant: 'veg' | 'nonveg' | 'egg' | 'spicy';
 }
 
 export const MenuBadge: React.FC<MenuBadgeProps> = ({ variant }) => {
   if (variant === 'veg') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">
-        <Leaf className="w-2.5 h-2.5" strokeWidth={2} />
-        Veg
+      <span
+        className="inline-flex items-center justify-center w-4 h-4 rounded-[3px] border-[1.5px] border-emerald-600 bg-white shadow-2xs shrink-0"
+        title="Vegetarian"
+      >
+        <span className="w-2 h-2 rounded-full bg-emerald-600" />
+      </span>
+    );
+  }
+  if (variant === 'nonveg') {
+    return (
+      <span
+        className="inline-flex items-center justify-center w-4 h-4 rounded-[3px] border-[1.5px] border-rose-700 bg-white shadow-2xs shrink-0"
+        title="Non-Vegetarian"
+      >
+        <span className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[6px] border-b-rose-700" />
+      </span>
+    );
+  }
+  if (variant === 'egg') {
+    return (
+      <span
+        className="inline-flex items-center justify-center w-4 h-4 rounded-[3px] border-[1.5px] border-amber-500 bg-white shadow-2xs shrink-0"
+        title="Contains Egg"
+      >
+        <span className="w-2 h-2 rounded-full bg-amber-500" />
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-red-50 text-red-700 border border-red-100">
-      <Flame className="w-2.5 h-2.5" strokeWidth={2} />
-      Spicy
+    <span
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
+      title="Spicy"
+    >
+      <Flame className="w-2.5 h-2.5 text-rose-600 fill-rose-500" strokeWidth={2} />
+      <span>Spicy</span>
     </span>
   );
 };

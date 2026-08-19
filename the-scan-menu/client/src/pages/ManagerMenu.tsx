@@ -9,6 +9,7 @@ import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
+import { MenuBadge } from './PublicTable/components/MenuBadge';
 import {
   Plus,
   Edit2,
@@ -17,8 +18,8 @@ import {
   Loader,
   FolderOpen,
   Flame,
-  Leaf,
   GripVertical,
+  Sliders,
 } from 'lucide-react';
 
 import {
@@ -46,7 +47,17 @@ const categorySchema = z.object({
 const menuItemSchema = z.object({
   name: z.string().min(1, 'Item name is required'),
   description: z.string().optional(),
-  price: z.coerce.number().positive('Price must be positive'),
+  pricingType: z.enum(['SINGLE', 'PORTION']).default('SINGLE'),
+  price: z.coerce.number().min(0, 'Price must be non-negative').default(0),
+  variants: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Size name required'),
+        price: z.coerce.number().min(0, 'Price must be non-negative'),
+        isDefault: z.boolean().default(false),
+      })
+    )
+    .default([]),
   imageUrl: z.string().optional(),
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
@@ -54,6 +65,18 @@ const menuItemSchema = z.object({
   trackStock: z.boolean().default(false),
   stockQuantity: z.coerce.number().int().min(0).default(0),
   lowStockThreshold: z.coerce.number().int().min(0).default(5),
+  isCombo: z.boolean().default(false),
+  comboItems: z
+    .array(
+      z.object({
+        menuItemId: z.string().optional(),
+        name: z.string().min(1, 'Combo item name is required'),
+        categoryName: z.string().optional(),
+        quantity: z.coerce.number().int().min(1).default(1),
+        imageUrl: z.string().optional(),
+      })
+    )
+    .default([]),
   addOns: z
     .array(
       z.object({
@@ -62,6 +85,23 @@ const menuItemSchema = z.object({
       })
     )
     .default([]),
+  attachedAddOnGroupIds: z.array(z.string()).default([]),
+});
+
+const customGroupSchema = z.object({
+  name: z.string().min(1, 'Group name is required'),
+  type: z.enum(['VARIANT', 'ADDON']).default('ADDON'),
+  description: z.string().optional(),
+  options: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Option name is required'),
+        priceDelta: z.coerce.number().default(0),
+        price: z.coerce.number().default(0),
+      })
+    )
+    .min(1, 'At least one option is required'),
+  isGlobal: z.boolean().default(true),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -80,8 +120,6 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, children }) => {
     transition,
   };
 
-
-
   return (
     <div ref={setNodeRef} style={style}>
       {children({ dragHandleProps: { ...attributes, ...listeners } })}
@@ -95,12 +133,19 @@ export const ManagerMenu: React.FC = () => {
   const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Primary Tab: 'MENU' | 'CUSTOMIZATIONS'
+  const [activeTab, setActiveTab] = useState<'MENU' | 'CUSTOMIZATIONS'>('MENU');
+
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<any | null>(null);
   const [isItemOpen, setIsItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Customization group modal states
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
   // Bulk availability states
   const [bulkMode, setBulkMode] = useState(false);
@@ -140,6 +185,18 @@ export const ManagerMenu: React.FC = () => {
   });
 
   const menuItems = itemsResponse?.data || [];
+
+  // Fetch Customization Groups
+  const { data: customGroupsResponse, isLoading: isLoadingGroups } = useQuery({
+    queryKey: ['customizationGroups', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/customization-groups`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+  });
+
+  const customGroups = customGroupsResponse?.data || [];
 
   // ==========================================
   // MUTATIONS (Categories)
@@ -193,7 +250,6 @@ export const ManagerMenu: React.FC = () => {
       await queryClient.cancelQueries({ queryKey: ['categories', activeRestaurantId] });
       const previous = queryClient.getQueryData(['categories', activeRestaurantId]);
 
-      // Optimistic update of categories sortOrder inside local cache
       queryClient.setQueryData(['categories', activeRestaurantId], (old: any) => {
         if (!old) return old;
         const sorted = [...old.data].sort((a, b) => {
@@ -274,7 +330,6 @@ export const ManagerMenu: React.FC = () => {
       await queryClient.cancelQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
       const previous = queryClient.getQueryData(['menuItems', activeRestaurantId, selectedCatId]);
 
-      // Optimistic sorting inside local cache
       queryClient.setQueryData(['menuItems', activeRestaurantId, selectedCatId], (old: any) => {
         if (!old) return old;
         const sorted = [...old.data].sort((a, b) => {
@@ -308,7 +363,6 @@ export const ManagerMenu: React.FC = () => {
       await queryClient.cancelQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
       const previousItems = queryClient.getQueryData(['menuItems', activeRestaurantId, selectedCatId]);
 
-      // Optimistically flip the isAvailable state
       queryClient.setQueryData(
         ['menuItems', activeRestaurantId, selectedCatId],
         (old: any) => {
@@ -337,23 +391,7 @@ export const ManagerMenu: React.FC = () => {
     },
   });
 
-  // Dedicated stock adjustment mutation hitting PATCH /menu-items/:itemId/stock
-  const updateStockMutation = useMutation({
-    mutationFn: ({ id, stockQuantity, trackStock, lowStockThreshold, isAvailable }: { id: string; stockQuantity?: number; trackStock?: boolean; lowStockThreshold?: number; isAvailable?: boolean }) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${id}/stock`, {
-        stockQuantity,
-        trackStock,
-        lowStockThreshold,
-        isAvailable,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
-      toast('Stock updated successfully.', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error updating stock', 'error');
-    },
-  });
+
 
   // Bulk availability update
   const bulkAvailableMutation = useMutation({
@@ -369,19 +407,90 @@ export const ManagerMenu: React.FC = () => {
     },
   });
 
-  // Category and item forms
+  // ==========================================
+  // MUTATIONS (Customization Groups)
+  // ==========================================
+  const createGroupMutation = useMutation({
+    mutationFn: (data: any) =>
+      apiClient.post(`/restaurants/${activeRestaurantId}/customization-groups`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customizationGroups', activeRestaurantId] });
+      setIsGroupModalOpen(false);
+      groupForm.reset();
+      toast('Customization group created successfully.', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error creating group', 'error');
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiClient.delete(`/restaurants/${activeRestaurantId}/customization-groups/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customizationGroups', activeRestaurantId] });
+      toast('Customization group archived.', 'success');
+    },
+  });
+
+  // Forms
   const catForm = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
   });
 
   const itemForm = useForm<any>({
     resolver: zodResolver(menuItemSchema),
-    defaultValues: { addOns: [], isVegetarian: false, isSpicy: false },
+    defaultValues: {
+      pricingType: 'SINGLE',
+      price: 0,
+      variants: [],
+      addOns: [],
+      isVegetarian: false,
+      isSpicy: false,
+      isCombo: false,
+      comboItems: [],
+      attachedAddOnGroupIds: [],
+    },
   });
 
   const { fields: addOnFields, append: appendAddOn, remove: removeAddOn } = useFieldArray({
     control: itemForm.control,
     name: 'addOns',
+  });
+
+  const {
+    fields: variantFields,
+    append: appendVariant,
+    remove: removeVariant,
+    replace: replaceVariants,
+  } = useFieldArray({
+    control: itemForm.control,
+    name: 'variants',
+  });
+
+  const {
+    fields: comboFields,
+    append: appendComboItem,
+    remove: removeComboItem,
+  } = useFieldArray({
+    control: itemForm.control,
+    name: 'comboItems',
+  });
+
+  const groupForm = useForm<any>({
+    resolver: zodResolver(customGroupSchema),
+    defaultValues: {
+      name: '',
+      type: 'ADDON',
+      description: '',
+      options: [{ name: '', priceDelta: 0, price: 0 }],
+      isGlobal: true,
+    },
+  });
+
+  const { fields: groupOptionFields, append: appendGroupOption, remove: removeGroupOption } = useFieldArray({
+    control: groupForm.control,
+    name: 'options',
   });
 
   const onCatSubmit = (values: CategoryFormValues) => {
@@ -395,18 +504,36 @@ export const ManagerMenu: React.FC = () => {
 
   const onItemSubmit = (values: any) => {
     setErrorMsg(null);
-    // Convert price and add-on prices to positive integer paise (multiply by 100)
-    const priceInPaise = Math.round(values.price * 100);
+    const isPortion = values.pricingType === 'PORTION' && values.variants && values.variants.length > 0;
+
+    let priceInPaise = Math.round(Number(values.price || 0) * 100);
+    const variantsInPaise = isPortion
+      ? values.variants.map((v: any) => ({
+          name: v.name.trim(),
+          price: Math.round(Number(v.price) * 100),
+          isDefault: !!v.isDefault,
+        }))
+      : undefined;
+
+    if (isPortion && variantsInPaise && variantsInPaise.length > 0) {
+      const def = variantsInPaise.find((v: any) => v.isDefault) || variantsInPaise[0];
+      priceInPaise = def.price;
+    }
+
     const addOnsInPaise = values.addOns?.map((addon: any) => ({
       name: addon.name.trim(),
-      priceDelta: Math.round(addon.priceDelta * 100),
+      priceDelta: Math.round(Number(addon.priceDelta) * 100),
     }));
 
     const payload = {
       ...values,
       categoryId: selectedCatId,
+      pricingType: isPortion ? 'PORTION' : 'SINGLE',
       price: priceInPaise,
+      variants: variantsInPaise,
       addOns: addOnsInPaise,
+      isCombo: !!values.isCombo,
+      comboItems: values.isCombo ? values.comboItems : undefined,
     };
 
     if (editingItem) {
@@ -432,382 +559,484 @@ export const ManagerMenu: React.FC = () => {
     itemForm.reset({
       name: item.name,
       description: item.description || '',
-      price: item.price / 100, // convert back to floats for UI
+      pricingType: item.pricingType || 'SINGLE',
+      price: (item.price || 0) / 100,
+      variants: item.variants?.map((v: any) => ({
+        name: v.name,
+        price: v.price / 100,
+        isDefault: !!v.isDefault,
+      })) || [],
       imageUrl: item.imageUrl || '',
-      isVegetarian: item.isVegetarian,
-      isSpicy: item.isSpicy,
+      isVegetarian: !!item.isVegetarian,
+      isSpicy: !!item.isSpicy,
       prepTimeMinutes: item.prepTimeMinutes || '',
       trackStock: !!item.trackStock,
       stockQuantity: item.stockQuantity !== undefined ? item.stockQuantity : 0,
       lowStockThreshold: item.lowStockThreshold !== undefined ? item.lowStockThreshold : 5,
+      isCombo: !!item.isCombo,
+      comboItems: item.comboItems?.map((c: any) => ({
+        menuItemId: c.menuItemId,
+        name: c.name,
+        categoryName: c.categoryName,
+        quantity: c.quantity || 1,
+        imageUrl: c.imageUrl,
+      })) || [],
       addOns: item.addOns?.map((addon: any) => ({
         name: addon.name,
         priceDelta: addon.priceDelta / 100,
       })) || [],
+      attachedAddOnGroupIds: item.attachedAddOnGroupIds || [],
     });
     setIsItemOpen(true);
   };
 
-  const toggleBulkSelectItem = (itemId: string) => {
-    setSelectedItemIds((prev) =>
-      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
-    );
+  const handleNewItemClick = () => {
+    setEditingItem(null);
+    itemForm.reset({
+      name: '',
+      description: '',
+      pricingType: 'SINGLE',
+      price: 0,
+      variants: [],
+      imageUrl: '',
+      isVegetarian: false,
+      isSpicy: false,
+      prepTimeMinutes: '',
+      trackStock: false,
+      stockQuantity: 0,
+      lowStockThreshold: 5,
+      isCombo: false,
+      comboItems: [],
+      addOns: [],
+      attachedAddOnGroupIds: [],
+    });
+    setIsItemOpen(true);
+  };
+
+  const handleApplyVariantPreset = (preset: 'HALF_FULL' | 'SML' | 'REG_LARGE') => {
+    itemForm.setValue('pricingType', 'PORTION');
+    if (preset === 'HALF_FULL') {
+      replaceVariants([
+        { name: 'Half', price: 150, isDefault: true },
+        { name: 'Full', price: 280, isDefault: false },
+      ]);
+    } else if (preset === 'SML') {
+      replaceVariants([
+        { name: 'Small', price: 120, isDefault: false },
+        { name: 'Medium', price: 180, isDefault: true },
+        { name: 'Large', price: 240, isDefault: false },
+      ]);
+    } else if (preset === 'REG_LARGE') {
+      replaceVariants([
+        { name: 'Regular', price: 140, isDefault: true },
+        { name: 'Large', price: 220, isDefault: false },
+      ]);
+    }
   };
 
   if (!flagsLoading && !isEnabled('qr_menu')) {
-    return <Navigate to="/manager/orders" replace />;
-  }
-
-  if (!activeRestaurantId) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6">
-        <Loader className="w-12 h-12 text-amber-500 mb-4 animate-pulse" />
-        <h2 className="font-display text-2xl font-bold text-slate-800">No Restaurant Assigned</h2>
-        <p className="text-slate-500 text-sm max-w-sm mt-1">
-          You are currently not associated as a manager with any restaurant. Please contact a Super Admin.
-        </p>
-      </div>
-    );
+    return <Navigate to="/manager" replace />;
   }
 
   return (
-    <div className="w-full space-y-8 font-sans">
-      <div className="flex justify-between items-center border-b border-slate-100 pb-5">
+    <div className="space-y-6 font-sans">
+      {/* Top Header & Tab Toggle */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
-          <h1 className="font-display tracking-tight text-4xl font-bold text-slate-900">
-            Restaurant Menu Builder
-          </h1>
-          <p className="text-slate-500 text-sm">Organize dynamic categories and detailed menu items</p>
+          <h1 className="font-display text-2xl font-bold text-slate-900 tracking-tight">Menu & Catalog Manager</h1>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Portion-based multi pricing, combos builder, and reusable add-on templates
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
+            <button
+              type="button"
+              onClick={() => setActiveTab('MENU')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === 'MENU' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>Menu Dishes</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('CUSTOMIZATIONS')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === 'CUSTOMIZATIONS' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              <span>Add-on Templates ({customGroups.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Responsive Grid Layout (Split-Panel / Drill-Down on Mobile) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Left Side: Categories Panel */}
-        <div className="md:col-span-1 space-y-4">
-          <div className="flex justify-between items-center bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
-            <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <FolderOpen className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
-              <span>Categories</span>
-            </h2>
+      {/* ========================================== */}
+      {/* TAB 1: MENU DISHES & CATEGORIES           */}
+      {/* ========================================== */}
+      {activeTab === 'MENU' && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Categories Sidebar */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs h-fit space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h2 className="font-display text-base font-bold text-slate-900">Categories</h2>
+              <button
+                onClick={() => {
+                  setEditingCat(null);
+                  catForm.reset();
+                  setIsCatOpen(true);
+                }}
+                className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100/70 px-2.5 py-1 rounded-xl transition"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                <span>New</span>
+              </button>
+            </div>
+
+            {isLoadingCats ? (
+              <div className="flex justify-center p-8">
+                <Loader className="w-6 h-6 animate-spin text-amber-500" />
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="text-center p-8 text-xs text-slate-400">No categories found. Click + New above.</div>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCategories}>
+                <SortableContext items={categories.map((c: any) => c._id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1.5">
+                    {categories.map((cat: any) => (
+                      <SortableItem key={cat._id} id={cat._id}>
+                        {({ dragHandleProps }) => (
+                          <div
+                            onClick={() => setSelectedCatId(cat._id)}
+                            className={`group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer text-xs font-semibold transition ${
+                              selectedCatId === cat._id
+                                ? 'bg-slate-950 text-white shadow-sm font-bold'
+                                : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span {...dragHandleProps} className="cursor-grab text-slate-400 hover:text-slate-600">
+                                <GripVertical className="w-3.5 h-3.5" />
+                              </span>
+                              <span className="truncate">{cat.name}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                              <button
+                                onClick={(e) => handleEditCatClick(cat, e)}
+                                className="p-1 hover:bg-white/20 rounded-lg text-slate-400 hover:text-slate-200"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm('Delete this category and all associated items?')) {
+                                    deleteCatMutation.mutate(cat._id);
+                                  }
+                                }}
+                                className="p-1 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-300"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </SortableItem>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+
+          {/* Menu Items List Workspace */}
+          <div className="lg:col-span-3 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <h2 className="font-display text-lg font-bold text-slate-900">
+                  {categories.find((c: any) => c._id === selectedCatId)?.name || 'Items'}
+                </h2>
+                <span className="text-xs text-slate-400 font-medium font-mono">{menuItems.length} dishes in this category</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkMode(!bulkMode)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
+                </button>
+                <button
+                  onClick={handleNewItemClick}
+                  disabled={!selectedCatId}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition shadow-xs disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  <span>New Menu Item</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk Action Bar */}
+            {bulkMode && (
+              <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3 flex items-center justify-between text-xs">
+                <span className="font-bold text-amber-950 font-mono">
+                  {selectedItemIds.length} items selected
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true })}
+                    disabled={selectedItemIds.length === 0}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs disabled:opacity-40"
+                  >
+                    Make Available
+                  </button>
+                  <button
+                    onClick={() => bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false })}
+                    disabled={selectedItemIds.length === 0}
+                    className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs disabled:opacity-40"
+                  >
+                    Make 86'd
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Items Grid / List */}
+            {isLoadingItems ? (
+              <div className="flex justify-center p-12">
+                <Loader className="w-8 h-8 animate-spin text-amber-500" />
+              </div>
+            ) : menuItems.length === 0 ? (
+              <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-2">
+                <p>No dishes in this category yet.</p>
+                <button
+                  onClick={handleNewItemClick}
+                  className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl"
+                >
+                  Create First Dish
+                </button>
+              </div>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndItems}>
+                <SortableContext items={menuItems.map((i: any) => i._id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3">
+                    {menuItems.map((item: any) => {
+                      const isPortion = item.pricingType === 'PORTION' && item.variants && item.variants.length > 0;
+                      return (
+                        <SortableItem key={item._id} id={item._id}>
+                          {({ dragHandleProps }) => (
+                            <div className="p-4 rounded-2xl border border-slate-200/90 hover:border-slate-300 bg-white transition flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center shadow-2xs">
+                              <div className="flex items-start gap-3 min-w-0 flex-1">
+                                {bulkMode && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedItemIds.includes(item._id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedItemIds((prev) => [...prev, item._id]);
+                                      } else {
+                                        setSelectedItemIds((prev) => prev.filter((id) => id !== item._id));
+                                      }
+                                    }}
+                                    className="mt-1 w-4 h-4 accent-amber-500 rounded"
+                                  />
+                                )}
+                                <span {...dragHandleProps} className="cursor-grab text-slate-300 hover:text-slate-600 mt-1">
+                                  <GripVertical className="w-4 h-4" />
+                                </span>
+
+                                {item.imageUrl && (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    className="w-14 h-14 object-cover rounded-xl shrink-0 border border-slate-100"
+                                  />
+                                )}
+
+                                <div className="space-y-1 min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                    <h4 className="text-sm font-bold text-slate-900 truncate">{item.name}</h4>
+                                    {item.isSpicy && <MenuBadge variant="spicy" />}
+                                    {item.isCombo && (
+                                      <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                        Combo Pack
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {item.description && (
+                                    <p className="text-xs text-slate-500 line-clamp-1">{item.description}</p>
+                                  )}
+
+                                  {/* Portion Variants Tags */}
+                                  {isPortion && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                      {item.variants.map((v: any, vIdx: number) => (
+                                        <span
+                                          key={vIdx}
+                                          className="text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-900 px-2 py-0.5 rounded-lg flex items-center gap-1"
+                                        >
+                                          <span>{v.name}:</span>
+                                          <strong className="font-mono">₹{(v.price / 100).toFixed(2)}</strong>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Combo Bundled Items Summary */}
+                                  {item.isCombo && item.comboItems && item.comboItems.length > 0 && (
+                                    <p className="text-[10px] text-amber-800 font-medium">
+                                      Includes: {item.comboItems.map((c: any) => `${c.quantity}x ${c.name}`).join(' + ')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Price and Action Buttons */}
+                              <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
+                                {!isPortion && (
+                                  <span className="font-mono font-black text-sm text-slate-900">
+                                    ₹{(item.price / 100).toFixed(2)}
+                                  </span>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => toggleAvailableMutation.mutate(item._id)}
+                                  className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                                    item.isAvailable
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                                  }`}
+                                >
+                                  {item.isAvailable ? 'Available' : "86'd"}
+                                </button>
+
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleEditItemClick(item)}
+                                    className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Delete "${item.name}"?`)) {
+                                        deleteItemMutation.mutate(item._id);
+                                      }
+                                    }}
+                                    className="p-1.5 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </SortableItem>
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* TAB 2: REUSABLE CUSTOMIZATION TEMPLATES    */}
+      {/* ========================================== */}
+      {activeTab === 'CUSTOMIZATIONS' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <h2 className="font-display text-lg font-bold text-slate-900">Customization & Add-on Templates</h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Create reusable templates (e.g. Extra Cheese, Garlic Dip, Gulab Jamun) and easily connect them across dishes
+              </p>
+            </div>
             <button
               onClick={() => {
-                setEditingCat(null);
-                catForm.reset({ name: '', description: '', imageUrl: '' });
-                setIsCatOpen(true);
+                groupForm.reset({
+                  name: '',
+                  type: 'ADDON',
+                  description: '',
+                  options: [{ name: '', priceDelta: 0, price: 0 }],
+                  isGlobal: true,
+                });
+                setIsGroupModalOpen(true);
               }}
-              className="p-1.5 bg-primary text-white hover:bg-slate-800 rounded-lg transition"
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition shadow-xs"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <span>Create Template</span>
             </button>
           </div>
 
-          {isLoadingCats ? (
-            <div className="space-y-2.5">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
-              ))}
+          {isLoadingGroups ? (
+            <div className="flex justify-center p-12">
+              <Loader className="w-8 h-8 animate-spin text-amber-500" />
+            </div>
+          ) : customGroups.length === 0 ? (
+            <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-2">
+              <p>No reusable templates created yet.</p>
+              <p className="text-[11px] text-slate-400">Templates save time when adding standard add-ons across multiple dishes.</p>
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCategories}>
-              <SortableContext items={categories.map((c: any) => c._id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2 max-h-60 md:max-h-[calc(100vh-280px)] overflow-y-auto custom-scrollbar p-1">
-                  {categories.map((cat: any) => (
-                    <SortableItem key={cat._id} id={cat._id}>
-                      {({ dragHandleProps }) => (
-                        <div
-                          onClick={() => setSelectedCatId(cat._id)}
-                          className={`group relative p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                            selectedCatId === cat._id
-                              ? 'border-amber-400 bg-amber-50/20 text-slate-900 font-semibold'
-                              : 'border-slate-100 bg-white hover:bg-slate-50 text-slate-600'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span {...dragHandleProps} className="cursor-grab text-slate-300 hover:text-slate-600 p-0.5">
-                              <GripVertical className="w-3.5 h-3.5" strokeWidth={1.75} />
-                            </span>
-                            <span className="truncate">{cat.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={(e) => handleEditCatClick(cat, e)}
-                              className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition"
-                            >
-                              <Edit2 className="w-3 h-3" strokeWidth={1.75} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (
-                                  confirm(
-                                    'Are you sure you want to delete this category? Non-empty categories will be blocked.'
-                                  )
-                                ) {
-                                  deleteCatMutation.mutate(cat._id);
-                                }
-                              }}
-                              className="p-1 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition"
-                            >
-                              <Trash2 className="w-3 h-3" strokeWidth={1.75} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </SortableItem>
-                  ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {customGroups.map((group: any) => (
+                <div key={group._id} className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full font-mono">
+                        {group.type}
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-sm mt-1">{group.name}</h4>
+                      {group.description && <p className="text-xs text-slate-500">{group.description}</p>}
+                    </div>
+                    <button
+                      onClick={() => deleteGroupMutation.mutate(group._id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      title="Archive template"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100 border-t border-slate-100 pt-2 text-xs">
+                    {group.options.map((opt: any, optIdx: number) => (
+                      <div key={optIdx} className="py-1.5 flex justify-between items-center text-slate-700">
+                        <span>{opt.name}</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          +₹{((opt.priceDelta || opt.price || 0) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </SortableContext>
-            </DndContext>
-          )}
-        </div>
-
-        {/* Right Side: Menu Items Panel */}
-        <div className="md:col-span-3 space-y-6 bg-white rounded-2xl border border-slate-100 p-4 md:p-6 shadow-sm">
-          <div className="flex justify-between items-center border-b border-slate-50 pb-4 flex-wrap gap-4">
-            <div>
-              <h2 className="font-display tracking-tight text-3xl font-semibold text-slate-900">
-                {categories.find((c: any) => c._id === selectedCatId)?.name || 'Select a Category'}
-              </h2>
-              <p className="text-slate-500 text-xs mt-1">
-                {menuItems.length} items configured in this category
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Bulk Mode Actions */}
-              {menuItems.length > 0 && (
-                <button
-                  onClick={() => {
-                    setBulkMode(!bulkMode);
-                    setSelectedItemIds([]);
-                  }}
-                  className={`text-xs px-3.5 py-2 rounded-xl border font-semibold transition ${
-                    bulkMode
-                      ? 'border-amber-300 bg-amber-50 text-amber-800'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {bulkMode ? 'Cancel Bulk Selection' : 'Bulk Select'}
-                </button>
-              )}
-
-              <button
-                disabled={!selectedCatId}
-                onClick={() => {
-                  setEditingItem(null);
-                  itemForm.reset({
-                    name: '',
-                    description: '',
-                    price: 0,
-                    imageUrl: '',
-                    isVegetarian: false,
-                    isSpicy: false,
-                    prepTimeMinutes: undefined,
-                    addOns: [],
-                  });
-                  setIsItemOpen(true);
-                }}
-                className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition disabled:opacity-50"
-              >
-                <Plus className="w-4 h-4" strokeWidth={1.75} />
-                <span>Add Item</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Bulk Select Control Bar */}
-          {bulkMode && selectedItemIds.length > 0 && (
-            <div className="p-3.5 bg-slate-900 text-white rounded-xl flex items-center justify-between animate-fade-in text-xs">
-              <span>{selectedItemIds.length} items selected</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true })}
-                  className="px-3 py-1 bg-green-600 rounded hover:bg-green-700 transition font-semibold"
-                >
-                  Make Available
-                </button>
-                <button
-                  onClick={() => bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false })}
-                  className="px-3 py-1 bg-red-600 rounded hover:bg-red-700 transition font-semibold"
-                >
-                  Make Unavailable
-                </button>
-              </div>
-            </div>
-          )}
-
-          {isLoadingItems ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2, 4].map((n) => (
-                <div key={n} className="h-28 bg-slate-50 border border-slate-100 rounded-2xl animate-pulse" />
               ))}
             </div>
-          ) : menuItems.length === 0 ? (
-            <div className="text-center py-20 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
-              <FolderOpen className="w-10 h-10 text-slate-300 mx-auto animate-pulse" strokeWidth={1.75} />
-              <div className="space-y-1">
-                <h4 className="font-bold text-slate-700">Category is Empty</h4>
-                <p className="text-xs text-slate-400">Click "Add Item" above to add the first menu item.</p>
-              </div>
-            </div>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndItems}>
-              <SortableContext items={menuItems.map((i: any) => i._id)} strategy={verticalListSortingStrategy}>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {menuItems.map((item: any) => (
-                    <SortableItem key={item._id} id={item._id}>
-                      {({ dragHandleProps }) => (
-                        <div
-                          onClick={() => bulkMode && toggleBulkSelectItem(item._id)}
-                          className={`relative border rounded-2xl p-3.5 sm:p-4 flex gap-3 sm:gap-4 transition-all ${
-                            bulkMode && selectedItemIds.includes(item._id)
-                              ? 'border-amber-400 bg-amber-50/10 shadow-inner'
-                              : 'border-slate-100 bg-white hover:shadow-sm'
-                          } ${!item.isAvailable ? 'opacity-85' : ''}`}
-                        >
-                          {/* Select indicator */}
-                          {bulkMode && (
-                            <div className="absolute top-3 left-3 z-10">
-                              <input
-                                type="checkbox"
-                                checked={selectedItemIds.includes(item._id)}
-                                onChange={() => {}}
-                                className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/20"
-                              />
-                            </div>
-                          )}
-
-                          <div className="flex flex-col justify-center select-none shrink-0" {...dragHandleProps}>
-                            <GripVertical className="w-4 h-4 text-slate-300 hover:text-slate-600 cursor-grab" strokeWidth={1.75} />
-                          </div>
-
-                          {item.imageUrl && (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-20 h-20 object-cover rounded-xl shrink-0"
-                            />
-                          )}
-
-                          <div className="flex flex-col justify-between flex-1">
-                            <div>
-                              <div className="flex justify-between items-start">
-                                <h4 className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                                  <span>{item.name}</span>
-                                  {item.isVegetarian && <Leaf className="w-3.5 h-3.5 text-green-500 shrink-0" strokeWidth={1.75} />}
-                                  {item.isSpicy && <Flame className="w-3.5 h-3.5 text-red-500 shrink-0" strokeWidth={1.75} />}
-                                </h4>
-                                <span className="font-mono font-bold text-slate-800 text-sm">
-                                  {(item.price / 100).toFixed(2)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-500 line-clamp-2 mt-1 pr-6">
-                                {item.description || 'No description provided.'}
-                              </p>
-                            </div>
-
-                            <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-2">
-                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                {/* Inline availability toggle */}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleAvailableMutation.mutate(item._id);
-                                  }}
-                                  className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                    item.isAvailable
-                                      ? 'bg-green-50 text-green-700 hover:bg-green-100/50'
-                                      : 'bg-red-50 text-red-700 hover:bg-red-100/50'
-                                  }`}
-                                >
-                                  {item.isAvailable ? 'Available' : '86\'d (Unavailable)'}
-                                </button>
-                                {item.trackStock && (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateStockMutation.mutate({
-                                          id: item._id,
-                                          stockQuantity: Math.max(0, (item.stockQuantity || 0) - 1),
-                                        });
-                                      }}
-                                      className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition"
-                                      title="Decrease Stock"
-                                    >
-                                      -
-                                    </button>
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
-                                        item.stockQuantity <= (item.lowStockThreshold || 5)
-                                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                          : 'bg-slate-100 text-slate-700'
-                                      }`}
-                                    >
-                                      Stock: {item.stockQuantity}
-                                      {item.stockQuantity <= (item.lowStockThreshold || 5) && ' ⚠️ Low'}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateStockMutation.mutate({
-                                          id: item._id,
-                                          stockQuantity: (item.stockQuantity || 0) + 1,
-                                        });
-                                      }}
-                                      className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition"
-                                      title="Increase Stock"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditItemClick(item);
-                                  }}
-                                  className="p-1 hover:bg-slate-50 rounded text-slate-400 hover:text-slate-700 transition"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('Are you sure you want to delete this menu item?')) {
-                                      deleteItemMutation.mutate(item._id);
-                                    }
-                                  }}
-                                  className="p-1 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </SortableItem>
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
           )}
         </div>
-      </div>
+      )}
 
       {/* Category Modal */}
       {isCatOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-100">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="font-display text-2xl font-bold">
+              <h2 className="font-display text-xl font-bold text-slate-900">
                 {editingCat ? 'Edit Category' : 'New Category'}
               </h2>
               <button onClick={() => setIsCatOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
@@ -830,9 +1059,6 @@ export const ManagerMenu: React.FC = () => {
                   {...catForm.register('name')}
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
                 />
-                {catForm.formState.errors.name?.message && (
-                  <p className="text-xs text-red-500 mt-1">{String(catForm.formState.errors.name.message)}</p>
-                )}
               </div>
 
               <div>
@@ -863,7 +1089,7 @@ export const ManagerMenu: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition"
+                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-semibold rounded-xl transition"
                 >
                   {editingCat ? 'Save' : 'Create'}
                 </button>
@@ -873,98 +1099,251 @@ export const ManagerMenu: React.FC = () => {
         </div>
       )}
 
-      {/* Menu Item Modal */}
+      {/* Menu Item Modal with Portion Pricing & Combos */}
       {isItemOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-display text-2xl font-bold">
-                {editingItem ? 'Edit Menu Item' : 'New Menu Item'}
-              </h2>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-5">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="font-display text-xl font-bold text-slate-900">
+                  {editingItem ? 'Edit Menu Item' : 'New Menu Item'}
+                </h2>
+                <span className="text-xs text-slate-400">Configure dish details, portion variants, or combos</span>
+              </div>
               <button onClick={() => setIsItemOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
 
             {errorMsg && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
                 {errorMsg}
               </div>
             )}
 
-            <form onSubmit={itemForm.handleSubmit(onItemSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Item Name</label>
-                  <input
-                    type="text"
-                    placeholder="Paneer Tikka Pizza"
-                    {...itemForm.register('name')}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                  />
-                  {itemForm.formState.errors.name && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {String(itemForm.formState.errors.name?.message || '')}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Price (INR)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="349.00"
-                    {...itemForm.register('price')}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                  />
-                  {itemForm.formState.errors.price && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {String(itemForm.formState.errors.price?.message || '')}
-                    </p>
-                  )}
-                </div>
-              </div>
-
+            <form onSubmit={itemForm.handleSubmit(onItemSubmit)} className="space-y-5">
+              {/* Item Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea
-                  placeholder="Spiced cottage cheese chunks..."
-                  {...itemForm.register('description')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Name</label>
+                <input
+                  type="text"
+                  placeholder="Paneer Butter Masala"
+                  {...itemForm.register('name')}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-bold"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center gap-2 py-2">
-                  <input type="checkbox" id="veg" {...itemForm.register('isVegetarian')} className="rounded text-amber-500" />
-                  <label htmlFor="veg" className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                    <Leaf className="w-3.5 h-3.5 text-green-500" strokeWidth={1.75} />
-                    <span>Vegetarian</span>
+              {/* PRICING MODE SELECTOR */}
+              <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-amber-950">Pricing Model</label>
+                  <div className="flex gap-1 p-0.5 bg-amber-100/80 rounded-xl border border-amber-300/80 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => itemForm.setValue('pricingType', 'SINGLE')}
+                      className={`px-3 py-1 rounded-lg font-bold transition ${
+                        itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
+                      }`}
+                    >
+                      Single Price
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        itemForm.setValue('pricingType', 'PORTION');
+                        if (variantFields.length === 0) {
+                          handleApplyVariantPreset('HALF_FULL');
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-lg font-bold transition ${
+                        itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
+                      }`}
+                    >
+                      Portion Sizes (Half/Full)
+                    </button>
+                  </div>
+                </div>
+
+                {itemForm.watch('pricingType') === 'SINGLE' ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Dish Price (INR)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="280.00"
+                      {...itemForm.register('price')}
+                      className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Quick Presets Bar */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold text-amber-900">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyVariantPreset('HALF_FULL')}
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition"
+                      >
+                        + Half / Full
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyVariantPreset('SML')}
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition"
+                      >
+                        + Small / Med / Large
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyVariantPreset('REG_LARGE')}
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition"
+                      >
+                        + Regular / Large
+                      </button>
+                    </div>
+
+                    {/* Variant Rows */}
+                    <div className="space-y-2">
+                      {variantFields.map((field, vIdx) => (
+                        <div key={field.id} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-amber-200/80">
+                          <input
+                            type="text"
+                            placeholder="Size (e.g. Half)"
+                            {...itemForm.register(`variants.${vIdx}.name` as const)}
+                            className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="Price (INR)"
+                            {...itemForm.register(`variants.${vIdx}.price` as const)}
+                            className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeVariant(vIdx)}
+                            className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => appendVariant({ name: '', price: 0, isDefault: false })}
+                        className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Custom Size Option</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* COMBOS BUNDLE BUILDER SECTION */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isComboToggle"
+                    {...itemForm.register('isCombo')}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">
+                    Bundle as Multi-Dish Combo (e.g. Garlic Naan + Paneer Butter Masala)
                   </label>
                 </div>
 
-                <div className="flex items-center gap-2 py-2">
-                  <input type="checkbox" id="spicy" {...itemForm.register('isSpicy')} className="rounded text-amber-500" />
-                  <label htmlFor="spicy" className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                    <Flame className="w-3.5 h-3.5 text-red-500" strokeWidth={1.75} />
-                    <span>Spicy</span>
-                  </label>
-                </div>
+                {itemForm.watch('isCombo') && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-[11px] text-slate-500">
+                      Add items included in this combo pack:
+                    </p>
+                    {comboFields.map((cField, cIdx) => (
+                      <div key={cField.id} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
+                        <input
+                          type="text"
+                          placeholder="Dish name (e.g. Garlic Naan)"
+                          {...itemForm.register(`comboItems.${cIdx}.name` as const)}
+                          className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty (e.g. 2)"
+                          {...itemForm.register(`comboItems.${cIdx}.quantity` as const)}
+                          className="w-20 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Category (e.g. Breads)"
+                          {...itemForm.register(`comboItems.${cIdx}.categoryName` as const)}
+                          className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeComboItem(cIdx)}
+                          className="text-rose-500 hover:text-rose-700 p-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })}
+                      className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Bundled Item</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                <textarea
+                  placeholder="Spiced cottage cheese chunks simmered in rich tomato butter gravy..."
+                  {...itemForm.register('description')}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-16"
+                />
+              </div>
+
+              {/* Dietary Indicators with FSSAI Badges */}
+              <div className="grid grid-cols-3 gap-3">
+                <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
+                  itemForm.watch('isVegetarian') ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
+                }`}>
+                  <input type="checkbox" {...itemForm.register('isVegetarian')} className="hidden" />
+                  <MenuBadge variant="veg" />
+                  <span className="text-xs">Vegetarian</span>
+                </label>
+
+                <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
+                  itemForm.watch('isSpicy') ? 'bg-rose-50 border-rose-500 text-rose-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
+                }`}>
+                  <input type="checkbox" {...itemForm.register('isSpicy')} className="hidden" />
+                  <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} />
+                  <span className="text-xs">Spicy</span>
+                </label>
 
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-600 mb-1">Prep Time (Mins)</label>
                   <input
                     type="number"
-                    placeholder="15"
+                    placeholder="15 mins prep"
                     {...itemForm.register('prepTimeMinutes')}
-                    className="w-full px-3.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium"
                   />
                 </div>
               </div>
 
+              {/* Image Uploader */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Item Image</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Image</label>
                 <ImageUploader
                   restaurantId={activeRestaurantId!}
                   value={itemForm.watch('imageUrl')}
@@ -972,104 +1351,151 @@ export const ManagerMenu: React.FC = () => {
                 />
               </div>
 
-              {/* Stock / Inventory Section */}
-              <div className="border border-slate-100 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="trackStock"
-                    {...itemForm.register('trackStock')}
-                    className="rounded text-amber-500"
-                  />
-                  <label htmlFor="trackStock" className="text-xs font-bold text-slate-800">
-                    Enable Quantity-Based Stock Tracking
-                  </label>
-                </div>
-
-                {itemForm.watch('trackStock') && (
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Current Stock Quantity
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="50"
-                        {...itemForm.register('stockQuantity')}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Low Stock Alert Threshold
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="5"
-                        {...itemForm.register('lowStockThreshold')}
-                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Repeater Add-On Sections */}
+              {/* Add-On Customizations Repeater */}
               <div className="space-y-3 pt-2">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                  <span className="text-xs font-bold text-slate-700">Add-On Customizations</span>
+                  <span className="text-xs font-bold text-slate-900">Custom Add-Ons (Specific to this dish)</span>
                   <button
                     type="button"
                     onClick={() => appendAddOn({ name: '', priceDelta: 0 })}
                     className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" strokeWidth={1.75} />
-                    <span>Add Add-On Row</span>
+                    <Plus className="w-3 h-3" />
+                    <span>Add Add-on</span>
                   </button>
                 </div>
 
                 {addOnFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-3 items-center">
+                  <div key={field.id} className="flex gap-2 items-center">
                     <input
                       type="text"
-                      placeholder="Extra Cheese"
+                      placeholder="e.g. Extra Butter"
                       {...itemForm.register(`addOns.${index}.name` as const)}
-                      className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+                      className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold"
                     />
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="60.00"
+                      placeholder="Extra Price (INR)"
                       {...itemForm.register(`addOns.${index}.priceDelta` as const)}
-                      className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+                      className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold"
                     />
                     <button
                       type="button"
                       onClick={() => removeAddOn(index)}
-                      className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                      className="text-rose-500 hover:text-rose-700 p-1"
                     >
-                      <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
               </div>
 
-              <div className="flex gap-3 pt-4">
+              {/* Form Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsItemOpen(false)}
-                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition"
+                  className="w-1/2 py-3 border border-slate-200 text-slate-600 text-sm font-semibold rounded-2xl hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition"
+                  className="w-1/2 py-3 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-2xl transition shadow-md"
                 >
-                  {editingItem ? 'Save' : 'Create'}
+                  {editingItem ? 'Save Changes' : 'Create Dish'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Customization Group Template Modal */}
+      {isGroupModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="font-display text-xl font-bold text-slate-900">New Add-On Template</h2>
+              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={groupForm.handleSubmit((values: any) => {
+                createGroupMutation.mutate({
+                  ...values,
+                  options: values.options.map((opt: any) => ({
+                    name: opt.name.trim(),
+                    priceDelta: Math.round(Number(opt.priceDelta || 0) * 100),
+                  })),
+                });
+              })}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Template Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Extra Dips & Sauces"
+                  {...groupForm.register('name')}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Options List</label>
+                <div className="space-y-2">
+                  {groupOptionFields.map((field, idx) => (
+                    <div key={field.id} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Option name"
+                        {...groupForm.register(`options.${idx}.name` as const)}
+                        className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price (INR)"
+                        {...groupForm.register(`options.${idx}.priceDelta` as const)}
+                        className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeGroupOption(idx)}
+                        className="text-rose-500 hover:text-rose-700 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => appendGroupOption({ name: '', priceDelta: 0, price: 0 })}
+                    className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Option</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsGroupModalOpen(false)}
+                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-md"
+                >
+                  Save Template
                 </button>
               </div>
             </form>

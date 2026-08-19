@@ -9,8 +9,9 @@ export interface CartAddOn {
 export interface CartItem {
   itemId: string;
   name: string; // snapshot
+  variantName?: string; // e.g. "Half", "Full", "Small", "Large"
   price: number; // snapshot of base + selected add-on deltas (per-unit in cents/paise)
-  basePrice: number; // base price of the item
+  basePrice: number; // base price of the item or selected variant
   quantity: number;
   specialInstructions?: string;
   selectedAddOns: CartAddOn[];
@@ -27,8 +28,8 @@ export interface CartState {
   getOrCreateIdempotencyKey: () => string;
   resetIdempotencyKey: () => string;
   addItem: (item: Omit<CartItem, 'price'> & { basePrice: number }) => void;
-  updateQuantity: (itemId: string, selectedAddOns: CartAddOn[], specialInstructions: string, delta: number) => void;
-  removeItem: (itemId: string, selectedAddOns: CartAddOn[], specialInstructions: string) => void;
+  updateQuantity: (itemId: string, selectedAddOns: CartAddOn[], specialInstructions: string, delta: number, variantName?: string) => void;
+  removeItem: (itemId: string, selectedAddOns: CartAddOn[], specialInstructions: string, variantName?: string) => void;
   clearCart: () => void;
 }
 
@@ -36,11 +37,14 @@ export const isSameItem = (
   aId: string,
   aAddOns: CartAddOn[],
   aInstructions: string | undefined,
+  aVariant: string | undefined,
   bId: string,
   bAddOns: CartAddOn[],
-  bInstructions: string | undefined
+  bInstructions: string | undefined,
+  bVariant: string | undefined
 ): boolean => {
   if (aId !== bId) return false;
+  if ((aVariant || '') !== (bVariant || '')) return false;
   if ((aInstructions || '').trim() !== (bInstructions || '').trim()) return false;
   if (aAddOns.length !== bAddOns.length) return false;
 
@@ -132,9 +136,11 @@ export const useCartStore = create<CartState>()(
             item.itemId,
             item.selectedAddOns,
             item.specialInstructions,
+            item.variantName,
             snapshotItem.itemId,
             snapshotItem.selectedAddOns,
-            snapshotItem.specialInstructions
+            snapshotItem.specialInstructions,
+            snapshotItem.variantName
           )
         );
 
@@ -147,16 +153,18 @@ export const useCartStore = create<CartState>()(
         }
       },
 
-      updateQuantity: (itemId, selectedAddOns, specialInstructions, delta) => {
+      updateQuantity: (itemId, selectedAddOns, specialInstructions, delta, variantName) => {
         const existingItems = get().items;
         const matchingIndex = existingItems.findIndex((item) =>
           isSameItem(
             item.itemId,
             item.selectedAddOns,
             item.specialInstructions,
+            item.variantName,
             itemId,
             selectedAddOns,
-            specialInstructions
+            specialInstructions,
+            variantName
           )
         );
 
@@ -172,7 +180,7 @@ export const useCartStore = create<CartState>()(
         }
       },
 
-      removeItem: (itemId, selectedAddOns, specialInstructions) => {
+      removeItem: (itemId, selectedAddOns, specialInstructions, variantName) => {
         const existingItems = get().items;
         const updatedItems = existingItems.filter(
           (item) =>
@@ -180,9 +188,11 @@ export const useCartStore = create<CartState>()(
               item.itemId,
               item.selectedAddOns,
               item.specialInstructions,
+              item.variantName,
               itemId,
               selectedAddOns,
-              specialInstructions
+              specialInstructions,
+              variantName
             )
         );
         set({ items: updatedItems });

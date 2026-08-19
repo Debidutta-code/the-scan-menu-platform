@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
+import { CustomizationGroup } from '../models/CustomizationGroup';
 import { CloudinaryService } from '../services/cloudinary.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { inventoryService } from '../services/inventory.service';
@@ -27,6 +28,11 @@ export class MenuController {
     this.updateStock = this.updateStock.bind(this);
     this.bulkAvailability = this.bulkAvailability.bind(this);
     this.reorderMenuItems = this.reorderMenuItems.bind(this);
+
+    this.listCustomizationGroups = this.listCustomizationGroups.bind(this);
+    this.createCustomizationGroup = this.createCustomizationGroup.bind(this);
+    this.editCustomizationGroup = this.editCustomizationGroup.bind(this);
+    this.deleteCustomizationGroup = this.deleteCustomizationGroup.bind(this);
 
     this.getUploadSignature = this.getUploadSignature.bind(this);
   }
@@ -209,26 +215,36 @@ export class MenuController {
         categoryId,
         name,
         description,
+        pricingType,
         price,
+        variants,
         imageUrl,
         isVegetarian,
         isSpicy,
         prepTimeMinutes,
         sortOrder,
         addOns,
+        attachedAddOnGroupIds,
+        isCombo,
+        comboItems,
         trackStock,
         stockQuantity,
         lowStockThreshold,
         isAvailable,
       } = req.body;
 
-      if (!categoryId || !name || price === undefined) {
-        sendError(res, 'BAD_REQUEST', 'categoryId, name, and price are required', null, 400);
+      if (!categoryId || !name) {
+        sendError(res, 'BAD_REQUEST', 'categoryId and name are required', null, 400);
         return;
       }
 
-      // Check price is positive integer
-      if (!Number.isInteger(price) || price < 0) {
+      // Compute final price
+      let finalPrice = price;
+      const isPortion = pricingType === 'PORTION' && Array.isArray(variants) && variants.length > 0;
+      if (isPortion) {
+        const defaultVar = variants.find((v: any) => v.isDefault) || variants[0];
+        finalPrice = defaultVar ? defaultVar.price : (price || 0);
+      } else if (finalPrice === undefined || !Number.isInteger(finalPrice) || finalPrice < 0) {
         sendError(res, 'BAD_REQUEST', 'Price must be a non-negative integer (paise/cents)', null, 400);
         return;
       }
@@ -265,7 +281,9 @@ export class MenuController {
         categoryId: new mongoose.Types.ObjectId(categoryId),
         name: name.trim(),
         description: description?.trim(),
-        price,
+        pricingType: isPortion ? 'PORTION' : 'SINGLE',
+        price: finalPrice,
+        variants: isPortion ? variants : undefined,
         imageUrl: imageUrl?.trim(),
         isAvailable: isAvailable !== undefined ? !!isAvailable : true,
         trackStock: !!trackStock,
@@ -276,6 +294,11 @@ export class MenuController {
         prepTimeMinutes: prepTimeMinutes ? parseInt(prepTimeMinutes) : undefined,
         sortOrder: finalSortOrder,
         addOns,
+        attachedAddOnGroupIds: Array.isArray(attachedAddOnGroupIds)
+          ? attachedAddOnGroupIds.map((id: string) => new mongoose.Types.ObjectId(id))
+          : undefined,
+        isCombo: !!isCombo,
+        comboItems: Array.isArray(comboItems) ? comboItems : undefined,
       });
 
       await menuItem.save();
@@ -325,8 +348,20 @@ export class MenuController {
         item.categoryId = new mongoose.Types.ObjectId(updateData.categoryId);
       }
 
+      // Handle pricing type & variants
+      if (updateData.pricingType !== undefined) {
+        item.pricingType = updateData.pricingType;
+      }
+      if (updateData.variants !== undefined) {
+        item.variants = updateData.variants;
+        if (item.pricingType === 'PORTION' && Array.isArray(updateData.variants) && updateData.variants.length > 0) {
+          const defaultVar = updateData.variants.find((v: any) => v.isDefault) || updateData.variants[0];
+          item.price = defaultVar ? defaultVar.price : item.price;
+        }
+      }
+
       // Check price positive integer
-      if (updateData.price !== undefined) {
+      if (updateData.price !== undefined && item.pricingType !== 'PORTION') {
         if (!Number.isInteger(updateData.price) || updateData.price < 0) {
           sendError(res, 'BAD_REQUEST', 'Price must be a non-negative integer (paise/cents)', null, 400);
           return;
@@ -342,6 +377,17 @@ export class MenuController {
       if (updateData.stockQuantity !== undefined) item.stockQuantity = updateData.stockQuantity;
       if (updateData.lowStockThreshold !== undefined) item.lowStockThreshold = updateData.lowStockThreshold;
       if (updateData.isVegetarian !== undefined) item.isVegetarian = !!updateData.isVegetarian;
+      if (updateData.isSpicy !== undefined) item.isSpicy = !!updateData.isSpicy;
+      if (updateData.prepTimeMinutes !== undefined) item.prepTimeMinutes = updateData.prepTimeMinutes ? parseInt(updateData.prepTimeMinutes) : undefined;
+      if (updateData.sortOrder !== undefined) item.sortOrder = updateData.sortOrder;
+      if (updateData.addOns !== undefined) item.addOns = updateData.addOns;
+      if (updateData.attachedAddOnGroupIds !== undefined) {
+        item.attachedAddOnGroupIds = Array.isArray(updateData.attachedAddOnGroupIds)
+          ? updateData.attachedAddOnGroupIds.map((id: string) => new mongoose.Types.ObjectId(id))
+          : [];
+      }
+      if (updateData.isCombo !== undefined) item.isCombo = !!updateData.isCombo;
+      if (updateData.comboItems !== undefined) item.comboItems = updateData.comboItems;
       if (updateData.isSpicy !== undefined) item.isSpicy = !!updateData.isSpicy;
       if (updateData.prepTimeMinutes !== undefined) {
         item.prepTimeMinutes = updateData.prepTimeMinutes ? parseInt(updateData.prepTimeMinutes) : undefined;
@@ -487,6 +533,129 @@ export class MenuController {
 
       await MenuItem.bulkWrite(bulkOps);
       sendSuccess(res, {}, 'Menu items reordered successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // CUSTOMIZATION & ADD-ON GROUPS
+  // ==========================================
+
+  async listCustomizationGroups(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { type } = req.query;
+
+      const filter: any = {
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        isArchived: false,
+      };
+
+      if (type && (type === 'VARIANT' || type === 'ADDON')) {
+        filter.type = type;
+      }
+
+      const groups = await CustomizationGroup.find(filter).sort({ createdAt: -1 });
+      sendSuccess(res, groups, 'Customization groups retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async createCustomizationGroup(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { name, type, description, options, categoryIds, isGlobal } = req.body;
+
+      if (!name || !type || !Array.isArray(options) || options.length === 0) {
+        sendError(res, 'BAD_REQUEST', 'name, type, and at least one option are required', null, 400);
+        return;
+      }
+
+      const group = new CustomizationGroup({
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        name: name.trim(),
+        type,
+        description: description?.trim(),
+        options: options.map((opt: any) => ({
+          name: opt.name.trim(),
+          priceDelta: opt.priceDelta ? Math.max(0, parseInt(opt.priceDelta)) : 0,
+          price: opt.price ? Math.max(0, parseInt(opt.price)) : 0,
+        })),
+        categoryIds: Array.isArray(categoryIds)
+          ? categoryIds.map((cid: string) => new mongoose.Types.ObjectId(cid))
+          : [],
+        isGlobal: !!isGlobal,
+      });
+
+      await group.save();
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
+      sendSuccess(res, group, 'Customization group created successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async editCustomizationGroup(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, id } = req.params;
+      const { name, type, description, options, categoryIds, isGlobal } = req.body;
+
+      const group = await CustomizationGroup.findOne({
+        _id: id,
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        isArchived: false,
+      });
+
+      if (!group) {
+        sendError(res, 'NOT_FOUND', 'Customization group not found', null, 404);
+        return;
+      }
+
+      if (name !== undefined) group.name = name.trim();
+      if (type !== undefined) group.type = type;
+      if (description !== undefined) group.description = description.trim();
+      if (Array.isArray(options)) {
+        group.options = options.map((opt: any) => ({
+          name: opt.name.trim(),
+          priceDelta: opt.priceDelta ? Math.max(0, parseInt(opt.priceDelta)) : 0,
+          price: opt.price ? Math.max(0, parseInt(opt.price)) : 0,
+        }));
+      }
+      if (Array.isArray(categoryIds)) {
+        group.categoryIds = categoryIds.map((cid: string) => new mongoose.Types.ObjectId(cid));
+      }
+      if (isGlobal !== undefined) group.isGlobal = !!isGlobal;
+
+      await group.save();
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
+      sendSuccess(res, group, 'Customization group updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteCustomizationGroup(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, id } = req.params;
+
+      const group = await CustomizationGroup.findOneAndUpdate(
+        {
+          _id: id,
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        },
+        { isArchived: true },
+        { new: true }
+      );
+
+      if (!group) {
+        sendError(res, 'NOT_FOUND', 'Customization group not found', null, 404);
+        return;
+      }
+
+      cacheService.invalidatePattern(`public_menu_${restaurantId}`);
+      sendSuccess(res, {}, 'Customization group archived successfully');
     } catch (error) {
       next(error);
     }

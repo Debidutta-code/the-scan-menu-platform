@@ -24,6 +24,7 @@ export const MenuTab: React.FC<MenuTabProps> = ({
   onCategoryClick,
   onItemCardClick,
   onQuickAdd,
+  onAddVariant,
   onQuickIncrement,
   onQuickDecrement,
   onTrackOrders,
@@ -187,55 +188,65 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                   {category.menuItems.map((item, idx) => {
                     const badge = getItemBadge(item, idx);
                     const cartQty = getItemCartQuantity(item._id);
+                    const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
+                    const isCombo = !!item.isCombo;
+
                     return (
                       <div
                         key={item._id}
                         onClick={() => onItemCardClick(item)}
-                        className={`flex gap-4 p-4 bg-white rounded-3xl border transition-all ${
+                        className={`flex flex-col sm:flex-row gap-3.5 p-4 bg-white rounded-3xl border transition-all ${
                           item.isAvailable
                             ? 'border-slate-150 hover:border-slate-300 shadow-sm cursor-pointer active:scale-[0.99]'
                             : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
                         }`}
                       >
-                        {/* Image with featured badges */}
-                        <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden shrink-0 relative">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              loading="lazy"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400">
-                              <Sparkles className="w-5 h-5 opacity-40" strokeWidth={1.75} />
-                            </div>
-                          )}
-                          {badge && item.isAvailable && (
-                            <div className="absolute top-1 left-1">
-                              <span className="text-[8px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-slate-950/85 rounded-full backdrop-blur-sm">
-                                {badge}
-                              </span>
-                            </div>
-                          )}
-                          {!item.isAvailable && (
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
-                              <span className="text-[9px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-black/60 rounded">
-                                Sold Out
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        <div className="flex gap-3.5 items-start">
+                          {/* Image with featured badges */}
+                          <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden shrink-0 relative">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400">
+                                <Sparkles className="w-5 h-5 opacity-40" strokeWidth={1.75} />
+                              </div>
+                            )}
+                            {badge && item.isAvailable && (
+                              <div className="absolute top-1 left-1">
+                                <span className="text-[8px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-slate-950/85 rounded-full backdrop-blur-sm">
+                                  {badge}
+                                </span>
+                              </div>
+                            )}
+                            {isCombo && item.isAvailable && !badge && (
+                              <div className="absolute top-1 left-1">
+                                <span className="text-[8px] font-black text-amber-950 uppercase tracking-wider px-1.5 py-0.5 bg-amber-400 rounded-full shadow-2xs">
+                                  Combo
+                                </span>
+                              </div>
+                            )}
+                            {!item.isAvailable && (
+                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="text-[9px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-black/60 rounded">
+                                  Sold Out
+                                </span>
+                              </div>
+                            )}
+                          </div>
 
-                        {/* Details */}
-                        <div className="flex-1 flex flex-col justify-between py-0.5">
-                          <div className="space-y-1">
+                          {/* Details Header */}
+                          <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-start justify-between gap-2">
                               <h4 className="text-sm font-bold text-slate-900 line-clamp-1">
                                 {item.name}
                               </h4>
-                              <div className="flex gap-1 shrink-0">
-                                {item.isVegetarian && <MenuBadge variant="veg" />}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
                                 {item.isSpicy && <MenuBadge variant="spicy" />}
                               </div>
                             </div>
@@ -244,24 +255,76 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                                 {item.description}
                               </p>
                             )}
-                          </div>
-                          <div className="flex items-center justify-between mt-2.5">
-                            <span className="text-sm font-extrabold text-slate-900 font-mono">
-                              {formatPrice(item.price, currency)}
-                            </span>
-                            {item.isAvailable ? (
-                              <QuickAddControl
-                                cartQty={cartQty}
-                                onAdd={(e) => onQuickAdd(item, e)}
-                                onIncrement={(e) => onQuickIncrement(item, e)}
-                                onDecrement={(e) => onQuickDecrement(item, e)}
-                              />
-                            ) : (
-                              <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
-                                Sold Out
-                              </span>
+
+                            {/* Combo bundled items preview */}
+                            {isCombo && item.comboItems && item.comboItems.length > 0 && (
+                              <p className="text-[10px] text-amber-800 font-medium line-clamp-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/60">
+                                Includes: {item.comboItems.map((c) => `${c.quantity > 1 ? `${c.quantity}x ` : ''}${c.name}`).join(' + ')}
+                              </p>
                             )}
                           </div>
+                        </div>
+
+                        {/* Pricing & Add Controls Row */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 sm:self-center shrink-0">
+                          {isPortion && item.variants ? (
+                            item.variants.length <= 3 ? (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {item.variants.map((v) => (
+                                  <button
+                                    key={v.name}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (onAddVariant) onAddVariant(item, v, e);
+                                      else onItemCardClick(item);
+                                    }}
+                                    className="px-2.5 py-1 rounded-xl bg-amber-50/90 hover:bg-amber-100 border border-amber-300 text-amber-950 text-xs font-bold transition active:scale-95 flex items-center gap-1 shadow-2xs"
+                                    title={`Add ${item.name} (${v.name})`}
+                                  >
+                                    <span className="text-[10px] font-extrabold uppercase text-slate-700">{v.name}</span>
+                                    <span className="font-mono font-black text-xs text-amber-900">
+                                      {formatPrice(v.price, currency)}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-500">
+                                  From <strong className="text-slate-900 font-mono">{formatPrice(Math.min(...item.variants.map((v) => v.price)), currency)}</strong>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onItemCardClick(item);
+                                  }}
+                                  className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl transition shadow-xs"
+                                >
+                                  Options
+                                </button>
+                              </div>
+                            )
+                          ) : (
+                            <div className="flex items-center justify-between w-full sm:w-auto gap-4">
+                              <span className="text-sm font-extrabold text-slate-900 font-mono">
+                                {formatPrice(item.price, currency)}
+                              </span>
+                              {item.isAvailable ? (
+                                <QuickAddControl
+                                  cartQty={cartQty}
+                                  onAdd={(e) => onQuickAdd(item, e)}
+                                  onIncrement={(e) => onQuickIncrement(item, e)}
+                                  onDecrement={(e) => onQuickDecrement(item, e)}
+                                />
+                              ) : (
+                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
+                                  Sold Out
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

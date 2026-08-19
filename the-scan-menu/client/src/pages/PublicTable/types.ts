@@ -29,6 +29,8 @@ export interface ItemDetailSheetProps {
   detailQuantity: number;
   detailSelectedAddOns: AddOn[];
   detailSpecialInstructions: string;
+  selectedVariant?: import('../../services/restaurant.service').MenuItemVariant | null;
+  onVariantChange?: (variant: import('../../services/restaurant.service').MenuItemVariant) => void;
   onClose: () => void;
   onAddToCart: () => void;
   onAddOnToggle: (addOn: AddOn) => void;
@@ -117,6 +119,7 @@ export interface MenuTabProps {
   onCategoryClick: (id: string) => void;
   onItemCardClick: (item: import('../../services/restaurant.service').MenuItem) => void;
   onQuickAdd: (item: import('../../services/restaurant.service').MenuItem, e: React.MouseEvent) => void;
+  onAddVariant?: (item: import('../../services/restaurant.service').MenuItem, variant: import('../../services/restaurant.service').MenuItemVariant, e: React.MouseEvent) => void;
   onQuickIncrement: (item: import('../../services/restaurant.service').MenuItem, e: React.MouseEvent) => void;
   onQuickDecrement: (item: import('../../services/restaurant.service').MenuItem, e: React.MouseEvent) => void;
   onTrackOrders: (orderId: string) => void;

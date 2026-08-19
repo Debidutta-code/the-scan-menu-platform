@@ -466,9 +466,9 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                                   const isPreparing = item.itemStatus === 'PREPARING';
 
                                   return (
-                                    <div key={itemIdx} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                        <div className="shrink-0">
+                                    <div key={itemIdx} className="py-2.5 flex items-start justify-between gap-3 text-xs">
+                                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                        <div className="shrink-0 mt-0.5">
                                           {isServed ? (
                                             <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50/50" strokeWidth={2} />
                                           ) : isReady || isPreparing ? (
@@ -477,12 +477,20 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                                             <Clock className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
                                           )}
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                           <h6 className={`font-bold text-slate-900 leading-tight ${isServed ? 'line-through text-slate-400 font-normal' : ''}`}>
                                             {item.nameSnapshot} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
                                           </h6>
                                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                                             <p className="text-[10px] text-slate-400 mt-0.5">+ {item.selectedAddOns.map((x: any) => x.name).join(', ')}</p>
+                                          )}
+                                          {item.specialInstructions && (
+                                            <div className="mt-1">
+                                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100/80 border border-amber-300/80 px-2 py-0.5 rounded-md">
+                                                <span>📝 Note:</span>
+                                                <span className="italic font-normal">"{item.specialInstructions}"</span>
+                                              </span>
+                                            </div>
                                           )}
                                         </div>
                                       </div>
@@ -494,6 +502,14 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                                   );
                                 })}
                               </div>
+
+                              {/* Round Level Kitchen Note */}
+                              {order.customerNote && (
+                                <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-2.5 mt-2 flex items-start gap-1.5 text-xs text-amber-950">
+                                  <span className="font-black text-[10px] uppercase tracking-wide text-amber-900 shrink-0">Table Note:</span>
+                                  <span className="font-medium italic">"{order.customerNote}"</span>
+                                </div>
+                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
