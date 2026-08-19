@@ -414,12 +414,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: 20),
             Center(
-              child: Text(
-                'ScanMenu Captain App v1.0.0',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Image.asset(
+                      'assets/images/thescanmenu.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        LucideIcons.qrCode,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The Scan Menu • Captain App v1.0.0',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
