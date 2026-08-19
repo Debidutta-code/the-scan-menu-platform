@@ -35,6 +35,9 @@ class CartState {
 
   bool get isEmpty => items.isEmpty;
 
+  int getItemQuantity(String itemId) =>
+      items.where((i) => i.item.id == itemId).fold(0, (sum, i) => sum + i.quantity);
+
   CartState copyWith({
     TableModel? selectedTable,
     bool clearTable = false,
@@ -116,6 +119,37 @@ class CartNotifier extends StateNotifier<CartState> {
           ),
         ],
       );
+    }
+  }
+
+  void incrementItem(MenuItemModel item) {
+    final existingIndex =
+        state.items.lastIndexWhere((i) => i.item.id == item.id);
+    if (existingIndex != -1) {
+      final updated = List<CartItemModel>.from(state.items);
+      updated[existingIndex] = updated[existingIndex].copyWith(
+        quantity: updated[existingIndex].quantity + 1,
+      );
+      state = state.copyWith(items: updated);
+    } else {
+      addItem(item);
+    }
+  }
+
+  void decrementItem(MenuItemModel item) {
+    final existingIndex =
+        state.items.lastIndexWhere((i) => i.item.id == item.id);
+    if (existingIndex == -1) return;
+
+    final currentQty = state.items[existingIndex].quantity;
+    if (currentQty > 1) {
+      final updated = List<CartItemModel>.from(state.items);
+      updated[existingIndex] = updated[existingIndex].copyWith(
+        quantity: currentQty - 1,
+      );
+      state = state.copyWith(items: updated);
+    } else {
+      removeItem(existingIndex);
     }
   }
 

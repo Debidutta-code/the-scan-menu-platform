@@ -155,6 +155,26 @@ export const ManagerCounter: React.FC = () => {
     }
   }, [settingsData]);
 
+  // Global POS Keyboard Shortcut (/ to search, Escape to clear)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        setSearchQuery('');
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const taxRatePercent: number = settingsData?.data?.settings?.paymentConfig?.taxRatePercent ?? 0;
 
   const categories = categoriesData?.data || [];
@@ -452,63 +472,88 @@ export const ManagerCounter: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* LEFT COLUMN: LARGE SEARCH BAR + CATEGORY PILLS + DISH CARDS */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-          {/* ROOMY, TALL SEARCH BAR */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative flex-1 group">
-              <Search
-                className="w-5 h-5 text-slate-400 absolute left-4 top-3.5 transition-colors group-focus-within:text-amber-500"
-                strokeWidth={2}
-              />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search dishes by name or code... (Press / to search)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white pl-11 pr-10 py-3 rounded-2xl border-2 border-slate-200 text-sm font-medium placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 shadow-xs transition-all"
-              />
-              {searchQuery && (
+          {/* FULL-WIDTH POS SEARCH BAR */}
+          <div className="relative group">
+            <Search
+              className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-amber-500 pointer-events-none"
+              strokeWidth={2}
+            />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search dishes by name or code... (Press / to search)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white pl-12 pr-24 py-3.5 rounded-2xl border-2 border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 shadow-xs transition-all"
+            />
+            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              {searchQuery ? (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 cursor-pointer"
+                  onClick={() => {
+                    setSearchQuery('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                  title="Clear search (Esc)"
                 >
                   <X className="w-4 h-4" strokeWidth={2} />
                 </button>
+              ) : (
+                <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[11px] font-mono font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-md">
+                  /
+                </kbd>
               )}
             </div>
+          </div>
 
-            {/* TALL CATEGORY PILLS */}
-            {categories.length > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategoryFilter('ALL')}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shadow-2xs ${
-                    selectedCategoryFilter === 'ALL'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
-                >
-                  All Categories
-                </button>
-                {categories.map((cat: any) => (
+          {/* TALL HORIZONTAL CATEGORY CHIPS BAR */}
+          {categories.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryFilter('ALL')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
+                  selectedCategoryFilter === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                All Categories ({allMenuItems.filter((i: any) => i.isAvailable).length})
+              </button>
+              {categories.map((cat: any) => {
+                const catCount = allMenuItems.filter((item: any) => {
+                  const itemCatId =
+                    typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+                  return itemCatId === cat._id && item.isAvailable;
+                }).length;
+
+                return (
                   <button
                     key={cat._id}
                     type="button"
                     onClick={() => setSelectedCategoryFilter(cat._id)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shadow-2xs ${
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 ${
                       selectedCategoryFilter === cat._id
                         ? 'bg-slate-900 text-white shadow-sm'
                         : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                     }`}
                   >
-                    {cat.name}
+                    <span>{cat.name}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                        selectedCategoryFilter === cat._id
+                          ? 'bg-slate-800 text-amber-300'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {catCount}
+                    </span>
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* DISHES GRID */}
           <div className="space-y-4 max-h-[calc(100vh-210px)] overflow-y-auto pr-1 custom-scrollbar">

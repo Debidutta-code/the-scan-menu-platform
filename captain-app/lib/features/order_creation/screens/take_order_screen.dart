@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -34,18 +35,19 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
       return;
     }
 
-    if (item.addOns.isNotEmpty) {
-      _showCustomizationSheet(item);
-    } else {
-      // 1-Tap direct add
-      ref.read(cartProvider.notifier).addItem(item);
+    _showCustomizationSheet(item);
+  }
+
+  void _onQuickAdd(MenuItemModel item) {
+    if (!item.isAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added 1x ${item.name}'),
-          duration: const Duration(milliseconds: 900),
-        ),
+        const SnackBar(content: Text('This item is currently 86ed / unavailable.')),
       );
+      return;
     }
+
+    HapticFeedback.lightImpact();
+    ref.read(cartProvider.notifier).incrementItem(item);
   }
 
   void _showCustomizationSheet(MenuItemModel item) {
@@ -189,7 +191,8 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (ctx, idx) {
                           final item = menuState.filteredItems[idx];
-                          return _buildMenuItemTile(item);
+                          final qty = cartState.getItemQuantity(item.id);
+                          return _buildMenuItemTile(item, qty);
                         },
                       ),
           ),
@@ -254,122 +257,258 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
     );
   }
 
-  Widget _buildMenuItemTile(MenuItemModel item) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: item.isAvailable
-              ? AppColors.cardBorder
-              : AppColors.error.withValues(alpha: 0.3),
-        ),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Veg / Non-Veg Indicator
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: item.isVegetarian
-                      ? AppColors.success
-                      : AppColors.error,
-                  width: 1.5,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(
-                LucideIcons.circle,
-                size: 7,
-                color: item.isVegetarian
-                    ? AppColors.success
-                    : AppColors.error,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
+  Widget _buildMenuItemTile(MenuItemModel item, int quantity) {
+    final isSelected = quantity > 0;
 
-          // Title, description, price
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: item.isAvailable
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
-                  ),
-                ),
-                if (item.description != null && item.description!.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    item.description!,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.isAvailable ? () => _onItemTapped(item) : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFFFFBEB) : AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: !item.isAvailable
+                  ? AppColors.error.withValues(alpha: 0.3)
+                  : isSelected
+                      ? AppColors.primary
+                      : AppColors.cardBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  Formatters.formatCurrency(item.price),
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
+                  ]
+                : null,
           ),
-          const SizedBox(width: 10),
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Veg / Non-Veg Indicator
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: item.isVegetarian
+                          ? AppColors.success
+                          : AppColors.error,
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    LucideIcons.circle,
+                    size: 7,
+                    color: item.isVegetarian
+                        ? AppColors.success
+                        : AppColors.error,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
 
-          // Add / Customize Button
-          if (item.isAvailable)
-            ElevatedButton(
-              onPressed: () => _onItemTapped(item),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surfaceLight,
-                foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: Size.zero,
-              ),
-              child: Text(
-                item.addOns.isNotEmpty ? 'Custom' : '+ ADD',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              // Title, description, price, custom badge
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: item.isAvailable
+                            ? AppColors.textPrimary
+                            : AppColors.textMuted,
+                      ),
+                    ),
+                    if (item.description != null &&
+                        item.description!.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        item.description!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          Formatters.formatCurrency(item.price),
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        if (item.addOns.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: const Color(0xFFFDE68A)),
+                            ),
+                            child: Text(
+                              'Custom',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '86ed',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.error,
+              const SizedBox(width: 10),
+
+              // Add / Stepper / 86ed
+              if (!item.isAvailable)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '86ed',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.error,
+                    ),
+                  ),
+                )
+              else if (quantity > 0)
+                // - [qty] + Stepper Control
+                Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(cartProvider.notifier).decrementItem(item);
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            LucideIcons.minus,
+                            size: 14,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          '$quantity',
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(cartProvider.notifier).incrementItem(item);
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            LucideIcons.plus,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // Simple + Button
+                InkWell(
+                  onTap: () => _onQuickAdd(item),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      LucideIcons.plus,
+                      size: 18,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
