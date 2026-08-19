@@ -4,17 +4,110 @@ import { adminService } from '../services/restaurant.service';
 import { useToast } from '../hooks/useToast';
 import apiClient from '../lib/api';
 import {
-  ToggleRight,
   Store,
   Loader,
   Search,
+  Sparkles,
+  Flame,
+  CreditCard,
+  Award,
+  Layers,
+  QrCode,
+  ShoppingBag,
+  Bell,
+  Tv,
+  Boxes,
+  Calculator,
+  Truck,
+  BarChart3,
+  Ticket,
+  Users,
+  Key,
+  Terminal,
+  Palette,
+  RotateCcw,
+  Zap,
+  SlidersHorizontal,
+  Check,
+  ShieldCheck,
 } from 'lucide-react';
+
+const CATEGORIES = [
+  { id: 'ALL', label: 'All Modules' },
+  { id: 'GUEST_EXPERIENCE', label: 'Guest Experience' },
+  { id: 'OPERATIONS', label: 'Operations & Kitchen' },
+  { id: 'FINANCE', label: 'Finance & Billing' },
+  { id: 'MARKETING', label: 'Marketing & Growth' },
+  { id: 'INTEGRATIONS', label: 'Integrations & Dev' },
+] as const;
+
+const CATEGORY_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  GUEST_EXPERIENCE: {
+    label: 'Guest Experience',
+    color: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+  },
+  OPERATIONS: {
+    label: 'Operations',
+    color: 'text-orange-600',
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+  },
+  FINANCE: {
+    label: 'Finance & Billing',
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
+  MARKETING: {
+    label: 'Marketing & CRM',
+    color: 'text-purple-600',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+  },
+  INTEGRATIONS: {
+    label: 'Integrations & Dev',
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+  },
+};
+
+const FLAG_ICON_MAP: Record<string, any> = {
+  qr_menu: QrCode,
+  ordering: ShoppingBag,
+  waiter_call: Bell,
+  customer_display: Tv,
+  kds: Flame,
+  inventory: Boxes,
+  pos: Calculator,
+  takeaway: ShoppingBag,
+  delivery: Truck,
+  payments: CreditCard,
+  analytics: BarChart3,
+  coupons: Ticket,
+  loyalty: Award,
+  crm: Users,
+  pos_integration: Layers,
+  api_webhooks: Key,
+  api_access: Terminal,
+  white_label: Palette,
+};
 
 export const AdminFeatureFlags: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [flagSearchTerm, setFlagSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedRestId, setSelectedRestId] = useState<string | null>(null);
+
+  // Fetch all subscription plans
+  const { data: plansResponse } = useQuery({
+    queryKey: ['adminPlans'],
+    queryFn: adminService.getAllPlans,
+  });
 
   // Fetch restaurants
   const { data: restResponse, isLoading: isLoadingRests } = useQuery({
@@ -32,8 +125,8 @@ export const AdminFeatureFlags: React.FC = () => {
     enabled: !!selectedRestId,
   });
 
-  // Toggle flag mutation
-  const toggleMutation = useMutation({
+  // Toggle/Bulk update flag mutation
+  const updateFlagsMutation = useMutation({
     mutationFn: async ({ restaurantId, flags }: { restaurantId: string; flags: any[] }) => {
       const res = await apiClient.patch(`/restaurants/${restaurantId}/feature-flags`, { flags });
       return res.data;
@@ -56,12 +149,31 @@ export const AdminFeatureFlags: React.FC = () => {
   }
 
   const restaurants = restResponse?.data?.restaurants || [];
+  const plans = plansResponse?.data || [];
   const filteredRestaurants = restaurants.filter((r: any) =>
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.slug?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const currentFlags: any[] = Array.isArray(flagsResponse?.data) ? flagsResponse.data : [];
+  const selectedRestaurant = restaurants.find((r: any) => r._id === selectedRestId);
 
+  // Filter flags by search and category
+  const filteredFlags = currentFlags.filter((flag: any) => {
+    const matchesSearch =
+      flag.name?.toLowerCase().includes(flagSearchTerm.toLowerCase()) ||
+      flag.key.toLowerCase().includes(flagSearchTerm.toLowerCase()) ||
+      flag.description?.toLowerCase().includes(flagSearchTerm.toLowerCase());
+
+    const matchesCategory = selectedCategory === 'ALL' || flag.category === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const activeFlagsCount = currentFlags.filter((f: any) => f.enabled).length;
+  const totalFlagsCount = currentFlags.length;
+  const activePercentage = totalFlagsCount > 0 ? Math.round((activeFlagsCount / totalFlagsCount) * 100) : 0;
+
+  // Handler: Toggle single flag
   const handleToggleFlag = (flagKey: string, currentStatus: boolean) => {
     if (!selectedRestId) return;
 
@@ -69,131 +181,350 @@ export const AdminFeatureFlags: React.FC = () => {
       f.key === flagKey ? { ...f, enabled: !currentStatus } : f
     );
 
-    toggleMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
+    updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
+  };
+
+  // Preset 1: Enable All (Enterprise/Demo Mode)
+  const handleEnableAll = () => {
+    if (!selectedRestId || currentFlags.length === 0) return;
+    const updatedFlags = currentFlags.map((f: any) => ({ ...f, enabled: true }));
+    updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
+  };
+
+  // Preset 2: Sync with Assigned Subscription Plan
+  const handleSyncWithPlan = () => {
+    if (!selectedRestId || !selectedRestaurant || currentFlags.length === 0) return;
+    const currentPlanKey = selectedRestaurant.subscription?.planKey || 'ENTERPRISE';
+    const planDoc = plans.find((p: any) => p.key === currentPlanKey);
+
+    const includedKeys = new Set(planDoc?.includedFeatureKeys || []);
+    const updatedFlags = currentFlags.map((f: any) => ({
+      ...f,
+      enabled: includedKeys.has(f.key),
+    }));
+
+    updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
+  };
+
+  // Preset 3: Minimal QR Only
+  const handleMinimalQrOnly = () => {
+    if (!selectedRestId || currentFlags.length === 0) return;
+    const updatedFlags = currentFlags.map((f: any) => ({
+      ...f,
+      enabled: f.key === 'qr_menu',
+    }));
+    updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
   return (
     <div className="w-full space-y-8">
-      {/* Banner */}
+      {/* Executive Header Banner */}
       <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <span className="text-[10px] font-mono uppercase font-bold text-amber-400 tracking-wider">Module Control Matrix</span>
-          <h2 className="font-display text-3xl font-bold mt-1">Global Feature Flags</h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-lg">
-            Inspect and toggle module access (QR Menu, Ordering, KDS, Payments, POS Integration, Webhooks) for any tenant outlet.
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase font-bold text-amber-400 tracking-wider">
+              Control Center
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              18 Modules Supported
+            </span>
+          </div>
+          <h2 className="font-display text-3xl font-bold mt-1">Tenant Module Feature Flags</h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-xl">
+            Granularly grant, revoke, or synchronize feature access (Dine-in Ordering, KDS, Stock Control, Counter POS, Developer APIs) for any restaurant outlet.
           </p>
         </div>
       </div>
 
-      {/* Main Grid: Outlet Selector + Feature Flag Editor */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Layout: Left Outlet Selector + Right Feature Controls */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Outlet Selector (4 Cols) */}
+        <div className="lg:col-span-4 bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <Store className="w-4 h-4 text-amber-500" strokeWidth={2} />
+              <span>Select Outlet</span>
+            </h3>
+            <span className="text-[10px] font-mono text-slate-400 font-bold">
+              {filteredRestaurants.length} outlets
+            </span>
+          </div>
 
-        {/* Tenant Selector List (1/3 width) */}
-        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-4">
-          <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-            <Store className="w-4.5 h-4.5 text-amber-500" strokeWidth={1.75} />
-            <span>Select Tenant Outlet</span>
-          </h3>
-
+          {/* Search Box */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search outlet..."
+              placeholder="Search outlet name or slug..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+              className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-medium"
             />
           </div>
 
-          <div className="space-y-2 max-h-[26rem] overflow-y-auto pr-1">
+          {/* Outlets List */}
+          <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
             {filteredRestaurants.map((rest: any) => {
               const isSelected = selectedRestId === rest._id;
+              const isSuspended = rest.status === 'SUSPENDED';
 
               return (
                 <button
                   key={rest._id}
                   onClick={() => setSelectedRestId(rest._id)}
-                  className={`w-full p-3 rounded-2xl border text-left transition ${
+                  className={`w-full p-3.5 rounded-2xl border text-left transition relative ${
                     isSelected
-                      ? 'bg-slate-950 border-slate-950 text-white shadow-sm'
-                      : 'bg-slate-50/50 border-slate-150 text-slate-700 hover:bg-slate-100'
+                      ? 'bg-slate-950 border-slate-950 text-white shadow-md'
+                      : 'bg-slate-50/70 border-slate-150 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-xs leading-tight">{rest.name}</h4>
-                    <span className={`text-[9px] font-mono font-extrabold px-2 py-0.5 rounded ${isSelected ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 text-slate-700'}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <h4 className="font-bold text-xs leading-snug line-clamp-1">{rest.name}</h4>
+                    <span
+                      className={`text-[9px] font-mono font-extrabold px-2 py-0.5 rounded uppercase shrink-0 ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
                       {rest.subscription?.planKey || 'FREE'}
                     </span>
                   </div>
-                  <p className={`text-[10px] font-mono mt-1 ${isSelected ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Slug: {rest.slug}
-                  </p>
+
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/20 text-[10px] font-mono">
+                    <span className={isSelected ? 'text-slate-400' : 'text-slate-500'}>
+                      {rest.slug}
+                    </span>
+                    {isSuspended ? (
+                      <span className="text-red-400 font-bold">SUSPENDED</span>
+                    ) : (
+                      <span className={isSelected ? 'text-emerald-400 font-bold' : 'text-emerald-600 font-bold'}>
+                        ACTIVE
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Feature Flags Toggle Panel (2/3 width) */}
-        <div className="lg:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+        {/* Right Column: Module Control Matrix (8 Cols) */}
+        <div className="lg:col-span-8 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
           {!selectedRestId ? (
-            <div className="text-center py-20 text-xs text-slate-400">
-              Select a tenant outlet on the left to inspect and toggle feature flags.
+            <div className="text-center py-24 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+                <SlidersHorizontal className="w-6 h-6" />
+              </div>
+              <h3 className="font-display text-base font-bold text-slate-900">No Tenant Selected</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Please select a restaurant outlet from the left sidebar to inspect and configure its feature flags.
+              </p>
             </div>
           ) : isLoadingFlags ? (
-            <div className="h-64 flex items-center justify-center">
-              <Loader className="w-6 h-6 animate-spin text-amber-500" />
+            <div className="h-96 flex items-center justify-center">
+              <Loader className="w-8 h-8 animate-spin text-amber-500" />
             </div>
           ) : (
             <>
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <ToggleRight className="w-5 h-5 text-amber-500" strokeWidth={2} />
-                  <span>Module Configuration</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Toggle active feature modules for this tenant.</p>
+              {/* Outlet Active Status & Summary Header */}
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4.5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-display text-lg font-bold text-slate-900">
+                        {selectedRestaurant?.name}
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-slate-950 text-amber-400 border border-slate-800 uppercase">
+                        {selectedRestaurant?.subscription?.planKey || 'FREE'} PLAN
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">
+                      Slug: <span className="font-bold text-slate-700">{selectedRestaurant?.slug}</span>
+                    </p>
+                  </div>
+
+                  {/* Active Count Metric */}
+                  <div className="flex items-center gap-3 bg-white px-3.5 py-2 rounded-xl border border-slate-200 self-start sm:self-auto shadow-xs">
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-slate-900">
+                        {activeFlagsCount} of {totalFlagsCount} Active
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        {activePercentage}% Enabled
+                      </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold font-mono text-xs">
+                      {activePercentage}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${activePercentage}%` }}
+                  />
+                </div>
+
+                {/* 1-Click Quick Action Presets */}
+                <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    <span>1-Tap Presets:</span>
+                  </span>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleEnableAll}
+                      disabled={updateFlagsMutation.isPending}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Enable All (Demo Mode)</span>
+                    </button>
+
+                    <button
+                      onClick={handleSyncWithPlan}
+                      disabled={updateFlagsMutation.isPending}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Sync with {selectedRestaurant?.subscription?.planKey || 'Plan'}</span>
+                    </button>
+
+                    <button
+                      onClick={handleMinimalQrOnly}
+                      disabled={updateFlagsMutation.isPending}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Minimal (QR Only)</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {currentFlags.length === 0 ? (
-                <div className="text-center py-16 text-xs text-slate-400">
-                  No feature flags found for this tenant. Run the seed script or provision the restaurant to generate default flags.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {currentFlags.map((flag: any) => (
-                    <div
-                      key={flag.key}
-                      className={`p-4 rounded-2xl border flex items-center justify-between transition ${
-                        flag.enabled
-                          ? 'bg-emerald-50/40 border-emerald-200'
-                          : 'bg-slate-50 border-slate-200 opacity-60'
-                      }`}
-                    >
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900 capitalize">{flag.key.replace(/_/g, ' ')}</h4>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{flag.description || flag.key}</p>
-                      </div>
-
+              {/* Filter Tabs & Search Row */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Category Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+                  {CATEGORIES.map((cat) => {
+                    const isSelected = selectedCategory === cat.id;
+                    return (
                       <button
-                        onClick={() => handleToggleFlag(flag.key, flag.enabled)}
-                        disabled={toggleMutation.isPending}
-                        className={`px-3 py-1.5 rounded-xl font-bold text-xs font-mono transition ${
-                          flag.enabled
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                            : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                        key={cat.id}
+                        onClick={() => setSelectedCategory(cat.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                          isSelected
+                            ? 'bg-slate-950 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        {flag.enabled ? 'ENABLED' : 'DISABLED'}
+                        {cat.label}
                       </button>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+
+                {/* Search Feature Flags */}
+                <div className="relative shrink-0 w-full md:w-56">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Filter flags..."
+                    value={flagSearchTerm}
+                    onChange={(e) => setFlagSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Feature Flags Grid */}
+              {filteredFlags.length === 0 ? (
+                <div className="text-center py-16 text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-150">
+                  No feature modules match your current filter.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {filteredFlags.map((flag: any) => {
+                    const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
+                    const catMeta = CATEGORY_META[flag.category] || CATEGORY_META.OPERATIONS;
+
+                    return (
+                      <div
+                        key={flag.key}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                          flag.enabled
+                            ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
+                            : 'bg-slate-50/70 border-slate-200 opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        {/* Top: Category Tag + Toggle Button */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                                flag.enabled
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                  : 'bg-slate-200 text-slate-600 border-slate-300'
+                              }`}
+                            >
+                              <IconComponent className="w-4.5 h-4.5" strokeWidth={2} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="font-bold text-xs text-slate-900 leading-tight">
+                                  {flag.name || flag.key.replace(/_/g, ' ')}
+                                </h4>
+                              </div>
+                              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${catMeta.bg} ${catMeta.color} ${catMeta.border}`}>
+                                {catMeta.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Switch Action */}
+                          <button
+                            onClick={() => handleToggleFlag(flag.key, flag.enabled)}
+                            disabled={updateFlagsMutation.isPending}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
+                              flag.enabled
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                            }`}
+                          >
+                            {flag.enabled ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" />
+                                <span>ON</span>
+                              </>
+                            ) : (
+                              <span>OFF</span>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Description & Key */}
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          {flag.description || 'Module functionality for restaurant operations.'}
+                        </p>
+
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[9px] font-mono text-slate-400">
+                          <span>Key: {flag.key}</span>
+                          <span className={flag.enabled ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+                            {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
           )}
         </div>
-
       </div>
     </div>
   );

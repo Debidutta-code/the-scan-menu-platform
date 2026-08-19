@@ -47,6 +47,7 @@ export const AdminRestaurantDetail: React.FC = () => {
   });
 
   // Fetch feature flags
+  // Fetch feature flags
   const { data: flagsResponse } = useQuery({
     queryKey: ['adminFlags', id],
     queryFn: async () => {
@@ -54,6 +55,22 @@ export const AdminRestaurantDetail: React.FC = () => {
       return res.data;
     },
     enabled: !!id,
+  });
+
+  // Toggle Feature Flag Mutation
+  const toggleFlagMutation = useMutation({
+    mutationFn: async (updatedFlags: any[]) => {
+      const res = await apiClient.patch(`/restaurants/${id}/feature-flags`, { flags: updatedFlags });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminFlags', id] });
+      queryClient.invalidateQueries({ queryKey: ['adminTenantFlags', id] });
+      toast('Feature flags updated for outlet!', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error updating feature flags', 'error');
+    },
   });
 
   // Suspend
@@ -87,7 +104,9 @@ export const AdminRestaurantDetail: React.FC = () => {
   const restaurant = restResponse?.data;
   const onboarding = onboardingResponse?.data || {};
   const staffMembers = staffResponse?.data || [];
-  const flags = flagsResponse?.data?.flags || [];
+  const flags: any[] = Array.isArray(flagsResponse?.data)
+    ? flagsResponse.data
+    : flagsResponse?.data?.flags || [];
 
   if (!restaurant) {
     return (
@@ -293,28 +312,63 @@ export const AdminRestaurantDetail: React.FC = () => {
 
       {/* Feature Flags Active on Tenant */}
       <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-4">
-        <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-          <ToggleRight className="w-4.5 h-4.5 text-indigo-500" strokeWidth={1.75} />
-          <span>Active Modules & Feature Flags</span>
-        </h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <ToggleRight className="w-4.5 h-4.5 text-amber-500" strokeWidth={2} />
+              <span>Active Modules & Feature Flags</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Click any module to toggle access for this outlet.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          {flags.map((flag: any) => (
-            <div
-              key={flag.key}
-              className={`p-3 rounded-2xl border flex flex-col justify-between text-xs ${
-                flag.enabled
-                  ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
-                  : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
-              }`}
-            >
-              <span className="font-bold">{flag.name}</span>
-              <span className="text-[9px] font-mono font-semibold uppercase mt-2">
-                {flag.enabled ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
-          ))}
+          <button
+            onClick={() => navigate('/admin/feature-flags')}
+            className="text-xs font-bold text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200"
+          >
+            Manage Matrix &rarr;
+          </button>
         </div>
+
+        {flags.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-400">
+            No feature flags found for this tenant.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {flags.map((flag: any) => (
+              <button
+                key={flag.key}
+                disabled={toggleFlagMutation.isPending}
+                onClick={() => {
+                  const updated = flags.map((f: any) =>
+                    f.key === flag.key ? { ...f, enabled: !f.enabled } : f
+                  );
+                  toggleFlagMutation.mutate(updated);
+                }}
+                className={`p-3 rounded-2xl border flex flex-col justify-between text-left transition ${
+                  flag.enabled
+                    ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950 hover:bg-emerald-100/60 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 opacity-60 hover:opacity-90'
+                }`}
+              >
+                <div>
+                  <span className="font-bold text-xs line-clamp-1">
+                    {flag.name || flag.key.replace(/_/g, ' ')}
+                  </span>
+                  <p className="text-[10px] font-mono text-slate-400 mt-0.5">{flag.key}</p>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/40">
+                  <span className={`text-[9px] font-mono font-bold uppercase ${flag.enabled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                    {flag.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <span className={`w-2 h-2 rounded-full ${flag.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

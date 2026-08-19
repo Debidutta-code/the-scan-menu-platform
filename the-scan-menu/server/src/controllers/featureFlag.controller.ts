@@ -16,7 +16,7 @@ export class FeatureFlagController {
   async getFeatureFlags(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const flags = await featureFlagService.getRestaurantFlags(restaurantId);
+      const flags = await featureFlagService.getEnrichedFlags(restaurantId);
 
       sendSuccess(res, flags, 'Feature flags retrieved successfully');
     } catch (error) {

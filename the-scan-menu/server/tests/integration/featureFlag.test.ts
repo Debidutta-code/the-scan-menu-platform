@@ -171,15 +171,23 @@ describe('FeatureFlag Service & Middleware Tests', () => {
         server.close();
     });
     it('should get all feature flags for a restaurant', { timeout: 10000 }, async () => {
-      const mockFlags = [{ key: 'qr_menu', enabled: true }];
-      vi.spyOn(featureFlagService, 'getRestaurantFlags').mockResolvedValueOnce(mockFlags as any);
+      const mockFlags = [
+        {
+          key: 'qr_menu',
+          enabled: true,
+          name: 'Digital QR Menu',
+          category: 'GUEST_EXPERIENCE',
+          description: 'Digital contactless menu browsing, dish photography, and dietary tags.',
+        },
+      ];
+      vi.spyOn(featureFlagService, 'getEnrichedFlags').mockResolvedValueOnce(mockFlags as any);
       vi.spyOn(Restaurant, 'findById').mockResolvedValueOnce({ _id: mockRestaurantId } as any);
 
       const res = await request(server)
         .get(`/api/v1/restaurants/${mockRestaurantId}/feature-flags`)
         .set('Authorization', `Bearer ${adminToken}`);
 
-      console.log(res.body); console.log(res.body); expect(res.status).toBe(200);
+      expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toEqual(mockFlags);
     });
