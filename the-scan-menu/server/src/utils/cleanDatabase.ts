@@ -9,18 +9,23 @@ import { RestaurantStats } from '../models/RestaurantStats';
 import { RestaurantOnboarding } from '../models/RestaurantOnboarding';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
+import { CustomizationGroup } from '../models/CustomizationGroup';
 import { Table } from '../models/Table';
 import { TableZone } from '../models/TableZone';
+import { TableSession } from '../models/TableSession';
 import { DiningSession } from '../models/DiningSession';
 import { GuestSession } from '../models/GuestSession';
 import { CheckoutAttempt } from '../models/CheckoutAttempt';
 import { Bill } from '../models/Bill';
+import { BillCounter } from '../models/BillCounter';
 import { Payment } from '../models/Payment';
 import { IdempotencyRecord } from '../models/IdempotencyRecord';
 import { Order, OrderCounter } from '../models/Order';
 import { WaiterCall } from '../models/WaiterCall';
 import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
 import { RefreshToken } from '../models/RefreshToken';
+import { DeviceToken } from '../models/DeviceToken';
+import { OtpSession } from '../models/OtpSession';
 import { ApiKey } from '../models/ApiKey';
 import { WebhookSubscription } from '../models/WebhookSubscription';
 import { InventoryLog } from '../models/InventoryLog';
@@ -46,12 +51,15 @@ const getCounts = async () => ({
   SubscriptionPlans: await SubscriptionPlan.countDocuments(),
   Categories: await Category.countDocuments(),
   MenuItems: await MenuItem.countDocuments(),
+  CustomizationGroups: await CustomizationGroup.countDocuments(),
   Tables: await Table.countDocuments(),
   TableZones: await TableZone.countDocuments(),
+  TableSessions: await TableSession.countDocuments(),
   DiningSessions: await DiningSession.countDocuments(),
   GuestSessions: await GuestSession.countDocuments(),
   CheckoutAttempts: await CheckoutAttempt.countDocuments(),
   Bills: await Bill.countDocuments(),
+  BillCounters: await BillCounter.countDocuments(),
   Payments: await Payment.countDocuments(),
   Orders: await Order.countDocuments(),
   OrderCounters: await OrderCounter.countDocuments(),
@@ -67,6 +75,8 @@ const getCounts = async () => ({
   FeatureFlags: await FeatureFlag.countDocuments(),
   Counters: await Counter.countDocuments(),
   RefreshTokens: await RefreshToken.countDocuments(),
+  DeviceTokens: await DeviceToken.countDocuments(),
+  OtpSessions: await OtpSession.countDocuments(),
 });
 
 export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
@@ -96,12 +106,15 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         SubscriptionPlan.deleteMany({}),
         Category.deleteMany({}),
         MenuItem.deleteMany({}),
+        CustomizationGroup.deleteMany({}),
         Table.deleteMany({}),
         TableZone.deleteMany({}),
+        TableSession.deleteMany({}),
         DiningSession.deleteMany({}),
         GuestSession.deleteMany({}),
         CheckoutAttempt.deleteMany({}),
         Bill.deleteMany({}),
+        BillCounter.deleteMany({}),
         Payment.deleteMany({}),
         Order.deleteMany({}),
         OrderCounter.deleteMany({}),
@@ -117,9 +130,11 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         FeatureFlag.deleteMany({}),
         Counter.deleteMany({}),
         RefreshToken.deleteMany({}),
+        DeviceToken.deleteMany({}),
+        OtpSession.deleteMany({}),
       ]);
     } else {
-      logger.info('Cleaning operational data (Orders, Sessions, Bills, Payments, Menus, Tables, Logs, Keys, Taxes)...');
+      logger.info('Cleaning operational data (Orders, Sessions, Bills, Payments, Menus, Customizations, Tables, Logs, Keys, Taxes)...');
 
       // Delete operational & transactional data
       await Promise.all([
@@ -129,6 +144,7 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         GuestSession.deleteMany({}),
         CheckoutAttempt.deleteMany({}),
         Bill.deleteMany({}),
+        BillCounter.deleteMany({}),
         Payment.deleteMany({}),
         IdempotencyRecord.deleteMany({}),
         Transaction.deleteMany({}),
@@ -139,10 +155,14 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         ApiKey.deleteMany({}),
         WebhookSubscription.deleteMany({}),
         RefreshToken.deleteMany({}),
+        DeviceToken.deleteMany({}),
+        OtpSession.deleteMany({}),
         MenuItem.deleteMany({}),
+        CustomizationGroup.deleteMany({}),
         Category.deleteMany({}),
         Table.deleteMany({}),
         TableZone.deleteMany({}),
+        TableSession.deleteMany({}),
         Tax.deleteMany({}),
         Customer.deleteMany({}),
         FeatureFlag.deleteMany({}),

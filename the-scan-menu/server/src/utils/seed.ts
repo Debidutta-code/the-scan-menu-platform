@@ -9,6 +9,7 @@ import { RestaurantOnboarding } from '../models/RestaurantOnboarding';
 import { Counter } from '../models/Counter';
 import { Category } from '../models/Category';
 import { MenuItem } from '../models/MenuItem';
+import { CustomizationGroup } from '../models/CustomizationGroup';
 import { Table } from '../models/Table';
 import { TableZone } from '../models/TableZone';
 import { Tax } from '../models/Tax';
@@ -467,15 +468,76 @@ export const seedDatabase = async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 7. Seed 5 Categories & 20 Menu Items with Photography & Inventory
+    // 7. Seed Reusable Customization Templates (Add-on Groups)
+    // ------------------------------------------------------------------------
+    logger.info('Seeding Reusable Customization Templates...');
+    const customGroupsData = [
+      {
+        name: 'Extra Dips & Sauces',
+        type: 'ADDON' as const,
+        description: 'House-crafted dips and chutneys',
+        isGlobal: true,
+        options: [
+          { name: 'Garlic Aioli Mayo', priceDelta: 2500 },
+          { name: 'Fiery Peri-Peri Dip', priceDelta: 3000 },
+          { name: 'Fresh Mint Chutney', priceDelta: 1500 },
+        ],
+      },
+      {
+        name: 'Cheese & Gourmet Toppings',
+        type: 'ADDON' as const,
+        description: 'Premium artisanal cheese and toppings',
+        isGlobal: true,
+        options: [
+          { name: 'Extra Mozzarella Melt', priceDelta: 6000 },
+          { name: 'Smoked Cheddar Slice', priceDelta: 3500 },
+          { name: 'Pickled Jalapenos', priceDelta: 2500 },
+        ],
+      },
+      {
+        name: 'Coffee & Beverage Additions',
+        type: 'ADDON' as const,
+        description: 'Milk substitutes and espresso shots',
+        isGlobal: true,
+        options: [
+          { name: 'Oat Milk Substitute', priceDelta: 4000 },
+          { name: 'Extra Double Espresso Shot', priceDelta: 5000 },
+          { name: 'Vanilla Caramel Drizzle', priceDelta: 3000 },
+        ],
+      },
+    ];
+
+    const seededGroups: any[] = [];
+    for (const grp of customGroupsData) {
+      let existingGrp = await CustomizationGroup.findOne({
+        restaurantId: restaurant._id,
+        name: grp.name,
+      });
+      if (!existingGrp) {
+        existingGrp = await CustomizationGroup.create({
+          restaurantId: restaurant._id,
+          ...grp,
+        });
+        logger.info(`Customization Template "${grp.name}" created.`);
+      } else {
+        Object.assign(existingGrp, grp);
+        await existingGrp.save();
+      }
+      seededGroups.push(existingGrp);
+    }
+
+    // ------------------------------------------------------------------------
+    // 7b. Seed Categories
     // ------------------------------------------------------------------------
     logger.info('Seeding categories...');
     const catsData = [
       { name: 'Coffee Specialties', order: 0 },
       { name: 'House Baked Pizzas', order: 1 },
       { name: 'Gourmet Sliders', order: 2 },
-      { name: 'Artisanal Desserts', order: 3 },
-      { name: 'Refreshing Tonics', order: 4 },
+      { name: 'North Indian Curries & Breads', order: 3 },
+      { name: 'Artisanal Desserts', order: 4 },
+      { name: 'Refreshing Tonics', order: 5 },
+      { name: 'Chef Combos & Value Packs', order: 6 },
     ];
 
     const categoryMap: Record<string, any> = {};
@@ -498,12 +560,16 @@ export const seedDatabase = async () => {
       categoryMap[c.name] = cat._id;
     }
 
-    logger.info('Seeding menu items with rich imagery and inventory stock...');
+    // ------------------------------------------------------------------------
+    // 7c. Seed Rich Menu Items (Single, Portion Variants, Combos, Veg/NonVeg)
+    // ------------------------------------------------------------------------
+    logger.info('Seeding menu items with portion pricing, combos, imagery, and stock...');
     const itemsData = [
-      // 1. Coffee
+      // 1. Coffee Specialties
       {
         cat: 'Coffee Specialties',
         name: 'Madras Filter Coffee',
+        pricingType: 'SINGLE' as const,
         price: 12000,
         veg: true,
         spicy: false,
@@ -517,6 +583,7 @@ export const seedDatabase = async () => {
       {
         cat: 'Coffee Specialties',
         name: 'Nutella Mocha Latte',
+        pricingType: 'SINGLE' as const,
         price: 21000,
         veg: true,
         spicy: false,
@@ -530,6 +597,7 @@ export const seedDatabase = async () => {
       {
         cat: 'Coffee Specialties',
         name: 'Single Origin Espresso',
+        pricingType: 'SINGLE' as const,
         price: 15000,
         veg: true,
         spicy: false,
@@ -542,22 +610,54 @@ export const seedDatabase = async () => {
       },
       {
         cat: 'Coffee Specialties',
-        name: 'Cold Brew on Draft',
-        price: 18000,
+        name: 'Artisan Cold Brew on Draft',
+        pricingType: 'PORTION' as const,
+        price: 16000,
+        variants: [
+          { name: 'Regular 250ml', price: 16000, isDefault: true },
+          { name: 'Large 400ml', price: 22000, isDefault: false },
+        ],
         veg: true,
         spicy: false,
         prep: 3,
         trackStock: true,
         stock: 4,
-        lowStock: 5, // Low stock trigger
+        lowStock: 5,
         imageUrl: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Vanilla Sweet Cream', priceDelta: 3000 }],
       },
-      // 2. Pizzas
+      {
+        cat: 'Coffee Specialties',
+        name: 'Single-Estate Reserve Roast Blend',
+        pricingType: 'PORTION' as const,
+        price: 10000,
+        variants: [
+          { name: 'Cup 150ml', price: 10000, isDefault: true },
+          { name: 'Mug 250ml', price: 15000, isDefault: false },
+          { name: 'Pot 500ml', price: 28000, isDefault: false },
+          { name: 'Carafe 1L', price: 48000, isDefault: false },
+        ],
+        veg: true,
+        spicy: false,
+        prep: 4,
+        trackStock: true,
+        stock: 20,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Warm Milk on Side', priceDelta: 2000 }],
+      },
+
+      // 2. House Baked Pizzas
       {
         cat: 'House Baked Pizzas',
         name: 'Classic Margherita Sourdough',
-        price: 44900,
+        pricingType: 'PORTION' as const,
+        price: 34900,
+        variants: [
+          { name: '8" Personal', price: 34900, isDefault: true },
+          { name: '10" Medium', price: 49900, isDefault: false },
+          { name: '12" Large', price: 64900, isDefault: false },
+        ],
         veg: true,
         spicy: false,
         prep: 12,
@@ -570,6 +670,7 @@ export const seedDatabase = async () => {
       {
         cat: 'House Baked Pizzas',
         name: 'Spicy Paneer Tikka Furnace Pizza',
+        pricingType: 'SINGLE' as const,
         price: 54900,
         veg: true,
         spicy: true,
@@ -582,34 +683,28 @@ export const seedDatabase = async () => {
       },
       {
         cat: 'House Baked Pizzas',
-        name: 'Garden Pesto & Mushroom Pizza',
-        price: 49900,
-        veg: true,
-        spicy: false,
-        prep: 14,
-        trackStock: false,
-        stock: 0,
-        lowStock: 0,
-        imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Truffle Oil Drizzle', priceDelta: 8000 }],
-      },
-      {
-        cat: 'House Baked Pizzas',
-        name: 'Hot Chili Pepper Double Cheese Pizza',
-        price: 52900,
-        veg: true,
+        name: 'Smoked Pepperoni & Meat Pizza',
+        pricingType: 'PORTION' as const,
+        price: 59900,
+        variants: [
+          { name: 'Regular 10"', price: 59900, isDefault: true },
+          { name: 'Large 14"', price: 79900, isDefault: false },
+        ],
+        veg: false, // Non-Veg Red Triangle
         spicy: true,
-        prep: 13,
+        prep: 14,
         trackStock: true,
-        stock: 20,
+        stock: 22,
         lowStock: 5,
         imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Double Mozzarella', priceDelta: 7000 }, { name: 'Chili Flakes Jar', priceDelta: 1500 }],
       },
-      // 3. Sliders
+
+      // 3. Gourmet Sliders
       {
         cat: 'Gourmet Sliders',
         name: 'Crispy Veg Patty Brioche Slider',
+        pricingType: 'SINGLE' as const,
         price: 29900,
         veg: true,
         spicy: false,
@@ -622,20 +717,22 @@ export const seedDatabase = async () => {
       },
       {
         cat: 'Gourmet Sliders',
-        name: 'Spiced Potato Masala Slider',
-        price: 19900,
-        veg: true,
+        name: 'Grilled Chicken & Bacon Brioche Slider',
+        pricingType: 'SINGLE' as const,
+        price: 37900,
+        veg: false, // Non-Veg
         spicy: true,
-        prep: 8,
+        prep: 11,
         trackStock: true,
-        stock: 35,
+        stock: 25,
         lowStock: 5,
-        imageUrl: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Mint Chutney Dip', priceDelta: 1500 }],
+        imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Peri Peri Fries Addon', priceDelta: 5500 }],
       },
       {
         cat: 'Gourmet Sliders',
         name: 'Paneer Firecracker Melt Slider',
+        pricingType: 'SINGLE' as const,
         price: 32900,
         veg: true,
         spicy: true,
@@ -646,23 +743,64 @@ export const seedDatabase = async () => {
         imageUrl: 'https://images.unsplash.com/photo-1520072959219-c595dc870360?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Peri Peri Fries Addon', priceDelta: 5500 }],
       },
+
+      // 4. North Indian Curries & Breads
       {
-        cat: 'Gourmet Sliders',
-        name: 'Portobello Truffle Cheese Slider',
-        price: 34900,
+        cat: 'North Indian Curries & Breads',
+        name: 'Paneer Butter Masala',
+        pricingType: 'PORTION' as const,
+        price: 18000,
+        variants: [
+          { name: 'Half', price: 18000, isDefault: true },
+          { name: 'Full', price: 32000, isDefault: false },
+        ],
+        veg: true,
+        spicy: true,
+        prep: 12,
+        trackStock: true,
+        stock: 30,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Butter Cube', priceDelta: 2000 }, { name: 'Fried Garlic Topping', priceDelta: 1500 }],
+      },
+      {
+        cat: 'North Indian Curries & Breads',
+        name: 'Smoked Butter Chicken',
+        pricingType: 'PORTION' as const,
+        price: 24000,
+        variants: [
+          { name: 'Half', price: 24000, isDefault: true },
+          { name: 'Full', price: 42000, isDefault: false },
+        ],
+        veg: false, // Non-Veg
+        spicy: true,
+        prep: 14,
+        trackStock: true,
+        stock: 25,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1588166524941-3bf61a9c41db?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Gravy Bowl', priceDelta: 5000 }],
+      },
+      {
+        cat: 'North Indian Curries & Breads',
+        name: 'Butter Garlic Naan',
+        pricingType: 'SINGLE' as const,
+        price: 7000,
         veg: true,
         spicy: false,
-        prep: 12,
-        trackStock: false,
-        stock: 0,
-        lowStock: 0,
-        imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Smoked Gouda Slice', priceDelta: 4500 }],
+        prep: 5,
+        trackStock: true,
+        stock: 60,
+        lowStock: 15,
+        imageUrl: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Butter Brush', priceDelta: 1000 }],
       },
-      // 4. Desserts
+
+      // 5. Artisanal Desserts
       {
         cat: 'Artisanal Desserts',
         name: 'Woodfired Hot Fudge Skillet Cookie',
+        pricingType: 'SINGLE' as const,
         price: 26000,
         veg: true,
         spicy: false,
@@ -676,6 +814,7 @@ export const seedDatabase = async () => {
       {
         cat: 'Artisanal Desserts',
         name: 'Saffron Pistachio Tres Leches',
+        pricingType: 'SINGLE' as const,
         price: 32000,
         veg: true,
         spicy: false,
@@ -686,36 +825,12 @@ export const seedDatabase = async () => {
         imageUrl: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Extra Saffron Milk Soak', priceDelta: 3500 }],
       },
-      {
-        cat: 'Artisanal Desserts',
-        name: 'Classic Tiramisu on Espresso Soak',
-        price: 29000,
-        veg: true,
-        spicy: false,
-        prep: 5,
-        trackStock: false,
-        stock: 0,
-        lowStock: 0,
-        imageUrl: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Cocoa Powder Dusting', priceDelta: 1000 }],
-      },
-      {
-        cat: 'Artisanal Desserts',
-        name: 'Salted Caramel Pecan Tart',
-        price: 28000,
-        veg: true,
-        spicy: false,
-        prep: 5,
-        trackStock: true,
-        stock: 10,
-        lowStock: 3,
-        imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Sea Salt Flakes', priceDelta: 1000 }],
-      },
-      // 5. Tonics
+
+      // 6. Refreshing Tonics
       {
         cat: 'Refreshing Tonics',
         name: 'Cold Pressed Orange Zest Mojito',
+        pricingType: 'SINGLE' as const,
         price: 16000,
         veg: true,
         spicy: false,
@@ -728,20 +843,8 @@ export const seedDatabase = async () => {
       },
       {
         cat: 'Refreshing Tonics',
-        name: 'Ginger Lemongrass Herbal Fizz',
-        price: 14000,
-        veg: true,
-        spicy: false,
-        prep: 4,
-        trackStock: true,
-        stock: 30,
-        lowStock: 5,
-        imageUrl: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Honey Infusion', priceDelta: 2000 }],
-      },
-      {
-        cat: 'Refreshing Tonics',
         name: 'Wild Berries Iced Hibiscus Tea',
+        pricingType: 'SINGLE' as const,
         price: 15000,
         veg: true,
         spicy: false,
@@ -752,18 +855,46 @@ export const seedDatabase = async () => {
         imageUrl: 'https://images.unsplash.com/photo-1497534446932-c925b458314e?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Fresh Mint Sprig', priceDelta: 1000 }],
       },
+
+      // 7. Chef Combos & Value Packs
       {
-        cat: 'Refreshing Tonics',
-        name: 'Cucumber Cooler Basil Tonic',
-        price: 13000,
+        cat: 'Chef Combos & Value Packs',
+        name: 'North Indian Deluxe Feast Combo',
+        pricingType: 'SINGLE' as const,
+        price: 49900,
+        isCombo: true,
+        comboItems: [
+          { name: 'Butter Garlic Naan', quantity: 2, categoryName: 'North Indian Curries & Breads' },
+          { name: 'Paneer Butter Masala', quantity: 1, categoryName: 'North Indian Curries & Breads' },
+          { name: 'Saffron Pistachio Tres Leches', quantity: 1, categoryName: 'Artisanal Desserts' },
+        ],
+        veg: true,
+        spicy: true,
+        prep: 15,
+        trackStock: true,
+        stock: 20,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Butter Garlic Naan', priceDelta: 6000 }],
+      },
+      {
+        cat: 'Chef Combos & Value Packs',
+        name: 'Pizza & Craft Mojito Duo Pack',
+        pricingType: 'SINGLE' as const,
+        price: 54900,
+        isCombo: true,
+        comboItems: [
+          { name: 'Classic Margherita Sourdough', quantity: 1, categoryName: 'House Baked Pizzas' },
+          { name: 'Cold Pressed Orange Zest Mojito', quantity: 1, categoryName: 'Refreshing Tonics' },
+        ],
         veg: true,
         spicy: false,
-        prep: 4,
+        prep: 14,
         trackStock: true,
-        stock: 22,
-        lowStock: 5,
-        imageUrl: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=600&auto=format&fit=crop&q=80',
-        addOns: [{ name: 'Crushed Ice Extra', priceDelta: 500 }],
+        stock: 15,
+        lowStock: 4,
+        imageUrl: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Extra Dip Assortment', priceDelta: 4000 }],
       },
     ];
 
@@ -782,17 +913,22 @@ export const seedDatabase = async () => {
         categoryId: catId,
         name: item.name,
         description: `Signature house specialty ${item.name.toLowerCase()} prepared fresh with artisan ingredients.`,
+        pricingType: item.pricingType || 'SINGLE',
         price: item.price,
+        variants: item.variants || [],
+        isCombo: !!item.isCombo,
+        comboItems: item.comboItems || [],
         imageUrl: item.imageUrl,
         isAvailable: true,
         isVegetarian: item.veg,
-        isSpicy: item.spicy,
+        isSpicy: !!item.spicy,
         prepTimeMinutes: item.prep,
-        trackStock: item.trackStock,
-        stockQuantity: item.stock,
-        lowStockThreshold: item.lowStock,
+        trackStock: !!item.trackStock,
+        stockQuantity: item.stock || 0,
+        lowStockThreshold: item.lowStock || 0,
         sortOrder: idx,
         addOns: item.addOns || [],
+        attachedAddOnGroupIds: seededGroups.map((g) => g._id),
         externalIds: { petpoojaItemId: `PP_ITEM_${idx + 1}` },
         isArchived: false,
       };
@@ -985,14 +1121,16 @@ export const seedDatabase = async () => {
             { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
             { name: 'SGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
           ],
+          customerNote: 'Please serve fresh with warm water and extra napkins.',
           items: [
             {
               menuItemId: ord.item._id,
               nameSnapshot: ord.item.name,
-              unitPriceSnapshot: ord.item.price,
+              unitPriceSnapshot: ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].price : ord.item.price,
+              variantName: ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].name : undefined,
               quantity: ord.qty,
               selectedAddOns: [],
-              specialInstructions: 'Prepare fresh with extra napkins',
+              specialInstructions: 'Make extra hot & spicy, less oil',
               prepTimeMinutesSnapshot: ord.item.prepTimeMinutes,
               itemStatus:
                 ord.status === 'SERVED'
