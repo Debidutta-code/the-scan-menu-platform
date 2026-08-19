@@ -272,12 +272,10 @@ export const ManagerLayout: React.FC = () => {
   useEffect(() => {
     const managerOnlyTabs = [
       'menu',
-      'menu-availability',
       'counter',
       'kds',
       'transactions',
       'tables',
-      'inventory',
       'staff',
       'customers',
       'taxes',
@@ -531,18 +529,20 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Inventory & Stock Control tab (Manager/Super Admin only) */}
-          {!isStaff && isEnabled('inventory') && (
+          {/* Inventory & Stock Control tab */}
+          {isEnabled('inventory') && (
             <button
               onClick={() => navigate('/manager/inventory')}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
                 activeTab === 'inventory'
                   ? 'bg-slate-950 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <Package className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
-              <span>Inventory & Stock</span>
+              <div className="flex items-center gap-3">
+                <Package className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+                <span>Inventory & Stock</span>
+              </div>
             </button>
           )}
 
@@ -902,6 +902,21 @@ export const ManagerLayout: React.FC = () => {
                 >
                   <Flame className="w-6 h-6 text-amber-500" strokeWidth={2} />
                   <span className="text-[10px] font-bold text-center leading-none">Kitchen</span>
+                </button>
+              )}
+              {/* Inventory */}
+              {isEnabled('inventory') && (
+                <button
+                  id="mobile-more-inventory-btn"
+                  onClick={() => { navigate('/manager/inventory'); setMoreDrawerOpen(false); }}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
+                    activeTab === 'inventory'
+                      ? 'bg-slate-950 border-slate-950 text-white'
+                      : 'bg-slate-50 border-slate-150 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Package className="w-6 h-6 text-amber-500" strokeWidth={1.75} />
+                  <span className="text-[10px] font-bold text-center leading-none">Inventory</span>
                 </button>
               )}
               {/* Developer API — Super Admin only */}

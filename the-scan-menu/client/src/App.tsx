@@ -110,6 +110,8 @@ export const App = () => {
                 <Route element={<ManagerLayout />}>
                   {/* Staff & Manager shared routes */}
                   <Route path="/manager/orders" element={<ManagerOrders />} />
+                  <Route path="/manager/inventory" element={<ManagerInventory />} />
+                  <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
                   <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                   <Route path="/manager/profile" element={<ManagerProfile />} />
 
@@ -118,10 +120,8 @@ export const App = () => {
                     <Route path="/manager/counter" element={<ManagerCounter />} />
                     <Route path="/manager/kds" element={<ManagerKDS />} />
                     <Route path="/manager/transactions" element={<ManagerTransactions />} />
-                    <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
                     <Route path="/manager/tables" element={<ManagerTables />} />
                     <Route path="/manager/menu" element={<ManagerMenu />} />
-                    <Route path="/manager/inventory" element={<ManagerInventory />} />
                     <Route path="/manager/staff" element={<ManagerStaff />} />
                     <Route path="/manager/customers" element={<ManagerCustomers />} />
                     <Route path="/manager/taxes" element={<ManagerTaxes />} />

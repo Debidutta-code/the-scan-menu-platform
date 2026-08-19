@@ -21,6 +21,7 @@ import customerRoutes from './routes/customer.routes';
 import paymentRoutes from './routes/payment.routes';
 import webhookRoutes from './routes/webhook.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import inventoryRoutes from './routes/inventory.routes';
 import openapiRoutes from './routes/openapi.routes';
 import developerRoutes from './routes/developer.routes';
 import healthRoutes from './routes/health.routes';
@@ -107,6 +108,7 @@ app.use('/api/v1/subscription', globalSubscriptionRoutes);
 // Mount menuRoutes BEFORE restaurantRoutes to prevent wildcard param collision clashing (:restaurantId matches categories-reorder etc.)
 app.use('/api/v1/restaurants/:restaurantId/analytics', analyticsRoutes);
 app.use('/api/v1/restaurants/:restaurantId/developer', developerRoutes);
+app.use('/api/v1/restaurants/:restaurantId/inventory', inventoryRoutes);
 app.use('/api/v1/restaurants/:restaurantId/payments', paymentRoutes);
 app.use('/api/v1/restaurants', orderRoutes);
 app.use('/api/v1/restaurants', waiterCallRoutes);

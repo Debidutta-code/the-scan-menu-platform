@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
 import { printOrderTicket, TicketPrintType } from '../utils/printReceipt';
 import { PrintOrderModal } from '../components/PrintOrderModal';
@@ -104,6 +105,39 @@ export const ManagerCounter: React.FC = () => {
   // Input refs for automatic keyboard focus
   const customerNameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Live Socket.IO Inventory Sync
+  const token = localStorage.getItem('accessToken');
+  const { socket } = useSocket(token);
+
+  useEffect(() => {
+    if (!socket || !restaurantId) return;
+
+    const handleInventoryUpdated = (payload: any) => {
+      queryClient.setQueryData(['managerCounterMenuItems', restaurantId], (oldData: any) => {
+        if (!oldData || !oldData.data) return oldData;
+        return {
+          ...oldData,
+          data: oldData.data.map((item: any) => {
+            if (item._id === payload.itemId) {
+              return {
+                ...item,
+                isAvailable: payload.data.isAvailable !== undefined ? payload.data.isAvailable : item.isAvailable,
+                stockQuantity: payload.data.stockQuantity !== undefined ? payload.data.stockQuantity : item.stockQuantity,
+                trackStock: payload.data.trackStock !== undefined ? payload.data.trackStock : item.trackStock,
+              };
+            }
+            return item;
+          }),
+        };
+      });
+    };
+
+    socket.on('inventory:updated', handleInventoryUpdated);
+    return () => {
+      socket.off('inventory:updated', handleInventoryUpdated);
+    };
+  }, [socket, restaurantId, queryClient]);
 
   // Fetch Categories for Counter Order Entry
   const { data: categoriesData, isLoading: isLoadingCats } = useQuery({
@@ -182,9 +216,18 @@ export const ManagerCounter: React.FC = () => {
   const isLoading = isLoadingCats || isLoadingItems;
 
   const addItemToCart = (item: any) => {
+    if (!item.isAvailable || (item.trackStock && item.stockQuantity <= 0)) {
+      toast(`"${item.name}" is currently sold out / 86'd!`, 'error');
+      return;
+    }
+
     setCartItems((prev) => {
       const existing = prev.find((i) => i.itemId === item._id);
       if (existing) {
+        if (item.trackStock && existing.quantity >= item.stockQuantity) {
+          toast(`Only ${item.stockQuantity} portions left for "${item.name}"!`, 'error');
+          return prev;
+        }
         return prev.map((i) => (i.itemId === item._id ? { ...i, quantity: i.quantity + 1 } : i));
       }
       return [...prev, { itemId: item._id, name: item.name, price: item.price, quantity: 1 }];
@@ -595,28 +638,54 @@ export const ManagerCounter: React.FC = () => {
                       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                         {catItems.map((item: any) => {
                           const selected = cartItems.find((i) => i.itemId === item._id);
+                          const isTracked = !!item.trackStock;
+                          const qty = item.stockQuantity || 0;
+                          const threshold = item.lowStockThreshold || 5;
+                          const isLow = isTracked && qty > 0 && qty <= threshold;
+                          const isOut = !item.isAvailable || (isTracked && qty <= 0);
 
                           return (
                             <div
                               key={item._id}
-                              onClick={() => addItemToCart(item)}
-                              className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-3 select-none active:scale-[0.98] shadow-2xs ${
-                                selected
-                                  ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-sm'
-                                  : 'bg-white border-slate-200/90 hover:border-amber-300 hover:shadow-md'
+                              onClick={() => !isOut && addItemToCart(item)}
+                              className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col justify-between gap-3 select-none active:scale-[0.98] shadow-2xs relative ${
+                                isOut
+                                  ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
+                                  : selected
+                                  ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-sm cursor-pointer'
+                                  : 'bg-white border-slate-200/90 hover:border-amber-300 hover:shadow-md cursor-pointer'
                               }`}
                             >
                               <div className="min-w-0">
-                                <h4 className="text-xs font-bold text-slate-900 leading-snug truncate">
-                                  {item.name}
-                                </h4>
-                                <span className="font-mono text-xs font-black text-slate-800 block mt-1">
+                                <div className="flex items-start justify-between gap-1 mb-1">
+                                  <h4 className={`text-xs font-bold leading-snug truncate ${isOut ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                                    {item.name}
+                                  </h4>
+                                  {isOut ? (
+                                    <span className="text-[9px] font-mono font-black uppercase text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded shrink-0">
+                                      86'D
+                                    </span>
+                                  ) : isLow ? (
+                                    <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded shrink-0">
+                                      ⚡ {qty} left
+                                    </span>
+                                  ) : isTracked ? (
+                                    <span className="text-[9px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded shrink-0">
+                                      {qty} left
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <span className="font-mono text-xs font-black text-slate-800 block">
                                   ₹{(item.price / 100).toFixed(2)}
                                 </span>
                               </div>
 
                               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                                {selected ? (
+                                {isOut ? (
+                                  <span className="text-[10px] font-bold text-rose-600 font-mono w-full text-center py-1">
+                                    Out of Stock
+                                  </span>
+                                ) : selected ? (
                                   <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-xl shadow-2xs w-full justify-between">
                                     <button
                                       type="button"

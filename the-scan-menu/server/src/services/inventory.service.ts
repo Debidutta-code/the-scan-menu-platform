@@ -295,6 +295,304 @@ export class InventoryService {
 
     return { success: true };
   }
+
+  /**
+   * Restores inventory quantities when an order is cancelled or voided.
+   */
+  async restoreStockForOrder(
+    restaurantId: string | Types.ObjectId,
+    orderId: string | Types.ObjectId,
+    items: Array<{ itemId: string | Types.ObjectId; quantity: number; name?: string }>,
+    actor: { type: ActorType; id?: string }
+  ): Promise<void> {
+    const rId = new mongoose.Types.ObjectId(restaurantId.toString());
+    const oId = new mongoose.Types.ObjectId(orderId.toString());
+
+    for (const orderItem of items) {
+      if (!orderItem.itemId || orderItem.quantity <= 0) continue;
+
+      const itemId = new mongoose.Types.ObjectId(orderItem.itemId.toString());
+      const item = await MenuItem.findOne({ _id: itemId, restaurantId: rId });
+
+      if (!item || !item.trackStock) continue;
+
+      const previousQuantity = item.stockQuantity;
+      const previousAvailability = item.isAvailable;
+
+      item.stockQuantity = item.stockQuantity + orderItem.quantity;
+      if (!item.isAvailable && item.stockQuantity > 0) {
+        item.isAvailable = true;
+      }
+
+      await item.save();
+
+      // Audit Log
+      await InventoryLog.create({
+        restaurantId: rId,
+        menuItemId: item._id,
+        actorType: actor.type,
+        actorId: actor.id ? new mongoose.Types.ObjectId(actor.id) : undefined,
+        action: 'ORDER_RESTORE',
+        previousQuantity,
+        newQuantity: item.stockQuantity,
+        previousAvailability,
+        newAvailability: item.isAvailable,
+        orderId: oId,
+        reason: `Restored ${orderItem.quantity} portions from cancelled order #${orderId}`,
+      });
+
+      // Socket update
+      NotificationService.getInstance().notifyInventoryUpdated(
+        restaurantId.toString(),
+        item._id.toString(),
+        {
+          isAvailable: item.isAvailable,
+          trackStock: item.trackStock,
+          stockQuantity: item.stockQuantity,
+          lowStockThreshold: item.lowStockThreshold,
+        }
+      );
+    }
+  }
+
+  /**
+   * Batch stock adjustment for daily physical stocktake / physical count audit.
+   */
+  async batchAdjustStock(
+    restaurantId: string | Types.ObjectId,
+    adjustments: Array<{
+      itemId: string;
+      stockQuantity: number;
+      trackStock?: boolean;
+      notes?: string;
+    }>,
+    actor: { type: ActorType; id?: string }
+  ): Promise<{ updatedCount: number; items: IMenuItem[] }> {
+    const rId = new mongoose.Types.ObjectId(restaurantId.toString());
+    const updatedItems: IMenuItem[] = [];
+
+    for (const adj of adjustments) {
+      const item = await MenuItem.findOne({ _id: adj.itemId, restaurantId: rId });
+      if (!item) continue;
+
+      const previousQuantity = item.stockQuantity;
+      const previousAvailability = item.isAvailable;
+
+      if (adj.trackStock !== undefined) {
+        item.trackStock = adj.trackStock;
+      }
+      item.stockQuantity = Math.max(0, adj.stockQuantity);
+
+      if (item.trackStock) {
+        if (item.stockQuantity === 0) {
+          item.isAvailable = false;
+        } else if (!previousAvailability && previousQuantity === 0 && item.stockQuantity > 0) {
+          item.isAvailable = true;
+        }
+      }
+
+      await item.save();
+      updatedItems.push(item);
+
+      await InventoryLog.create({
+        restaurantId: rId,
+        menuItemId: item._id,
+        actorType: actor.type,
+        actorId: actor.id ? new mongoose.Types.ObjectId(actor.id) : undefined,
+        action: 'BATCH_STOCKTAKE',
+        previousQuantity,
+        newQuantity: item.stockQuantity,
+        previousAvailability,
+        newAvailability: item.isAvailable,
+        reason: adj.notes || `Stocktake count set to ${item.stockQuantity}`,
+        notes: adj.notes,
+      });
+
+      NotificationService.getInstance().notifyInventoryUpdated(
+        restaurantId.toString(),
+        item._id.toString(),
+        {
+          isAvailable: item.isAvailable,
+          trackStock: item.trackStock,
+          stockQuantity: item.stockQuantity,
+          lowStockThreshold: item.lowStockThreshold,
+        }
+      );
+    }
+
+    return { updatedCount: updatedItems.length, items: updatedItems };
+  }
+
+  /**
+   * Records spoilage, dropped plates, or expired inventory portions (Food Waste).
+   */
+  async logWaste(
+    restaurantId: string | Types.ObjectId,
+    itemId: string | Types.ObjectId,
+    quantity: number,
+    reason: string,
+    actor: { type: ActorType; id?: string },
+    costPaise?: number,
+    notes?: string
+  ): Promise<IMenuItem | null> {
+    const rId = new mongoose.Types.ObjectId(restaurantId.toString());
+    const item = await MenuItem.findOne({ _id: itemId, restaurantId: rId });
+
+    if (!item) return null;
+
+    const previousQuantity = item.stockQuantity;
+    const previousAvailability = item.isAvailable;
+
+    if (item.trackStock) {
+      item.stockQuantity = Math.max(0, item.stockQuantity - quantity);
+      if (item.stockQuantity === 0) {
+        item.isAvailable = false;
+      }
+      await item.save();
+    }
+
+    await InventoryLog.create({
+      restaurantId: rId,
+      menuItemId: item._id,
+      actorType: actor.type,
+      actorId: actor.id ? new mongoose.Types.ObjectId(actor.id) : undefined,
+      action: 'WASTE_LOG',
+      previousQuantity,
+      newQuantity: item.stockQuantity,
+      previousAvailability,
+      newAvailability: item.isAvailable,
+      reason: `Waste logged: ${quantity} portions (${reason})`,
+      costPaise: costPaise || (item.price ? Math.round(item.price * quantity) : undefined),
+      notes: notes || reason,
+    });
+
+    NotificationService.getInstance().notifyInventoryUpdated(
+      restaurantId.toString(),
+      item._id.toString(),
+      {
+        isAvailable: item.isAvailable,
+        trackStock: item.trackStock,
+        stockQuantity: item.stockQuantity,
+        lowStockThreshold: item.lowStockThreshold,
+      }
+    );
+
+    return item;
+  }
+
+  /**
+   * Retrieves paginated inventory logs for audit history and dispute resolution.
+   */
+  async getInventoryLogs(
+    restaurantId: string | Types.ObjectId,
+    query: {
+      menuItemId?: string;
+      action?: string;
+      actorType?: string;
+      page?: number;
+      limit?: number;
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{ logs: any[]; total: number; page: number; totalPages: number }> {
+    const rId = new mongoose.Types.ObjectId(restaurantId.toString());
+    const filter: any = { restaurantId: rId };
+
+    if (query.menuItemId) {
+      filter.menuItemId = new mongoose.Types.ObjectId(query.menuItemId);
+    }
+    if (query.action) {
+      filter.action = query.action;
+    }
+    if (query.actorType) {
+      filter.actorType = query.actorType;
+    }
+    if (query.startDate || query.endDate) {
+      filter.createdAt = {};
+      if (query.startDate) filter.createdAt.$gte = new Date(query.startDate);
+      if (query.endDate) filter.createdAt.$lte = new Date(query.endDate);
+    }
+
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      InventoryLog.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('menuItemId', 'name price imageUrl')
+        .populate('actorId', 'name email role')
+        .populate('orderId', 'orderNumber total')
+        .lean(),
+      InventoryLog.countDocuments(filter),
+    ]);
+
+    return {
+      logs,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Aggregates real-time inventory metrics (total tracked items, in-stock, low-stock, out-of-stock, waste cost).
+   */
+  async getInventorySummary(restaurantId: string | Types.ObjectId): Promise<{
+    totalItems: number;
+    trackedItems: number;
+    inStockCount: number;
+    lowStockCount: number;
+    outOfStockCount: number;
+    totalWasteValuePaise: number;
+  }> {
+    const rId = new mongoose.Types.ObjectId(restaurantId.toString());
+
+    const items = await MenuItem.find({ restaurantId: rId }).select('isAvailable trackStock stockQuantity lowStockThreshold');
+
+    const totalItems = items.length;
+    let trackedItems = 0;
+    let inStockCount = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    for (const item of items) {
+      const threshold = item.lowStockThreshold || 5;
+      const isTracked = !!item.trackStock;
+      if (isTracked) trackedItems++;
+
+      if (!item.isAvailable || (isTracked && item.stockQuantity <= 0)) {
+        outOfStockCount++;
+      } else if (isTracked && item.stockQuantity <= threshold) {
+        lowStockCount++;
+      } else {
+        inStockCount++;
+      }
+    }
+
+    // Calculate last 30 days waste cost
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const wasteLogs = await InventoryLog.find({
+      restaurantId: rId,
+      action: 'WASTE_LOG',
+      createdAt: { $gte: thirtyDaysAgo },
+    }).select('costPaise');
+
+    const totalWasteValuePaise = wasteLogs.reduce((sum, log) => sum + (log.costPaise || 0), 0);
+
+    return {
+      totalItems,
+      trackedItems,
+      inStockCount,
+      lowStockCount,
+      outOfStockCount,
+      totalWasteValuePaise,
+    };
+  }
 }
 
 export const inventoryService = new InventoryService();

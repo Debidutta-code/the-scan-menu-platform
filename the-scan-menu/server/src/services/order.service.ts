@@ -591,6 +591,24 @@ export class OrderService {
     order.status = 'CANCELLED';
     await order.save();
 
+    // Restore inventory quantities for all tracked items in cancelled order
+    try {
+      if (order.items && order.items.length > 0) {
+        await inventoryService.restoreStockForOrder(
+          restaurantId,
+          order._id,
+          order.items.map((i) => ({
+            itemId: i.menuItemId,
+            quantity: i.quantity,
+            name: i.nameSnapshot,
+          })),
+          { type: 'MANAGER', id: staffUserId }
+        );
+      }
+    } catch (invErr) {
+      console.error('Failed to restore inventory on order cancellation:', invErr);
+    }
+
     // Deduct customer aggregate stats if linked
     if (order.customerId) {
       customerService.deductCustomerOrder(order.customerId, order.total);

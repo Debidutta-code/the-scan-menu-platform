@@ -1,6 +1,13 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export type InventoryAction = 'AVAILABILITY_TOGGLE' | 'STOCK_ADJUSTMENT' | 'ORDER_DECREMENT' | 'AUTO_86';
+export type InventoryAction =
+  | 'AVAILABILITY_TOGGLE'
+  | 'STOCK_ADJUSTMENT'
+  | 'ORDER_DECREMENT'
+  | 'AUTO_86'
+  | 'ORDER_RESTORE'
+  | 'BATCH_STOCKTAKE'
+  | 'WASTE_LOG';
 export type ActorType = 'MANAGER' | 'STAFF' | 'SYSTEM' | 'ORDER';
 
 export interface IInventoryLog extends Document {
@@ -15,6 +22,8 @@ export interface IInventoryLog extends Document {
   newAvailability: boolean;
   orderId?: Types.ObjectId;
   reason?: string;
+  costPaise?: number;
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,7 +40,15 @@ const inventoryLogSchema = new Schema<IInventoryLog>(
     actorId: { type: Schema.Types.ObjectId, ref: 'User' },
     action: {
       type: String,
-      enum: ['AVAILABILITY_TOGGLE', 'STOCK_ADJUSTMENT', 'ORDER_DECREMENT', 'AUTO_86'],
+      enum: [
+        'AVAILABILITY_TOGGLE',
+        'STOCK_ADJUSTMENT',
+        'ORDER_DECREMENT',
+        'AUTO_86',
+        'ORDER_RESTORE',
+        'BATCH_STOCKTAKE',
+        'WASTE_LOG',
+      ],
       required: true,
     },
     previousQuantity: { type: Number },
@@ -40,6 +57,8 @@ const inventoryLogSchema = new Schema<IInventoryLog>(
     newAvailability: { type: Boolean, required: true },
     orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
     reason: { type: String, trim: true },
+    costPaise: { type: Number },
+    notes: { type: String, trim: true },
   },
   {
     timestamps: true,
