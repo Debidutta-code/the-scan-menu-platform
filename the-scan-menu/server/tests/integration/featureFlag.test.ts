@@ -64,7 +64,7 @@ describe('FeatureFlag Service & Middleware Tests', () => {
       vi.spyOn(FeatureFlag, 'find')
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ key: 'qr_menu', enabled: false }] as any);
-      vi.spyOn(FeatureFlag, 'insertMany').mockResolvedValueOnce([] as any);
+      vi.spyOn(FeatureFlag as any, 'insertMany').mockResolvedValueOnce([] as any);
 
       const flags = await featureFlagService.getRestaurantFlags(mockRestaurantId);
       expect(FeatureFlag.insertMany).toHaveBeenCalled();
