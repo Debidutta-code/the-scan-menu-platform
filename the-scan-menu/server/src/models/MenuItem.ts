@@ -5,12 +5,28 @@ export interface IAddOn {
   priceDelta: number; // in cents/paise
 }
 
+export interface IVariant {
+  name: string; // e.g. "Half", "Full", "Small", "Medium", "Large"
+  price: number; // in cents/paise
+  isDefault?: boolean;
+}
+
+export interface IComboItem {
+  menuItemId?: Types.ObjectId;
+  name: string;
+  categoryName?: string;
+  quantity: number;
+  imageUrl?: string;
+}
+
 export interface IMenuItem extends Document {
   restaurantId: Types.ObjectId;
   categoryId: Types.ObjectId;
   name: string;
   description?: string;
-  price: number; // Stored as integer cents/paise
+  pricingType: 'SINGLE' | 'PORTION';
+  price: number; // Stored as integer cents/paise (base price or default variant price)
+  variants?: IVariant[];
   imageUrl?: string;
   isAvailable: boolean;
   trackStock: boolean;
@@ -21,6 +37,9 @@ export interface IMenuItem extends Document {
   prepTimeMinutes?: number;
   sortOrder: number;
   addOns?: IAddOn[];
+  attachedAddOnGroupIds?: Types.ObjectId[];
+  isCombo?: boolean;
+  comboItems?: IComboItem[];
   externalIds?: Record<string, any>;
   isArchived: boolean;
   createdAt: Date;
@@ -35,13 +54,35 @@ const addOnSchema = new Schema<IAddOn>(
   { _id: false }
 );
 
+const variantSchema = new Schema<IVariant>(
+  {
+    name: { type: String, required: true, trim: true },
+    price: { type: Number, required: true, min: 0 },
+    isDefault: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const comboItemSchema = new Schema<IComboItem>(
+  {
+    menuItemId: { type: Schema.Types.ObjectId, ref: 'MenuItem' },
+    name: { type: String, required: true, trim: true },
+    categoryName: { type: String, trim: true },
+    quantity: { type: Number, required: true, default: 1 },
+    imageUrl: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const menuItemSchema = new Schema<IMenuItem>(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     categoryId: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
+    pricingType: { type: String, enum: ['SINGLE', 'PORTION'], default: 'SINGLE' },
     price: { type: Number, required: true }, // positive integer validated via Zod
+    variants: [variantSchema],
     imageUrl: { type: String, trim: true },
     isAvailable: { type: Boolean, required: true, default: true },
     trackStock: { type: Boolean, required: true, default: false },
@@ -52,6 +93,9 @@ const menuItemSchema = new Schema<IMenuItem>(
     prepTimeMinutes: { type: Number },
     sortOrder: { type: Number, required: true, default: 0 },
     addOns: [addOnSchema],
+    attachedAddOnGroupIds: [{ type: Schema.Types.ObjectId, ref: 'CustomizationGroup' }],
+    isCombo: { type: Boolean, default: false },
+    comboItems: [comboItemSchema],
     externalIds: { type: Schema.Types.Mixed, default: {} },
     isArchived: { type: Boolean, required: true, default: false },
   },
