@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -1032,9 +1033,9 @@ export const ManagerMenu: React.FC = () => {
       )}
 
       {/* Category Modal */}
-      {isCatOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100">
+      {isCatOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 my-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-display text-xl font-bold text-slate-900">
                 {editingCat ? 'Edit Category' : 'New Category'}
@@ -1083,26 +1084,27 @@ export const ManagerMenu: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCatOpen(false)}
-                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition"
+                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-semibold rounded-xl transition"
+                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-semibold rounded-xl transition cursor-pointer"
                 >
                   {editingCat ? 'Save' : 'Create'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Menu Item Modal with Portion Pricing & Combos */}
-      {isItemOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-5">
+      {isItemOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-5 my-auto">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h2 className="font-display text-xl font-bold text-slate-900">
@@ -1110,7 +1112,7 @@ export const ManagerMenu: React.FC = () => {
                 </h2>
                 <span className="text-xs text-slate-400">Configure dish details, portion variants, or combos</span>
               </div>
-              <button onClick={() => setIsItemOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setIsItemOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -1141,7 +1143,7 @@ export const ManagerMenu: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => itemForm.setValue('pricingType', 'SINGLE')}
-                      className={`px-3 py-1 rounded-lg font-bold transition ${
+                      className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
                         itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
                       }`}
                     >
@@ -1155,7 +1157,7 @@ export const ManagerMenu: React.FC = () => {
                           handleApplyVariantPreset('HALF_FULL');
                         }
                       }}
-                      className={`px-3 py-1 rounded-lg font-bold transition ${
+                      className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
                         itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
                       }`}
                     >
@@ -1183,21 +1185,21 @@ export const ManagerMenu: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleApplyVariantPreset('HALF_FULL')}
-                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition"
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
                       >
                         + Half / Full
                       </button>
                       <button
                         type="button"
                         onClick={() => handleApplyVariantPreset('SML')}
-                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition"
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
                       >
                         + Small / Med / Large
                       </button>
                       <button
                         type="button"
                         onClick={() => handleApplyVariantPreset('REG_LARGE')}
-                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition"
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
                       >
                         + Regular / Large
                       </button>
@@ -1223,7 +1225,7 @@ export const ManagerMenu: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => removeVariant(vIdx)}
-                            className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded"
+                            className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1232,7 +1234,7 @@ export const ManagerMenu: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => appendVariant({ name: '', price: 0, isDefault: false })}
-                        className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1"
+                        className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Custom Size Option</span>
@@ -1249,7 +1251,7 @@ export const ManagerMenu: React.FC = () => {
                     type="checkbox"
                     id="isComboToggle"
                     {...itemForm.register('isCombo')}
-                    className="w-4 h-4 accent-amber-500 rounded"
+                    className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
                   />
                   <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">
                     Bundle as Multi-Dish Combo (e.g. Garlic Naan + Paneer Butter Masala)
@@ -1285,7 +1287,7 @@ export const ManagerMenu: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => removeComboItem(cIdx)}
-                          className="text-rose-500 hover:text-rose-700 p-1"
+                          className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1294,7 +1296,7 @@ export const ManagerMenu: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })}
-                      className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Bundled Item</span>
@@ -1358,9 +1360,9 @@ export const ManagerMenu: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => appendAddOn({ name: '', priceDelta: 0 })}
-                    className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1"
+                    className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-3.5 h-3.5" />
                     <span>Add Add-on</span>
                   </button>
                 </div>
@@ -1383,7 +1385,7 @@ export const ManagerMenu: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => removeAddOn(index)}
-                      className="text-rose-500 hover:text-rose-700 p-1"
+                      className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1396,29 +1398,30 @@ export const ManagerMenu: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsItemOpen(false)}
-                  className="w-1/2 py-3 border border-slate-200 text-slate-600 text-sm font-semibold rounded-2xl hover:bg-slate-50 transition"
+                  className="w-1/2 py-3 border border-slate-200 text-slate-600 text-sm font-semibold rounded-2xl hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-3 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-2xl transition shadow-md"
+                  className="w-1/2 py-3 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-2xl transition shadow-md cursor-pointer"
                 >
                   {editingItem ? 'Save Changes' : 'Create Dish'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Customization Group Template Modal */}
-      {isGroupModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4">
+      {isGroupModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4 my-auto">
             <div className="flex justify-between items-center">
               <h2 className="font-display text-xl font-bold text-slate-900">New Add-On Template</h2>
-              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1466,7 +1469,7 @@ export const ManagerMenu: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => removeGroupOption(idx)}
-                        className="text-rose-500 hover:text-rose-700 p-1"
+                        className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1475,7 +1478,7 @@ export const ManagerMenu: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => appendGroupOption({ name: '', priceDelta: 0, price: 0 })}
-                    className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1"
+                    className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Option</span>
@@ -1487,20 +1490,21 @@ export const ManagerMenu: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsGroupModalOpen(false)}
-                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl"
+                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-md"
+                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Save Template
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
