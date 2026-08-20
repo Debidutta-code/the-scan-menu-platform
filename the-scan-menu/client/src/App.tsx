@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './hooks/useToast';
 import ProtectedRoute from './routes/ProtectedRoute';
 import Login from './pages/Login';
+import NetworkToast from './components/NetworkToast';
 
 // Super Admin Pages & Layout
 import AdminLayout from './components/AdminLayout';
@@ -61,6 +62,7 @@ export const App = () => {
       <AuthProvider>
         <ToastProvider>
           <FeatureFlagProvider>
+            <NetworkToast />
             <Routes>
               {/* Public customer dining view (Subdomain-aware) */}
               <Route path="/t/:tableToken" element={<PublicTable />} />

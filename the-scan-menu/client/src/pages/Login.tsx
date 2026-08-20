@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { ScanMenuLogo } from '../components/ScanMenuLogo';
 
 const loginSchema = z.object({
@@ -16,11 +16,13 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export const Login: React.FC = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shouldShake, setShouldShake] = useState(false);
+
+
 
   const {
     register,
@@ -65,6 +67,14 @@ export const Login: React.FC = () => {
     },
     idle: { x: 0 },
   };
+
+  // If already logged in, redirect away from login
+  if (user) {
+    if (user.role === 'SUPER_ADMIN') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    return <Navigate to="/manager/orders" replace />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 font-sans selection:bg-amber-100">

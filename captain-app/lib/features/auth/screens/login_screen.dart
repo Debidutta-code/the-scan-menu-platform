@@ -112,6 +112,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     });
 
+    if (authState.status == AuthStatus.authenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainShellScreen()),
+          );
+        }
+      });
+    }
+
     final isLoading = authState.status == AuthStatus.loading;
 
     return Scaffold(
