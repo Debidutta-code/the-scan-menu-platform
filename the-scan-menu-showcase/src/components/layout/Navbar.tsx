@@ -66,7 +66,7 @@ export const Navbar: React.FC = () => {
 
           <Magnetic>
             <a
-              href="https://thescanmenu.com"
+              href="https://app.thescanmenu.com"
               target="_blank"
               rel="noopener noreferrer"
               data-cursor="Live App"
@@ -111,7 +111,7 @@ export const Navbar: React.FC = () => {
           <div className="pt-4 border-t border-white/10 flex flex-col gap-3">
             <SoundToggle />
             <a
-              href="https://thescanmenu.com"
+              href="https://app.thescanmenu.com"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold bg-amber-400 text-black"

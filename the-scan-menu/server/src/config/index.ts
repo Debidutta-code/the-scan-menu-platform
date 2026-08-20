@@ -115,7 +115,7 @@ export const config: ServerConfig = {
     isProduction,
     isTest,
     isDevelopment,
-    baseDomain: (process.env.BASE_DOMAIN || 'thescanmenu.com').toLowerCase(),
+    baseDomain: (process.env.BASE_DOMAIN || 'app.thescanmenu.com').toLowerCase(),
     clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
     socketCorsOrigin: process.env.SOCKET_CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5173',
   },

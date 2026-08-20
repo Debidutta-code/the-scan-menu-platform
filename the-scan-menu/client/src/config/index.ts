@@ -25,7 +25,7 @@ export const config: ClientConfig = {
     apiBaseUrl.replace(/\/api\/v1\/?$/, '') ||
     'http://localhost:5000',
   appName: import.meta.env.VITE_APP_NAME || 'The Scan Menu',
-  baseDomain: import.meta.env.VITE_BASE_DOMAIN || 'thescanmenu.com',
+  baseDomain: import.meta.env.VITE_BASE_DOMAIN || 'app.thescanmenu.com',
   razorpayKeyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
   isDev: import.meta.env.DEV ?? false,
   isProd: import.meta.env.PROD ?? true,

@@ -1304,7 +1304,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
               capacity: 4,
               isActive: true,
               zoneId: '65cb024b93e1a02b1f813002',
-              qrUrl: 'https://bistro-luxe.thescanmenu.com/t/tbl_a89f92d40',
+              qrUrl: 'https://bistro-luxe.app.thescanmenu.com/t/tbl_a89f92d40',
             },
           ],
         },
@@ -1375,7 +1375,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
           data: {
             svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">...</svg>',
             dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
-            directUrl: 'https://bistro-luxe.thescanmenu.com/t/tbl_a89f92d40',
+            directUrl: 'https://bistro-luxe.app.thescanmenu.com/t/tbl_a89f92d40',
           },
         },
       },

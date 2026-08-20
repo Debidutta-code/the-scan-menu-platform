@@ -300,7 +300,7 @@ export const HeroProductShowcase: React.FC = () => {
                     <div className="p-2 rounded-xl bg-zinc-900/95 border border-white/10 flex items-center justify-between text-[10px] font-mono animate-in slide-in-from-top-2 shadow-sm shrink-0">
                       <div className="flex items-center gap-1.5 text-emerald-400">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-zinc-200 font-bold">thescanmenu.com/table/4</span>
+                        <span className="text-zinc-200 font-bold">app.thescanmenu.com/table/4</span>
                       </div>
                       <span className="text-amber-400 font-bold">0.38s</span>
                     </div>

@@ -70,12 +70,12 @@ export const Footer: React.FC = () => {
           <ul className="space-y-2 text-xs">
             <li>
               <a
-                href="https://thescanmenu.com"
+                href="https://app.thescanmenu.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-white transition-colors flex items-center gap-1"
               >
-                <span>TheScanMenu.com Portal</span>
+                <span>App Portal</span>
                 <ArrowUpRight size={12} />
               </a>
             </li>
