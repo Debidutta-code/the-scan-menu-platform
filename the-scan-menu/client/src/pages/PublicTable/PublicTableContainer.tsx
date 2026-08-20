@@ -464,6 +464,8 @@ export const PublicTable: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [activeCategoryId, activeTab]);
 
+  const [repeatPromptItem, setRepeatPromptItem] = useState<{ item: MenuItem; lastCartItem: any } | null>(null);
+
   if (isTableLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -656,8 +658,6 @@ export const PublicTable: React.FC = () => {
       specialInstructions: '',
     });
   };
-
-  const [repeatPromptItem, setRepeatPromptItem] = useState<{ item: MenuItem; lastCartItem: any } | null>(null);
 
   // Helper to increment an item already in cart
   const handleQuickIncrement = (item: MenuItem, e: React.MouseEvent) => {
