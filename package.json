@@ -1,0 +1,24 @@
+{
+  "name": "the-scan-menu-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Scan Menu – Monorepo containing the POS/QR Platform, Showcase Marketing Site, and Captain Mobile App.",
+  "author": "Pixora Studios",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev:pos": "npm run dev --prefix the-scan-menu/client",
+    "dev:server": "npm run dev --prefix the-scan-menu/server",
+    "dev:showcase": "npm run dev --prefix the-scan-menu-showcase",
+    "dev:all": "npm-run-all --parallel dev:server dev:pos dev:showcase",
+    "build:pos": "npm run build --prefix the-scan-menu/client",
+    "build:server": "npm run build --prefix the-scan-menu/server",
+    "build:showcase": "npm run build --prefix the-scan-menu-showcase",
+    "build:all": "npm-run-all --sequential build:server build:pos build:showcase",
+    "install:all": "npm install --prefix the-scan-menu && npm install --prefix the-scan-menu-showcase",
+    "lint:all": "npm run lint --prefix the-scan-menu/client && npm run lint --prefix the-scan-menu-showcase",
+    "test:all": "npm run test --prefix the-scan-menu/server && npm run test --prefix the-scan-menu/client"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}

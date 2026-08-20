@@ -1,0 +1,13 @@
+# Robots.txt for The Scan Menu by Pixora Studios
+User-agent: *
+Allow: /
+Allow: /products/nfc
+Allow: /products/qr
+Allow: /how-it-works
+Allow: /features
+Allow: /industries
+Allow: /pricing
+Allow: /contact
+
+# Sitemaps
+Sitemap: https://thescanmenu.com/sitemap.xml

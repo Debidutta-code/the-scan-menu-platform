@@ -1,22 +1,56 @@
-# Environment variables
+# ─── Environment Variables ───────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
+!**/.env.example
 
-# Firebase & Cloud Credentials
+# ─── Firebase & Cloud Credentials ────────────────────────────────────────────
 *service-account*.json
 *serviceAccount*.json
 firebase-admin*.json
 *google-credentials*.json
 
-# Logs
+# ─── Logs ────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Node / Build artifacts
+# ─── Node / Build Artifacts ──────────────────────────────────────────────────
 node_modules/
 dist/
 build/
-.dart_tool/
+.output/
+.vercel/
+.netlify/
+
+# ─── Vite ────────────────────────────────────────────────────────────────────
+*.local
+*.timestamp-*.mjs
+
+# ─── TypeScript Build Info ───────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Flutter / Dart ──────────────────────────────────────────────────────────
+captain-app/.dart_tool/
+captain-app/build/
+captain-app/.flutter-plugins
+captain-app/.flutter-plugins-dependencies
+captain-app/*.iml
+
+# ─── IDE & OS ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ─── Test Reports ────────────────────────────────────────────────────────────
+playwright-report/
+test-results/
+coverage/

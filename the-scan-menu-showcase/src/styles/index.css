@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-primary: #050505;
+    --bg-surface: #0e0e11;
+    --bg-card: #131318;
+    --accent-amber: #f59e0b;
+    --accent-amber-glow: rgba(245, 158, 11, 0.25);
+    --border-dark: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: #f4f4f5;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+}
+
+/* Custom Utilities & Animations */
+.font-mono-accent {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Glassmorphism UI Chrome */
+.glass-chrome {
+  background: rgba(14, 14, 17, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(19, 19, 24, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Candlelight / Amber Glow Effect */
+.amber-glow {
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.18), inset 0 0 20px rgba(245, 158, 11, 0.08);
+}
+
+.amber-glow-sm {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+}
+
+.amber-text-gradient {
+  background: linear-gradient(135deg, #ffffff 30%, #fbbf24 80%, #d97706 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-text-gradient {
+  background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Scan Line Animation for QR Reveal */
+@keyframes scanline {
+  0% {
+    top: 0%;
+    opacity: 0.8;
+  }
+  50% {
+    top: 95%;
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.8;
+  }
+}
+
+.animate-scanline {
+  animation: scanline 2.5s ease-in-out infinite;
+}
+
+/* Idle Float Animation for Depth Elements */
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1deg);
+  }
+}
+
+.animate-float {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Radial Mask Reveal */
+.radial-mask-reveal {
+  transition: clip-path 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
