@@ -30,6 +30,7 @@ export const createMenuItemSchema = z.object({
   lowStockThreshold: z.number().int().nonnegative('Low stock threshold must be non-negative').optional(),
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
+  isChefsSpecial: z.boolean().default(false),
   prepTimeMinutes: z.number().int().positive().optional(),
   addOns: z
     .array(

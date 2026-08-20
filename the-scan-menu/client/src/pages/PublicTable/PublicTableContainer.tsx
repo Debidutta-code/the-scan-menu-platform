@@ -615,19 +615,6 @@ export const PublicTable: React.FC = () => {
   };
 
   // Helper to directly add a specific portion variant
-  const handleVariantAdd = (item: MenuItem, variant: MenuItemVariant, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!item.isAvailable) return;
-    addItem({
-      itemId: item._id,
-      name: `${item.name} (${variant.name})`,
-      variantName: variant.name,
-      basePrice: variant.price,
-      quantity: 1,
-      selectedAddOns: [],
-      specialInstructions: '',
-    });
-  };
 
   // Helper to compute total quantity of an item in cart
   const getItemCartQuantity = (itemId: string): number => {
@@ -1038,7 +1025,6 @@ export const PublicTable: React.FC = () => {
           onCategoryClick={handleCategoryClick}
           onItemCardClick={handleItemCardClick}
           onQuickAdd={handleQuickAdd}
-          onAddVariant={handleVariantAdd}
           onQuickIncrement={handleQuickIncrement}
           onQuickDecrement={handleQuickDecrement}
           onTrackOrders={(orderId) => updateNavigationState('cart-orders', 'orders', orderId)}

@@ -62,6 +62,7 @@ const menuItemSchema = z.object({
   imageUrl: z.string().optional(),
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
+  isChefsSpecial: z.boolean().default(false),
   prepTimeMinutes: z.coerce.number().int().positive().optional(),
   trackStock: z.boolean().default(false),
   stockQuantity: z.coerce.number().int().min(0).default(0),
@@ -448,6 +449,7 @@ export const ManagerMenu: React.FC = () => {
       addOns: [],
       isVegetarian: false,
       isSpicy: false,
+      isChefsSpecial: false,
       isCombo: false,
       comboItems: [],
       attachedAddOnGroupIds: [],
@@ -570,6 +572,7 @@ export const ManagerMenu: React.FC = () => {
       imageUrl: item.imageUrl || '',
       isVegetarian: !!item.isVegetarian,
       isSpicy: !!item.isSpicy,
+      isChefsSpecial: !!item.isChefsSpecial,
       prepTimeMinutes: item.prepTimeMinutes || '',
       trackStock: !!item.trackStock,
       stockQuantity: item.stockQuantity !== undefined ? item.stockQuantity : 0,
@@ -602,6 +605,7 @@ export const ManagerMenu: React.FC = () => {
       imageUrl: '',
       isVegetarian: false,
       isSpicy: false,
+      isChefsSpecial: false,
       prepTimeMinutes: '',
       trackStock: false,
       stockQuantity: 0,
@@ -1331,6 +1335,13 @@ export const ManagerMenu: React.FC = () => {
                   <input type="checkbox" {...itemForm.register('isSpicy')} className="hidden" />
                   <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} />
                   <span className="text-xs">Spicy</span>
+                </label>
+
+                <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
+                  itemForm.watch('isChefsSpecial') ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
+                }`}>
+                  <input type="checkbox" {...itemForm.register('isChefsSpecial')} className="hidden" />
+                  <span className="text-xs">Chef's Special</span>
                 </label>
 
                 <div>

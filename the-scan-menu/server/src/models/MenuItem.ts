@@ -34,6 +34,7 @@ export interface IMenuItem extends Document {
   lowStockThreshold: number;
   isVegetarian: boolean;
   isSpicy: boolean;
+  isChefsSpecial: boolean;
   prepTimeMinutes?: number;
   sortOrder: number;
   addOns?: IAddOn[];
@@ -90,6 +91,7 @@ const menuItemSchema = new Schema<IMenuItem>(
     lowStockThreshold: { type: Number, required: true, default: 5 },
     isVegetarian: { type: Boolean, required: true, default: false },
     isSpicy: { type: Boolean, required: true, default: false },
+    isChefsSpecial: { type: Boolean, required: true, default: false },
     prepTimeMinutes: { type: Number },
     sortOrder: { type: Number, required: true, default: 0 },
     addOns: [addOnSchema],

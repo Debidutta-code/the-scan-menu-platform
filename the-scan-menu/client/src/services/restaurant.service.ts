@@ -118,6 +118,7 @@ export interface MenuItem {
   lowStockThreshold?: number;
   isVegetarian: boolean;
   isSpicy: boolean;
+  isChefsSpecial?: boolean;
   prepTimeMinutes?: number;
   sortOrder: number;
   addOns?: AddOn[];
