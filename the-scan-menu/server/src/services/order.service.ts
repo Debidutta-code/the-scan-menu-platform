@@ -43,6 +43,7 @@ export class OrderService {
     orderMode?: OrderMode;
     items: {
       itemId: string;
+      variantName?: string;
       quantity: number;
       selectedAddOns?: { name: string }[];
       specialInstructions?: string;
@@ -113,6 +114,16 @@ export class OrderService {
       }
 
       let unitPriceSnapshot = menuItem.price;
+      let variantName: string | undefined = item.variantName;
+
+      if (item.variantName && menuItem.pricingType === 'PORTION' && Array.isArray(menuItem.variants)) {
+        const targetName = item.variantName.toLowerCase();
+        const variantMatch = menuItem.variants.find((v) => v.name.toLowerCase() === targetName);
+        if (variantMatch) {
+          unitPriceSnapshot = variantMatch.price;
+        }
+      }
+
       const selectedAddOns: { name: string; priceDelta: number }[] = [];
 
       if (item.selectedAddOns && Array.isArray(item.selectedAddOns)) {
@@ -130,6 +141,7 @@ export class OrderService {
       validatedItems.push({
         menuItemId: menuItem._id,
         nameSnapshot: menuItem.name,
+        variantName,
         unitPriceSnapshot,
         quantity: item.quantity || 1,
         selectedAddOns,

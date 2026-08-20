@@ -268,7 +268,7 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                         {/* Pricing & Add Controls Row */}
                         <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 w-full">
                           {isPortion && item.variants ? (
-                            item.variants.length <= 3 ? (
+                            item.variants.length <= 2 ? (
                               <div className="flex items-center justify-between w-full gap-3">
                                 <div className="flex flex-col">
                                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">From</span>

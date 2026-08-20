@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import { Loader, AlertTriangle } from 'lucide-react';
+import { Loader, AlertTriangle, X } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn, MenuItemVariant } from '../../services/restaurant.service';
 import { useCartStore } from '../../store/useCartStore';
 import { useCustomerAuth } from '../../hooks/useCustomerAuth';
@@ -657,6 +657,8 @@ export const PublicTable: React.FC = () => {
     });
   };
 
+  const [repeatPromptItem, setRepeatPromptItem] = useState<{ item: MenuItem; lastCartItem: any } | null>(null);
+
   // Helper to increment an item already in cart
   const handleQuickIncrement = (item: MenuItem, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -667,7 +669,14 @@ export const PublicTable: React.FC = () => {
     }
 
     const target = existingEntries[existingEntries.length - 1];
-    updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', 1);
+
+    // If item has add-ons or special instructions, prompt user to repeat or choose new
+    if (target.selectedAddOns.length > 0 || (target.specialInstructions && target.specialInstructions.trim()) || existingEntries.length > 1) {
+      setRepeatPromptItem({ item, lastCartItem: target });
+      return;
+    }
+
+    updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', 1, target.variantName);
   };
 
   // Helper to decrement an item from the card
@@ -677,7 +686,7 @@ export const PublicTable: React.FC = () => {
     if (existingEntries.length === 0) return;
 
     const target = existingEntries[existingEntries.length - 1];
-    updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', -1);
+    updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', -1, target.variantName);
   };
 
   // Main order submission worker
@@ -692,6 +701,7 @@ export const PublicTable: React.FC = () => {
       const payload = {
         items: cartItems.map((item) => ({
           itemId: item.itemId,
+          variantName: item.variantName,
           quantity: item.quantity,
           selectedAddOns: item.selectedAddOns.map((addon) => ({
             name: addon.name,
@@ -1188,6 +1198,76 @@ export const PublicTable: React.FC = () => {
         onToggleTaxBreakdown={() => setIsTaxBreakdownExpanded(!isTaxBreakdownExpanded)}
         onClose={() => setIsViewBillModalOpen(false)}
       />
+
+      {/* REPEAT CUSTOMIZATION PROMPT MODAL */}
+      {repeatPromptItem && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-150 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Repeat Customization?
+              </span>
+              <button
+                onClick={() => setRepeatPromptItem(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="font-display text-base font-bold text-slate-900 leading-tight">
+                {repeatPromptItem.item.name}
+              </h4>
+              {repeatPromptItem.lastCartItem.variantName && (
+                <span className="inline-block text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded font-mono">
+                  Portion: {repeatPromptItem.lastCartItem.variantName}
+                </span>
+              )}
+              {repeatPromptItem.lastCartItem.selectedAddOns.length > 0 && (
+                <p className="text-xs text-slate-500 font-medium">
+                  Add-ons: <span className="font-bold text-slate-800">{repeatPromptItem.lastCartItem.selectedAddOns.map((a: any) => a.name).join(', ')}</span>
+                </p>
+              )}
+              {repeatPromptItem.lastCartItem.specialInstructions && (
+                <p className="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 italic font-medium">
+                  "{repeatPromptItem.lastCartItem.specialInstructions}"
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={() => {
+                  const target = repeatPromptItem.lastCartItem;
+                  updateQuantity(
+                    repeatPromptItem.item._id,
+                    target.selectedAddOns,
+                    target.specialInstructions || '',
+                    1,
+                    target.variantName
+                  );
+                  setRepeatPromptItem(null);
+                }}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-2xl shadow-xs active:scale-95 transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Repeat Last (+1)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const item = repeatPromptItem.item;
+                  setRepeatPromptItem(null);
+                  handleItemCardClick(item);
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Choose New Customization</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -7,7 +7,7 @@ import '../models/menu_item_model.dart';
 
 class AddonSelectionSheet extends StatefulWidget {
   final MenuItemModel item;
-  final Function(int quantity, List<AddOnModel> selectedAddons, String instructions) onConfirm;
+  final Function(int quantity, MenuItemVariantModel? variant, List<AddOnModel> selectedAddons, String instructions) onConfirm;
 
   const AddonSelectionSheet({
     super.key,
@@ -21,8 +21,20 @@ class AddonSelectionSheet extends StatefulWidget {
 
 class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
   int _quantity = 1;
+  MenuItemVariantModel? _selectedVariant;
   final Set<AddOnModel> _selectedAddons = {};
   final _instructionsController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.item.variants.isNotEmpty) {
+      _selectedVariant = widget.item.variants.firstWhere(
+        (v) => v.isDefault,
+        orElse: () => widget.item.variants.first,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -31,11 +43,11 @@ class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
   }
 
   int get _calculatedUnitPrice {
-    int total = widget.item.price;
+    int base = _selectedVariant != null ? _selectedVariant!.price : widget.item.price;
     for (final addon in _selectedAddons) {
-      total += addon.priceDelta;
+      base += addon.priceDelta;
     }
-    return total;
+    return base;
   }
 
   int get _calculatedTotalPrice => _calculatedUnitPrice * _quantity;
@@ -122,7 +134,7 @@ class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
                   ),
                 ),
                 Text(
-                  Formatters.formatCurrency(widget.item.price),
+                  Formatters.formatCurrency(_calculatedUnitPrice),
                   style: GoogleFonts.outfit(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -132,6 +144,45 @@ class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // Portion / Size Selector
+            if (widget.item.variants.isNotEmpty) ...[
+              const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                'Select Portion / Size',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.item.variants.map((v) {
+                  final isSelected = _selectedVariant?.name == v.name;
+                  return ChoiceChip(
+                    label: Text('${v.name} • ${Formatters.formatCurrency(v.price)}'),
+                    selected: isSelected,
+                    selectedColor: AppColors.primary,
+                    backgroundColor: AppColors.surfaceLight,
+                    labelStyle: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? AppColors.textDark : AppColors.textPrimary,
+                    ),
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => _selectedVariant = v);
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Add-ons Section
             if (widget.item.addOns.isNotEmpty) ...[
@@ -253,6 +304,7 @@ class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
                       onPressed: () {
                         widget.onConfirm(
                           _quantity,
+                          _selectedVariant,
                           _selectedAddons.toList(),
                           _instructionsController.text,
                         );

@@ -90,15 +90,17 @@ class CartNotifier extends StateNotifier<CartState> {
 
   void addItem(
     MenuItemModel item, {
+    MenuItemVariantModel? selectedVariant,
     int quantity = 1,
     List<AddOnModel> selectedAddOns = const [],
     String specialInstructions = '',
   }) {
     final existingIndex = state.items.indexWhere((i) {
       final sameItem = i.item.id == item.id;
+      final sameVariant = i.selectedVariant?.name == selectedVariant?.name;
       final sameAddons = _areAddonsEqual(i.selectedAddOns, selectedAddOns);
       final sameNotes = i.specialInstructions == specialInstructions;
-      return sameItem && sameAddons && sameNotes;
+      return sameItem && sameVariant && sameAddons && sameNotes;
     });
 
     if (existingIndex != -1) {
@@ -113,6 +115,7 @@ class CartNotifier extends StateNotifier<CartState> {
           ...state.items,
           CartItemModel(
             item: item,
+            selectedVariant: selectedVariant,
             quantity: quantity,
             selectedAddOns: selectedAddOns,
             specialInstructions: specialInstructions,

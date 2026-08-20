@@ -46,6 +46,11 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
       return;
     }
 
+    if (item.pricingType == 'PORTION' || item.variants.isNotEmpty || item.addOns.isNotEmpty) {
+      _showCustomizationSheet(item);
+      return;
+    }
+
     HapticFeedback.lightImpact();
     ref.read(cartProvider.notifier).incrementItem(item);
   }
@@ -57,9 +62,10 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => AddonSelectionSheet(
         item: item,
-        onConfirm: (qty, addons, instructions) {
+        onConfirm: (qty, variant, addons, instructions) {
           ref.read(cartProvider.notifier).addItem(
                 item,
+                selectedVariant: variant,
                 quantity: qty,
                 selectedAddOns: addons,
                 specialInstructions: instructions,
@@ -348,13 +354,36 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                     Row(
                       children: [
                         Text(
-                          Formatters.formatCurrency(item.price),
+                          item.pricingType == 'PORTION' && item.variants.isNotEmpty
+                              ? 'From ${Formatters.formatCurrency(item.variants.map((v) => v.price).reduce((a, b) => a < b ? a : b))}'
+                              : Formatters.formatCurrency(item.price),
                           style: GoogleFonts.outfit(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
                           ),
                         ),
+                        if (item.pricingType == 'PORTION' && item.variants.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: Text(
+                              '${item.variants.length} Sizes',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1D4ED8),
+                              ),
+                            ),
+                          ),
+                        ],
                         if (item.addOns.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(

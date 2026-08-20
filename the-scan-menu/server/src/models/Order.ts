@@ -49,6 +49,7 @@ export interface IOrderAddOn {
 export interface IOrderItem {
   menuItemId: Types.ObjectId;
   nameSnapshot: string;
+  variantName?: string;
   unitPriceSnapshot: number; // in cents/paise (base item price)
   quantity: number;
   selectedAddOns: IOrderAddOn[];
@@ -118,6 +119,7 @@ const orderItemSchema = new Schema<IOrderItem>(
   {
     menuItemId: { type: Schema.Types.ObjectId, ref: 'MenuItem', required: true },
     nameSnapshot: { type: String, required: true, trim: true },
+    variantName: { type: String, trim: true },
     unitPriceSnapshot: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
     selectedAddOns: [orderAddOnSchema],

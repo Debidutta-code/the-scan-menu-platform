@@ -22,6 +22,34 @@ class AddOnModel {
       };
 }
 
+class MenuItemVariantModel {
+  final String name;
+  final int price; // in paise/cents
+  final bool isDefault;
+
+  MenuItemVariantModel({
+    required this.name,
+    required this.price,
+    this.isDefault = false,
+  });
+
+  factory MenuItemVariantModel.fromJson(Map<String, dynamic> json) {
+    return MenuItemVariantModel(
+      name: json['name'] ?? '',
+      price: json['price'] is int
+          ? json['price']
+          : (json['price'] as num?)?.toInt() ?? 0,
+      isDefault: json['isDefault'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'price': price,
+        'isDefault': isDefault,
+      };
+}
+
 class MenuItemModel {
   final String id;
   final String restaurantId;
@@ -29,10 +57,13 @@ class MenuItemModel {
   final String name;
   final String? description;
   final int price; // in paise/cents
+  final String pricingType; // 'SINGLE' | 'PORTION'
+  final List<MenuItemVariantModel> variants;
   final String? imageUrl;
   final bool isAvailable;
   final bool isVegetarian;
   final bool isSpicy;
+  final bool isCombo;
   final int prepTimeMinutes;
   final List<AddOnModel> addOns;
 
@@ -43,10 +74,13 @@ class MenuItemModel {
     required this.name,
     this.description,
     required this.price,
+    this.pricingType = 'SINGLE',
+    this.variants = const [],
     this.imageUrl,
     required this.isAvailable,
     this.isVegetarian = true,
     this.isSpicy = false,
+    this.isCombo = false,
     this.prepTimeMinutes = 15,
     required this.addOns,
   });
@@ -61,10 +95,16 @@ class MenuItemModel {
       price: json['price'] is int
           ? json['price']
           : (json['price'] as num?)?.toInt() ?? 0,
+      pricingType: json['pricingType'] ?? 'SINGLE',
+      variants: (json['variants'] as List<dynamic>?)
+              ?.map((e) => MenuItemVariantModel.fromJson(e))
+              .toList() ??
+          [],
       imageUrl: json['imageUrl'],
       isAvailable: json['isAvailable'] ?? true,
       isVegetarian: json['isVegetarian'] ?? true,
       isSpicy: json['isSpicy'] ?? false,
+      isCombo: json['isCombo'] ?? false,
       prepTimeMinutes: json['prepTimeMinutes'] ?? 15,
       addOns: (json['addOns'] as List<dynamic>?)
               ?.map((e) => AddOnModel.fromJson(e))
@@ -83,10 +123,13 @@ class MenuItemModel {
       name: name,
       description: description,
       price: price,
+      pricingType: pricingType,
+      variants: variants,
       imageUrl: imageUrl,
       isAvailable: isAvailable ?? this.isAvailable,
       isVegetarian: isVegetarian,
       isSpicy: isSpicy,
+      isCombo: isCombo,
       prepTimeMinutes: prepTimeMinutes,
       addOns: addOns,
     );

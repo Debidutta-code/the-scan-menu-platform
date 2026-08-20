@@ -148,14 +148,14 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                         <span className="text-xs font-black text-slate-900 font-mono">{formatPrice(item.price * item.quantity, currency)}</span>
                         <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-0.5 mt-2">
                           <button
-                            onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', -1)}
+                            onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', -1, item.variantName)}
                             className="p-1 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
                           >
                             <Minus className="w-3.5 h-3.5" strokeWidth={2} />
                           </button>
                           <span className="px-2 font-bold text-slate-900 text-[11px] font-mono w-5 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', 1)}
+                            onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', 1, item.variantName)}
                             className="p-1 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
                           >
                             <Plus className="w-3.5 h-3.5" strokeWidth={2} />

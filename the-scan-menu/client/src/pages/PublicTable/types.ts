@@ -164,6 +164,7 @@ export interface CartOrdersTabProps {
     selectedAddOns: import('../../services/restaurant.service').AddOn[],
     specialInstructions: string,
     delta: number,
+    variantName?: string
   ) => void;
   onCustomerNoteChange: (note: string) => void;
   onCheckoutTrigger: () => void;
