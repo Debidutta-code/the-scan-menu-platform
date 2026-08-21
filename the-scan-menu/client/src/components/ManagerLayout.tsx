@@ -440,8 +440,8 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Counter POS tab — visible only for manager/admin if ordering module is enabled */}
-          {!isStaff && isEnabled('ordering') && (
+          {/* Counter POS tab — visible only for manager/admin if pos module is enabled */}
+          {!isStaff && isEnabled('pos') && (
             <button
               onClick={() => navigate('/manager/counter')}
               className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${

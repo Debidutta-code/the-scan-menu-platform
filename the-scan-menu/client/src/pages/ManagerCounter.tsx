@@ -668,7 +668,9 @@ export const ManagerCounter: React.FC = () => {
                       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                         {catItems.map((item: any) => {
                           const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
-                          const selected = !isPortion ? cartItems.find((i) => i.itemId === item._id) : null;
+                          const selectedPortions = cartItems.filter(i => i.baseItemId === item._id);
+                          const selected = !isPortion ? cartItems.find((i) => i.itemId === item._id) : selectedPortions.length > 0;
+                          const totalPortionQty = selectedPortions.reduce((sum, p) => sum + p.quantity, 0);
                           const isTracked = !!item.trackStock;
                           const qty = item.stockQuantity || 0;
                           const threshold = item.lowStockThreshold || 5;
@@ -733,12 +735,19 @@ export const ManagerCounter: React.FC = () => {
 
                               {isPortion ? (
                                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${selected ? 'text-amber-700' : 'text-slate-500'}`}>
                                     Multiple Options
                                   </span>
-                                  <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                                    + ADD
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {selected && totalPortionQty > 0 && (
+                                      <span className="w-5 h-5 rounded-full bg-amber-400 text-amber-950 font-mono text-[10px] flex items-center justify-center font-bold shadow-sm">
+                                        {totalPortionQty}
+                                      </span>
+                                    )}
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${selected ? 'text-amber-800 bg-amber-200 border-amber-300' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
+                                      {selected ? 'EDIT' : '+ ADD'}
+                                    </span>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">

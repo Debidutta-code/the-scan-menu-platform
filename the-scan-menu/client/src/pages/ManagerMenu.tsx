@@ -1344,14 +1344,16 @@ export const ManagerMenu: React.FC = () => {
                   <span className="text-xs">Chef's Special</span>
                 </label>
 
-                <div>
-                  <input
-                    type="number"
-                    placeholder="15 mins prep"
-                    {...itemForm.register('prepTimeMinutes')}
-                    className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium"
-                  />
-                </div>
+                {isEnabled('ordering') && (
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="15 mins prep"
+                      {...itemForm.register('prepTimeMinutes')}
+                      className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Image Uploader */}
