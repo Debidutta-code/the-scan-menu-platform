@@ -95,6 +95,19 @@ const FLAG_ICON_MAP: Record<string, any> = {
   white_label: Palette,
 };
 
+const FLAG_DEPENDENCIES: Record<string, string[]> = {
+  ordering: ['qr_menu'],
+  kds: ['ordering', 'qr_menu'],
+  customer_display: ['ordering', 'qr_menu'],
+  waiter_call: ['qr_menu'],
+  takeaway: ['ordering', 'qr_menu'],
+  delivery: ['ordering', 'qr_menu'],
+  pos: ['ordering', 'qr_menu'],
+  payments: ['ordering', 'qr_menu'],
+  coupons: ['crm'],
+  loyalty: ['crm'],
+};
+
 export const AdminFeatureFlags: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -192,22 +205,11 @@ export const AdminFeatureFlags: React.FC = () => {
     if (!selectedRestId) return;
     const newStatus = !currentStatus;
     
-    // Chain rules
-    const dependenciesToEnable: string[] = [];
+    // Only handle reverse dependencies (disabling children if parent is disabled)
+    // Forward dependencies are now strictly enforced via UI (must enable parents manually first)
     const dependenciesToDisable: string[] = [];
 
-    if (newStatus === true) {
-      if (flagKey === 'ordering') dependenciesToEnable.push('qr_menu');
-      if (flagKey === 'kds') dependenciesToEnable.push('ordering', 'qr_menu');
-      if (flagKey === 'customer_display') dependenciesToEnable.push('ordering', 'qr_menu');
-      if (flagKey === 'waiter_call') dependenciesToEnable.push('qr_menu');
-      if (flagKey === 'takeaway') dependenciesToEnable.push('ordering', 'qr_menu');
-      if (flagKey === 'delivery') dependenciesToEnable.push('ordering', 'qr_menu');
-      if (flagKey === 'pos') dependenciesToEnable.push('ordering', 'qr_menu');
-      if (flagKey === 'payments') dependenciesToEnable.push('ordering', 'qr_menu');
-      if (flagKey === 'coupons') dependenciesToEnable.push('crm');
-      if (flagKey === 'loyalty') dependenciesToEnable.push('crm');
-    } else {
+    if (newStatus === false) {
       if (flagKey === 'qr_menu') dependenciesToDisable.push('ordering', 'waiter_call', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
       if (flagKey === 'ordering') dependenciesToDisable.push('kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
       if (flagKey === 'crm') dependenciesToDisable.push('coupons', 'loyalty');
@@ -216,9 +218,6 @@ export const AdminFeatureFlags: React.FC = () => {
     const updatedFlags = currentFlags.map((f: any) => {
       if (f.key === flagKey) {
         return { ...f, enabled: newStatus };
-      }
-      if (newStatus === true && dependenciesToEnable.includes(f.key)) {
-        return { ...f, enabled: true };
       }
       if (newStatus === false && dependenciesToDisable.includes(f.key)) {
         return { ...f, enabled: false };
@@ -229,9 +228,7 @@ export const AdminFeatureFlags: React.FC = () => {
     // Optimistically update local state immediately
     setLocalFlags(updatedFlags);
 
-    if (dependenciesToEnable.length > 0 && newStatus === true) {
-      toast(`Enabled dependencies automatically`, 'info');
-    } else if (dependenciesToDisable.length > 0 && newStatus === false) {
+    if (dependenciesToDisable.length > 0 && newStatus === false) {
       toast(`Disabled dependent modules automatically`, 'info');
     }
 
@@ -493,17 +490,30 @@ export const AdminFeatureFlags: React.FC = () => {
                           {categoryFlags.map((flag: any) => {
                             const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
 
+                            // Calculate dependencies
+                            const deps = FLAG_DEPENDENCIES[flag.key] || [];
+                            const missingDeps = deps.filter((depKey) => {
+                              const depFlag = currentFlags.find((f: any) => f.key === depKey);
+                              return !depFlag?.enabled;
+                            });
+                            const missingDepNames = missingDeps.map(depKey => {
+                              const depFlag = currentFlags.find((f: any) => f.key === depKey);
+                              return depFlag?.name || depKey.replace(/_/g, ' ');
+                            });
+                            
+                            const isToggleDisabled = !flag.enabled && missingDeps.length > 0;
+
                             return (
                               <div
                                 key={flag.key}
                                 className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
                                   flag.enabled
                                     ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
-                                    : 'bg-slate-50/70 border-slate-200 opacity-70 hover:opacity-100'
-                                }`}
+                                    : 'bg-slate-50/70 border-slate-200 hover:bg-white'
+                                } ${isToggleDisabled ? 'opacity-60 grayscale-[0.2]' : ''}`}
                               >
                                 {/* Left: Icon, Title, Description, Category */}
-                                <div className="flex items-start gap-3.5">
+                                <div className="flex items-start gap-3.5 flex-1 min-w-0">
                                   <div
                                     className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
                                       flag.enabled
@@ -513,7 +523,7 @@ export const AdminFeatureFlags: React.FC = () => {
                                   >
                                     <IconComponent className="w-5 h-5" strokeWidth={2} />
                                   </div>
-                                  <div className="flex flex-col gap-1">
+                                  <div className="flex flex-col gap-1 w-full">
                                     <div className="flex items-center gap-2">
                                       <h4 className="font-bold text-sm text-slate-900 leading-tight">
                                         {flag.name || flag.key.replace(/_/g, ' ')}
@@ -522,23 +532,38 @@ export const AdminFeatureFlags: React.FC = () => {
                                     <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
                                       {flag.description || 'Module functionality for restaurant operations.'}
                                     </p>
-                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                                      Key: {flag.key}
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] font-mono text-slate-400">
+                                        Key: {flag.key}
+                                      </span>
                                     </div>
+
+                                    {/* Warning message if dependencies are missing */}
+                                    {isToggleDisabled && (
+                                      <div className="mt-2 flex items-start gap-1.5 p-2 bg-amber-50/80 border border-amber-200/80 rounded-lg text-amber-800 text-[11px] font-medium max-w-lg">
+                                        <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                                        <span>
+                                          Cannot enable. Requires <span className="font-bold text-amber-900">{missingDepNames.join(' and ')}</span> to be enabled first.
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
 
                                 {/* Right: Switch Action */}
-                                <div className="flex items-center gap-4 shrink-0 self-end md:self-auto w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 justify-between md:justify-end">
+                                <div className="flex items-center gap-4 shrink-0 self-end md:self-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 justify-between md:justify-end">
                                   <span className={flag.enabled ? 'text-emerald-700 font-bold text-xs' : 'text-slate-500 text-xs font-medium'}>
                                     {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
                                   </span>
                                   <button
                                     onClick={() => handleToggleFlag(flag.key, flag.enabled)}
+                                    disabled={isToggleDisabled}
                                     className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
                                       flag.enabled
                                         ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                        : isToggleDisabled
+                                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                                     }`}
                                   >
                                     {flag.enabled ? (
