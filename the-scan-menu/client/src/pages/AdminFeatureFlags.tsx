@@ -349,85 +349,67 @@ export const AdminFeatureFlags: React.FC = () => {
         ) : (
           <>
               {/* Outlet Active Status & Summary Header */}
-              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4.5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  {/* Left: Name and Slug */}
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-display text-lg font-bold text-slate-900">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h3 className="font-display text-xl font-bold text-slate-900">
                         {selectedRestaurant?.name}
                       </h3>
-                      <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-slate-950 text-amber-400 border border-slate-800 uppercase">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-900 text-amber-400 uppercase tracking-wider">
                         {selectedRestaurant?.subscription?.planKey || 'FREE'} PLAN
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5">
+                    <p className="text-sm text-slate-500 font-mono">
                       Slug: <span className="font-bold text-slate-700">{selectedRestaurant?.slug}</span>
                     </p>
                   </div>
 
-                  {/* Active Count Metric */}
-                  <div className="flex items-center gap-3 bg-white px-3.5 py-2 rounded-xl border border-slate-200 self-start sm:self-auto shadow-xs">
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-slate-900">
-                        {activeFlagsCount} of {totalFlagsCount} Active
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-400">
-                        {activePercentage}% Enabled
-                      </div>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold font-mono text-xs">
-                      {activePercentage}%
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${activePercentage}%` }}
-                  />
-                </div>
-
-                {/* 1-Click Quick Action Presets */}
-                <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    <span>1-Tap Presets:</span>
-                  </span>
-
+                  {/* Right: Quick Presets */}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={handleEnableAll}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5 shadow-xs"
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Enable All (Demo Mode)</span>
+                      Enable All
                     </button>
-
                     <button
                       onClick={handleDisableAll}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 text-red-900 border border-red-200 hover:bg-red-100 transition flex items-center gap-1.5 shadow-xs"
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-red-50 text-red-900 border border-red-200 hover:bg-red-100 transition flex items-center gap-1.5"
                     >
                       <Zap className="w-3.5 h-3.5 text-red-600" />
-                      <span>Disable All</span>
+                      Disable All
                     </button>
-
                     <button
                       onClick={handleSyncWithPlan}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1.5 shadow-xs"
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1.5"
                     >
                       <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Sync with {selectedRestaurant?.subscription?.planKey || 'Plan'}</span>
+                      Sync Plan
                     </button>
-
                     <button
                       onClick={handleMinimalQrOnly}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition flex items-center gap-1.5 shadow-xs"
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition flex items-center gap-1.5"
                     >
                       <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Minimal (QR Only)</span>
+                      QR Only
                     </button>
+                  </div>
+                </div>
+
+                {/* Progress bar integrated neatly */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-100 mt-2">
+                  <div className="flex flex-col whitespace-nowrap min-w-[140px]">
+                    <span className="text-sm font-bold text-slate-900">{activeFlagsCount} of {totalFlagsCount} Modules Active</span>
+                    <span className="text-[10px] text-slate-500 font-mono mt-0.5">{activePercentage}% Features Enabled</span>
+                  </div>
+                  <div className="flex-1 w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${activePercentage}%` }}
+                    />
                   </div>
                 </div>
               </div>
@@ -486,7 +468,7 @@ export const AdminFeatureFlags: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                           {categoryFlags.map((flag: any) => {
                             const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
 
@@ -506,57 +488,52 @@ export const AdminFeatureFlags: React.FC = () => {
                             return (
                               <div
                                 key={flag.key}
-                                className={`p-5 rounded-3xl border transition-all flex flex-col h-full gap-4 ${
+                                className={`p-4 rounded-2xl border transition-all flex flex-col h-full gap-3 ${
                                   flag.enabled
                                     ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
                                     : 'bg-slate-50/70 border-slate-200 hover:bg-white'
                                 } ${isToggleDisabled ? 'opacity-60 grayscale-[0.2]' : ''}`}
                               >
-                                {/* Top: Icon, Title, Description, Category */}
-                                <div className="flex flex-col items-start gap-4 flex-1">
-                                  <div className="flex items-center justify-between w-full">
-                                    <div
-                                      className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
-                                        flag.enabled
-                                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                          : 'bg-slate-200 text-slate-600 border-slate-300'
-                                      }`}
-                                    >
-                                      <IconComponent className="w-6 h-6" strokeWidth={2} />
-                                    </div>
-                                    <div className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
+                                {/* Top: Icon, Title, Key */}
+                                <div className="flex items-center gap-3 w-full">
+                                  <div
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                                      flag.enabled
+                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                        : 'bg-slate-200 text-slate-600 border-slate-300'
+                                    }`}
+                                  >
+                                    <IconComponent className="w-5 h-5" strokeWidth={2} />
+                                  </div>
+                                  <div className="flex flex-col flex-1 min-w-0">
+                                    <h4 className="font-bold text-[14px] text-slate-900 leading-tight truncate">
+                                      {flag.name || flag.key.replace(/_/g, ' ')}
+                                    </h4>
+                                    <div className="text-[10px] font-mono font-bold text-slate-400 mt-0.5 truncate">
                                       {flag.key}
                                     </div>
                                   </div>
-                                  <div className="flex flex-col gap-1 w-full mt-1">
-                                    <h4 className="font-bold text-[15px] text-slate-900 leading-tight">
-                                      {flag.name || flag.key.replace(/_/g, ' ')}
-                                    </h4>
-                                    <p className="text-[13px] text-slate-500 leading-relaxed">
-                                      {flag.description || 'Module functionality for restaurant operations.'}
-                                    </p>
-
-                                    {/* Warning message if dependencies are missing */}
-                                    {isToggleDisabled && (
-                                      <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-amber-800 text-[11px] font-medium w-full">
-                                        <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                                        <span className="leading-relaxed">
-                                          Requires <span className="font-bold text-amber-900">{missingDepNames.join(' & ')}</span> to be enabled first.
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
                                 </div>
 
+                                {/* Warning message if dependencies are missing */}
+                                {isToggleDisabled && (
+                                  <div className="mt-1 flex items-start gap-1.5 p-2 bg-amber-50/80 border border-amber-200/80 rounded-lg text-amber-800 text-[10px] font-medium w-full">
+                                    <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                                    <span className="leading-tight">
+                                      Requires <span className="font-bold text-amber-900">{missingDepNames.join(' & ')}</span>
+                                    </span>
+                                  </div>
+                                )}
+
                                 {/* Bottom: Switch Action */}
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 mt-auto">
-                                  <span className={flag.enabled ? 'text-emerald-700 font-bold text-xs' : 'text-slate-500 text-xs font-medium'}>
-                                    {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-200/60 mt-auto">
+                                  <span className={flag.enabled ? 'text-emerald-700 font-bold text-[10px]' : 'text-slate-500 text-[10px] font-medium'}>
+                                    {flag.enabled ? 'Enabled' : 'Disabled'}
                                   </span>
                                   <button
                                     onClick={() => handleToggleFlag(flag.key, flag.enabled)}
                                     disabled={isToggleDisabled}
-                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold font-mono text-[10px] transition shadow-xs ${
                                       flag.enabled
                                         ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                                         : isToggleDisabled
@@ -566,7 +543,7 @@ export const AdminFeatureFlags: React.FC = () => {
                                   >
                                     {flag.enabled ? (
                                       <>
-                                        <Check className="w-4 h-4" />
+                                        <Check className="w-3 h-3" />
                                         <span>ON</span>
                                       </>
                                     ) : (
