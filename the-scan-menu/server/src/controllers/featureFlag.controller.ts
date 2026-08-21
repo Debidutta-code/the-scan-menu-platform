@@ -38,7 +38,52 @@ export class FeatureFlagController {
         return;
       }
 
-      const updatedFlags = await featureFlagService.bulkUpdate(restaurantId, flags);
+      // Enforce Chained Dependencies
+      const flagMap = new Map<string, boolean>();
+      flags.forEach((f) => {
+        if (f.key && typeof f.enabled === 'boolean') {
+          flagMap.set(f.key, f.enabled);
+        }
+      });
+
+      // Chain rules logic
+      if (flagMap.get('ordering') === true) {
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('kds') === true) {
+        flagMap.set('ordering', true);
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('customer_display') === true) {
+        flagMap.set('ordering', true);
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('waiter_call') === true) {
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('takeaway') === true) {
+        flagMap.set('ordering', true);
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('delivery') === true) {
+        flagMap.set('ordering', true);
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('pos') === true) {
+        flagMap.set('ordering', true);
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('coupons') === true) {
+        flagMap.set('crm', true);
+      }
+      if (flagMap.get('loyalty') === true) {
+        flagMap.set('crm', true);
+      }
+
+      // Reconstruct flags array to send to service
+      const processedFlags = Array.from(flagMap.entries()).map(([key, enabled]) => ({ key, enabled }));
+
+      const updatedFlags = await featureFlagService.bulkUpdate(restaurantId, processedFlags);
 
       sendSuccess(res, updatedFlags, 'Feature flags updated successfully');
     } catch (error) {

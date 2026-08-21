@@ -473,7 +473,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Transactions tab (Sidebar) — visible only for manager/admin */}
-          {!isStaff && (
+          {!isStaff && (isEnabled('payments') || isEnabled('pos')) && (
             <button
               onClick={() => navigate('/manager/transactions')}
               className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -562,7 +562,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Staff tab (Manager/Super Admin only) */}
-          {!isStaff && (
+          {!isStaff && (isEnabled('crm') || isEnabled('pos')) && (
             <button
               onClick={() => navigate('/manager/staff')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -577,7 +577,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Customers tab (Manager/Super Admin only) */}
-          {!isStaff && (
+          {!isStaff && isEnabled('crm') && (
             <button
               onClick={() => navigate('/manager/customers')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -592,7 +592,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Taxes tab (Manager/Super Admin only) */}
-          {!isStaff && (
+          {!isStaff && isEnabled('ordering') && (
             <button
               onClick={() => navigate('/manager/taxes')}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
@@ -713,7 +713,7 @@ export const ManagerLayout: React.FC = () => {
 
 
         {/* Transactions Bottom Nav (Manager only) */}
-        {!isStaff && (
+        {!isStaff && (isEnabled('payments') || isEnabled('pos')) && (
           <button
             onClick={() => navigate('/manager/transactions')}
             className={`flex flex-col items-center justify-center flex-1 h-full pt-1 pb-1 relative ${
@@ -777,7 +777,7 @@ export const ManagerLayout: React.FC = () => {
         )}
 
         {/* Staff (Manager only) */}
-        {!isStaff && (
+        {!isStaff && (isEnabled('crm') || isEnabled('pos')) && (
           <button
             onClick={() => navigate('/manager/staff')}
             className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${
@@ -790,7 +790,7 @@ export const ManagerLayout: React.FC = () => {
         )}
 
         {/* Taxes (Manager only) */}
-        {!isStaff && (
+        {!isStaff && isEnabled('ordering') && (
           <button
             onClick={() => navigate('/manager/taxes')}
             className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all min-w-0 ${

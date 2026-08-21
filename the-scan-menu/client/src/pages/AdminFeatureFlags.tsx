@@ -173,13 +173,38 @@ export const AdminFeatureFlags: React.FC = () => {
   const totalFlagsCount = currentFlags.length;
   const activePercentage = totalFlagsCount > 0 ? Math.round((activeFlagsCount / totalFlagsCount) * 100) : 0;
 
-  // Handler: Toggle single flag
+  // Handler: Toggle single flag with Chained Permission Logic
   const handleToggleFlag = (flagKey: string, currentStatus: boolean) => {
     if (!selectedRestId) return;
+    const newStatus = !currentStatus;
+    
+    // Chain rules
+    let dependenciesToEnable: string[] = [];
+    if (newStatus === true) {
+      if (flagKey === 'ordering') dependenciesToEnable.push('qr_menu');
+      if (flagKey === 'kds') dependenciesToEnable.push('ordering', 'qr_menu');
+      if (flagKey === 'customer_display') dependenciesToEnable.push('ordering', 'qr_menu');
+      if (flagKey === 'waiter_call') dependenciesToEnable.push('qr_menu');
+      if (flagKey === 'takeaway') dependenciesToEnable.push('ordering', 'qr_menu');
+      if (flagKey === 'delivery') dependenciesToEnable.push('ordering', 'qr_menu');
+      if (flagKey === 'pos') dependenciesToEnable.push('ordering', 'qr_menu');
+      if (flagKey === 'coupons') dependenciesToEnable.push('crm');
+      if (flagKey === 'loyalty') dependenciesToEnable.push('crm');
+    }
 
-    const updatedFlags = currentFlags.map((f: any) =>
-      f.key === flagKey ? { ...f, enabled: !currentStatus } : f
-    );
+    const updatedFlags = currentFlags.map((f: any) => {
+      if (f.key === flagKey) {
+        return { ...f, enabled: newStatus };
+      }
+      if (dependenciesToEnable.includes(f.key)) {
+        return { ...f, enabled: true };
+      }
+      return f;
+    });
+
+    if (dependenciesToEnable.length > 0) {
+      toast(`Enabled dependencies automatically`, 'info');
+    }
 
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
@@ -213,6 +238,13 @@ export const AdminFeatureFlags: React.FC = () => {
       ...f,
       enabled: f.key === 'qr_menu',
     }));
+    updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
+  };
+
+  // Preset 4: Disable All
+  const handleDisableAll = () => {
+    if (!selectedRestId || currentFlags.length === 0) return;
+    const updatedFlags = currentFlags.map((f: any) => ({ ...f, enabled: false }));
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
@@ -386,6 +418,15 @@ export const AdminFeatureFlags: React.FC = () => {
                     </button>
 
                     <button
+                      onClick={handleDisableAll}
+                      disabled={updateFlagsMutation.isPending}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 text-red-900 border border-red-200 hover:bg-red-100 transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-red-600" />
+                      <span>Disable All</span>
+                    </button>
+
+                    <button
                       onClick={handleSyncWithPlan}
                       disabled={updateFlagsMutation.isPending}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1.5 shadow-xs"
@@ -441,13 +482,13 @@ export const AdminFeatureFlags: React.FC = () => {
                 </div>
               </div>
 
-              {/* Feature Flags Grid */}
+              {/* Feature Flags List */}
               {filteredFlags.length === 0 ? (
                 <div className="text-center py-16 text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-150">
                   No feature modules match your current filter.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className="flex flex-col gap-3">
                   {filteredFlags.map((flag: any) => {
                     const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
                     const catMeta = CATEGORY_META[flag.category] || CATEGORY_META.OPERATIONS;
@@ -455,41 +496,50 @@ export const AdminFeatureFlags: React.FC = () => {
                     return (
                       <div
                         key={flag.key}
-                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                        className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
                           flag.enabled
                             ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
                             : 'bg-slate-50/70 border-slate-200 opacity-70 hover:opacity-100'
                         }`}
                       >
-                        {/* Top: Category Tag + Toggle Button */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                                flag.enabled
-                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                  : 'bg-slate-200 text-slate-600 border-slate-300'
-                              }`}
-                            >
-                              <IconComponent className="w-4.5 h-4.5" strokeWidth={2} />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-bold text-xs text-slate-900 leading-tight">
-                                  {flag.name || flag.key.replace(/_/g, ' ')}
-                                </h4>
-                              </div>
+                        {/* Left: Icon, Title, Description, Category */}
+                        <div className="flex items-start gap-3.5">
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                              flag.enabled
+                                ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                : 'bg-slate-200 text-slate-600 border-slate-300'
+                            }`}
+                          >
+                            <IconComponent className="w-5 h-5" strokeWidth={2} />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-slate-900 leading-tight">
+                                {flag.name || flag.key.replace(/_/g, ' ')}
+                              </h4>
                               <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${catMeta.bg} ${catMeta.color} ${catMeta.border}`}>
                                 {catMeta.label}
                               </span>
                             </div>
+                            <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
+                              {flag.description || 'Module functionality for restaurant operations.'}
+                            </p>
+                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                              Key: {flag.key}
+                            </div>
                           </div>
+                        </div>
 
-                          {/* Switch Action */}
+                        {/* Right: Switch Action */}
+                        <div className="flex items-center gap-4 shrink-0 self-end md:self-auto w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 justify-between md:justify-end">
+                          <span className={flag.enabled ? 'text-emerald-700 font-bold text-xs' : 'text-slate-500 text-xs font-medium'}>
+                            {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
+                          </span>
                           <button
                             onClick={() => handleToggleFlag(flag.key, flag.enabled)}
                             disabled={updateFlagsMutation.isPending}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
                               flag.enabled
                                 ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                                 : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
@@ -497,25 +547,13 @@ export const AdminFeatureFlags: React.FC = () => {
                           >
                             {flag.enabled ? (
                               <>
-                                <Check className="w-3.5 h-3.5" />
+                                <Check className="w-4 h-4" />
                                 <span>ON</span>
                               </>
                             ) : (
                               <span>OFF</span>
                             )}
                           </button>
-                        </div>
-
-                        {/* Description & Key */}
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                          {flag.description || 'Module functionality for restaurant operations.'}
-                        </p>
-
-                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[9px] font-mono text-slate-400">
-                          <span>Key: {flag.key}</span>
-                          <span className={flag.enabled ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
-                            {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
-                          </span>
                         </div>
                       </div>
                     );
