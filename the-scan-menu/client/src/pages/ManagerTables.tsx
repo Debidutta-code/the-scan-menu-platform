@@ -388,13 +388,13 @@ export const ManagerTables: React.FC = () => {
       </div>
 
       {/* ── KPI Strip ─────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid gap-3 ${isEnabled('ordering') ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
         {[
-          { label: 'Total Tables', value: stats.total, icon: Layers, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200' },
-          { label: 'Available', value: stats.available, icon: CheckCircle2, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-          { label: 'Occupied', value: stats.occupied, icon: Utensils, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-100' },
-          { label: 'Reserved', value: stats.reserved, icon: Bookmark, color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100' },
-        ].map(({ label, value, icon: Icon, color, bg, border }) => (
+          { label: 'Total Tables', value: stats.total, icon: Layers, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200', show: true },
+          { label: 'Available', value: stats.available, icon: CheckCircle2, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', show: isEnabled('ordering') },
+          { label: 'Occupied', value: stats.occupied, icon: Utensils, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-100', show: isEnabled('ordering') },
+          { label: 'Reserved', value: stats.reserved, icon: Bookmark, color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100', show: true },
+        ].filter(kpi => kpi.show !== false).map(({ label, value, icon: Icon, color, bg, border }) => (
           <div key={label} className={`rounded-2xl border ${border} bg-white shadow-sm p-4 flex items-center gap-3`}>
             <div className={`${bg} ${color} p-2.5 rounded-xl`}>
               <Icon className="w-4.5 h-4.5" strokeWidth={1.75} />
@@ -413,15 +413,15 @@ export const ManagerTables: React.FC = () => {
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl flex-wrap">
           {(
             [
-              { id: 'ALL', label: 'All', count: stats.total },
-              { id: 'AVAILABLE', label: 'Available', count: stats.available },
-              { id: 'OCCUPIED', label: 'Occupied', count: stats.occupied },
-              { id: 'RESERVED', label: 'Reserved', count: stats.reserved },
+              { id: 'ALL', label: 'All', count: stats.total, show: true },
+              { id: 'AVAILABLE', label: 'Available', count: stats.available, show: isEnabled('ordering') },
+              { id: 'OCCUPIED', label: 'Occupied', count: stats.occupied, show: isEnabled('ordering') },
+              { id: 'RESERVED', label: 'Reserved', count: stats.reserved, show: true },
             ] as const
-          ).map((tab) => (
+          ).filter(tab => tab.show !== false).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
+              onClick={() => setStatusFilter(tab.id as any)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 statusFilter === tab.id
                   ? 'bg-slate-900 text-white shadow-sm'
@@ -532,7 +532,7 @@ export const ManagerTables: React.FC = () => {
                       className={`
                         relative flex flex-col items-center text-center rounded-2xl border-2 p-3 gap-1.5
                         transition-all duration-150 hover:-translate-y-0.5 group cursor-pointer select-none
-                        ${isOccupied
+                        ${isOccupied && isEnabled('ordering')
                           ? 'bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-400 hover:border-amber-500 hover:shadow-md hover:shadow-amber-100'
                           : isReserved
                           ? 'bg-gradient-to-b from-violet-50 to-violet-100/50 border-violet-400 hover:border-violet-500 hover:shadow-md hover:shadow-violet-100'
@@ -560,7 +560,7 @@ export const ManagerTables: React.FC = () => {
                       {/* Table number circle */}
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shadow-sm
-                          ${isOccupied ? 'bg-amber-500 text-white' : isReserved ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-800'}`}
+                          ${isOccupied && isEnabled('ordering') ? 'bg-amber-500 text-white' : isReserved ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-800'}`}
                       >
                         {table.tableNumber}
                       </div>
@@ -571,7 +571,7 @@ export const ManagerTables: React.FC = () => {
                       </span>
 
                       {/* Status badge */}
-                      {isOccupied ? (
+                      {isOccupied && isEnabled('ordering') ? (
                         <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.5 rounded-md leading-none">
                           <span className="w-1 h-1 rounded-full bg-amber-600 animate-ping inline-block mr-0.5" />
                           {table.activeOrderCount ? `${table.activeOrderCount} ORDER${table.activeOrderCount > 1 ? 'S' : ''}` : 'OCCUPIED'}
@@ -581,11 +581,11 @@ export const ManagerTables: React.FC = () => {
                           <Bookmark className="w-2 h-2" strokeWidth={2.5} />
                           RESERVED
                         </span>
-                      ) : (
+                      ) : isEnabled('ordering') ? (
                         <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md leading-none">
                           FREE
                         </span>
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}
@@ -630,7 +630,7 @@ export const ManagerTables: React.FC = () => {
                     <div>
                       <h3 className="font-bold text-slate-900 text-base leading-tight">{t.displayName}</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        {isOccupied && (
+                        {isOccupied && isEnabled('ordering') && (
                           <span className="flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
                             Occupied
@@ -642,7 +642,7 @@ export const ManagerTables: React.FC = () => {
                             Reserved
                           </span>
                         )}
-                        {!isOccupied && !isReserved && (
+                        {!isOccupied && !isReserved && isEnabled('ordering') && (
                           <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">
                             Available
                           </span>
