@@ -486,7 +486,7 @@ export const AdminFeatureFlags: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {categoryFlags.map((flag: any) => {
                             const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
 
@@ -506,52 +506,50 @@ export const AdminFeatureFlags: React.FC = () => {
                             return (
                               <div
                                 key={flag.key}
-                                className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+                                className={`p-5 rounded-3xl border transition-all flex flex-col h-full gap-4 ${
                                   flag.enabled
                                     ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
                                     : 'bg-slate-50/70 border-slate-200 hover:bg-white'
                                 } ${isToggleDisabled ? 'opacity-60 grayscale-[0.2]' : ''}`}
                               >
-                                {/* Left: Icon, Title, Description, Category */}
-                                <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                                  <div
-                                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                                      flag.enabled
-                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                        : 'bg-slate-200 text-slate-600 border-slate-300'
-                                    }`}
-                                  >
-                                    <IconComponent className="w-5 h-5" strokeWidth={2} />
-                                  </div>
-                                  <div className="flex flex-col gap-1 w-full">
-                                    <div className="flex items-center gap-2">
-                                      <h4 className="font-bold text-sm text-slate-900 leading-tight">
-                                        {flag.name || flag.key.replace(/_/g, ' ')}
-                                      </h4>
+                                {/* Top: Icon, Title, Description, Category */}
+                                <div className="flex flex-col items-start gap-4 flex-1">
+                                  <div className="flex items-center justify-between w-full">
+                                    <div
+                                      className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                                        flag.enabled
+                                          ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                          : 'bg-slate-200 text-slate-600 border-slate-300'
+                                      }`}
+                                    >
+                                      <IconComponent className="w-6 h-6" strokeWidth={2} />
                                     </div>
-                                    <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
+                                    <div className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
+                                      {flag.key}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-1 w-full mt-1">
+                                    <h4 className="font-bold text-[15px] text-slate-900 leading-tight">
+                                      {flag.name || flag.key.replace(/_/g, ' ')}
+                                    </h4>
+                                    <p className="text-[13px] text-slate-500 leading-relaxed">
                                       {flag.description || 'Module functionality for restaurant operations.'}
                                     </p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      <span className="text-[10px] font-mono text-slate-400">
-                                        Key: {flag.key}
-                                      </span>
-                                    </div>
 
                                     {/* Warning message if dependencies are missing */}
                                     {isToggleDisabled && (
-                                      <div className="mt-2 flex items-start gap-1.5 p-2 bg-amber-50/80 border border-amber-200/80 rounded-lg text-amber-800 text-[11px] font-medium max-w-lg">
-                                        <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
-                                        <span>
-                                          Cannot enable. Requires <span className="font-bold text-amber-900">{missingDepNames.join(' and ')}</span> to be enabled first.
+                                      <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-amber-800 text-[11px] font-medium w-full">
+                                        <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                                        <span className="leading-relaxed">
+                                          Requires <span className="font-bold text-amber-900">{missingDepNames.join(' & ')}</span> to be enabled first.
                                         </span>
                                       </div>
                                     )}
                                   </div>
                                 </div>
 
-                                {/* Right: Switch Action */}
-                                <div className="flex items-center gap-4 shrink-0 self-end md:self-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 justify-between md:justify-end">
+                                {/* Bottom: Switch Action */}
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 mt-auto">
                                   <span className={flag.enabled ? 'text-emerald-700 font-bold text-xs' : 'text-slate-500 text-xs font-medium'}>
                                     {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
                                   </span>
