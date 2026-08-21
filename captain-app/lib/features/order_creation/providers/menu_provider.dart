@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/sockets/socket_service.dart';
+import 'package:fuzzy/fuzzy.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/category_model.dart';
 import '../models/menu_item_model.dart';
@@ -30,18 +31,36 @@ class MenuState {
       );
 
   List<MenuItemModel> get filteredItems {
-    return menuItems.where((item) {
-      if (selectedCategoryId != null && item.categoryId != selectedCategoryId) {
-        return false;
-      }
-      if (searchQuery.isNotEmpty) {
-        final q = searchQuery.toLowerCase();
-        final matchName = item.name.toLowerCase().contains(q);
-        final matchDesc = item.description?.toLowerCase().contains(q) ?? false;
-        return matchName || matchDesc;
-      }
-      return true;
-    }).toList();
+    var items = menuItems;
+    if (selectedCategoryId != null) {
+      items = items.where((item) => item.categoryId == selectedCategoryId).toList();
+    }
+    
+    if (searchQuery.isNotEmpty) {
+      final fuse = Fuzzy<MenuItemModel>(
+        items,
+        options: FuzzyOptions(
+          keys: [
+            WeightedKey(
+              name: 'name',
+              getter: (MenuItemModel x) => x.name,
+              weight: 1.0,
+            ),
+            WeightedKey(
+              name: 'description',
+              getter: (MenuItemModel x) => x.description ?? '',
+              weight: 0.5,
+            ),
+          ],
+          threshold: 0.4,
+        ),
+      );
+      
+      final results = fuse.search(searchQuery);
+      return results.map((r) => r.item).toList();
+    }
+    
+    return items;
   }
 
   MenuState copyWith({

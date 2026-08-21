@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Fuse from 'fuse.js';
 import { Helmet } from 'react-helmet-async';
 import { Loader, AlertTriangle, X } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn, MenuItemVariant } from '../../services/restaurant.service';
@@ -509,11 +510,22 @@ export const PublicTable: React.FC = () => {
 
   // Filter and sort items dynamically for menu and search tabs
   const getFilteredMenu = () => {
+    const allItems = rawCategories.flatMap((c) => c.menuItems);
+    const fuse = new Fuse(allItems, {
+      keys: ['name', 'description'],
+      threshold: 0.4,
+      ignoreLocation: true,
+    });
+    
+    const searchResults = debouncedSearchQuery
+      ? new Set(fuse.search(debouncedSearchQuery).map((r: any) => r.item._id))
+      : null;
+
     return rawCategories
       .map((category) => {
         let matchedItems = category.menuItems.filter((item) => {
           // Search term match
-          const matchesQuery = item.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+          const matchesQuery = !debouncedSearchQuery || (searchResults && searchResults.has(item._id));
 
           // Diet filter
           const matchesDiet =

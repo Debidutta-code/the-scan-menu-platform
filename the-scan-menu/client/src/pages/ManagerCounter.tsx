@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Fuse from 'fuse.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -623,6 +624,16 @@ export const ManagerCounter: React.FC = () => {
               </div>
             ) : (
               (() => {
+                const fuse = new Fuse(allMenuItems, {
+                  keys: ['name', 'description'],
+                  threshold: 0.4,
+                  ignoreLocation: true,
+                });
+                
+                const searchResults = searchQuery
+                  ? new Set(fuse.search(searchQuery).map((r: any) => r.item._id))
+                  : null;
+
                 const filteredCategories =
                   selectedCategoryFilter === 'ALL'
                     ? categories
@@ -636,8 +647,7 @@ export const ManagerCounter: React.FC = () => {
                     const matchesCategory = itemCatId === cat._id;
                     const matchesSearch =
                       !searchQuery ||
-                      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                      (searchResults && searchResults.has(item._id));
                     return matchesCategory && matchesSearch && item.isAvailable;
                   });
 

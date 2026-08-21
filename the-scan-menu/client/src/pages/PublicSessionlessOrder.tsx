@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import Fuse from 'fuse.js';
 import { Helmet } from 'react-helmet-async';
 import {
   ShoppingBag,
@@ -102,10 +103,21 @@ export const PublicSessionlessOrder: React.FC = () => {
   const isRazorpayActive = paymentConfig.activeProvider === 'RAZORPAY';
 
   // Filter Categories & Items
+  const allItems = categories.flatMap((c: any) => c.menuItems);
+  const fuse = new Fuse(allItems, {
+    keys: ['name', 'description'],
+    threshold: 0.4,
+    ignoreLocation: true,
+  });
+  
+  const searchResults = searchQuery
+    ? new Set(fuse.search(searchQuery).map((r: any) => r.item._id))
+    : null;
+
   const filteredCategories = categories.map((cat: any) => ({
     ...cat,
     menuItems: cat.menuItems.filter((item: any) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      !searchQuery || (searchResults && searchResults.has(item._id))
     ),
   })).filter((cat: any) => cat.menuItems.length > 0);
 
