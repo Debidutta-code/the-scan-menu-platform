@@ -285,6 +285,7 @@ export const ManagerOrders: React.FC = () => {
     workflowMode,
     activeOrders,
     isLoadingActive,
+    refetchActiveOrders,
     historyOrdersData,
     isFetchingHistory,
     pendingOrderIds,
@@ -580,6 +581,14 @@ export const ManagerOrders: React.FC = () => {
 
         {/* View Switcher & Audio Controls */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            onClick={() => refetchActiveOrders()}
+            className="p-2 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5 active:scale-95"
+            title="Refresh Orders Manually"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoadingActive ? 'animate-spin text-amber-500' : ''}`} strokeWidth={2} />
+          </button>
+
           <button
             onClick={() => setAudioEnabled(!audioEnabled)}
             className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${

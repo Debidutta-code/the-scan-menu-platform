@@ -124,7 +124,7 @@ export function useManagerOrders({
   }, [restaurantResponse, activeRestaurantId]);
 
   // 2. Active Orders Queue Query (Single Source of Truth for Live Board)
-  const { data: activeOrdersResponse, isLoading: isLoadingActive } = useQuery({
+  const { data: activeOrdersResponse, isLoading: isLoadingActive, refetch: refetchActiveOrders } = useQuery({
     queryKey: ['activeOrdersQueue', activeRestaurantId],
     queryFn: async () => {
       const res = await apiClient.get(`/restaurants/${activeRestaurantId}/orders/active`);
@@ -430,6 +430,7 @@ export function useManagerOrders({
     workflowMode,
     activeOrders,
     isLoadingActive,
+    refetchActiveOrders,
     historyOrdersData,
     isFetchingHistory,
     pendingOrderIds,
