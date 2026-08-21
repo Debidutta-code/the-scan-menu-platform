@@ -1009,6 +1009,7 @@ export const PublicTable: React.FC = () => {
           filteredCategories={filteredCategories}
           currency={currency}
           searchQuery={searchQuery}
+          featureFlags={restaurant.featureFlags || []}
           debouncedSearchQuery={debouncedSearchQuery}
           dietFilter={dietFilter}
           priceSort={priceSort}
@@ -1081,12 +1082,14 @@ export const PublicTable: React.FC = () => {
       )}
 
       {/* FLOATING CART BAR */}
-      <FloatingCartBar
-        cartItems={cartItems}
-        currency={currency}
-        activeTab={activeTab}
-        onViewCart={() => updateNavigationState('cart-orders', 'cart')}
-      />
+      {(restaurant.featureFlags || []).some((f: any) => f.key === 'ordering' && f.enabled) && (
+        <FloatingCartBar
+          cartItems={cartItems}
+          currency={currency}
+          activeTab={activeTab}
+          onViewCart={() => updateNavigationState('cart-orders', 'cart')}
+        />
+      )}
 
       {/* UNIFIED BOTTOM NAVIGATION */}
       <BottomNav
@@ -1094,6 +1097,7 @@ export const PublicTable: React.FC = () => {
         cartItemsCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
         waiterCallState={waiterCallState}
         onTabChange={setActiveTab}
+        featureFlags={restaurant.featureFlags || []}
       />
 
       {/* MODALS AND SHEETS */}
@@ -1149,6 +1153,7 @@ export const PublicTable: React.FC = () => {
         onAddOnToggle={handleAddOnToggle}
         onQuantityChange={setDetailQuantity}
         onInstructionsChange={setDetailSpecialInstructions}
+        featureFlags={restaurant.featureFlags || []}
       />
 
       <OtpModal

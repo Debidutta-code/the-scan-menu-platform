@@ -46,7 +46,25 @@ export class FeatureFlagController {
         }
       });
 
-      // Chain rules logic
+      // Chain rules logic: Reverse (if parent is disabled, disable dependent children)
+      if (flagMap.get('qr_menu') === false) {
+        flagMap.set('ordering', false);
+        flagMap.set('waiter_call', false);
+      }
+      if (flagMap.get('ordering') === false) {
+        flagMap.set('kds', false);
+        flagMap.set('customer_display', false);
+        flagMap.set('takeaway', false);
+        flagMap.set('delivery', false);
+        flagMap.set('pos', false);
+        flagMap.set('payments', false);
+      }
+      if (flagMap.get('crm') === false) {
+        flagMap.set('coupons', false);
+        flagMap.set('loyalty', false);
+      }
+
+      // Chain rules logic: Forward (if child is enabled, enable required parent)
       if (flagMap.get('ordering') === true) {
         flagMap.set('qr_menu', true);
       }
@@ -70,6 +88,10 @@ export class FeatureFlagController {
         flagMap.set('qr_menu', true);
       }
       if (flagMap.get('pos') === true) {
+        flagMap.set('ordering', true);
+        flagMap.set('qr_menu', true);
+      }
+      if (flagMap.get('payments') === true) {
         flagMap.set('ordering', true);
         flagMap.set('qr_menu', true);
       }

@@ -98,7 +98,6 @@ const FLAG_ICON_MAP: Record<string, any> = {
 export const AdminFeatureFlags: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
   const [flagSearchTerm, setFlagSearchTerm] = useState('');
   const [selectedRestId, setSelectedRestId] = useState<string | null>(null);
 
@@ -124,6 +123,16 @@ export const AdminFeatureFlags: React.FC = () => {
     enabled: !!selectedRestId,
   });
 
+  // Local state for instant toggling
+  const [localFlags, setLocalFlags] = useState<any[]>([]);
+
+  // Sync local state when API data changes
+  React.useEffect(() => {
+    if (flagsResponse?.data) {
+      setLocalFlags(flagsResponse.data);
+    }
+  }, [flagsResponse?.data]);
+
   // Toggle/Bulk update flag mutation
   const updateFlagsMutation = useMutation({
     mutationFn: async ({ restaurantId, flags }: { restaurantId: string; flags: any[] }) => {
@@ -133,18 +142,19 @@ export const AdminFeatureFlags: React.FC = () => {
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ['adminTenantFlags', selectedRestId] });
       const previousFlags = queryClient.getQueryData(['adminTenantFlags', selectedRestId]);
-      
-      // Optimistically update
       queryClient.setQueryData(['adminTenantFlags', selectedRestId], { data: variables.flags });
-      
       return { previousFlags };
     },
     onError: (err: any, _variables: any, context: any) => {
       queryClient.setQueryData(['adminTenantFlags', selectedRestId], context?.previousFlags);
+      if (context?.previousFlags?.data) {
+        setLocalFlags(context.previousFlags.data);
+      }
       toast(err.response?.data?.error?.message || 'Error updating feature flags', 'error');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminTenantFlags', selectedRestId] });
+      // Don't invalidate here to prevent layout shift during rapid toggles.
+      // Let the optimistic update stay. A background sync can happen later if needed.
     },
   });
 
@@ -158,11 +168,9 @@ export const AdminFeatureFlags: React.FC = () => {
 
   const restaurants = restResponse?.data?.restaurants || [];
   const plans = plansResponse?.data || [];
-  const filteredRestaurants = restaurants.filter((r: any) =>
-    r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.slug?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRestaurants = restaurants;
 
-  const currentFlags: any[] = Array.isArray(flagsResponse?.data) ? flagsResponse.data : [];
+  const currentFlags = localFlags;
   const selectedRestaurant = restaurants.find((r: any) => r._id === selectedRestId);
 
   // Filter flags by search
@@ -186,6 +194,8 @@ export const AdminFeatureFlags: React.FC = () => {
     
     // Chain rules
     const dependenciesToEnable: string[] = [];
+    const dependenciesToDisable: string[] = [];
+
     if (newStatus === true) {
       if (flagKey === 'ordering') dependenciesToEnable.push('qr_menu');
       if (flagKey === 'kds') dependenciesToEnable.push('ordering', 'qr_menu');
@@ -194,24 +204,39 @@ export const AdminFeatureFlags: React.FC = () => {
       if (flagKey === 'takeaway') dependenciesToEnable.push('ordering', 'qr_menu');
       if (flagKey === 'delivery') dependenciesToEnable.push('ordering', 'qr_menu');
       if (flagKey === 'pos') dependenciesToEnable.push('ordering', 'qr_menu');
+      if (flagKey === 'payments') dependenciesToEnable.push('ordering', 'qr_menu');
       if (flagKey === 'coupons') dependenciesToEnable.push('crm');
       if (flagKey === 'loyalty') dependenciesToEnable.push('crm');
+    } else {
+      if (flagKey === 'qr_menu') dependenciesToDisable.push('ordering', 'waiter_call', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
+      if (flagKey === 'ordering') dependenciesToDisable.push('kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
+      if (flagKey === 'crm') dependenciesToDisable.push('coupons', 'loyalty');
     }
 
     const updatedFlags = currentFlags.map((f: any) => {
       if (f.key === flagKey) {
         return { ...f, enabled: newStatus };
       }
-      if (dependenciesToEnable.includes(f.key)) {
+      if (newStatus === true && dependenciesToEnable.includes(f.key)) {
         return { ...f, enabled: true };
+      }
+      if (newStatus === false && dependenciesToDisable.includes(f.key)) {
+        return { ...f, enabled: false };
       }
       return f;
     });
 
-    if (dependenciesToEnable.length > 0) {
+    // Optimistically update local state immediately
+    setLocalFlags(updatedFlags);
+
+    if (dependenciesToEnable.length > 0 && newStatus === true) {
       toast(`Enabled dependencies automatically`, 'info');
+    } else if (dependenciesToDisable.length > 0 && newStatus === false) {
+      toast(`Disabled dependent modules automatically`, 'info');
     }
 
+    // Use a slight debounce if necessary, but for now just mutate. 
+    // Since we don't invalidate onSettled, rapid clicks won't jitter.
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
@@ -219,6 +244,7 @@ export const AdminFeatureFlags: React.FC = () => {
   const handleEnableAll = () => {
     if (!selectedRestId || currentFlags.length === 0) return;
     const updatedFlags = currentFlags.map((f: any) => ({ ...f, enabled: true }));
+    setLocalFlags(updatedFlags);
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
@@ -233,7 +259,7 @@ export const AdminFeatureFlags: React.FC = () => {
       ...f,
       enabled: includedKeys.has(f.key),
     }));
-
+    setLocalFlags(updatedFlags);
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
@@ -244,6 +270,7 @@ export const AdminFeatureFlags: React.FC = () => {
       ...f,
       enabled: f.key === 'qr_menu',
     }));
+    setLocalFlags(updatedFlags);
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
@@ -251,6 +278,7 @@ export const AdminFeatureFlags: React.FC = () => {
   const handleDisableAll = () => {
     if (!selectedRestId || currentFlags.length === 0) return;
     const updatedFlags = currentFlags.map((f: any) => ({ ...f, enabled: false }));
+    setLocalFlags(updatedFlags);
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
@@ -274,97 +302,55 @@ export const AdminFeatureFlags: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Layout: Left Outlet Selector + Right Feature Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Outlet Selector (4 Cols) */}
-        <div className="lg:col-span-4 bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-              <Store className="w-4 h-4 text-amber-500" strokeWidth={2} />
-              <span>Select Outlet</span>
-            </h3>
-            <span className="text-[10px] font-mono text-slate-400 font-bold">
-              {filteredRestaurants.length} outlets
-            </span>
+      {/* Top Select Outlet */}
+      <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center shrink-0">
+            <Store className="w-5 h-5" />
           </div>
-
-          {/* Search Box */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search outlet name or slug..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-medium"
-            />
-          </div>
-
-          {/* Outlets List */}
-          <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
-            {filteredRestaurants.map((rest: any) => {
-              const isSelected = selectedRestId === rest._id;
-              const isSuspended = rest.status === 'SUSPENDED';
-
-              return (
-                <button
-                  key={rest._id}
-                  onClick={() => setSelectedRestId(rest._id)}
-                  className={`w-full p-3.5 rounded-2xl border text-left transition relative ${
-                    isSelected
-                      ? 'bg-slate-950 border-slate-950 text-white shadow-md'
-                      : 'bg-slate-50/70 border-slate-150 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <h4 className="font-bold text-xs leading-snug line-clamp-1">{rest.name}</h4>
-                    <span
-                      className={`text-[9px] font-mono font-extrabold px-2 py-0.5 rounded uppercase shrink-0 ${
-                        isSelected
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {rest.subscription?.planKey || 'FREE'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/20 text-[10px] font-mono">
-                    <span className={isSelected ? 'text-slate-400' : 'text-slate-500'}>
-                      {rest.slug}
-                    </span>
-                    {isSuspended ? (
-                      <span className="text-red-400 font-bold">SUSPENDED</span>
-                    ) : (
-                      <span className={isSelected ? 'text-emerald-400 font-bold' : 'text-emerald-600 font-bold'}>
-                        ACTIVE
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm">Select Outlet</h3>
+            <p className="text-[10px] text-slate-400 font-mono">Manage feature flags for a specific tenant</p>
           </div>
         </div>
 
-        {/* Right Column: Module Control Matrix (8 Cols) */}
-        <div className="lg:col-span-8 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
-          {!selectedRestId ? (
-            <div className="text-center py-24 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
-                <SlidersHorizontal className="w-6 h-6" />
-              </div>
-              <h3 className="font-display text-base font-bold text-slate-900">No Tenant Selected</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Please select a restaurant outlet from the left sidebar to inspect and configure its feature flags.
-              </p>
+        <div className="relative w-full md:w-[400px]">
+          <select
+            value={selectedRestId || ''}
+            onChange={(e) => setSelectedRestId(e.target.value)}
+            className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-amber-500 transition-all cursor-pointer shadow-xs"
+          >
+            <option value="" disabled>-- Choose a Restaurant Outlet --</option>
+            {filteredRestaurants.map((rest: any) => (
+              <option key={rest._id} value={rest._id}>
+                {rest.name} ({rest.slug}) - {rest.subscription?.planKey || 'FREE'} {rest.status === 'SUSPENDED' ? '[SUSPENDED]' : ''}
+              </option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Layout: Feature Controls */}
+      <div className="w-full bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+        {!selectedRestId ? (
+          <div className="text-center py-24 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+              <SlidersHorizontal className="w-6 h-6" />
             </div>
-          ) : isLoadingFlags ? (
-            <div className="h-96 flex items-center justify-center">
-              <Loader className="w-8 h-8 animate-spin text-amber-500" />
-            </div>
-          ) : (
-            <>
+            <h3 className="font-display text-base font-bold text-slate-900">No Tenant Selected</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Please select a restaurant outlet from the top dropdown to inspect and configure its feature flags.
+            </p>
+          </div>
+        ) : isLoadingFlags ? (
+          <div className="h-96 flex items-center justify-center">
+            <Loader className="w-8 h-8 animate-spin text-amber-500" />
+          </div>
+        ) : (
+          <>
               {/* Outlet Active Status & Summary Header */}
               <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4.5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -576,7 +562,6 @@ export const AdminFeatureFlags: React.FC = () => {
               )}
             </>
           )}
-        </div>
       </div>
     </div>
   );

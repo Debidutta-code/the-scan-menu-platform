@@ -7,7 +7,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   cartItemsCount,
   waiterCallState,
   onTabChange,
+  featureFlags,
 }) => {
+  const isOrderingEnabled = featureFlags.some(f => f.key === 'ordering' && f.enabled);
+  const isWaiterCallEnabled = featureFlags.some(f => f.key === 'waiter_call' && f.enabled);
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-150 flex items-center justify-around px-4 pb-safe z-40 shadow-lg select-none">
       {/* Landing */}
@@ -29,38 +33,42 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         }`}
       >
         <Sparkles className="w-5 h-5" strokeWidth={1.75} />
-        <span className="text-[10px] leading-none">Menu & Search</span>
+        <span className="text-[10px] leading-none">Menu</span>
       </button>
 
       {/* Call Waiter */}
-      <button
-        onClick={() => onTabChange('waiter')}
-        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all ${
-          activeTab === 'waiter' ? 'text-slate-950 font-black' : 'text-slate-400 font-semibold'
-        }`}
-      >
-        <BellRing className="w-5 h-5" strokeWidth={1.75} />
-        <span className="text-[10px] leading-none">Assistance</span>
-        {waiterCallState === 'waiting' && (
-          <span className="absolute top-2 right-1/4 h-2 w-2 bg-amber-500 rounded-full animate-ping" />
-        )}
-      </button>
+      {isWaiterCallEnabled && (
+        <button
+          onClick={() => onTabChange('waiter')}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all ${
+            activeTab === 'waiter' ? 'text-slate-950 font-black' : 'text-slate-400 font-semibold'
+          }`}
+        >
+          <BellRing className="w-5 h-5" strokeWidth={1.75} />
+          <span className="text-[10px] leading-none">Assistance</span>
+          {waiterCallState === 'waiting' && (
+            <span className="absolute top-2 right-1/4 h-2 w-2 bg-amber-500 rounded-full animate-ping" />
+          )}
+        </button>
+      )}
 
       {/* Cart & Orders */}
-      <button
-        onClick={() => onTabChange('cart-orders')}
-        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all ${
-          activeTab === 'cart-orders' ? 'text-slate-950 font-black' : 'text-slate-400 font-semibold'
-        }`}
-      >
-        <div className="relative">
-          <ClipboardList className="w-5 h-5" strokeWidth={1.75} />
-          {cartItemsCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
-          )}
-        </div>
-        <span className="text-[10px] leading-none">Cart & Orders</span>
-      </button>
+      {isOrderingEnabled && (
+        <button
+          onClick={() => onTabChange('cart-orders')}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all ${
+            activeTab === 'cart-orders' ? 'text-slate-950 font-black' : 'text-slate-400 font-semibold'
+          }`}
+        >
+          <div className="relative">
+            <ClipboardList className="w-5 h-5" strokeWidth={1.75} />
+            {cartItemsCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
+            )}
+          </div>
+          <span className="text-[10px] leading-none">Orders</span>
+        </button>
+      )}
     </nav>
   );
 };

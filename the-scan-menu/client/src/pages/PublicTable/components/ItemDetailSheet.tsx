@@ -18,8 +18,11 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
   onAddOnToggle,
   onQuantityChange,
   onInstructionsChange,
+  featureFlags,
 }) => {
   if (!selectedItem) return null;
+
+  const isOrderingEnabled = (featureFlags || []).some(f => f.key === 'ordering' && f.enabled);
 
   const isPortion = selectedItem.pricingType === 'PORTION' && selectedItem.variants && selectedItem.variants.length > 0;
   const currentBasePrice = isPortion && selectedVariant ? selectedVariant.price : selectedItem.price;
@@ -179,31 +182,33 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
               />
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-              <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1 shrink-0">
+            {isOrderingEnabled && (
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1 shrink-0">
+                  <button
+                    onClick={() => onQuantityChange(Math.max(1, detailQuantity - 1))}
+                    className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
+                  >
+                    <Minus className="w-3.5 h-3.5" strokeWidth={2} />
+                  </button>
+                  <span className="px-4 font-bold text-slate-900 text-sm font-mono w-8 text-center">{detailQuantity}</span>
+                  <button
+                    onClick={() => onQuantityChange(detailQuantity + 1)}
+                    className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => onQuantityChange(Math.max(1, detailQuantity - 1))}
-                  className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
+                  onClick={onAddToCart}
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-colors flex items-center justify-between shadow-md"
                 >
-                  <Minus className="w-3.5 h-3.5" strokeWidth={2} />
-                </button>
-                <span className="px-4 font-bold text-slate-900 text-sm font-mono w-8 text-center">{detailQuantity}</span>
-                <button
-                  onClick={() => onQuantityChange(detailQuantity + 1)}
-                  className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
-                >
-                  <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+                  <span>Add to Cart</span>
+                  <span>{formatPrice(itemTotal, currency)}</span>
                 </button>
               </div>
-
-              <button
-                onClick={onAddToCart}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-colors flex items-center justify-between shadow-md"
-              >
-                <span>Add to Cart</span>
-                <span>{formatPrice(itemTotal, currency)}</span>
-              </button>
-            </div>
+            )}
           </div>
         </motion.div>
       </div>

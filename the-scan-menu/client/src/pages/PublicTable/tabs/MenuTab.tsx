@@ -29,7 +29,10 @@ export const MenuTab: React.FC<MenuTabProps> = ({
   onTrackOrders,
   getItemCartQuantity,
   getItemBadge,
+  featureFlags,
 }) => {
+  const isOrderingEnabled = featureFlags.some(f => f.key === 'ordering' && f.enabled);
+
   return (
     <motion.div
       key="menu"
@@ -285,33 +288,37 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                                   </>
                                 )}
                               </div>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onItemCardClick(item);
-                                }}
-                                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition shadow-xs active:scale-95 shrink-0 cursor-pointer"
-                              >
-                                Options
-                              </button>
+                              {isOrderingEnabled && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onItemCardClick(item);
+                                  }}
+                                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition shadow-xs active:scale-95 shrink-0 cursor-pointer"
+                                >
+                                  Options
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center justify-between w-full gap-4">
                               <span className="text-sm font-black text-slate-900 font-mono">
                                 {formatPrice(item.price, currency)}
                               </span>
-                              {item.isAvailable ? (
-                                <QuickAddControl
-                                  cartQty={cartQty}
-                                  onAdd={(e) => onQuickAdd(item, e)}
-                                  onIncrement={(e) => onQuickIncrement(item, e)}
-                                  onDecrement={(e) => onQuickDecrement(item, e)}
-                                />
-                              ) : (
-                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
-                                  Sold Out
-                                </span>
+                              {isOrderingEnabled && (
+                                item.isAvailable ? (
+                                  <QuickAddControl
+                                    cartQty={cartQty}
+                                    onAdd={(e) => onQuickAdd(item, e)}
+                                    onIncrement={(e) => onQuickIncrement(item, e)}
+                                    onDecrement={(e) => onQuickDecrement(item, e)}
+                                  />
+                                ) : (
+                                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
+                                    Sold Out
+                                  </span>
+                                )
                               )}
                             </div>
                           )}

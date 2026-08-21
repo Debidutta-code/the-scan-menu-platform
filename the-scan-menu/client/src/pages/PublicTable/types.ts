@@ -36,6 +36,7 @@ export interface ItemDetailSheetProps {
   onAddOnToggle: (addOn: AddOn) => void;
   onQuantityChange: (qty: number) => void;
   onInstructionsChange: (val: string) => void;
+  featureFlags: { key: string; enabled: boolean }[];
 }
 
 export interface OtpModalProps {
@@ -74,6 +75,7 @@ export interface BottomNavProps {
   cartItemsCount: number;
   waiterCallState: WaiterCallState;
   onTabChange: (tab: ActiveTab) => void;
+  featureFlags: { key: string; enabled: boolean }[];
 }
 
 export interface FloatingCartBarProps {
@@ -119,12 +121,12 @@ export interface MenuTabProps {
   onCategoryClick: (id: string) => void;
   onItemCardClick: (item: import('../../services/restaurant.service').MenuItem) => void;
   onQuickAdd: (item: import('../../services/restaurant.service').MenuItem, e: React.MouseEvent) => void;
-
   onQuickIncrement: (item: import('../../services/restaurant.service').MenuItem, e: React.MouseEvent) => void;
   onQuickDecrement: (item: import('../../services/restaurant.service').MenuItem, e: React.MouseEvent) => void;
   onTrackOrders: (orderId: string) => void;
   getItemCartQuantity: (id: string) => number;
   getItemBadge: (item: import('../../services/restaurant.service').MenuItem, idx: number) => string | null;
+  featureFlags: { key: string; enabled: boolean }[];
 }
 
 export interface WaiterTabProps {
