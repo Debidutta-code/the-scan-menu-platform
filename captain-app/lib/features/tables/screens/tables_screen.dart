@@ -30,13 +30,20 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
   }
 
   void _onTableSelected(TableModel table) {
+    final authState = ref.read(authProvider);
+    final hasOrdering = authState.activeRestaurant?.featureFlags.contains('ordering') ?? true;
+
     if (table.status == TableStatus.available) {
+      if (!hasOrdering) return; // Feature disabled
+      
       // Direct to take order
       ref.read(cartProvider.notifier).setTable(table);
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const TakeOrderScreen()),
       );
     } else {
+      if (!hasOrdering) return; // Feature disabled
+
       // Show table orders bottom sheet
       showModalBottomSheet(
         context: context,

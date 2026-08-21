@@ -203,6 +203,8 @@ export class RestaurantController {
         settings = new RestaurantSettings({ restaurantId: restaurant._id });
       }
 
+      const activeFlags = await FeatureFlag.find({ restaurantId: restaurant._id, enabled: true }).select('key enabled');
+
       const responseData = {
         ...restaurant.toObject(),
         theme: settings.theme,
@@ -220,6 +222,7 @@ export class RestaurantController {
         whatsapp: settings.branding?.whatsapp || '',
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
         printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
+        featureFlags: activeFlags,
       };
 
       sendSuccess(res, responseData, 'Restaurant profile retrieved successfully');

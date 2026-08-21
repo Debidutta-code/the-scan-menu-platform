@@ -47,6 +47,7 @@ class RestaurantProfile {
   final String? address;
   final String? phone;
   final String orderWorkflowMode;
+  final List<String> featureFlags;
 
   RestaurantProfile({
     required this.id,
@@ -56,6 +57,7 @@ class RestaurantProfile {
     this.address,
     this.phone,
     required this.orderWorkflowMode,
+    this.featureFlags = const [],
   });
 
   factory RestaurantProfile.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,14 @@ class RestaurantProfile {
         json['orderWorkflowMode'] ??
         'FIVE_STEP';
 
+    List<String> parsedFlags = [];
+    if (json['featureFlags'] is List) {
+      parsedFlags = (json['featureFlags'] as List)
+          .where((f) => f['enabled'] == true)
+          .map((f) => f['key'].toString())
+          .toList();
+    }
+
     return RestaurantProfile(
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
@@ -73,6 +83,7 @@ class RestaurantProfile {
       address: json['address'],
       phone: json['phone'],
       orderWorkflowMode: orderWorkflowMode,
+      featureFlags: parsedFlags,
     );
   }
 }

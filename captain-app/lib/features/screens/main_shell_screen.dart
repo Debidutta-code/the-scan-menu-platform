@@ -99,14 +99,116 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
   Widget build(BuildContext context) {
     final activeOrdersState = ref.watch(activeOrdersProvider);
     final waiterCallsState = ref.watch(waiterCallsProvider);
+    final authState = ref.watch(authProvider);
 
     final activeOrdersCount = activeOrdersState.orders.length;
     final pendingCallsCount = waiterCallsState.pendingCount;
 
+    final featureFlags = authState.activeRestaurant?.featureFlags ?? [];
+    // Default to true if featureFlags list is empty (e.g. legacy backend) or explicitly contains the flag
+    final hasOrdering = featureFlags.isEmpty || featureFlags.contains('ordering');
+    final hasWaiterCall = featureFlags.isEmpty || featureFlags.contains('waiter_call');
+
+    // Build tabs dynamically based on feature flags
+    final List<Widget> activeScreens = [
+      const TablesScreen(),
+      if (hasOrdering) const ActiveOrdersScreen(),
+      if (hasWaiterCall) const WaiterCallsScreen(),
+      const ProfileScreen(),
+    ];
+
+    final List<BottomNavigationBarItem> navItems = [
+      const BottomNavigationBarItem(
+        icon: Icon(LucideIcons.layoutGrid),
+        activeIcon: Icon(LucideIcons.layoutGrid, color: AppColors.primaryDark),
+        label: 'Tables',
+      ),
+      if (hasOrdering)
+        BottomNavigationBarItem(
+          icon: badges.Badge(
+            showBadge: activeOrdersCount > 0,
+            badgeContent: Text(
+              '$activeOrdersCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            badgeStyle: const badges.BadgeStyle(
+              badgeColor: AppColors.primaryDark,
+              padding: EdgeInsets.all(4),
+            ),
+            child: const Icon(LucideIcons.receipt),
+          ),
+          activeIcon: badges.Badge(
+            showBadge: activeOrdersCount > 0,
+            badgeContent: Text(
+              '$activeOrdersCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            badgeStyle: const badges.BadgeStyle(
+              badgeColor: AppColors.primaryDark,
+              padding: EdgeInsets.all(4),
+            ),
+            child: const Icon(LucideIcons.receipt, color: AppColors.primaryDark),
+          ),
+          label: 'Orders',
+        ),
+      if (hasWaiterCall)
+        BottomNavigationBarItem(
+          icon: badges.Badge(
+            showBadge: pendingCallsCount > 0,
+            badgeContent: Text(
+              '$pendingCallsCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            badgeStyle: const badges.BadgeStyle(
+              badgeColor: AppColors.error,
+              padding: EdgeInsets.all(4),
+            ),
+            child: const Icon(LucideIcons.bellRing),
+          ),
+          activeIcon: badges.Badge(
+            showBadge: pendingCallsCount > 0,
+            badgeContent: Text(
+              '$pendingCallsCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            badgeStyle: const badges.BadgeStyle(
+              badgeColor: AppColors.error,
+              padding: EdgeInsets.all(4),
+            ),
+            child: const Icon(LucideIcons.bellRing, color: AppColors.primaryDark),
+          ),
+          label: 'Calls',
+        ),
+      const BottomNavigationBarItem(
+        icon: Icon(LucideIcons.user),
+        activeIcon: Icon(LucideIcons.user, color: AppColors.primaryDark),
+        label: 'Profile',
+      ),
+    ];
+
+    // Ensure _currentIndex is valid for the dynamically built list
+    final safeIndex = _currentIndex >= activeScreens.length ? 0 : _currentIndex;
+
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+        index: safeIndex,
+        children: activeScreens,
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -115,90 +217,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
           ),
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+          currentIndex: safeIndex,
           onTap: _onTabSelected,
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(LucideIcons.layoutGrid),
-              activeIcon: Icon(LucideIcons.layoutGrid, color: AppColors.primaryDark),
-              label: 'Tables',
-            ),
-            BottomNavigationBarItem(
-              icon: badges.Badge(
-                showBadge: activeOrdersCount > 0,
-                badgeContent: Text(
-                  '$activeOrdersCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                badgeStyle: const badges.BadgeStyle(
-                  badgeColor: AppColors.primaryDark,
-                  padding: EdgeInsets.all(4),
-                ),
-                child: const Icon(LucideIcons.receipt),
-              ),
-              activeIcon: badges.Badge(
-                showBadge: activeOrdersCount > 0,
-                badgeContent: Text(
-                  '$activeOrdersCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                badgeStyle: const badges.BadgeStyle(
-                  badgeColor: AppColors.primaryDark,
-                  padding: EdgeInsets.all(4),
-                ),
-                child: const Icon(LucideIcons.receipt, color: AppColors.primaryDark),
-              ),
-              label: 'Orders',
-            ),
-            BottomNavigationBarItem(
-              icon: badges.Badge(
-                showBadge: pendingCallsCount > 0,
-                badgeContent: Text(
-                  '$pendingCallsCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                badgeStyle: const badges.BadgeStyle(
-                  badgeColor: AppColors.error,
-                  padding: EdgeInsets.all(4),
-                ),
-                child: const Icon(LucideIcons.bellRing),
-              ),
-              activeIcon: badges.Badge(
-                showBadge: pendingCallsCount > 0,
-                badgeContent: Text(
-                  '$pendingCallsCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                badgeStyle: const badges.BadgeStyle(
-                  badgeColor: AppColors.error,
-                  padding: EdgeInsets.all(4),
-                ),
-                child: const Icon(LucideIcons.bellRing, color: AppColors.primaryDark),
-              ),
-              label: 'Calls',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(LucideIcons.user),
-              activeIcon: Icon(LucideIcons.user, color: AppColors.primaryDark),
-              label: 'Profile',
-            ),
-          ],
+          items: navItems,
+          type: BottomNavigationBarType.fixed,
         ),
       ),
     );
