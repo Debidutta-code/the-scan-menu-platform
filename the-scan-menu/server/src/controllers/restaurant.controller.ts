@@ -18,6 +18,7 @@ import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
+import { FeatureFlag } from '../models/FeatureFlag';
 
 const tableService = new TableService();
 
