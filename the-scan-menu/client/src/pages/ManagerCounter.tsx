@@ -669,7 +669,8 @@ export const ManagerCounter: React.FC = () => {
                         {catItems.map((item: any) => {
                           const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
                           const selectedPortions = cartItems.filter(i => i.baseItemId === item._id);
-                          const selected = !isPortion ? cartItems.find((i) => i.itemId === item._id) : selectedPortions.length > 0;
+                          const selectedItem = !isPortion ? cartItems.find((i) => i.itemId === item._id) : undefined;
+                          const isSelected = !isPortion ? !!selectedItem : selectedPortions.length > 0;
                           const totalPortionQty = selectedPortions.reduce((sum, p) => sum + p.quantity, 0);
                           const isTracked = !!item.trackStock;
                           const qty = item.stockQuantity || 0;
@@ -691,7 +692,7 @@ export const ManagerCounter: React.FC = () => {
                               className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col justify-between gap-3 select-none active:scale-[0.98] shadow-2xs relative ${
                                 isOut
                                   ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
-                                  : selected
+                                  : isSelected
                                   ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-sm cursor-pointer'
                                   : 'bg-white border-slate-200/90 hover:border-amber-300 hover:shadow-md cursor-pointer'
                               }`}
@@ -735,17 +736,17 @@ export const ManagerCounter: React.FC = () => {
 
                               {isPortion ? (
                                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${selected ? 'text-amber-700' : 'text-slate-500'}`}>
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-amber-700' : 'text-slate-500'}`}>
                                     Multiple Options
                                   </span>
                                   <div className="flex items-center gap-2">
-                                    {selected && totalPortionQty > 0 && (
+                                    {isSelected && totalPortionQty > 0 && (
                                       <span className="w-5 h-5 rounded-full bg-amber-400 text-amber-950 font-mono text-[10px] flex items-center justify-center font-bold shadow-sm">
                                         {totalPortionQty}
                                       </span>
                                     )}
-                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${selected ? 'text-amber-800 bg-amber-200 border-amber-300' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
-                                      {selected ? 'EDIT' : '+ ADD'}
+                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${isSelected ? 'text-amber-800 bg-amber-200 border-amber-300' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
+                                      {isSelected ? 'EDIT' : '+ ADD'}
                                     </span>
                                   </div>
                                 </div>
@@ -755,13 +756,13 @@ export const ManagerCounter: React.FC = () => {
                                     <span className="text-[10px] font-bold text-rose-600 font-mono w-full text-center py-1">
                                       Out of Stock
                                     </span>
-                                  ) : selected ? (
+                                  ) : selectedItem ? (
                                     <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-xl shadow-2xs w-full justify-between">
                                       <button
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          updateQuantity(item._id, selected.quantity - 1);
+                                          updateQuantity(item._id, selectedItem.quantity - 1);
                                         }}
                                         className="w-7 h-7 rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs cursor-pointer"
                                         title="Decrease quantity"
@@ -769,13 +770,13 @@ export const ManagerCounter: React.FC = () => {
                                         <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
                                       </button>
                                       <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[20px] text-center">
-                                        {selected.quantity}
+                                        {selectedItem.quantity}
                                       </span>
                                       <button
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          updateQuantity(item._id, selected.quantity + 1);
+                                          updateQuantity(item._id, selectedItem.quantity + 1);
                                         }}
                                         className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer"
                                         title="Increase quantity"
