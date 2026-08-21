@@ -417,26 +417,28 @@ export const ManagerLayout: React.FC = () => {
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-w-[16rem]">
           {/* Orders tab */}
-          <button
-            onClick={() => navigate('/manager/orders')}
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-              activeTab === 'orders'
-                ? 'bg-slate-950 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Receipt className="w-4 h-4" strokeWidth={1.75} />
-              <span>Orders</span>
-            </div>
-            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono transition-opacity ${
-                activeOrdersCount > 0 ? 'opacity-100' : 'opacity-0'
-              } ${
-                activeTab === 'orders' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-700'
-              }`}>
-                {activeOrdersCount || ' '}
-              </span>
-          </button>
+          {isEnabled('ordering') && (
+            <button
+              onClick={() => navigate('/manager/orders')}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                activeTab === 'orders'
+                  ? 'bg-slate-950 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Receipt className="w-4 h-4" strokeWidth={1.75} />
+                <span>Orders</span>
+              </div>
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold font-mono transition-opacity ${
+                  activeOrdersCount > 0 ? 'opacity-100' : 'opacity-0'
+                } ${
+                  activeTab === 'orders' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {activeOrdersCount || ' '}
+                </span>
+            </button>
+          )}
 
           {/* Counter POS tab — visible only for manager/admin if ordering module is enabled */}
           {!isStaff && isEnabled('ordering') && (
