@@ -103,6 +103,17 @@ export const ManagerSettings: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch active orders to block workflow changes
+  const { data: activeOrdersData } = useQuery({
+    queryKey: ['activeOrdersQueue', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/orders/active`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId && isEnabled('ordering'),
+  });
+  const hasActiveOrders = activeOrdersData?.success && activeOrdersData.data.length > 0;
+
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [localFlags, setLocalFlags] = useState<Record<string, boolean>>({});
 
@@ -1698,6 +1709,18 @@ export const ManagerSettings: React.FC = () => {
                 <p className="text-xs text-slate-500 mt-0.5">Define order step lifecycle and auto-dispatch timers.</p>
               </div>
 
+              {hasActiveOrders && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
+                  <div>
+                    <h5 className="font-bold text-sm">Action Disabled: Active Orders Exist</h5>
+                    <p className="text-xs text-rose-600 mt-1 leading-relaxed">
+                      You cannot change the order workflow while there are active orders being processed. Please serve or cancel all pending, preparing, or ready orders before changing this setting to prevent state mismatches.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {([
                   {
@@ -1727,10 +1750,13 @@ export const ManagerSettings: React.FC = () => {
                     <button
                       key={mode.value}
                       type="button"
-                      onClick={() => setOrderWorkflowMode(mode.value)}
+                      disabled={hasActiveOrders}
+                      onClick={() => !hasActiveOrders && setOrderWorkflowMode(mode.value)}
                       className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 space-y-3 ${
                         isSelected
                           ? 'border-amber-500 bg-amber-50/50 shadow-md'
+                          : hasActiveOrders
+                          ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed'
                           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
@@ -1756,12 +1782,12 @@ export const ManagerSettings: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 mt-2 pt-2 border-t border-slate-100/60">
                         {mode.steps.map((step, i) => (
-                          <div key={step} className="flex items-center gap-1.5">
-                            <div className={`h-1.5 w-6 rounded-full ${mode.colors[i]}`} />
-                            <span className="text-[9px] font-bold text-slate-500">{step}</span>
-                            {i < mode.steps.length - 1 && <span className="text-[9px] text-slate-300">›</span>}
+                          <div key={step} className="flex items-center gap-1 whitespace-nowrap">
+                            <span className={`w-1.5 h-1.5 rounded-full ${mode.colors[i]}`} />
+                            <span className="text-[10px] font-bold text-slate-500">{step}</span>
+                            {i < mode.steps.length - 1 && <span className="text-[10px] text-slate-300 ml-0.5">›</span>}
                           </div>
                         ))}
                       </div>
@@ -1781,9 +1807,10 @@ export const ManagerSettings: React.FC = () => {
                   <div className="mt-0.5">
                     <input
                       type="checkbox"
+                      disabled={hasActiveOrders}
                       checked={autoAcceptEnabled}
-                      onChange={(e) => setAutoAcceptEnabled(e.target.checked)}
-                      className="h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300"
+                      onChange={(e) => !hasActiveOrders && setAutoAcceptEnabled(e.target.checked)}
+                      className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${hasActiveOrders ? 'opacity-50 cursor-not-allowed' : ''}`}
                     />
                   </div>
                   <div>
@@ -1803,10 +1830,13 @@ export const ManagerSettings: React.FC = () => {
                         <button
                           key={sec}
                           type="button"
-                          onClick={() => setAutoAcceptDelay(sec)}
+                          disabled={hasActiveOrders}
+                          onClick={() => !hasActiveOrders && setAutoAcceptDelay(sec)}
                           className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
                             autoAcceptDelay === sec
                               ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                              : hasActiveOrders
+                              ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed'
                               : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300'
                           }`}
                         >
@@ -1821,8 +1851,12 @@ export const ManagerSettings: React.FC = () => {
               <div className="pt-2 flex justify-end">
                 <button
                   type="submit"
-                  disabled={updateSectionMutation.isPending}
-                  className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400"
+                  disabled={updateSectionMutation.isPending || hasActiveOrders}
+                  className={`px-6 py-3 font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md ${
+                    hasActiveOrders
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                      : 'bg-slate-950 hover:bg-slate-800 text-white disabled:bg-slate-400'
+                  }`}
                 >
                   {updateSectionMutation.isPending ? (
                     <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
