@@ -541,7 +541,7 @@ export const ManagerTables: React.FC = () => {
                       `}
                     >
                       {/* 1-Click Print Bill button on Occupied Tables */}
-                      {isOccupied && (
+                      {isOccupied && isEnabled('ordering') && (
                         <button
                           type="button"
                           onClick={async (e) => {
@@ -676,7 +676,7 @@ export const ManagerTables: React.FC = () => {
                 </button>
 
                 {/* Print Bill & Clear options for occupied table */}
-                {isOccupied && (
+                {isOccupied && isEnabled('ordering') && (
                   <div className="space-y-2 pb-1">
                     <button
                       type="button"
