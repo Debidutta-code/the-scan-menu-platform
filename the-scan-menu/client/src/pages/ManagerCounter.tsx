@@ -106,6 +106,9 @@ export const ManagerCounter: React.FC = () => {
   const [showRecentOrdersModal, setShowRecentOrdersModal] = useState(false);
   const [reprintModalOrder, setReprintModalOrder] = useState<any | null>(null);
 
+  // Item variant selection modal state
+  const [selectedItemForVariants, setSelectedItemForVariants] = useState<any | null>(null);
+
   // Input refs for automatic keyboard focus
   const customerNameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -675,7 +678,14 @@ export const ManagerCounter: React.FC = () => {
                           return (
                             <div
                               key={item._id}
-                              onClick={() => !isOut && !isPortion && addItemToCart(item)}
+                              onClick={() => {
+                                if (isOut) return;
+                                if (isPortion) {
+                                  setSelectedItemForVariants(item);
+                                } else {
+                                  addItemToCart(item);
+                                }
+                              }}
                               className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col justify-between gap-3 select-none active:scale-[0.98] shadow-2xs relative ${
                                 isOut
                                   ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
@@ -688,7 +698,7 @@ export const ManagerCounter: React.FC = () => {
                                 <div className="flex items-start justify-between gap-1 mb-1">
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                                    <h4 className={`text-xs font-bold leading-snug truncate ${isOut ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                                    <h4 className={`text-xs font-bold leading-snug line-clamp-2 ${isOut ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
                                       {item.name}
                                     </h4>
                                   </div>
@@ -722,35 +732,13 @@ export const ManagerCounter: React.FC = () => {
                               </div>
 
                               {isPortion ? (
-                                <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
-                                  {item.variants.map((v: any) => {
-                                    const variantId = `${item._id}_${v.name}`;
-                                    const selectedVar = cartItems.find((ci) => ci.itemId === variantId);
-                                    return (
-                                      <button
-                                        key={v.name}
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          !isOut && addItemToCart(item, v);
-                                        }}
-                                        className={`px-2 py-1 rounded-xl text-[11px] font-bold border transition active:scale-95 flex items-center gap-1 shadow-2xs ${
-                                          selectedVar
-                                            ? 'bg-amber-100 border-amber-400 text-amber-950 ring-1 ring-amber-400/40'
-                                            : 'bg-amber-50/80 hover:bg-amber-100 border-amber-300/80 text-amber-900'
-                                        }`}
-                                        title={`Add ${item.name} (${v.name})`}
-                                      >
-                                        <span className="text-[10px] uppercase font-extrabold">{v.name}</span>
-                                        <span className="font-mono font-black text-[10px]">₹{(v.price / 100).toFixed(2)}</span>
-                                        {selectedVar && (
-                                          <span className="w-4 h-4 rounded-full bg-slate-900 text-white font-mono text-[9px] flex items-center justify-center font-bold">
-                                            {selectedVar.quantity}
-                                          </span>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
+                                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    Multiple Options
+                                  </span>
+                                  <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                    + ADD
+                                  </span>
                                 </div>
                               ) : (
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
@@ -1415,6 +1403,80 @@ export const ManagerCounter: React.FC = () => {
         order={reprintModalOrder}
         restaurantInfo={settingsData?.data}
       />
+
+      {/* ── VARIANT SELECTION MODAL ────────────────────────────────────────── */}
+      {selectedItemForVariants && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => setSelectedItemForVariants(null)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between bg-slate-50">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">{selectedItemForVariants.name}</h2>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Select Option</p>
+              </div>
+              <button
+                onClick={() => setSelectedItemForVariants(null)}
+                className="p-2 bg-white hover:bg-slate-100 rounded-full text-slate-500 transition cursor-pointer shadow-sm border border-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-3">
+                {selectedItemForVariants.variants.map((v: any) => {
+                  const variantId = `${selectedItemForVariants._id}_${v.name}`;
+                  const selectedVar = cartItems.find((ci) => ci.itemId === variantId);
+                  const isOut = !selectedItemForVariants.isAvailable || (selectedItemForVariants.trackStock && selectedItemForVariants.stockQuantity <= 0);
+                  return (
+                    <div
+                      key={v.name}
+                      onClick={() => {
+                        if (!isOut) {
+                          addItemToCart(selectedItemForVariants, v);
+                          setSelectedItemForVariants(null);
+                        }
+                      }}
+                      className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
+                        selectedVar
+                          ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20'
+                          : isOut
+                          ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                          : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-black uppercase text-slate-800">{v.name}</span>
+                        <span className="font-mono text-sm font-black text-slate-600">₹{(v.price / 100).toFixed(2)}</span>
+                      </div>
+                      {selectedVar ? (
+                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-mono text-sm flex items-center justify-center font-bold">
+                          {selectedVar.quantity}
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
