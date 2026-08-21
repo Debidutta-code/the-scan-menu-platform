@@ -100,7 +100,6 @@ export const AdminFeatureFlags: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [flagSearchTerm, setFlagSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedRestId, setSelectedRestId] = useState<string | null>(null);
 
   // Fetch all subscription plans
@@ -131,12 +130,21 @@ export const AdminFeatureFlags: React.FC = () => {
       const res = await apiClient.patch(`/restaurants/${restaurantId}/feature-flags`, { flags });
       return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminTenantFlags', selectedRestId] });
-      toast('Feature flags updated for tenant!', 'success');
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ['adminTenantFlags', selectedRestId] });
+      const previousFlags = queryClient.getQueryData(['adminTenantFlags', selectedRestId]);
+      
+      // Optimistically update
+      queryClient.setQueryData(['adminTenantFlags', selectedRestId], { data: variables.flags });
+      
+      return { previousFlags };
     },
-    onError: (err: any) => {
+    onError: (err: any, _variables: any, context: any) => {
+      queryClient.setQueryData(['adminTenantFlags', selectedRestId], context?.previousFlags);
       toast(err.response?.data?.error?.message || 'Error updating feature flags', 'error');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminTenantFlags', selectedRestId] });
     },
   });
 
@@ -157,16 +165,14 @@ export const AdminFeatureFlags: React.FC = () => {
   const currentFlags: any[] = Array.isArray(flagsResponse?.data) ? flagsResponse.data : [];
   const selectedRestaurant = restaurants.find((r: any) => r._id === selectedRestId);
 
-  // Filter flags by search and category
+  // Filter flags by search
   const filteredFlags = currentFlags.filter((flag: any) => {
     const matchesSearch =
       flag.name?.toLowerCase().includes(flagSearchTerm.toLowerCase()) ||
       flag.key.toLowerCase().includes(flagSearchTerm.toLowerCase()) ||
       flag.description?.toLowerCase().includes(flagSearchTerm.toLowerCase());
 
-    const matchesCategory = selectedCategory === 'ALL' || flag.category === selectedCategory;
-
-    return matchesSearch && matchesCategory;
+    return matchesSearch;
   });
 
   const activeFlagsCount = currentFlags.filter((f: any) => f.enabled).length;
@@ -179,7 +185,7 @@ export const AdminFeatureFlags: React.FC = () => {
     const newStatus = !currentStatus;
     
     // Chain rules
-    let dependenciesToEnable: string[] = [];
+    const dependenciesToEnable: string[] = [];
     if (newStatus === true) {
       if (flagKey === 'ordering') dependenciesToEnable.push('qr_menu');
       if (flagKey === 'kds') dependenciesToEnable.push('ordering', 'qr_menu');
@@ -410,7 +416,6 @@ export const AdminFeatureFlags: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={handleEnableAll}
-                      disabled={updateFlagsMutation.isPending}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5 shadow-xs"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-600" />
@@ -419,7 +424,6 @@ export const AdminFeatureFlags: React.FC = () => {
 
                     <button
                       onClick={handleDisableAll}
-                      disabled={updateFlagsMutation.isPending}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 text-red-900 border border-red-200 hover:bg-red-100 transition flex items-center gap-1.5 shadow-xs"
                     >
                       <Zap className="w-3.5 h-3.5 text-red-600" />
@@ -428,7 +432,6 @@ export const AdminFeatureFlags: React.FC = () => {
 
                     <button
                       onClick={handleSyncWithPlan}
-                      disabled={updateFlagsMutation.isPending}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 hover:bg-indigo-100 transition flex items-center gap-1.5 shadow-xs"
                     >
                       <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
@@ -437,7 +440,6 @@ export const AdminFeatureFlags: React.FC = () => {
 
                     <button
                       onClick={handleMinimalQrOnly}
-                      disabled={updateFlagsMutation.isPending}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition flex items-center gap-1.5 shadow-xs"
                     >
                       <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
@@ -447,113 +449,125 @@ export const AdminFeatureFlags: React.FC = () => {
                 </div>
               </div>
 
-              {/* Filter Tabs & Search Row */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                {/* Category Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-                  {CATEGORIES.map((cat) => {
-                    const isSelected = selectedCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                          isSelected
-                            ? 'bg-slate-950 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {cat.label}
-                      </button>
-                    );
-                  })}
+              {/* Active Modules Overview & Search Row */}
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <h3 className="font-bold text-slate-800 text-sm">Active Modules Overview</h3>
+                  <div className="relative shrink-0 w-full md:w-56">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Filter flags..."
+                      value={flagSearchTerm}
+                      onChange={(e) => setFlagSearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
                 </div>
 
-                {/* Search Feature Flags */}
-                <div className="relative shrink-0 w-full md:w-56">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    placeholder="Filter flags..."
-                    value={flagSearchTerm}
-                    onChange={(e) => setFlagSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-                  />
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl shadow-sm min-h-[3rem]">
+                  {currentFlags.filter((f: any) => f.enabled).length === 0 ? (
+                    <span className="text-xs text-slate-400 font-medium">No active modules for this tenant.</span>
+                  ) : (
+                    currentFlags.filter((f: any) => f.enabled).map((flag: any) => {
+                      const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
+                      return (
+                        <div key={`overview-${flag.key}`} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold shadow-xs">
+                          <IconComponent className="w-3.5 h-3.5" />
+                          <span>{flag.name || flag.key.replace(/_/g, ' ')}</span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
-              {/* Feature Flags List */}
+              {/* Feature Flags Categories List */}
               {filteredFlags.length === 0 ? (
                 <div className="text-center py-16 text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-150">
                   No feature modules match your current filter.
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
-                  {filteredFlags.map((flag: any) => {
-                    const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
-                    const catMeta = CATEGORY_META[flag.category] || CATEGORY_META.OPERATIONS;
+                <div className="flex flex-col gap-8 mt-2">
+                  {CATEGORIES.filter(c => c.id !== 'ALL').map((category) => {
+                    const categoryFlags = filteredFlags.filter((f: any) => f.category === category.id);
+                    if (categoryFlags.length === 0) return null;
+                    const catMeta = CATEGORY_META[category.id] || CATEGORY_META.OPERATIONS;
 
                     return (
-                      <div
-                        key={flag.key}
-                        className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
-                          flag.enabled
-                            ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
-                            : 'bg-slate-50/70 border-slate-200 opacity-70 hover:opacity-100'
-                        }`}
-                      >
-                        {/* Left: Icon, Title, Description, Category */}
-                        <div className="flex items-start gap-3.5">
-                          <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                              flag.enabled
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                                : 'bg-slate-200 text-slate-600 border-slate-300'
-                            }`}
-                          >
-                            <IconComponent className="w-5 h-5" strokeWidth={2} />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-sm text-slate-900 leading-tight">
-                                {flag.name || flag.key.replace(/_/g, ' ')}
-                              </h4>
-                              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${catMeta.bg} ${catMeta.color} ${catMeta.border}`}>
-                                {catMeta.label}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
-                              {flag.description || 'Module functionality for restaurant operations.'}
-                            </p>
-                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                              Key: {flag.key}
-                            </div>
-                          </div>
+                      <div key={category.id} className="space-y-4">
+                        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                          <h3 className="font-display font-bold text-lg text-slate-900">{category.label}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${catMeta.bg} ${catMeta.color} ${catMeta.border}`}>
+                            {categoryFlags.length} Modules
+                          </span>
                         </div>
 
-                        {/* Right: Switch Action */}
-                        <div className="flex items-center gap-4 shrink-0 self-end md:self-auto w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 justify-between md:justify-end">
-                          <span className={flag.enabled ? 'text-emerald-700 font-bold text-xs' : 'text-slate-500 text-xs font-medium'}>
-                            {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
-                          </span>
-                          <button
-                            onClick={() => handleToggleFlag(flag.key, flag.enabled)}
-                            disabled={updateFlagsMutation.isPending}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
-                              flag.enabled
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            }`}
-                          >
-                            {flag.enabled ? (
-                              <>
-                                <Check className="w-4 h-4" />
-                                <span>ON</span>
-                              </>
-                            ) : (
-                              <span>OFF</span>
-                            )}
-                          </button>
+                        <div className="flex flex-col gap-3">
+                          {categoryFlags.map((flag: any) => {
+                            const IconComponent = FLAG_ICON_MAP[flag.key] || Layers;
+
+                            return (
+                              <div
+                                key={flag.key}
+                                className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+                                  flag.enabled
+                                    ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
+                                    : 'bg-slate-50/70 border-slate-200 opacity-70 hover:opacity-100'
+                                }`}
+                              >
+                                {/* Left: Icon, Title, Description, Category */}
+                                <div className="flex items-start gap-3.5">
+                                  <div
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                                      flag.enabled
+                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                        : 'bg-slate-200 text-slate-600 border-slate-300'
+                                    }`}
+                                  >
+                                    <IconComponent className="w-5 h-5" strokeWidth={2} />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-bold text-sm text-slate-900 leading-tight">
+                                        {flag.name || flag.key.replace(/_/g, ' ')}
+                                      </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
+                                      {flag.description || 'Module functionality for restaurant operations.'}
+                                    </p>
+                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                                      Key: {flag.key}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Right: Switch Action */}
+                                <div className="flex items-center gap-4 shrink-0 self-end md:self-auto w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200/60 justify-between md:justify-end">
+                                  <span className={flag.enabled ? 'text-emerald-700 font-bold text-xs' : 'text-slate-500 text-xs font-medium'}>
+                                    {flag.enabled ? 'Module Enabled' : 'Module Disabled'}
+                                  </span>
+                                  <button
+                                    onClick={() => handleToggleFlag(flag.key, flag.enabled)}
+                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold font-mono text-[11px] transition shadow-xs ${
+                                      flag.enabled
+                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                    }`}
+                                  >
+                                    {flag.enabled ? (
+                                      <>
+                                        <Check className="w-4 h-4" />
+                                        <span>ON</span>
+                                      </>
+                                    ) : (
+                                      <span>OFF</span>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
