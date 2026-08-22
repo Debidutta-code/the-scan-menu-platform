@@ -45,7 +45,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (storedToken) {
         try {
           const response = await apiClient.get('/auth/me');
-          setUser(response.data.data.user);
+          const fetchedUser = response.data.data.user;
+          setUser(fetchedUser);
+          if (fetchedUser?.role !== 'SUPER_ADMIN') {
+            localStorage.removeItem('tsm_impersonated_outlet');
+            setImpersonatedOutlet(null);
+          }
           setIsLoading(false);
           return;
         } catch (err) {
@@ -60,12 +65,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('accessToken', newToken);
         setAccessToken(newToken);
         const meResponse = await apiClient.get('/auth/me');
-        setUser(meResponse.data.data.user);
+        const refreshedUser = meResponse.data.data.user;
+        setUser(refreshedUser);
+        if (refreshedUser?.role !== 'SUPER_ADMIN') {
+          localStorage.removeItem('tsm_impersonated_outlet');
+          setImpersonatedOutlet(null);
+        }
       } catch (refreshErr) {
         // Silent refresh failed -> user is logged out, clear any stale state
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('tsm_impersonated_outlet');
         setAccessToken(null);
         setUser(null);
+        setImpersonatedOutlet(null);
       } finally {
         setIsLoading(false);
       }
@@ -77,11 +89,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      // Clear any prior session impersonation before establishing new identity
+      localStorage.removeItem('tsm_impersonated_outlet');
+      setImpersonatedOutlet(null);
+
       const response = await apiClient.post('/auth/login', { email, password, clientType: 'web' });
       const { accessToken: token, user: userData } = response.data.data;
       localStorage.setItem('accessToken', token);
       setAccessToken(token);
       setUser(userData);
+      if (userData?.role !== 'SUPER_ADMIN') {
+        localStorage.removeItem('tsm_impersonated_outlet');
+        setImpersonatedOutlet(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -104,8 +124,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const impersonateOutlet = (outlet: ImpersonatedOutlet) => {
-    localStorage.setItem('tsm_impersonated_outlet', JSON.stringify(outlet));
-    setImpersonatedOutlet(outlet);
+    if (user?.role === 'SUPER_ADMIN') {
+      localStorage.setItem('tsm_impersonated_outlet', JSON.stringify(outlet));
+      setImpersonatedOutlet(outlet);
+    }
   };
 
   const exitImpersonation = () => {
@@ -113,7 +135,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setImpersonatedOutlet(null);
   };
 
-  const activeRestaurantId = impersonatedOutlet?.id || user?.restaurants?.[0] || undefined;
+  // For SUPER_ADMIN: use impersonated outlet if selected, or first outlet.
+  // For MANAGER/STAFF: ALWAYS strictly use their assigned restaurant, never an impersonated outlet.
+  const activeRestaurantId =
+    user?.role === 'SUPER_ADMIN'
+      ? (impersonatedOutlet?.id || user?.restaurants?.[0] || undefined)
+      : (user?.restaurants?.[0] || undefined);
 
   return (
     <AuthContext.Provider

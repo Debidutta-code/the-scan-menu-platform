@@ -64,7 +64,7 @@ export class AuthController {
         maxAge: expiryDays * 24 * 60 * 60 * 1000,
       });
 
-      const staffRecords = await RestaurantStaff.find({ userId: user.id, isActive: true });
+      const staffRecords = await RestaurantStaff.find({ userId: { $in: [(user as any)._id, user.id] }, isActive: true });
       let assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
 
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
@@ -192,7 +192,7 @@ export class AuthController {
         return;
       }
 
-      const staffRecords = await RestaurantStaff.find({ userId: user.id, isActive: true });
+      const staffRecords = await RestaurantStaff.find({ userId: { $in: [(user as any)._id, user.id] }, isActive: true });
       let assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
 
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
