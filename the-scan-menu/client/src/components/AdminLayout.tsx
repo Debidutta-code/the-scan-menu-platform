@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ScanMenuLogo } from './ScanMenuLogo';
-import { AppDownloadModal } from './AppDownloadModal';
 import {
   Shield,
   LayoutGrid,
@@ -17,7 +16,6 @@ import {
   X,
   Plug,
   Clock,
-  Download,
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
@@ -25,7 +23,6 @@ export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
-  const [showAppDownloadModal, setShowAppDownloadModal] = useState(false);
 
   const currentPath = location.pathname;
 
@@ -224,20 +221,6 @@ export const AdminLayout: React.FC = () => {
             <User className="w-4 h-4" strokeWidth={1.75} />
             <span>Admin Profile</span>
           </button>
-
-          {/* Desktop & Mobile App Showcase Button */}
-          <button
-            onClick={() => setShowAppDownloadModal(true)}
-            className="flex items-center justify-between w-full px-4 py-2.5 rounded-2xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-all mt-3 shadow-2xs"
-          >
-            <div className="flex items-center gap-2.5">
-              <Download className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-              <span>Get Desktop App</span>
-            </div>
-            <span className="text-[9px] font-mono font-bold bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded-full">
-              PWA
-            </span>
-          </button>
         </nav>
 
         {/* User Footer */}
@@ -273,14 +256,6 @@ export const AdminLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowAppDownloadModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold shadow-2xs transition active:scale-95"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-              <span>Get Desktop App</span>
-            </button>
-
-            <button
               onClick={() => navigate('/admin/restaurants/provision')}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition shadow-sm"
             >
@@ -293,8 +268,6 @@ export const AdminLayout: React.FC = () => {
             </span>
           </div>
         </header>
-
-        <AppDownloadModal isOpen={showAppDownloadModal} onClose={() => setShowAppDownloadModal(false)} />
 
         {/* Mobile Top Header */}
         <header className="md:hidden h-14 bg-white border-b border-slate-150 px-4 flex items-center justify-between shrink-0">
