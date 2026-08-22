@@ -28,6 +28,7 @@ import {
   History as HistoryIcon,
   ChefHat,
   FileText,
+  Tv,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -80,7 +81,7 @@ const orderModeOptions: { key: OrderMode; label: string; icon: React.ReactNode }
 ];
 
 export const ManagerCounter: React.FC = () => {
-  const { activeRestaurantId } = useAuth();
+  const { activeRestaurantId, user, impersonatedOutlet } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -498,6 +499,17 @@ export const ManagerCounter: React.FC = () => {
 
         {/* Header Right: Mode Toggle + Recent Orders */}
         <div className="flex items-center gap-2">
+          <a
+            href={`/r/${(user?.role === 'SUPER_ADMIN' ? impersonatedOutlet?.slug : (user as any)?.restaurants?.[0]?.slug) || 'demo-cafe'}/display`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer active:scale-95 shadow-2xs"
+            title="Open Customer Live Display TV Queue in a new window"
+          >
+            <Tv className="w-4 h-4 text-emerald-600" strokeWidth={2} />
+            <span className="hidden sm:inline">TV Display</span>
+          </a>
+
           <button
             type="button"
             onClick={() => setShowRecentOrdersModal(true)}

@@ -47,6 +47,7 @@ import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
 import PublicSessionlessOrder from './pages/PublicSessionlessOrder';
 import PublicCustomerLogin from './pages/PublicCustomerLogin';
 import PublicCustomerPortal from './pages/PublicCustomerPortal';
+import PublicLiveDisplay from './pages/PublicLiveDisplay';
 import ManagerCustomers from './pages/ManagerCustomers';
 
 const DashboardRedirect = () => {
@@ -81,11 +82,15 @@ export const App = () => {
               <Route path="/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
               <Route path="/menu" element={<PublicSessionlessOrder />} />
               <Route path="/order" element={<PublicSessionlessOrder />} />
+              <Route path="/display" element={<PublicLiveDisplay />} />
+              <Route path="/live-display" element={<PublicLiveDisplay />} />
 
               {/* Public customer dining view (Legacy path-based fallback) */}
               <Route path="/r/:restaurantSlug/t/:tableToken" element={<PublicTable />} />
               <Route path="/r/:restaurantSlug/t/:tableToken/order/:orderId" element={<PublicOrderConfirmation />} />
               <Route path="/r/:restaurantSlug/order" element={<PublicSessionlessOrder />} />
+              <Route path="/r/:restaurantSlug/display" element={<PublicLiveDisplay />} />
+              <Route path="/r/:restaurantSlug/live-display" element={<PublicLiveDisplay />} />
 
               {/* Dedicated Customer Auth & Portal Routes */}
               <Route path="/customer-login" element={<PublicCustomerLogin />} />

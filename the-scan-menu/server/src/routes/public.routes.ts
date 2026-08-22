@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PublicController } from '../controllers/public.controller';
 import { WaiterCallController } from '../controllers/waiterCall.controller';
+import { liveDisplayController } from '../controllers/liveDisplay.controller';
 import { tenantResolverMiddleware } from '../middleware/tenantResolver.middleware';
 import { tableResolverMiddleware } from '../middleware/tableResolver.middleware';
 import { optionalCustomerAuth } from '../middleware/customerAuth';
@@ -118,5 +119,13 @@ router.get('/table-sessions/:sessionId', publicGetLimiter, optionalCustomerAuth,
 // Public Waiter Call Endpoints
 router.post('/tables/:tableToken/waiter-call', waiterCallLimiter, waiterCallController.createWaiterCall);
 router.get('/tables/:tableToken/waiter-call/active', publicGetLimiter, waiterCallController.getActiveWaiterCall);
+
+// Public Customer Live Display (TV Status Board)
+router.get('/live-display', publicGetLimiter, tenantResolverMiddleware, (req, res, next) => {
+  const restaurantSlug = req.restaurant?.slug || (req.restaurant as any)?._id?.toString();
+  req.params.slugOrId = restaurantSlug;
+  liveDisplayController.getDisplayData(req, res, next);
+});
+router.get('/restaurants/:slugOrId/live-display', publicGetLimiter, liveDisplayController.getDisplayData);
 
 export default router;

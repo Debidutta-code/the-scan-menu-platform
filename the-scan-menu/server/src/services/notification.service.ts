@@ -21,6 +21,17 @@ export class NotificationService {
     try {
       // 1. Socket emission for active open web/app sessions
       this.getIO().to(`restaurant:${restaurantId}`).emit('order:created', orderSummary);
+      this.getIO().to(`display:${restaurantId}`).emit('display:order_created', {
+        id: orderSummary?._id?.toString() || orderSummary?.id?.toString(),
+        orderNumber: String(orderSummary?.orderNumber || '').replace(/^#/, ''),
+        displayToken: `#${String(orderSummary?.orderNumber || '').replace(/^#/, '')}`,
+        status: orderSummary?.status || 'PENDING',
+        tableName: orderSummary?.tableNumber ? `Table ${orderSummary.tableNumber}` : null,
+        orderType: orderSummary?.orderType || 'DINE_IN',
+        itemCount: Array.isArray(orderSummary?.items) ? orderSummary.items.length : 1,
+        createdAt: orderSummary?.createdAt || new Date(),
+        updatedAt: orderSummary?.updatedAt || new Date(),
+      });
 
       // 2. Push Notification for background / closed captain app devices
       const tableNumber = orderSummary?.tableNumber ?? orderSummary?.table?.tableNumber ?? 'Floor';
@@ -55,6 +66,7 @@ export class NotificationService {
       const payload = { orderId, status, updatedAt };
       this.getIO().to(`order:${orderId}`).emit('order:status_updated', payload);
       this.getIO().to(`restaurant:${restaurantId}`).emit('order:status_updated', payload);
+      this.getIO().to(`display:${restaurantId}`).emit('display:order_status_updated', payload);
     } catch (err) {
       console.error('NotificationService notifyOrderStatusUpdated failed:', err);
     }

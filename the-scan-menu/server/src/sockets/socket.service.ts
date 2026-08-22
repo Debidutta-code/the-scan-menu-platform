@@ -280,6 +280,37 @@ export class SocketService {
         }
       });
 
+      // Public Join Customer Live Display Room
+      socket.on('join_display', async (data) => {
+        const { restaurantSlug, restaurantId } = data || {};
+        const identifier = restaurantSlug || restaurantId;
+        if (!identifier || typeof identifier !== 'string') {
+          socket.emit('error', { code: 'INVALID_IDENTIFIER', message: 'Restaurant identifier is required' });
+          return;
+        }
+
+        try {
+          const { Restaurant } = await import('../models/Restaurant');
+          const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
+          const query = isObjectId
+            ? { $or: [{ _id: identifier }, { slug: identifier }] }
+            : { slug: identifier };
+          const restaurant = await Restaurant.findOne({ ...query, status: { $ne: 'ARCHIVED' } });
+
+          if (!restaurant) {
+            socket.emit('error', { code: 'RESTAURANT_NOT_FOUND', message: 'The specified restaurant was not found' });
+            return;
+          }
+
+          const roomName = `display:${restaurant._id.toString()}`;
+          socket.join(roomName);
+          logger.info(`Socket ${socket.id} joined ${roomName}`);
+          socket.emit('joined_display', { restaurantId: restaurant._id.toString(), restaurantSlug: restaurant.slug });
+        } catch (err) {
+          socket.emit('error', { code: 'INTERNAL_SERVER_ERROR', message: 'An unhandled socket error occurred' });
+        }
+      });
+
       socket.on('disconnect', () => {
         logger.info(`Socket disconnected: ${socket.id}`);
       });
