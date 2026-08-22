@@ -21,6 +21,11 @@ import {
   Flame,
   GripVertical,
   Sliders,
+  Eye,
+  Smartphone,
+  Sparkles,
+  Check,
+  Minus,
 } from 'lucide-react';
 
 import {
@@ -40,21 +45,27 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const categorySchema = z.object({
-  name: z.string().min(1, 'Category name is required'),
+  name: z.string().trim().min(1, 'Category name is required'),
   description: z.string().optional(),
   imageUrl: z.string().optional(),
 });
 
 const menuItemSchema = z.object({
-  name: z.string().min(1, 'Item name is required'),
+  name: z.string().trim().min(1, 'Dish name is required'),
   description: z.string().optional(),
   pricingType: z.enum(['SINGLE', 'PORTION']).default('SINGLE'),
-  price: z.coerce.number().min(0, 'Price must be non-negative').default(0),
+  price: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+    z.number().min(0, 'Price must be non-negative').default(0)
+  ),
   variants: z
     .array(
       z.object({
-        name: z.string().min(1, 'Size name required'),
-        price: z.coerce.number().min(0, 'Price must be non-negative'),
+        name: z.string().trim().min(1, 'Size name is required'),
+        price: z.preprocess(
+          (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+          z.number().min(0, 'Price must be non-negative')
+        ),
         isDefault: z.boolean().default(false),
       })
     )
@@ -63,18 +74,30 @@ const menuItemSchema = z.object({
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
   isChefsSpecial: z.boolean().default(false),
-  prepTimeMinutes: z.coerce.number().int().positive().optional(),
+  prepTimeMinutes: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined || Number(val) === 0 ? undefined : Number(val)),
+    z.number().int().positive('Prep time must be a positive number').optional()
+  ),
   trackStock: z.boolean().default(false),
-  stockQuantity: z.coerce.number().int().min(0).default(0),
-  lowStockThreshold: z.coerce.number().int().min(0).default(5),
+  stockQuantity: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+    z.number().int().min(0).default(0)
+  ),
+  lowStockThreshold: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? 5 : Number(val)),
+    z.number().int().min(0).default(5)
+  ),
   isCombo: z.boolean().default(false),
   comboItems: z
     .array(
       z.object({
         menuItemId: z.string().optional(),
-        name: z.string().min(1, 'Combo item name is required'),
+        name: z.string().trim().min(1, 'Combo item name is required'),
         categoryName: z.string().optional(),
-        quantity: z.coerce.number().int().min(1).default(1),
+        quantity: z.preprocess(
+          (val) => (val === '' || val === null || val === undefined ? 1 : Number(val)),
+          z.number().int().min(1).default(1)
+        ),
         imageUrl: z.string().optional(),
       })
     )
@@ -82,8 +105,11 @@ const menuItemSchema = z.object({
   addOns: z
     .array(
       z.object({
-        name: z.string().min(1, 'Add-on name is required'),
-        priceDelta: z.coerce.number().nonnegative('Price delta must be non-negative'),
+        name: z.string().trim().min(1, 'Add-on name is required'),
+        priceDelta: z.preprocess(
+          (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+          z.number().min(0, 'Price delta must be non-negative')
+        ),
       })
     )
     .default([]),
@@ -129,6 +155,356 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, children }) => {
   );
 };
 
+// Customer Dish Mobile Experience Preview Component
+const CustomerDishPreview: React.FC<{
+  item: any;
+  previewMode: 'LIST' | 'FULL';
+  setPreviewMode: (mode: 'LIST' | 'FULL') => void;
+}> = ({ item, previewMode, setPreviewMode }) => {
+  const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
+  const [selectedAddOns, setSelectedAddOns] = useState<any[]>([]);
+  const [previewQty, setPreviewQty] = useState(1);
+  const [isAddedToList, setIsAddedToList] = useState(false);
+
+  const activeVariant = isPortion ? item.variants[selectedVariantIdx] || item.variants[0] : null;
+  const basePrice = isPortion
+    ? (activeVariant ? Number(activeVariant.price || 0) : 0)
+    : Number(item.price || 0);
+
+  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + Number(a.priceDelta || 0), 0);
+  const totalPrice = (basePrice + addOnsTotal) * previewQty;
+
+  const minVariantPrice = isPortion && item.variants
+    ? Math.min(...item.variants.map((v: any) => Number(v.price || 0)))
+    : basePrice;
+
+  return (
+    <div className="space-y-4">
+      {/* Mode Switch Tabs */}
+      <div className="flex items-center justify-between bg-slate-100 p-1 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => setPreviewMode('LIST')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
+            previewMode === 'LIST'
+              ? 'bg-white text-slate-950 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Smartphone className="w-3.5 h-3.5" />
+          <span>Customer List View</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setPreviewMode('FULL')}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
+            previewMode === 'FULL'
+              ? 'bg-white text-slate-950 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>Customer Full View (Detail Sheet)</span>
+        </button>
+      </div>
+
+      {/* Realistic Mobile Frame */}
+      <div className="bg-[#FAF9F6] border border-slate-200 rounded-3xl p-4 md:p-6 shadow-inner mx-auto max-w-sm">
+        {/* Mobile Top Bar */}
+        <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 pb-3 mb-2 border-b border-slate-200/60">
+          <span className="font-bold text-slate-700">9:41</span>
+          <span className="bg-amber-100 text-amber-950 px-2 py-0.5 rounded-full font-bold">Table #4</span>
+        </div>
+
+        {previewMode === 'LIST' ? (
+          /* ========================================= */
+          /* MODE 1: CUSTOMER LIST VIEW CARD           */
+          /* ========================================= */
+          <div className="space-y-3">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              ✨ Customer Menu Card
+            </div>
+
+            <div className="p-4 bg-white rounded-3xl border border-slate-150 shadow-sm space-y-3">
+              <div className="flex gap-3.5 items-start">
+                {/* Dish Thumbnail */}
+                <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden shrink-0 relative border border-slate-100">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-400">
+                      <Sparkles className="w-5 h-5 opacity-40" />
+                    </div>
+                  )}
+                  {item.isChefsSpecial && (
+                    <div className="absolute top-1 left-1">
+                      <span className="text-[8px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-slate-950/85 rounded-full">
+                        Special
+                      </span>
+                    </div>
+                  )}
+                  {item.isCombo && !item.isChefsSpecial && (
+                    <div className="absolute top-1 left-1">
+                      <span className="text-[8px] font-black text-amber-950 uppercase tracking-wider px-1.5 py-0.5 bg-amber-400 rounded-full shadow-2xs">
+                        Combo
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <h4 className="text-sm font-bold text-slate-900 leading-snug break-words">
+                      {item.name || 'Untitled Dish'}
+                    </h4>
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                      <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                      {item.isSpicy && <MenuBadge variant="spicy" />}
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                    {item.description || 'No description added yet.'}
+                  </p>
+
+                  {item.isCombo && item.comboItems && item.comboItems.length > 0 && (
+                    <p className="text-[10px] text-amber-800 font-medium line-clamp-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/60 mt-1">
+                      Includes: {item.comboItems.map((c: any) => `${c.quantity > 1 ? `${c.quantity}x ` : ''}${c.name}`).join(' + ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Price & Add Action */}
+              <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
+                <div>
+                  {isPortion ? (
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">
+                        {item.variants.length} Sizes
+                      </span>
+                      <span className="text-sm font-black text-slate-900 font-mono">
+                        From ₹{minVariantPrice.toFixed(2)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">
+                        Price
+                      </span>
+                      <span className="text-sm font-black text-slate-900 font-mono">
+                        ₹{basePrice.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddedToList(!isAddedToList)}
+                  className={`px-4 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1 ${
+                    isAddedToList
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-950 text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {isAddedToList ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Added</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-center text-slate-400">
+              💡 Tap "Customer Full View" above to see the expanded sheet when a diner clicks this card.
+            </p>
+          </div>
+        ) : (
+          /* ========================================= */
+          /* MODE 2: CUSTOMER FULL VIEW (DETAIL SHEET) */
+          /* ========================================= */
+          <div className="space-y-4 bg-white rounded-3xl p-4 border border-slate-150 shadow-sm">
+            {/* Hero Cover */}
+            <div className="w-full h-44 bg-slate-100 rounded-2xl overflow-hidden relative border border-slate-100">
+              {item.imageUrl ? (
+                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                  <Sparkles className="w-8 h-8 opacity-40" />
+                  <span className="text-[11px] font-bold mt-1 text-slate-400">No Image Uploaded</span>
+                </div>
+              )}
+              <div className="absolute bottom-3 left-3 flex gap-1.5">
+                <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                {item.isSpicy && <MenuBadge variant="spicy" />}
+                {item.isChefsSpecial && (
+                  <span className="text-[9px] font-bold text-white uppercase px-2 py-0.5 bg-amber-500 rounded-full">
+                    Chef's Special
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Title & Price */}
+            <div className="space-y-1">
+              <h3 className="font-display text-xl font-bold text-slate-900 leading-tight">
+                {item.name || 'Untitled Dish'}
+              </h3>
+              {item.description && (
+                <p className="text-slate-500 text-xs leading-relaxed">{item.description}</p>
+              )}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-lg font-black text-slate-900 font-mono">
+                  ₹{basePrice.toFixed(2)}
+                </span>
+                {item.prepTimeMinutes && (
+                  <span className="text-[11px] text-slate-400 font-medium font-mono">
+                    • {item.prepTimeMinutes} mins prep
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Portion Sizes Selector */}
+            {isPortion && (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
+                  Select Portion Size
+                </label>
+                <div className="space-y-1.5">
+                  {item.variants.map((v: any, vIdx: number) => {
+                    const isSelected = selectedVariantIdx === vIdx;
+                    return (
+                      <div
+                        key={vIdx}
+                        onClick={() => setSelectedVariantIdx(vIdx)}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                          isSelected
+                            ? 'border-amber-500 bg-amber-50/60 font-bold text-slate-900'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-white text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-300'
+                          }`}>
+                            {isSelected && <div className="w-1.5 h-1.5 bg-slate-950 rounded-full" />}
+                          </div>
+                          <span className="text-xs">{v.name || `Size ${vIdx + 1}`}</span>
+                        </div>
+                        <span className="text-xs font-mono font-bold">
+                          ₹{Number(v.price || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Add-ons Checklist */}
+            {item.addOns && item.addOns.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
+                  Custom Add-Ons
+                </label>
+                <div className="space-y-1.5">
+                  {item.addOns.map((addon: any, aIdx: number) => {
+                    const isChecked = selectedAddOns.some((a) => a.name === addon.name);
+                    return (
+                      <div
+                        key={aIdx}
+                        onClick={() => {
+                          if (isChecked) {
+                            setSelectedAddOns(selectedAddOns.filter((a) => a.name !== addon.name));
+                          } else {
+                            setSelectedAddOns([...selectedAddOns, addon]);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                          isChecked
+                            ? 'border-emerald-500 bg-emerald-50/50 font-bold text-slate-900'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-white text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            readOnly
+                            className="w-3.5 h-3.5 accent-emerald-600 rounded"
+                          />
+                          <span className="text-xs">{addon.name}</span>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-emerald-700">
+                          +₹{Number(addon.priceDelta || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Special Instructions Mock */}
+            <div className="space-y-1 pt-2 border-t border-slate-100">
+              <label className="text-[11px] font-bold text-slate-600 block">
+                Special Cooking Request (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Less spicy, extra crisp..."
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50 placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* Bottom Action Bar */}
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+              <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setPreviewQty(Math.max(1, previewQty - 1))}
+                  className="p-1 text-slate-500 hover:text-slate-900"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-6 text-center text-xs font-mono font-bold text-slate-900">
+                  {previewQty}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewQty(previewQty + 1)}
+                  className="p-1 text-slate-500 hover:text-slate-900"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="flex-1 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition flex items-center justify-between px-3 shadow-md"
+              >
+                <span>Add to Order</span>
+                <span className="font-mono">₹{totalPrice.toFixed(2)}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const ManagerMenu: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
@@ -145,6 +521,11 @@ export const ManagerMenu: React.FC = () => {
   const [isItemOpen, setIsItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Preview states
+  const [previewDish, setPreviewDish] = useState<any | null>(null);
+  const [previewMode, setPreviewMode] = useState<'LIST' | 'FULL'>('LIST');
+  const [itemModalTab, setItemModalTab] = useState<'FORM' | 'PREVIEW'>('FORM');
 
   // Customization group modal states
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -507,13 +888,35 @@ export const ManagerMenu: React.FC = () => {
 
   const onItemSubmit = (values: any) => {
     setErrorMsg(null);
-    const isPortion = values.pricingType === 'PORTION' && values.variants && values.variants.length > 0;
+    if (!selectedCatId) {
+      toast('Please select or create a category before saving the dish.', 'error');
+      return;
+    }
+
+    const isPortion = values.pricingType === 'PORTION';
+
+    if (isPortion) {
+      if (!values.variants || values.variants.length === 0) {
+        toast('Please add at least one portion size option (e.g. Half / Full).', 'error');
+        return;
+      }
+      const invalidVariant = values.variants.find((v: any) => !v.name?.trim() || Number(v.price) < 0 || isNaN(Number(v.price)));
+      if (invalidVariant) {
+        toast('Please enter valid names and non-negative prices for all portion sizes.', 'error');
+        return;
+      }
+    } else {
+      if (Number(values.price) < 0 || isNaN(Number(values.price))) {
+        toast('Please enter a valid non-negative dish price.', 'error');
+        return;
+      }
+    }
 
     let priceInPaise = Math.round(Number(values.price || 0) * 100);
     const variantsInPaise = isPortion
       ? values.variants.map((v: any) => ({
           name: v.name.trim(),
-          price: Math.round(Number(v.price) * 100),
+          price: Math.round(Number(v.price || 0) * 100),
           isDefault: !!v.isDefault,
         }))
       : undefined;
@@ -523,20 +926,24 @@ export const ManagerMenu: React.FC = () => {
       priceInPaise = def.price;
     }
 
-    const addOnsInPaise = values.addOns?.map((addon: any) => ({
-      name: addon.name.trim(),
-      priceDelta: Math.round(Number(addon.priceDelta) * 100),
-    }));
+    const addOnsInPaise = values.addOns
+      ?.filter((addon: any) => addon.name?.trim())
+      .map((addon: any) => ({
+        name: addon.name.trim(),
+        priceDelta: Math.round(Number(addon.priceDelta || 0) * 100),
+      }));
 
     const payload = {
       ...values,
+      name: values.name.trim(),
       categoryId: selectedCatId,
       pricingType: isPortion ? 'PORTION' : 'SINGLE',
       price: priceInPaise,
       variants: variantsInPaise,
       addOns: addOnsInPaise,
+      prepTimeMinutes: values.prepTimeMinutes ? Number(values.prepTimeMinutes) : undefined,
       isCombo: !!values.isCombo,
-      comboItems: values.isCombo ? values.comboItems : undefined,
+      comboItems: values.isCombo ? values.comboItems?.filter((c: any) => c.name?.trim()) : undefined,
     };
 
     if (editingItem) {
@@ -559,6 +966,7 @@ export const ManagerMenu: React.FC = () => {
 
   const handleEditItemClick = (item: any) => {
     setEditingItem(item);
+    setItemModalTab('FORM');
     itemForm.reset({
       name: item.name,
       description: item.description || '',
@@ -566,7 +974,7 @@ export const ManagerMenu: React.FC = () => {
       price: (item.price || 0) / 100,
       variants: item.variants?.map((v: any) => ({
         name: v.name,
-        price: v.price / 100,
+        price: (v.price || 0) / 100,
         isDefault: !!v.isDefault,
       })) || [],
       imageUrl: item.imageUrl || '',
@@ -587,7 +995,7 @@ export const ManagerMenu: React.FC = () => {
       })) || [],
       addOns: item.addOns?.map((addon: any) => ({
         name: addon.name,
-        priceDelta: addon.priceDelta / 100,
+        priceDelta: (addon.priceDelta || 0) / 100,
       })) || [],
       attachedAddOnGroupIds: item.attachedAddOnGroupIds || [],
     });
@@ -596,6 +1004,7 @@ export const ManagerMenu: React.FC = () => {
 
   const handleNewItemClick = () => {
     setEditingItem(null);
+    setItemModalTab('FORM');
     itemForm.reset({
       name: '',
       description: '',
@@ -929,8 +1338,25 @@ export const ManagerMenu: React.FC = () => {
 
                                 <div className="flex items-center gap-1">
                                   <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewDish({
+                                        ...item,
+                                        price: (item.price || 0) / 100,
+                                        variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                                        addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                                      });
+                                      setPreviewMode('LIST');
+                                    }}
+                                    className="p-1.5 hover:bg-amber-50 rounded-xl text-amber-600 hover:text-amber-800 transition"
+                                    title="Preview Customer View"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
                                     onClick={() => handleEditItemClick(item)}
                                     className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition"
+                                    title="Edit Dish"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
@@ -941,6 +1367,7 @@ export const ManagerMenu: React.FC = () => {
                                       }
                                     }}
                                     className="p-1.5 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition"
+                                    title="Delete Dish"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1105,7 +1532,7 @@ export const ManagerMenu: React.FC = () => {
         document.body
       )}
 
-      {/* Menu Item Modal with Portion Pricing & Combos */}
+      {/* Menu Item Modal with Portion Pricing, Combos, & Live Customer Preview */}
       {isItemOpen && createPortal(
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
           <div className="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-5 my-auto">
@@ -1121,308 +1548,424 @@ export const ManagerMenu: React.FC = () => {
               </button>
             </div>
 
+            {/* Modal Mode Selector */}
+            <div className="flex bg-slate-100 p-1 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setItemModalTab('FORM')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition ${
+                  itemModalTab === 'FORM' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Dish Configuration
+              </button>
+              <button
+                type="button"
+                onClick={() => setItemModalTab('PREVIEW')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  itemModalTab === 'PREVIEW' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Live Customer Preview</span>
+              </button>
+            </div>
+
             {errorMsg && (
               <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
                 {errorMsg}
               </div>
             )}
 
-            <form onSubmit={itemForm.handleSubmit(onItemSubmit)} className="space-y-5">
-              {/* Item Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Name</label>
-                <input
-                  type="text"
-                  placeholder="Paneer Butter Masala"
-                  {...itemForm.register('name')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-bold"
+            {itemModalTab === 'PREVIEW' ? (
+              <div className="space-y-4">
+                <CustomerDishPreview
+                  item={itemForm.watch()}
+                  previewMode={previewMode}
+                  setPreviewMode={setPreviewMode}
                 />
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setItemModalTab('FORM')}
+                    className="w-1/2 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition"
+                  >
+                    Back to Edit Form
+                  </button>
+                  <button
+                    type="button"
+                    onClick={itemForm.handleSubmit(
+                      onItemSubmit,
+                      (errors) => {
+                        console.error('Validation errors:', errors);
+                        const firstKey = Object.keys(errors)[0];
+                        const firstErr: any = errors[firstKey];
+                        const msg = firstErr?.message || firstErr?.name?.message || firstErr?.price?.message || 'Please check the required fields.';
+                        toast(msg, 'error');
+                        setItemModalTab('FORM');
+                      }
+                    )}
+                    className="w-1/2 py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition shadow-xs"
+                  >
+                    {editingItem ? 'Save Changes' : 'Create Dish'}
+                  </button>
+                </div>
               </div>
-
-              {/* PRICING MODE SELECTOR */}
-              <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-black uppercase tracking-wider text-amber-950">Pricing Model</label>
-                  <div className="flex gap-1 p-0.5 bg-amber-100/80 rounded-xl border border-amber-300/80 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => itemForm.setValue('pricingType', 'SINGLE')}
-                      className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
-                        itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
-                      }`}
-                    >
-                      Single Price
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        itemForm.setValue('pricingType', 'PORTION');
-                        if (variantFields.length === 0) {
-                          handleApplyVariantPreset('HALF_FULL');
-                        }
-                      }}
-                      className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
-                        itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
-                      }`}
-                    >
-                      Portion Sizes (Half/Full)
-                    </button>
-                  </div>
+            ) : (
+              <form
+                onSubmit={itemForm.handleSubmit(
+                  onItemSubmit,
+                  (errors) => {
+                    console.error('Validation errors:', errors);
+                    const firstKey = Object.keys(errors)[0];
+                    const firstErr: any = errors[firstKey];
+                    const msg = firstErr?.message || firstErr?.name?.message || firstErr?.price?.message || 'Please check the required fields.';
+                    toast(msg, 'error');
+                  }
+                )}
+                className="space-y-5"
+              >
+                {/* Item Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Name</label>
+                  <input
+                    type="text"
+                    placeholder="Paneer Butter Masala"
+                    {...itemForm.register('name')}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-bold"
+                  />
                 </div>
 
-                {itemForm.watch('pricingType') === 'SINGLE' ? (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Dish Price (INR)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="280.00"
-                      {...itemForm.register('price')}
-                      className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Quick Presets Bar */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-bold text-amber-900">Quick Presets:</span>
+                {/* PRICING MODE SELECTOR */}
+                <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black uppercase tracking-wider text-amber-950">Pricing Model</label>
+                    <div className="flex gap-1 p-0.5 bg-amber-100/80 rounded-xl border border-amber-300/80 text-xs">
                       <button
                         type="button"
-                        onClick={() => handleApplyVariantPreset('HALF_FULL')}
-                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
+                        onClick={() => itemForm.setValue('pricingType', 'SINGLE')}
+                        className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                          itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
+                        }`}
                       >
-                        + Half / Full
+                        Single Price
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleApplyVariantPreset('SML')}
-                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
+                        onClick={() => {
+                          itemForm.setValue('pricingType', 'PORTION');
+                          if (variantFields.length === 0) {
+                            handleApplyVariantPreset('HALF_FULL');
+                          }
+                        }}
+                        className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                          itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
+                        }`}
                       >
-                        + Small / Med / Large
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyVariantPreset('REG_LARGE')}
-                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
-                      >
-                        + Regular / Large
+                        Portion Sizes (Half/Full)
                       </button>
                     </div>
+                  </div>
 
-                    {/* Variant Rows */}
-                    <div className="space-y-2">
-                      {variantFields.map((field, vIdx) => (
-                        <div key={field.id} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-amber-200/80">
+                  {itemForm.watch('pricingType') === 'SINGLE' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Dish Price (INR)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="280.00"
+                        {...itemForm.register('price')}
+                        className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Quick Presets Bar */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold text-amber-900">Quick Presets:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyVariantPreset('HALF_FULL')}
+                          className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
+                        >
+                          + Half / Full
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyVariantPreset('SML')}
+                          className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
+                        >
+                          + Small / Med / Large
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyVariantPreset('REG_LARGE')}
+                          className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
+                        >
+                          + Regular / Large
+                        </button>
+                      </div>
+
+                      {/* Variant Rows */}
+                      <div className="space-y-2">
+                        {variantFields.map((field, vIdx) => (
+                          <div key={field.id} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-amber-200/80">
+                            <input
+                              type="text"
+                              placeholder="Size (e.g. Half)"
+                              {...itemForm.register(`variants.${vIdx}.name` as const)}
+                              className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Price (INR)"
+                              {...itemForm.register(`variants.${vIdx}.price` as const)}
+                              className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeVariant(vIdx)}
+                              className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => appendVariant({ name: '', price: 0, isDefault: false })}
+                          className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Custom Size Option</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* COMBOS BUNDLE BUILDER SECTION */}
+                <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isComboToggle"
+                      {...itemForm.register('isCombo')}
+                      className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                    />
+                    <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">
+                      Bundle as Multi-Dish Combo (e.g. Garlic Naan + Paneer Butter Masala)
+                    </label>
+                  </div>
+
+                  {itemForm.watch('isCombo') && (
+                    <div className="space-y-2 pt-2">
+                      <p className="text-[11px] text-slate-500">
+                        Add items included in this combo pack:
+                      </p>
+                      {comboFields.map((cField, cIdx) => (
+                        <div key={cField.id} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
                           <input
                             type="text"
-                            placeholder="Size (e.g. Half)"
-                            {...itemForm.register(`variants.${vIdx}.name` as const)}
-                            className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
+                            placeholder="Dish name (e.g. Garlic Naan)"
+                            {...itemForm.register(`comboItems.${cIdx}.name` as const)}
+                            className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
                           />
                           <input
                             type="number"
-                            step="0.01"
-                            placeholder="Price (INR)"
-                            {...itemForm.register(`variants.${vIdx}.price` as const)}
-                            className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                            min="1"
+                            placeholder="Qty (e.g. 2)"
+                            {...itemForm.register(`comboItems.${cIdx}.quantity` as const)}
+                            className="w-20 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Category (e.g. Breads)"
+                            {...itemForm.register(`comboItems.${cIdx}.categoryName` as const)}
+                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
                           />
                           <button
                             type="button"
-                            onClick={() => removeVariant(vIdx)}
-                            className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded cursor-pointer"
+                            onClick={() => removeComboItem(cIdx)}
+                            className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ))}
                       <button
                         type="button"
-                        onClick={() => appendVariant({ name: '', price: 0, isDefault: false })}
-                        className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                        onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })}
+                        className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Add Custom Size Option</span>
+                        <span>Add Bundled Item</span>
                       </button>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* COMBOS BUNDLE BUILDER SECTION */}
-              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="isComboToggle"
-                    {...itemForm.register('isCombo')}
-                    className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                  />
-                  <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">
-                    Bundle as Multi-Dish Combo (e.g. Garlic Naan + Paneer Butter Masala)
-                  </label>
+                  )}
                 </div>
 
-                {itemForm.watch('isCombo') && (
-                  <div className="space-y-2 pt-2">
-                    <p className="text-[11px] text-slate-500">
-                      Add items included in this combo pack:
-                    </p>
-                    {comboFields.map((cField, cIdx) => (
-                      <div key={cField.id} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
-                        <input
-                          type="text"
-                          placeholder="Dish name (e.g. Garlic Naan)"
-                          {...itemForm.register(`comboItems.${cIdx}.name` as const)}
-                          className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
-                        />
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="Qty (e.g. 2)"
-                          {...itemForm.register(`comboItems.${cIdx}.quantity` as const)}
-                          className="w-20 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Category (e.g. Breads)"
-                          {...itemForm.register(`comboItems.${cIdx}.categoryName` as const)}
-                          className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeComboItem(cIdx)}
-                          className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                  <textarea
+                    placeholder="Spiced cottage cheese chunks simmered in rich tomato butter gravy..."
+                    {...itemForm.register('description')}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-16"
+                  />
+                </div>
+
+                {/* Dietary Indicators with FSSAI Badges */}
+                <div className="grid grid-cols-3 gap-3">
+                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
+                    itemForm.watch('isVegetarian') ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
+                  }`}>
+                    <input type="checkbox" {...itemForm.register('isVegetarian')} className="hidden" />
+                    <MenuBadge variant="veg" />
+                    <span className="text-xs">Vegetarian</span>
+                  </label>
+
+                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
+                    itemForm.watch('isSpicy') ? 'bg-rose-50 border-rose-500 text-rose-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
+                  }`}>
+                    <input type="checkbox" {...itemForm.register('isSpicy')} className="hidden" />
+                    <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} />
+                    <span className="text-xs">Spicy</span>
+                  </label>
+
+                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
+                    itemForm.watch('isChefsSpecial') ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
+                  }`}>
+                    <input type="checkbox" {...itemForm.register('isChefsSpecial')} className="hidden" />
+                    <span className="text-xs">Chef's Special</span>
+                  </label>
+
+                  {isEnabled('ordering') && (
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="15 mins prep"
+                        {...itemForm.register('prepTimeMinutes')}
+                        className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Image Uploader */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Image</label>
+                  <ImageUploader
+                    restaurantId={activeRestaurantId!}
+                    value={itemForm.watch('imageUrl')}
+                    onChange={(url: string) => itemForm.setValue('imageUrl', url)}
+                  />
+                </div>
+
+                {/* Add-On Customizations Repeater */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <span className="text-xs font-bold text-slate-900">Custom Add-Ons (Specific to this dish)</span>
                     <button
                       type="button"
-                      onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })}
-                      className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      onClick={() => appendAddOn({ name: '', priceDelta: 0 })}
+                      className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add Bundled Item</span>
+                      <span>Add Add-on</span>
                     </button>
                   </div>
-                )}
-              </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea
-                  placeholder="Spiced cottage cheese chunks simmered in rich tomato butter gravy..."
-                  {...itemForm.register('description')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-16"
-                />
-              </div>
-
-              {/* Dietary Indicators with FSSAI Badges */}
-              <div className="grid grid-cols-3 gap-3">
-                <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
-                  itemForm.watch('isVegetarian') ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
-                }`}>
-                  <input type="checkbox" {...itemForm.register('isVegetarian')} className="hidden" />
-                  <MenuBadge variant="veg" />
-                  <span className="text-xs">Vegetarian</span>
-                </label>
-
-                <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
-                  itemForm.watch('isSpicy') ? 'bg-rose-50 border-rose-500 text-rose-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
-                }`}>
-                  <input type="checkbox" {...itemForm.register('isSpicy')} className="hidden" />
-                  <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} />
-                  <span className="text-xs">Spicy</span>
-                </label>
-
-                <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
-                  itemForm.watch('isChefsSpecial') ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
-                }`}>
-                  <input type="checkbox" {...itemForm.register('isChefsSpecial')} className="hidden" />
-                  <span className="text-xs">Chef's Special</span>
-                </label>
-
-                {isEnabled('ordering') && (
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="15 mins prep"
-                      {...itemForm.register('prepTimeMinutes')}
-                      className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Image Uploader */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Image</label>
-                <ImageUploader
-                  restaurantId={activeRestaurantId!}
-                  value={itemForm.watch('imageUrl')}
-                  onChange={(url: string) => itemForm.setValue('imageUrl', url)}
-                />
-              </div>
-
-              {/* Add-On Customizations Repeater */}
-              <div className="space-y-3 pt-2">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                  <span className="text-xs font-bold text-slate-900">Custom Add-Ons (Specific to this dish)</span>
-                  <button
-                    type="button"
-                    onClick={() => appendAddOn({ name: '', priceDelta: 0 })}
-                    className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Add-on</span>
-                  </button>
+                  {addOnFields.map((field, index) => (
+                    <div key={field.id} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="e.g. Extra Butter"
+                        {...itemForm.register(`addOns.${index}.name` as const)}
+                        className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Extra Price (INR)"
+                        {...itemForm.register(`addOns.${index}.priceDelta` as const)}
+                        className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeAddOn(index)}
+                        className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
 
-                {addOnFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      placeholder="e.g. Extra Butter"
-                      {...itemForm.register(`addOns.${index}.name` as const)}
-                      className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Extra Price (INR)"
-                      {...itemForm.register(`addOns.${index}.priceDelta` as const)}
-                      className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeAddOn(index)}
-                      className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                {/* Form Action Buttons */}
+                <div className="flex gap-2.5 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsItemOpen(false)}
+                    className="w-1/4 py-3 border border-slate-200 text-slate-600 text-xs font-semibold rounded-2xl hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemModalTab('PREVIEW')}
+                    className="w-1/3 py-3 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-bold rounded-2xl transition cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Preview Card</span>
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl transition shadow-md cursor-pointer"
+                  >
+                    {editingItem ? 'Save Changes' : 'Create Dish'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
-              {/* Form Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsItemOpen(false)}
-                  className="w-1/2 py-3 border border-slate-200 text-slate-600 text-sm font-semibold rounded-2xl hover:bg-slate-50 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="w-1/2 py-3 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-2xl transition shadow-md cursor-pointer"
-                >
-                  {editingItem ? 'Save Changes' : 'Create Dish'}
-                </button>
+      {/* Standalone Customer Dish Preview Modal */}
+      {previewDish && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 space-y-4 my-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <div>
+                <h2 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-amber-500" />
+                  <span>Customer Experience Preview</span>
+                </h2>
+                <p className="text-[11px] text-slate-400">Live diner view for "{previewDish.name}"</p>
               </div>
-            </form>
+              <button onClick={() => setPreviewDish(null)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                <X className="w-5 h-5" strokeWidth={1.75} />
+              </button>
+            </div>
+
+            <CustomerDishPreview
+              item={previewDish}
+              previewMode={previewMode}
+              setPreviewMode={setPreviewMode}
+            />
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setPreviewDish(null)}
+                className="w-full py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
           </div>
         </div>,
         document.body
