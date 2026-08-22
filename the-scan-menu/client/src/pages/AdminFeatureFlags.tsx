@@ -488,7 +488,7 @@ export const AdminFeatureFlags: React.FC = () => {
                             return (
                               <div
                                 key={flag.key}
-                                className={`p-4 rounded-2xl border transition-all flex flex-col h-full gap-3 ${
+                                className={`p-4 rounded-2xl border transition-all flex flex-col h-full min-h-[11rem] gap-3 ${
                                   flag.enabled
                                     ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
                                     : 'bg-slate-50/70 border-slate-200 hover:bg-white'
@@ -533,12 +533,12 @@ export const AdminFeatureFlags: React.FC = () => {
                                   <button
                                     onClick={() => handleToggleFlag(flag.key, flag.enabled)}
                                     disabled={isToggleDisabled}
-                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold font-mono text-[10px] transition shadow-xs ${
+                                    className={`flex items-center justify-center gap-1 min-w-[64px] px-3 py-1.5 rounded-lg font-bold font-mono text-[10px] transition shadow-xs border ${
                                       flag.enabled
-                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700 border-transparent'
                                         : isToggleDisabled
-                                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200'
+                                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-transparent'
                                     }`}
                                   >
                                     {flag.enabled ? (
