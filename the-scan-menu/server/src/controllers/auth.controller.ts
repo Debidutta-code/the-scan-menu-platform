@@ -69,7 +69,7 @@ export class AuthController {
 
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
         const { Restaurant } = await import('../models/Restaurant');
-        const allRestaurants = await Restaurant.find({ isActive: true });
+        const allRestaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } });
         assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 
@@ -197,7 +197,7 @@ export class AuthController {
 
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
         const { Restaurant } = await import('../models/Restaurant');
-        const allRestaurants = await Restaurant.find({ isActive: true });
+        const allRestaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } });
         assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 

@@ -21,10 +21,18 @@ export const AdminProvision: React.FC = () => {
   // Form State
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [planKey, setPlanKey] = useState<'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'>('ENTERPRISE');
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+  const [gstNumber, setGstNumber] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+  const [openTime, setOpenTime] = useState('09:00');
+  const [closeTime, setCloseTime] = useState('23:00');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
   const [currency, setCurrency] = useState('INR');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
 
@@ -66,19 +74,27 @@ export const AdminProvision: React.FC = () => {
 
     provisionMutation.mutate({
       restaurant: {
-        name,
+        name: name.trim(),
         slug: slug.trim() || undefined,
+        planKey,
         description: description.trim() || undefined,
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         address: address.trim() || undefined,
+        gstNumber: gstNumber.trim() || undefined,
+        whatsapp: whatsapp.trim() || undefined,
+        googleReviewUrl: googleReviewUrl.trim() || undefined,
+        openTime,
+        closeTime,
+        logoUrl: logoUrl.trim() || undefined,
+        coverImageUrl: coverImageUrl.trim() || undefined,
         currency,
         timezone,
       },
       manager: {
-        name: managerName,
-        email: managerEmail,
-        password: managerPassword,
+        name: managerName.trim(),
+        email: managerEmail.trim(),
+        password: managerPassword.trim(),
       },
     });
   };
@@ -224,13 +240,159 @@ export const AdminProvision: React.FC = () => {
               </select>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">GST Number</label>
+              <input
+                type="text"
+                placeholder="29ABCDE1234F1Z5"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">WhatsApp Number</label>
+              <input
+                type="text"
+                placeholder="+919876543210"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Opening Time</label>
+              <input
+                type="time"
+                value={openTime}
+                onChange={(e) => setOpenTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Closing Time</label>
+              <input
+                type="time"
+                value={closeTime}
+                onChange={(e) => setCloseTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Logo Image URL</label>
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/..."
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Cover Banner URL</label>
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/..."
+                value={coverImageUrl}
+                onChange={(e) => setCoverImageUrl(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Google Review URL</label>
+              <input
+                type="url"
+                placeholder="https://g.page/r/..."
+                value={googleReviewUrl}
+                onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Section 2: Manager Credentials */}
+        {/* Section 2: Subscription Plan Selection */}
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-5">
+          <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+            <Sparkles className="w-4.5 h-4.5 text-amber-500" strokeWidth={1.75} />
+            <span>2. Subscription Plan & Feature Flags Allocation</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              {
+                id: 'ENTERPRISE',
+                title: 'Enterprise Plan',
+                badge: 'Recommended',
+                desc: 'All 18 feature flags (POS, KDS, Ordering, Payments, Analytics, CRM, Inventory, API).',
+              },
+              {
+                id: 'PROFESSIONAL',
+                title: 'Professional Plan',
+                badge: 'Popular',
+                desc: 'QR Ordering, Payments, Analytics, Inventory, Coupons, Customer Display.',
+              },
+              {
+                id: 'STARTER',
+                title: 'Starter Plan',
+                badge: 'Essential',
+                desc: 'QR Menu, Waiter Call, Dine-In & Takeaway Ordering.',
+              },
+              {
+                id: 'FREE',
+                title: 'Free Plan',
+                badge: 'Basic',
+                desc: 'Digital QR Menu browsing only (no online checkout or KDS).',
+              },
+            ].map((p) => (
+              <div
+                key={p.id}
+                onClick={() => setPlanKey(p.id as any)}
+                className={`p-4 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                  planKey === p.id
+                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
+                    : 'border-slate-150 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="font-bold text-xs text-slate-900">{p.title}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono ${
+                      planKey === p.id ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {p.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">{p.desc}</p>
+                </div>
+                <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-amber-700">
+                  <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    planKey === p.id ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-300'
+                  }`}>
+                    {planKey === p.id && <div className="w-1.5 h-1.5 bg-slate-950 rounded-full" />}
+                  </div>
+                  <span>{planKey === p.id ? 'Selected' : 'Select Plan'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Manager Credentials */}
         <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-5">
           <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
             <UserCheck className="w-4.5 h-4.5 text-amber-500" strokeWidth={1.75} />
-            <span>2. Manager Account Credentials</span>
+            <span>3. Manager Account Credentials</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -271,13 +433,13 @@ export const AdminProvision: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 3: Summary & Submission */}
+        {/* Section 4: Summary & Submission */}
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h4 className="text-xs font-extrabold text-amber-950 uppercase tracking-wider">Automated Provisions Included</h4>
             <p className="text-xs text-amber-800 mt-0.5">
               • 10 Initial Dining Tables (T1–T10) with QR Code Tokens<br />
-              • FREE Plan Subscription Assigned & Feature Flags Configured
+              • <strong>{planKey}</strong> Plan Subscription Assigned & Feature Flags Configured
             </p>
           </div>
           <button

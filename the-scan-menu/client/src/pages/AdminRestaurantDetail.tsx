@@ -116,6 +116,23 @@ export const AdminRestaurantDetail: React.FC = () => {
     },
   });
 
+  // Update Subscription Plan Mutation
+  const updatePlanMutation = useMutation({
+    mutationFn: async (planKey: string) => {
+      const res = await apiClient.patch(`/restaurants/${id}/subscription`, { planKey });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
+      queryClient.invalidateQueries({ queryKey: ['adminFlags', id] });
+      queryClient.invalidateQueries({ queryKey: ['adminTenantFlags', id] });
+      toast('Subscription plan updated and feature flags synced!', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error updating subscription plan', 'error');
+    },
+  });
+
   // Update Store Profile Mutation
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => adminService.editRestaurant(id!, data),
@@ -276,18 +293,31 @@ export const AdminRestaurantDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Subscription Badge */}
-          {restaurant.subscription && (
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex items-center gap-3">
-              <CreditCard className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+          {/* Subscription Controls */}
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              <CreditCard className="w-5 h-5 text-amber-500 shrink-0" strokeWidth={1.75} />
               <div>
-                <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Subscription Plan</span>
+                <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Assigned Plan</span>
                 <p className="text-xs font-black text-slate-900 font-mono">
-                  {restaurant.subscription.planKey || restaurant.subscription.planType} ({restaurant.subscription.status})
+                  {restaurant.subscription?.planKey || 'FREE'} ({restaurant.subscription?.status || 'ACTIVE'})
                 </p>
               </div>
             </div>
-          )}
+            <div className="sm:ml-auto flex items-center gap-2">
+              <select
+                value={restaurant.subscription?.planKey || 'FREE'}
+                onChange={(e) => updatePlanMutation.mutate(e.target.value)}
+                disabled={updatePlanMutation.isPending}
+                className="text-xs font-bold px-3 py-1.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-amber-500 font-mono"
+              >
+                <option value="ENTERPRISE">ENTERPRISE (All 18 Flags)</option>
+                <option value="PROFESSIONAL">PROFESSIONAL (9 Flags)</option>
+                <option value="STARTER">STARTER (4 Flags)</option>
+                <option value="FREE">FREE (QR Menu Only)</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Info Grid */}

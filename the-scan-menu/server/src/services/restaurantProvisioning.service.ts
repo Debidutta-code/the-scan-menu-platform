@@ -23,6 +23,7 @@ function slugify(text: string): string {
 }
 
 export interface ProvisionRestaurantInput {
+  planKey?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
   restaurant: {
     name: string;
     slug?: string;
@@ -34,6 +35,12 @@ export interface ProvisionRestaurantInput {
     address?: string;
     currency?: string;
     timezone?: string;
+    planKey?: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+    gstNumber?: string;
+    whatsapp?: string;
+    googleReviewUrl?: string;
+    openTime?: string;
+    closeTime?: string;
   };
   manager: {
     name: string;
@@ -44,6 +51,10 @@ export interface ProvisionRestaurantInput {
     theme?: any;
     branding?: any;
     taxRatePercent?: number;
+    gstNumber?: string;
+    whatsapp?: string;
+    googleReviewUrl?: string;
+    timings?: { open: string; close: string };
   };
 }
 
@@ -98,6 +109,8 @@ export class RestaurantProvisioningService {
         }
       }
 
+      const assignedPlanKey = input.restaurant.planKey || input.planKey || 'ENTERPRISE';
+
       // 3. Create Restaurant document
       const [restaurant] = await Restaurant.create(
         [
@@ -114,7 +127,7 @@ export class RestaurantProvisioningService {
             address: input.restaurant.address,
             subscription: {
               status: 'TRIAL',
-              planKey: 'FREE',
+              planKey: assignedPlanKey,
               expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
             },
           },
@@ -171,11 +184,18 @@ export class RestaurantProvisioningService {
             branding: input.settings?.branding || {
               logoUrl: input.restaurant.logoUrl || '',
               coverImageUrl: input.restaurant.coverImageUrl || '',
+              googleReviewUrl: input.restaurant.googleReviewUrl || input.settings?.googleReviewUrl || '',
+              whatsapp: input.restaurant.whatsapp || input.settings?.whatsapp || '',
+            },
+            timings: input.settings?.timings || {
+              open: input.restaurant.openTime || '09:00',
+              close: input.restaurant.closeTime || '23:00',
             },
             paymentConfig: {
               taxRatePercent: input.settings?.taxRatePercent || 0,
               paymentMethods: { cash: true, card: true, upi: true, razorpay: false },
               integrationConfig: { provider: 'NONE', config: {} },
+              gstNumber: input.restaurant.gstNumber || input.settings?.gstNumber || '',
             },
           },
         ],
@@ -236,13 +256,13 @@ export class RestaurantProvisioningService {
         { session }
       );
 
-      // 9. Assign FREE subscription and sync Feature Flags
-      await subscriptionService.assignPlanToRestaurant(restaurant._id, 'FREE', session);
+      // 9. Assign selected subscription and sync Feature Flags
+      await subscriptionService.assignPlanToRestaurant(restaurant._id, assignedPlanKey, session);
 
       // Audit logs
       logger.info(`[AUDIT] Restaurant Created: ${restaurant.name} (${restaurant.code})`);
       logger.info(`[AUDIT] Manager Created: ${user.email} for ${restaurant.code}`);
-      logger.info(`[AUDIT] Subscription Assigned: FREE to ${restaurant.code}`);
+      logger.info(`[AUDIT] Subscription Assigned: ${assignedPlanKey} to ${restaurant.code}`);
 
       // 10. Commit Transaction
       await session.commitTransaction();
