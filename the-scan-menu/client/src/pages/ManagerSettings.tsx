@@ -26,15 +26,14 @@ import {
   Phone,
   Mail,
   Download,
-  Monitor,
   Smartphone,
   Apple,
   Laptop,
   Sparkles,
   CheckCircle2,
-  ShieldCheck,
   Share2,
   Zap,
+  Volume2,
 } from 'lucide-react';
 import usePWAInstall from '../hooks/usePWAInstall';
 import { ScanMenuLogo } from '../components/ScanMenuLogo';
@@ -934,283 +933,217 @@ export const ManagerSettings: React.FC = () => {
           {activeTab === 'app_install' && (
             <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
               <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Download className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-                    <span>The Scan Menu Desktop & Mobile App</span>
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Install standalone workstation on Windows, Mac, Android, and iOS with hardware printing and background order chimes.
-                  </p>
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-950 flex items-center justify-center shadow-md shrink-0 border border-slate-800">
+                    <ScanMenuLogo size={24} variant="white" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 tracking-tight leading-tight">
+                      Install The Scan Menu
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Standalone POS workstation with background audio order alerts and thermal receipt printing.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-slate-950 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider shrink-0 self-start sm:self-auto">
-                  <Sparkles className="w-3 h-3 text-slate-950" />
-                  <span>Progressive Web App</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-[10px] font-semibold shrink-0 self-start sm:self-auto">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>Desktop & Mobile App</span>
                 </div>
               </div>
 
-              {/* Platform Switcher */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {/* Segmented Platform Switcher */}
+              <div className="p-1 bg-slate-100 rounded-2xl flex items-center gap-1 max-w-lg">
                 <button
                   type="button"
                   onClick={() => setPlatformPreviewTab('windows')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                     platformPreviewTab === 'windows'
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Laptop className="w-4 h-4 text-sky-400" />
-                  <span>Windows (PC)</span>
-                  {os === 'windows' && (
-                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/30 text-sky-300 font-mono">
-                      Your Device
-                    </span>
-                  )}
+                  <Laptop className="w-3.5 h-3.5" />
+                  <span>Windows</span>
+                  {os === 'windows' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPlatformPreviewTab('mac')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                     platformPreviewTab === 'mac'
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Apple className="w-4 h-4 text-slate-300" />
+                  <Apple className="w-3.5 h-3.5" />
                   <span>macOS</span>
-                  {os === 'mac' && (
-                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-300/30 text-white font-mono">
-                      Your Device
-                    </span>
-                  )}
+                  {os === 'mac' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPlatformPreviewTab('android')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                     platformPreviewTab === 'android'
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <Smartphone className="w-3.5 h-3.5" />
                   <span>Android</span>
-                  {os === 'android' && (
-                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 font-mono">
-                      Your Device
-                    </span>
-                  )}
+                  {os === 'android' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPlatformPreviewTab('ios')}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition ${
                     platformPreviewTab === 'ios'
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Share2 className="w-4 h-4 text-indigo-400" />
-                  <span>iOS / iPadOS</span>
-                  {os === 'ios' && (
-                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-500/30 text-indigo-300 font-mono">
-                      Your Device
-                    </span>
-                  )}
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>iOS / iPad</span>
+                  {os === 'ios' && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
                 </button>
               </div>
 
-              {/* WINDOWS TAB CONTENT */}
+              {/* Platform Content */}
               {platformPreviewTab === 'windows' && (
-                <div className="space-y-6">
-                  <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 text-white space-y-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Monitor className="w-4 h-4 text-sky-400" />
-                        <h5 className="font-bold text-sm text-white">Windows Native Desktop POS Terminal</h5>
+                <div className="space-y-4">
+                  <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100/70 border border-slate-200/80 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          The Scan Menu for Windows
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Runs standalone in its own window, pins to your Windows taskbar, and delivers immediate order sound alerts.
+                        </p>
                       </div>
-                      <span className="text-[10px] font-mono bg-sky-500/20 text-sky-300 px-2.5 py-0.5 rounded-full font-bold">
-                        Windows 10 & 11
+                      <span className="text-[10px] font-medium bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md shrink-0">
+                        Win 10 & 11
                       </span>
                     </div>
 
-                    {/* Taskbar Showcase Mockup */}
-                    <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 space-y-3">
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Runs as a dedicated frameless app with Windows taskbar pinning and instant startup:
-                      </p>
-
-                      <div className="h-14 bg-slate-900/90 rounded-xl border border-slate-700/80 flex items-center justify-between px-4 shadow-inner">
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-sky-600/30 flex items-center justify-center">
-                            <div className="grid grid-cols-2 gap-0.5">
-                              <div className="w-1.5 h-1.5 bg-sky-400 rounded-xs" />
-                              <div className="w-1.5 h-1.5 bg-sky-400 rounded-xs" />
-                              <div className="w-1.5 h-1.5 bg-sky-400 rounded-xs" />
-                              <div className="w-1.5 h-1.5 bg-sky-400 rounded-xs" />
-                            </div>
-                          </div>
-                          <div className="w-px h-5 bg-slate-800" />
-                          <div className="relative flex flex-col items-center">
-                            <div className="w-9 h-9 rounded-xl bg-black border border-slate-700 flex items-center justify-center shadow-lg ring-2 ring-amber-500/60">
-                              <ScanMenuLogo size={20} variant="white" />
-                            </div>
-                            <div className="w-4 h-0.5 bg-amber-500 rounded-full mt-0.5" />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 font-mono text-[10px] text-slate-400">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>Standalone Workstation</span>
-                        </div>
+                    {isInstalled ? (
+                      <div className="py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>The Scan Menu is installed and active on this computer.</span>
                       </div>
-                    </div>
-
-                    {/* Install Action Button */}
-                    <div>
-                      {isInstalled ? (
-                        <div className="py-3 px-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold flex items-center justify-center gap-2 text-xs">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span>The Scan Menu is already installed on this machine</span>
+                    ) : canPromptDirectly ? (
+                      <button
+                        type="button"
+                        onClick={() => promptInstall()}
+                        className="py-3 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition active:scale-98"
+                      >
+                        <Download className="w-4 h-4 text-amber-400" />
+                        <span>Install on Windows</span>
+                      </button>
+                    ) : (
+                      <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs space-y-1">
+                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Direct 1-Click Install</span>
                         </div>
-                      ) : canPromptDirectly ? (
-                        <button
-                          type="button"
-                          onClick={() => promptInstall()}
-                          className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-xl shadow-amber-500/20 transition active:scale-98"
-                        >
-                          <Download className="w-4 h-4 stroke-[2.5]" />
-                          <span>Install The Scan Menu for Windows</span>
-                        </button>
-                      ) : (
-                        <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-300 space-y-1 text-xs">
-                          <div className="font-bold text-white flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-amber-400" />
-                            <span>1-Click Install via Chrome / Edge</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 leading-snug">
-                            Click the <strong>Install</strong> icon (computer monitor with downward arrow) in your browser address bar above.
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                        <p className="text-[11px] text-slate-500 leading-normal">
+                          In <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong>, click the <strong>Install</strong> icon in the address bar to add to Windows.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Windows 3 Steps */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150 space-y-1 text-xs">
-                      <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-mono font-bold text-[11px] flex items-center justify-center">1</span>
-                      <h6 className="font-bold text-slate-900 mt-2">Click Install</h6>
-                      <p className="text-[11px] text-slate-500">Click install from the banner or the address bar install icon.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">STEP 01</span>
+                      <h5 className="font-semibold text-slate-800 mt-1 text-[11px]">Install App</h5>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Click install from the prompt or browser address bar.</p>
                     </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150 space-y-1 text-xs">
-                      <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-mono font-bold text-[11px] flex items-center justify-center">2</span>
-                      <h6 className="font-bold text-slate-900 mt-2">Pin to Taskbar</h6>
-                      <p className="text-[11px] text-slate-500">Right-click the SM icon on your Windows taskbar & choose Pin.</p>
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">STEP 02</span>
+                      <h5 className="font-semibold text-slate-800 mt-1 text-[11px]">Pin to Taskbar</h5>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Right-click the icon on your taskbar and select Pin.</p>
                     </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150 space-y-1 text-xs">
-                      <span className="w-6 h-6 rounded-full bg-slate-900 text-white font-mono font-bold text-[11px] flex items-center justify-center">3</span>
-                      <h6 className="font-bold text-slate-900 mt-2">Auto-Launch & Chimes</h6>
-                      <p className="text-[11px] text-slate-500">Enjoy background sound chimes and hardware receipt printing.</p>
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">STEP 03</span>
+                      <h5 className="font-semibold text-slate-800 mt-1 text-[11px]">Launch at Store Open</h5>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Continuous background order chimes and receipt printing.</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* MACOS TAB CONTENT */}
               {platformPreviewTab === 'mac' && (
-                <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 text-white space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Apple className="w-4 h-4 text-slate-300" />
-                      <h5 className="font-bold text-sm text-white">macOS Dock & Desktop App</h5>
+                <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100/70 border border-slate-200/80 space-y-3 text-xs">
+                  <h4 className="text-sm font-bold text-slate-900">Add to macOS Dock & Launchpad</h4>
+                  <div className="space-y-2 pt-1">
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80 space-y-1">
+                      <span className="font-semibold text-slate-900 text-[11px]">Using Safari (macOS Sonoma or later)</span>
+                      <p className="text-[11px] text-slate-500">Click <strong>File</strong> &rarr; <strong>Add to Dock...</strong> &rarr; <strong>Add</strong>.</p>
                     </div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
-                    <h6 className="font-bold text-amber-400">Via Safari</h6>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Click <strong>File</strong> in the macOS menu bar &rarr; Select <strong>Add to Dock...</strong> &rarr; Click <strong>Add</strong>.
-                    </p>
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80 space-y-1">
+                      <span className="font-semibold text-slate-900 text-[11px]">Using Google Chrome</span>
+                      <p className="text-[11px] text-slate-500">Click the <strong>Install</strong> icon in the address bar.</p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* ANDROID TAB CONTENT */}
               {platformPreviewTab === 'android' && (
-                <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 text-white space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Smartphone className="w-4 h-4 text-emerald-400" />
-                      <h5 className="font-bold text-sm text-white">Android Mobile & Tablet</h5>
-                    </div>
+                <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100/70 border border-slate-200/80 flex flex-col sm:flex-row items-center gap-5">
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 shrink-0 shadow-xs">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&margin=0&data=${encodeURIComponent(window.location.origin)}`}
+                      alt="Scan to Install"
+                      className="w-24 h-24 rounded-lg object-contain"
+                      loading="lazy"
+                    />
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
-                    <div className="p-2.5 bg-white rounded-2xl shrink-0 shadow-lg">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=0&data=${encodeURIComponent(window.location.origin)}`}
-                        alt="Scan QR"
-                        className="w-28 h-28 rounded-lg object-contain"
-                      />
-                    </div>
-                    <div className="space-y-1.5 text-xs">
-                      <h6 className="font-bold text-white">Scan with Camera to Install</h6>
-                      <p className="text-slate-400 text-[11px] leading-relaxed">
-                        Scan with your phone camera or Chrome to open the portal, then tap <strong>Add to Home Screen</strong>.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* IOS TAB CONTENT */}
-              {platformPreviewTab === 'ios' && (
-                <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 text-white space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Apple className="w-4 h-4 text-indigo-400" />
-                      <h5 className="font-bold text-sm text-white">iPhone & iPad Safari</h5>
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      1. Open Safari on iPhone/iPad.<br />
-                      2. Tap the <strong>Share</strong> button (square with up arrow).<br />
-                      3. Tap <strong>Add to Home Screen</strong>.
+                  <div className="space-y-1 text-xs text-center sm:text-left">
+                    <h4 className="text-sm font-bold text-slate-900">Scan to Open on Android</h4>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Scan with your phone camera to open. In Chrome, tap the 3 dots (⋮) and choose <strong>Add to Home screen</strong>.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Advantages Grid */}
-              <div className="pt-2">
-                <h5 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] font-mono mb-3">
-                  App Superpowers
-                </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-150 space-y-1">
-                    <Zap className="w-4 h-4 text-amber-500" />
-                    <h6 className="font-bold text-slate-900 text-xs">0ms Offline Cache</h6>
-                    <p className="text-[10px] text-slate-500">Fast cashier punches with zero wait.</p>
+              {platformPreviewTab === 'ios' && (
+                <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100/70 border border-slate-200/80 space-y-3 text-xs">
+                  <h4 className="text-sm font-bold text-slate-900">Install on iPhone & iPad</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">01</span>
+                      <p className="text-[11px] text-slate-700 font-medium mt-1">Open in Safari</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">02</span>
+                      <p className="text-[11px] text-slate-700 font-medium mt-1">Tap Share</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white border border-slate-200/80">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">03</span>
+                      <p className="text-[11px] text-slate-700 font-medium mt-1">Add to Home Screen</p>
+                    </div>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-150 space-y-1">
-                    <Bell className="w-4 h-4 text-emerald-500" />
-                    <h6 className="font-bold text-slate-900 text-xs">Continuous Chimes</h6>
-                    <p className="text-[10px] text-slate-500">Never miss tickets even minimized.</p>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-150 space-y-1">
-                    <Printer className="w-4 h-4 text-indigo-500" />
-                    <h6 className="font-bold text-slate-900 text-xs">ESC/POS Printing</h6>
-                    <p className="text-[10px] text-slate-500">Direct 80mm & 58mm thermal bills.</p>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-150 space-y-1">
-                    <ShieldCheck className="w-4 h-4 text-sky-500" />
-                    <h6 className="font-bold text-slate-900 text-xs">Fullscreen POS</h6>
-                    <p className="text-[10px] text-slate-500">Clean distraction-free workstation.</p>
-                  </div>
+                </div>
+              )}
+
+              {/* Core Features Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-2 text-slate-600 text-xs">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span className="text-[11px] font-medium">Instant 0ms Local Cache</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600 text-xs">
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-[11px] font-medium">Background Sound Chimes</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600 text-xs">
+                  <Printer className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span className="text-[11px] font-medium">Thermal POS Printing</span>
                 </div>
               </div>
             </div>
