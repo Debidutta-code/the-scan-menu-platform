@@ -10,6 +10,9 @@ export function usePWAInstall() {
   const [isInstallable, setIsInstallable] = useState<boolean>(false);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [isIOS, setIsIOS] = useState<boolean>(false);
+  const [isWindows, setIsWindows] = useState<boolean>(false);
+  const [isMac, setIsMac] = useState<boolean>(false);
+  const [isAndroid, setIsAndroid] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [isDismissed, setIsDismissed] = useState<boolean>(false);
 
@@ -25,10 +28,13 @@ export function usePWAInstall() {
 
     checkStandalone();
 
-    // Check iOS Safari device
+    // Check operating systems
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIosDevice && !(window as any).standalone);
+    setIsWindows(/windows|win32/i.test(userAgent));
+    setIsMac(/macintosh|mac os x/i.test(userAgent));
+    setIsAndroid(/android/i.test(userAgent));
 
     // Track online/offline status
     setIsOffline(!navigator.onLine);
@@ -85,10 +91,25 @@ export function usePWAInstall() {
     setIsDismissed(true);
   }, []);
 
+  const os: 'windows' | 'mac' | 'android' | 'ios' | 'other' = isWindows
+    ? 'windows'
+    : isMac
+    ? 'mac'
+    : isAndroid
+    ? 'android'
+    : isIOS
+    ? 'ios'
+    : 'other';
+
   return {
     isInstallable: isInstallable && !isDismissed && !isInstalled,
+    canPromptDirectly: !!deferredPrompt,
     isInstalled,
     isIOS: isIOS && !isInstalled && !isDismissed,
+    isWindows,
+    isMac,
+    isAndroid,
+    os,
     isOffline,
     promptInstall,
     dismissInstall,

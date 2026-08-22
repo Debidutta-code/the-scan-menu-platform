@@ -7,6 +7,7 @@ import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from './ConnectionIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
+import { AppDownloadModal } from './AppDownloadModal';
 import { ScanMenuLogo } from './ScanMenuLogo';
 import { getPrimaryManagerRoute } from '../utils/navigation';
 import {
@@ -35,6 +36,7 @@ import {
   Minimize2,
   PanelLeftClose,
   PanelLeftOpen,
+  Download,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -70,6 +72,7 @@ export const ManagerLayout: React.FC = () => {
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [isKioskMode, setIsKioskMode] = useState(false);
+  const [showAppDownloadModal, setShowAppDownloadModal] = useState(false);
 
   const toggleKioskMode = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -346,6 +349,16 @@ export const ManagerLayout: React.FC = () => {
           <BellRing className="w-4 h-4" strokeWidth={1.75} />
         </button>
 
+        {/* App Showcase & Download Button */}
+        <button
+          onClick={() => setShowAppDownloadModal(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-300/60 text-xs font-bold shadow-2xs transition active:scale-95"
+          title="Install / Download Desktop & Mobile App"
+        >
+          <Download className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+          <span className="hidden sm:inline">Get App</span>
+        </button>
+
         {/* Kiosk Mode — fullscreen toggle, always visible */}
         <button
           onClick={toggleKioskMode}
@@ -364,6 +377,7 @@ export const ManagerLayout: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-[#FAF9F6] text-slate-900 font-sans select-none overflow-hidden">
       <PWAInstallPrompt />
+      <AppDownloadModal isOpen={showAppDownloadModal} onClose={() => setShowAppDownloadModal(false)} />
       {impersonatedOutlet && (
         <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-extrabold flex items-center justify-between shadow-sm z-50 shrink-0">
           <div className="flex items-center gap-2">
@@ -666,6 +680,20 @@ export const ManagerLayout: React.FC = () => {
           >
             <User className="w-4 h-4" strokeWidth={1.75} />
             <span>Profile</span>
+          </button>
+
+          {/* Desktop & Mobile App Showcase Button */}
+          <button
+            onClick={() => setShowAppDownloadModal(true)}
+            className="flex items-center justify-between w-full px-4 py-2.5 rounded-2xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-all mt-3 shadow-2xs"
+          >
+            <div className="flex items-center gap-2.5">
+              <Download className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+              <span>Get Desktop App</span>
+            </div>
+            <span className="text-[9px] font-mono font-bold bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded-full">
+              PWA
+            </span>
           </button>
         </nav>
 
