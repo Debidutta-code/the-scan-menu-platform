@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PublicController } from '../controllers/public.controller';
 import { WaiterCallController } from '../controllers/waiterCall.controller';
 import { liveDisplayController } from '../controllers/liveDisplay.controller';
-import { tenantResolverMiddleware } from '../middleware/tenantResolver.middleware';
+import { tenantResolverMiddleware, TenantRequest } from '../middleware/tenantResolver.middleware';
 import { tableResolverMiddleware } from '../middleware/tableResolver.middleware';
 import { optionalCustomerAuth } from '../middleware/customerAuth';
 import rateLimit from 'express-rate-limit';
@@ -121,7 +121,7 @@ router.post('/tables/:tableToken/waiter-call', waiterCallLimiter, waiterCallCont
 router.get('/tables/:tableToken/waiter-call/active', publicGetLimiter, waiterCallController.getActiveWaiterCall);
 
 // Public Customer Live Display (TV Status Board)
-router.get('/live-display', publicGetLimiter, tenantResolverMiddleware, (req, res, next) => {
+router.get('/live-display', publicGetLimiter, tenantResolverMiddleware, (req: TenantRequest, res, next) => {
   const restaurantSlug = req.restaurant?.slug || (req.restaurant as any)?._id?.toString();
   req.params.slugOrId = restaurantSlug;
   liveDisplayController.getDisplayData(req, res, next);

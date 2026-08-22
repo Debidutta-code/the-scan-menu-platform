@@ -19,6 +19,7 @@ import {
   RefreshCw,
   ShoppingBag,
   Truck,
+  QrCode,
 } from 'lucide-react';
 
 interface DisplayOrder {
@@ -76,7 +77,7 @@ export const PublicLiveDisplay: React.FC = () => {
   }, []);
 
   // Web Audio Chime Generator (Harmonic two-tone restaurant bell)
-  const playReadyChime = () => {
+  const playReadyChime = useCallback(() => {
     if (isMuted) return;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -91,7 +92,7 @@ export const PublicLiveDisplay: React.FC = () => {
       }
 
       const now = ctx.currentTime;
-      
+
       // Tone 1: 880Hz (A5)
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
@@ -118,7 +119,7 @@ export const PublicLiveDisplay: React.FC = () => {
     } catch {
       // Audio playback blocked before user gesture
     }
-  };
+  }, [isMuted]);
 
   // Toggle Mute
   const toggleMute = () => {
@@ -205,7 +206,7 @@ export const PublicLiveDisplay: React.FC = () => {
     }
 
     previousReadyIdsRef.current = currentReadyIds;
-  }, [readyOrders]);
+  }, [readyOrders, playReadyChime]);
 
   // Real-Time WebSocket Connection
   useEffect(() => {
@@ -262,23 +263,23 @@ export const PublicLiveDisplay: React.FC = () => {
   const renderOrderTypeBadge = (order: DisplayOrder) => {
     if (order.orderType === 'TAKEAWAY') {
       return (
-        <span className="flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-lg">
-          <ShoppingBag className="w-3 h-3 text-amber-400" />
+        <span className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-3 py-1 rounded-xl shadow-2xs">
+          <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
           <span>Takeaway</span>
         </span>
       );
     }
     if (order.orderType === 'DELIVERY') {
       return (
-        <span className="flex items-center gap-1 text-[11px] font-bold text-sky-300 bg-sky-950/60 border border-sky-500/30 px-2 py-0.5 rounded-lg">
-          <Truck className="w-3 h-3 text-sky-400" />
+        <span className="flex items-center gap-1.5 text-xs font-bold text-sky-900 bg-sky-100 border border-sky-300 px-3 py-1 rounded-xl shadow-2xs">
+          <Truck className="w-3.5 h-3.5 text-sky-700" />
           <span>Delivery</span>
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
-        <Utensils className="w-3 h-3 text-emerald-400" />
+      <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl shadow-2xs">
+        <Utensils className="w-3.5 h-3.5 text-slate-600" />
         <span>{order.tableName || 'Dine-In'}</span>
       </span>
     );
@@ -290,21 +291,21 @@ export const PublicLiveDisplay: React.FC = () => {
     const isFeatureDisabled = errorData?.code === 'FEATURE_DISABLED';
 
     return (
-      <div className="min-h-screen bg-[#0A0D14] text-white flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-5 text-amber-400 shadow-xl shadow-amber-500/5">
+      <div className="min-h-screen bg-[#FAF9F6] text-slate-900 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="w-16 h-16 rounded-3xl bg-amber-50 border-2 border-amber-200 flex items-center justify-center mb-5 text-amber-600 shadow-md">
           <Tv className="w-8 h-8" />
         </div>
-        <h1 className="text-2xl font-black tracking-tight mb-2">
+        <h1 className="text-2xl font-black tracking-tight mb-2 text-slate-900">
           {isFeatureDisabled ? 'Customer Live Display Disabled' : 'Display Unavailable'}
         </h1>
-        <p className="text-slate-400 text-sm max-w-md mb-6 leading-relaxed">
+        <p className="text-slate-500 text-sm max-w-md mb-6 leading-relaxed">
           {isFeatureDisabled
             ? 'The Customer Live Display module is currently disabled for this restaurant. Contact the store administrator to enable it in Feature Flags.'
             : errorData?.message || 'Unable to connect to the restaurant queue board. Please verify the restaurant link.'}
         </p>
         <button
           onClick={() => refetch()}
-          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 border border-slate-700 cursor-pointer"
+          className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer active:scale-95"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Retry Connection</span>
@@ -314,47 +315,47 @@ export const PublicLiveDisplay: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-white flex flex-col justify-between font-sans select-none overflow-hidden relative">
-      {/* Background Ambient Glows */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#F8F9FA] text-slate-900 flex flex-col justify-between font-sans select-none overflow-hidden relative">
+      {/* Subtle Background Ambience */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-amber-200/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-emerald-200/20 rounded-full blur-3xl pointer-events-none" />
 
       {/* ==================================================================== */}
-      {/* 1. TOP HEADER BAR                                                    */}
+      {/* 1. TOP HEADER BAR (Clean Light Platform Aesthetic)                  */}
       {/* ==================================================================== */}
-      <header className="px-6 py-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between z-10 shrink-0">
+      <header className="px-6 py-4 bg-white border-b border-slate-200/90 shadow-xs flex items-center justify-between z-10 shrink-0">
         {/* Left: Restaurant Identity */}
         <div className="flex items-center gap-3.5 min-w-0">
           {displayData?.restaurant?.logoUrl ? (
             <img
               src={displayData.restaurant.logoUrl}
               alt={displayData.restaurant.name}
-              className="w-11 h-11 object-cover rounded-2xl border border-slate-700/80 shadow-md shrink-0 bg-slate-900"
+              className="w-12 h-12 object-cover rounded-2xl border-2 border-slate-200 shadow-sm shrink-0 bg-slate-100"
             />
           ) : (
-            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-black text-base shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-amber-700 font-black text-lg shrink-0 shadow-sm">
               {displayData?.restaurant?.name?.charAt(0) || '🍽️'}
             </div>
           )}
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg md:text-xl font-black tracking-tight text-white truncate">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900 truncate">
                 {displayData?.restaurant?.name || 'Restaurant Live Queue'}
               </h1>
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Live Kitchen Display</span>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Live Kitchen Queue</span>
               </span>
             </div>
-            <p className="text-xs text-slate-400 truncate hidden md:block">
-              Real-time order preparation & collection status
+            <p className="text-xs text-slate-500 truncate hidden md:block mt-0.5">
+              Real-time kitchen order preparation & pickup tracking
             </p>
           </div>
         </div>
 
         {/* Center: Live Digital Clock & Connection Status */}
         <div className="flex flex-col items-center justify-center px-4">
-          <div className="text-xl md:text-2xl font-black font-mono tracking-wider text-white">
+          <div className="text-2xl md:text-3xl font-black font-mono tracking-tight text-slate-900">
             {currentTime.toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
@@ -362,7 +363,7 @@ export const PublicLiveDisplay: React.FC = () => {
               hour12: true,
             })}
           </div>
-          <div className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold flex items-center gap-1.5">
+          <div className="text-xs text-slate-500 font-semibold flex items-center gap-2 mt-0.5">
             <span>
               {currentTime.toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -370,18 +371,18 @@ export const PublicLiveDisplay: React.FC = () => {
                 day: 'numeric',
               })}
             </span>
-            <span className="text-slate-600">•</span>
+            <span className="text-slate-300">•</span>
             <span
-              className={`flex items-center gap-1 ${
-                socketConnected ? 'text-emerald-400' : 'text-amber-400'
+              className={`flex items-center gap-1.5 font-bold ${
+                socketConnected ? 'text-emerald-600' : 'text-amber-600'
               }`}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  socketConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                className={`w-2 h-2 rounded-full ${
+                  socketConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
                 }`}
               />
-              <span className="text-[9px]">{socketConnected ? 'Live Sync' : 'Reconnecting'}</span>
+              <span className="text-[11px] uppercase tracking-wider">{socketConnected ? 'Live Sync' : 'Reconnecting'}</span>
             </span>
           </div>
         </div>
@@ -390,57 +391,57 @@ export const PublicLiveDisplay: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => refetch()}
-            className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer"
+            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
             title="Refresh Queue"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-600' : ''}`} />
           </button>
           <button
             onClick={toggleMute}
-            className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-xl border transition cursor-pointer flex items-center gap-2 shadow-2xs active:scale-95 ${
               isMuted
-                ? 'bg-rose-950/40 border-rose-500/30 text-rose-300 hover:bg-rose-900/50'
-                : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/50'
+                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
             }`}
             title={isMuted ? 'Unmute Ready Alert Chime' : 'Mute Ready Alert Chime'}
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            <span className="text-xs font-bold hidden lg:inline">
+            {isMuted ? <VolumeX className="w-4 h-4 text-rose-600" /> : <Volume2 className="w-4 h-4 text-emerald-600" />}
+            <span className="text-xs font-extrabold hidden lg:inline">
               {isMuted ? 'Muted' : 'Audio Alert'}
             </span>
           </button>
           <button
             onClick={toggleFullscreen}
-            className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer"
+            className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer active:scale-95 shadow-sm"
             title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen TV Mode (F11)'}
           >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            {isFullscreen ? <Minimize className="w-4 h-4 text-amber-400" /> : <Maximize className="w-4 h-4 text-amber-400" />}
           </button>
         </div>
       </header>
 
       {/* ==================================================================== */}
-      {/* 2. DUAL COLUMN LIVE BOARD                                            */}
+      {/* 2. DUAL COLUMN LIVE BOARD (Warm Light Theme)                         */}
       {/* ==================================================================== */}
-      <main className="flex-1 p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 min-h-0 overflow-y-auto">
+      <main className="flex-1 p-5 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0 overflow-y-auto">
         {/* ========================================= */}
         {/* COLUMN 1: PREPARING (IN KITCHEN)          */}
         {/* ========================================= */}
-        <section className="flex flex-col bg-slate-900/40 border border-amber-500/20 rounded-3xl p-5 md:p-6 backdrop-blur-sm relative overflow-hidden shadow-2xl">
+        <section className="flex flex-col bg-amber-50/50 border-2 border-amber-200/80 rounded-3xl p-6 shadow-xs relative overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-md">
-                <Flame className="w-5 h-5 animate-pulse text-amber-400" />
+          <div className="flex items-center justify-between pb-4 border-b border-amber-200/80 mb-5">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
+                <Flame className="w-6 h-6 animate-pulse" />
               </div>
               <div>
-                <h2 className="text-base md:text-lg font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
                   <span>Preparing in Kitchen</span>
                 </h2>
-                <p className="text-xs text-slate-400">Fresh dishes being cooked right now</p>
+                <p className="text-xs text-amber-800 font-medium">Fresh dishes being cooked right now</p>
               </div>
             </div>
-            <span className="text-sm font-black font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-xl">
+            <span className="text-xs font-black font-mono bg-amber-100 text-amber-900 border border-amber-300 px-3.5 py-1.5 rounded-xl shadow-2xs">
               {preparingOrders.length} in progress
             </span>
           </div>
@@ -448,20 +449,22 @@ export const PublicLiveDisplay: React.FC = () => {
           {/* Body Cards Grid */}
           <div className="flex-1 overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="h-64 flex flex-col items-center justify-center text-slate-500 space-y-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-amber-400" />
-                <span className="text-xs font-bold">Loading active queue...</span>
+              <div className="h-64 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                <RefreshCw className="w-7 h-7 animate-spin text-amber-500" />
+                <span className="text-xs font-bold text-slate-600">Loading active queue...</span>
               </div>
             ) : preparingOrders.length === 0 ? (
-              <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-center space-y-2">
-                <Utensils className="w-8 h-8 opacity-30 text-amber-400" />
-                <p className="text-sm font-bold text-slate-400">No Orders in Kitchen</p>
-                <p className="text-xs text-slate-500 max-w-xs">
-                  New orders will automatically appear here as soon as guests place them.
-                </p>
+              <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-center space-y-3 bg-white/60 rounded-2xl border-2 border-dashed border-amber-200/80 p-6">
+                <Utensils className="w-9 h-9 opacity-40 text-amber-500" />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">No Orders Currently in Kitchen</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                    New orders placed by diners will automatically appear here.
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <AnimatePresence mode="popLayout">
                   {preparingOrders.map((order) => (
                     <motion.div
@@ -470,30 +473,30 @@ export const PublicLiveDisplay: React.FC = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
                       transition={{ duration: 0.25 }}
-                      className="p-4 rounded-2xl bg-gradient-to-b from-slate-800/80 to-slate-900/90 border border-amber-500/30 shadow-lg flex flex-col justify-between space-y-3 relative group overflow-hidden"
+                      className="p-5 rounded-2xl bg-white border-2 border-amber-200/90 hover:border-amber-400 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 relative overflow-hidden group"
                     >
                       {/* Top Row: Token & Type */}
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white group-hover:text-amber-300 transition">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-4xl lg:text-5xl font-black font-mono tracking-tight text-slate-900 group-hover:text-amber-600 transition-colors">
                           {order.displayToken}
                         </span>
                         {renderOrderTypeBadge(order)}
                       </div>
 
                       {/* Bottom Info: Time elapsed & items */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                        <span className="flex items-center gap-1 font-medium">
-                          <Clock className="w-3 h-3 text-amber-400" />
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
+                        <span className="flex items-center gap-1.5 font-semibold text-slate-600">
+                          <Clock className="w-3.5 h-3.5 text-amber-500" />
                           <span>{getElapsedMinutes(order.createdAt)}</span>
                         </span>
-                        <span className="font-mono text-slate-400 font-bold">
+                        <span className="font-mono text-slate-700 font-bold bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px]">
                           {order.itemCount} item{order.itemCount > 1 ? 's' : ''}
                         </span>
                       </div>
 
                       {/* Simmering Kitchen Pulse line */}
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500/20 overflow-hidden">
-                        <div className="h-full w-1/2 bg-amber-400 animate-[marquee_2s_linear_infinite]" />
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-100 overflow-hidden">
+                        <div className="h-full w-1/3 bg-amber-500 animate-[marquee_2s_linear_infinite]" />
                       </div>
                     </motion.div>
                   ))}
@@ -506,22 +509,22 @@ export const PublicLiveDisplay: React.FC = () => {
         {/* ========================================= */}
         {/* COLUMN 2: READY FOR PICKUP / SERVED       */}
         {/* ========================================= */}
-        <section className="flex flex-col bg-slate-900/40 border border-emerald-500/30 rounded-3xl p-5 md:p-6 backdrop-blur-sm relative overflow-hidden shadow-2xl shadow-emerald-950/20">
+        <section className="flex flex-col bg-emerald-50/50 border-2 border-emerald-200/80 rounded-3xl p-6 shadow-xs relative overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-md">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-bounce" />
+          <div className="flex items-center justify-between pb-4 border-b border-emerald-200/80 mb-5">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+                <CheckCircle2 className="w-6 h-6 animate-bounce" />
               </div>
               <div>
-                <h2 className="text-base md:text-lg font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
                   <span>Ready for Pickup</span>
-                  <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
+                  <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" />
                 </h2>
-                <p className="text-xs text-slate-400">Order is ready • Please collect or await table serving</p>
+                <p className="text-xs text-emerald-800 font-medium">Order is ready • Please collect or await table serving</p>
               </div>
             </div>
-            <span className="text-sm font-black font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl">
+            <span className="text-xs font-black font-mono bg-emerald-100 text-emerald-900 border border-emerald-300 px-3.5 py-1.5 rounded-xl shadow-2xs">
               {readyOrders.length} ready now
             </span>
           </div>
@@ -529,20 +532,22 @@ export const PublicLiveDisplay: React.FC = () => {
           {/* Body Cards Grid */}
           <div className="flex-1 overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="h-64 flex flex-col items-center justify-center text-slate-500 space-y-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
-                <span className="text-xs font-bold">Loading active queue...</span>
+              <div className="h-64 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                <RefreshCw className="w-7 h-7 animate-spin text-emerald-500" />
+                <span className="text-xs font-bold text-slate-600">Loading active queue...</span>
               </div>
             ) : readyOrders.length === 0 ? (
-              <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-center space-y-2">
-                <Sparkles className="w-8 h-8 opacity-30 text-emerald-400" />
-                <p className="text-sm font-bold text-slate-400">No Pickup Orders Waiting</p>
-                <p className="text-xs text-slate-500 max-w-xs">
-                  Cooked orders ready for collection or delivery will be called here.
-                </p>
+              <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-center space-y-3 bg-white/60 rounded-2xl border-2 border-dashed border-emerald-200/80 p-6">
+                <Sparkles className="w-9 h-9 opacity-40 text-emerald-500" />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">No Pickup Orders Waiting</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                    Cooked orders ready for collection or delivery will be called here.
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <AnimatePresence mode="popLayout">
                   {readyOrders.map((order) => {
                     const isRecentlyReady = recentlyReadyIds.has(order.id);
@@ -553,33 +558,33 @@ export const PublicLiveDisplay: React.FC = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         transition={{ duration: 0.3 }}
-                        className={`p-4 rounded-2xl border shadow-xl flex flex-col justify-between space-y-3 relative overflow-hidden transition-all duration-500 ${
+                        className={`p-5 rounded-2xl bg-white border-2 flex flex-col justify-between gap-4 relative overflow-hidden transition-all duration-500 ${
                           isRecentlyReady
-                            ? 'bg-gradient-to-b from-emerald-900/90 to-emerald-950/90 border-emerald-400 shadow-emerald-500/30 ring-2 ring-emerald-400/50'
-                            : 'bg-gradient-to-b from-emerald-950/50 to-slate-900/90 border-emerald-500/40 hover:border-emerald-400'
+                            ? 'border-emerald-500 shadow-xl ring-4 ring-emerald-400/30'
+                            : 'border-emerald-300 shadow-md hover:border-emerald-400 hover:shadow-lg'
                         }`}
                       >
-                        {/* Top Row: Big Calling Token */}
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="text-3xl md:text-4xl font-black font-mono tracking-tight text-emerald-300 drop-shadow-[0_2px_10px_rgba(16,185,129,0.3)]">
+                        {/* Top Row: Big Calling Token & Type */}
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-4xl lg:text-5xl font-black font-mono tracking-tight text-emerald-600 drop-shadow-xs">
                             {order.displayToken}
                           </span>
                           {renderOrderTypeBadge(order)}
                         </div>
 
                         {/* Status calling bar */}
-                        <div className="flex items-center justify-between text-xs font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl">
+                        <div className="flex items-center justify-between text-xs font-extrabold text-white bg-emerald-600 px-3.5 py-2 rounded-xl shadow-xs">
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                             <span>{order.tableName ? `Table: ${order.tableName}` : 'Ready at Counter'}</span>
                           </span>
-                          <span className="text-[10px] font-mono text-emerald-300/80 font-normal">
+                          <span className="text-[11px] font-mono text-emerald-100 font-medium">
                             {getElapsedMinutes(order.updatedAt)}
                           </span>
                         </div>
 
-                        {/* Glowing Bottom Ambient line */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500" />
+                        {/* Top Glowing Emerald line */}
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500" />
                       </motion.div>
                     );
                   })}
@@ -591,23 +596,22 @@ export const PublicLiveDisplay: React.FC = () => {
       </main>
 
       {/* ==================================================================== */}
-      {/* 3. BOTTOM TICKER / PROMOTIONAL FOOTER                                */}
+      {/* 3. BOTTOM TICKER / FOOTER (Warm Platform Theme)                      */}
       {/* ==================================================================== */}
-      <footer className="px-6 py-3 bg-slate-950/90 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2 shrink-0 z-10">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-          </span>
-          <span className="font-semibold text-slate-300">
-            📱 Scan the QR code on your table to view our full menu & place orders directly.
+      <footer className="px-6 py-3.5 bg-white border-t border-slate-200/90 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-600 gap-2 shrink-0 z-10 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1 rounded-lg bg-amber-100 text-amber-700 border border-amber-300">
+            <QrCode className="w-4 h-4" />
+          </div>
+          <span className="font-semibold text-slate-800 text-xs md:text-sm">
+            Scan the QR code on your table to view our full digital menu & order anytime.
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-slate-500 text-[11px] font-mono">
-          <span>Powered by The Scan Menu™</span>
+        <div className="flex items-center gap-3 text-slate-400 text-xs font-mono font-medium">
+          <span>The Scan Menu™</span>
           <span>•</span>
-          <span className="text-slate-400">1080p/4K TV Ready</span>
+          <span className="text-slate-500">Live Kitchen Display</span>
         </div>
       </footer>
     </div>
