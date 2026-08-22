@@ -217,7 +217,17 @@ export class AdminController {
         return;
       }
 
-      sendSuccess(res, restaurant, 'Restaurant fetched successfully');
+      const settings = await RestaurantSettings.findOne({ restaurantId: id });
+
+      const payload = {
+        ...restaurant.toObject(),
+        gstNumber: settings?.paymentConfig?.gstNumber || '',
+        timings: settings?.timings || { open: '09:00', close: '23:00' },
+        googleReviewUrl: settings?.branding?.googleReviewUrl || '',
+        whatsapp: settings?.branding?.whatsapp || '',
+      };
+
+      sendSuccess(res, payload, 'Restaurant fetched successfully');
     } catch (error) {
       next(error);
     }
@@ -243,7 +253,46 @@ export class AdminController {
         return;
       }
 
-      sendSuccess(res, restaurant, 'Restaurant updated successfully');
+      // Sync settings if settings-related fields exist
+      let settings = await RestaurantSettings.findOne({ restaurantId: id });
+      if (!settings) {
+        settings = new RestaurantSettings({ restaurantId: id });
+      }
+
+      if (updateData.gstNumber !== undefined) {
+        if (!settings.paymentConfig) settings.paymentConfig = {} as any;
+        settings.paymentConfig.gstNumber = updateData.gstNumber;
+      }
+      if (updateData.timings !== undefined) {
+        settings.timings = updateData.timings;
+      }
+      if (updateData.googleReviewUrl !== undefined) {
+        if (!settings.branding) settings.branding = {} as any;
+        settings.branding.googleReviewUrl = updateData.googleReviewUrl;
+      }
+      if (updateData.whatsapp !== undefined) {
+        if (!settings.branding) settings.branding = {} as any;
+        settings.branding.whatsapp = updateData.whatsapp;
+      }
+      if (updateData.logoUrl !== undefined) {
+        if (!settings.branding) settings.branding = {} as any;
+        settings.branding.logoUrl = updateData.logoUrl;
+      }
+      if (updateData.coverImageUrl !== undefined) {
+        if (!settings.branding) settings.branding = {} as any;
+        settings.branding.coverImageUrl = updateData.coverImageUrl;
+      }
+      await settings.save();
+
+      const payload = {
+        ...restaurant.toObject(),
+        gstNumber: settings?.paymentConfig?.gstNumber || '',
+        timings: settings?.timings || { open: '09:00', close: '23:00' },
+        googleReviewUrl: settings?.branding?.googleReviewUrl || '',
+        whatsapp: settings?.branding?.whatsapp || '',
+      };
+
+      sendSuccess(res, payload, 'Restaurant updated successfully');
     } catch (error) {
       next(error);
     }

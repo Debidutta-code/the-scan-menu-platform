@@ -236,10 +236,25 @@ export class RestaurantController {
     try {
       const { restaurantId } = req.params;
       const updateData = { ...req.body };
+      const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
 
-      // Prevent managers from editing system-only fields
+      // Prevent non-superadmins from editing system-only fields
       delete updateData.slug;
       delete updateData.isActive;
+
+      // Prevent managers from editing store identity & physical details (SuperAdmin only)
+      if (!isSuperAdmin) {
+        const attemptedStoreKeys = ['name', 'phone', 'email', 'address', 'description', 'gstNumber', 'timings', 'googleReviewUrl', 'whatsapp', 'logoUrl', 'coverImageUrl'];
+        const hasStoreFields = attemptedStoreKeys.some((k) => updateData[k] !== undefined);
+        
+        attemptedStoreKeys.forEach((k) => delete updateData[k]);
+
+        // If the manager sent ONLY store profile fields, reject with 403
+        if (hasStoreFields && Object.keys(updateData).length === 0) {
+          sendError(res, 'FORBIDDEN', 'Store profile, identity, and physical details can only be configured by SuperAdmin.', null, 403);
+          return;
+        }
+      }
 
       // Validate orderWorkflowMode if provided
       if (updateData.orderWorkflowMode && !['FIVE_STEP', 'FOUR_STEP', 'THREE_STEP'].includes(updateData.orderWorkflowMode)) {

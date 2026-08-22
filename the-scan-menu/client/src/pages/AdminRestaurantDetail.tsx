@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, managerService } from '../services/restaurant.service';
@@ -17,6 +17,13 @@ import {
   MapPin,
   CheckCircle2,
   XCircle,
+  Settings,
+  Store,
+  X,
+  Save,
+  Clock,
+  FileText,
+  Image,
 } from 'lucide-react';
 
 export const AdminRestaurantDetail: React.FC = () => {
@@ -24,6 +31,23 @@ export const AdminRestaurantDetail: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    name: '',
+    slug: '',
+    phone: '',
+    email: '',
+    whatsapp: '',
+    gstNumber: '',
+    openTime: '09:00',
+    closeTime: '23:00',
+    address: '',
+    description: '',
+    logoUrl: '',
+    coverImageUrl: '',
+    googleReviewUrl: '',
+  });
 
   // Fetch tenant profile
   const { data: restResponse, isLoading: isLoadingRest } = useQuery({
@@ -46,7 +70,6 @@ export const AdminRestaurantDetail: React.FC = () => {
     enabled: !!id,
   });
 
-  // Fetch feature flags
   // Fetch feature flags
   const { data: flagsResponse } = useQuery({
     queryKey: ['adminFlags', id],
@@ -93,6 +116,66 @@ export const AdminRestaurantDetail: React.FC = () => {
     },
   });
 
+  // Update Store Profile Mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: any) => adminService.editRestaurant(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
+      queryClient.invalidateQueries({ queryKey: ['adminRestaurants'] });
+      toast('Store profile & configuration updated!', 'success');
+      setIsConfigOpen(false);
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error updating store profile', 'error');
+    },
+  });
+
+  const openConfigModal = () => {
+    if (!restResponse?.data) return;
+    const r = restResponse.data;
+    setConfigForm({
+      name: r.name || '',
+      slug: r.slug || '',
+      phone: r.phone || '',
+      email: r.email || '',
+      whatsapp: r.whatsapp || '',
+      gstNumber: r.gstNumber || '',
+      openTime: r.timings?.open || '09:00',
+      closeTime: r.timings?.close || '23:00',
+      address: r.address || '',
+      description: r.description || '',
+      logoUrl: r.logoUrl || '',
+      coverImageUrl: r.coverImageUrl || '',
+      googleReviewUrl: r.googleReviewUrl || '',
+    });
+    setIsConfigOpen(true);
+  };
+
+  const handleSaveConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!configForm.name.trim()) {
+      toast('Restaurant Name is required', 'error');
+      return;
+    }
+    updateProfileMutation.mutate({
+      name: configForm.name.trim(),
+      slug: configForm.slug.trim() || undefined,
+      phone: configForm.phone.trim() || undefined,
+      email: configForm.email.trim() || undefined,
+      whatsapp: configForm.whatsapp.trim() || undefined,
+      gstNumber: configForm.gstNumber.trim() || undefined,
+      timings: {
+        open: configForm.openTime,
+        close: configForm.closeTime,
+      },
+      address: configForm.address.trim() || undefined,
+      description: configForm.description.trim() || undefined,
+      logoUrl: configForm.logoUrl.trim() || undefined,
+      coverImageUrl: configForm.coverImageUrl.trim() || undefined,
+      googleReviewUrl: configForm.googleReviewUrl.trim() || undefined,
+    });
+  };
+
   if (isLoadingRest) {
     return (
       <div className="h-96 flex items-center justify-center">
@@ -137,6 +220,14 @@ export const AdminRestaurantDetail: React.FC = () => {
         </button>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={openConfigModal}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition shadow-xs"
+          >
+            <Settings className="w-4 h-4 text-amber-600" strokeWidth={2} />
+            <span>Configure Store Profile</span>
+          </button>
+
           {isActive ? (
             <button
               onClick={() => suspendMutation.mutate(restaurant._id)}
@@ -370,6 +461,225 @@ export const AdminRestaurantDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* SuperAdmin Store Profile Configuration Modal */}
+      {isConfigOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-150 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-sm">
+                  <Store className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-lg font-bold text-slate-900">
+                    Configure Store Profile & Identity
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    SuperAdmin exclusive store configuration and physical details.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsConfigOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form Content */}
+            <form onSubmit={handleSaveConfig} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Restaurant Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={configForm.name}
+                    onChange={(e) => setConfigForm({ ...configForm, name: e.target.value })}
+                    placeholder="e.g. The Woodfired Bistro"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-sans"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">URL Slug</label>
+                  <input
+                    type="text"
+                    value={configForm.slug}
+                    onChange={(e) => setConfigForm({ ...configForm, slug: e.target.value })}
+                    placeholder="e.g. woodfired-bistro"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono text-slate-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Contact Phone</label>
+                  <input
+                    type="text"
+                    value={configForm.phone}
+                    onChange={(e) => setConfigForm({ ...configForm, phone: e.target.value })}
+                    placeholder="+91 9876543210"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Support Email</label>
+                  <input
+                    type="email"
+                    value={configForm.email}
+                    onChange={(e) => setConfigForm({ ...configForm, email: e.target.value })}
+                    placeholder="contact@woodfired.com"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">WhatsApp Contact</label>
+                  <input
+                    type="text"
+                    value={configForm.whatsapp}
+                    onChange={(e) => setConfigForm({ ...configForm, whatsapp: e.target.value })}
+                    placeholder="+919876543210"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">GST Number</label>
+                  <input
+                    type="text"
+                    value={configForm.gstNumber}
+                    onChange={(e) => setConfigForm({ ...configForm, gstNumber: e.target.value })}
+                    placeholder="27AAAAA1111A1Z1"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Opening Time</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={configForm.openTime}
+                    onChange={(e) => setConfigForm({ ...configForm, openTime: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Closing Time</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={configForm.closeTime}
+                    onChange={(e) => setConfigForm({ ...configForm, closeTime: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Physical Address</span>
+                </label>
+                <input
+                  type="text"
+                  value={configForm.address}
+                  onChange={(e) => setConfigForm({ ...configForm, address: e.target.value })}
+                  placeholder="456 Gourmet Lane, Mumbai, Maharashtra"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Restaurant Narrative / Description</span>
+                </label>
+                <textarea
+                  value={configForm.description}
+                  onChange={(e) => setConfigForm({ ...configForm, description: e.target.value })}
+                  placeholder="Serving genuine hand-tossed sourdough pizza in a rustic woodfired furnace..."
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <Image className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Logo Image URL</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={configForm.logoUrl}
+                    onChange={(e) => setConfigForm({ ...configForm, logoUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <Image className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Cover Banner URL</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={configForm.coverImageUrl}
+                    onChange={(e) => setConfigForm({ ...configForm, coverImageUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Google Review URL</label>
+                <input
+                  type="url"
+                  value={configForm.googleReviewUrl}
+                  onChange={(e) => setConfigForm({ ...configForm, googleReviewUrl: e.target.value })}
+                  placeholder="https://g.page/r/..."
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsConfigOpen(false)}
+                  className="px-4 py-2.5 text-slate-600 hover:text-slate-800 font-bold rounded-xl text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateProfileMutation.isPending}
+                  className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md transition disabled:bg-slate-400"
+                >
+                  {updateProfileMutation.isPending ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>Save Configuration</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
