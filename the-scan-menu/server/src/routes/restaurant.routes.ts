@@ -38,21 +38,21 @@ router.post('/:restaurantId/tables/:tableId/regenerate-qr', requireFeature('qr_m
 router.get('/:restaurantId/tables/:tableId/qr', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.getTableQr);
 
 // Table Zones Routes (Staff can view, Manager/Super Admin can manage)
-router.get('/:restaurantId/zones', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listZones);
-router.post('/:restaurantId/zones', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createZone);
-router.patch('/:restaurantId/zones/:zoneId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateZone);
-router.delete('/:restaurantId/zones/:zoneId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteZone);
+router.get('/:restaurantId/zones', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listZones);
+router.post('/:restaurantId/zones', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createZone);
+router.patch('/:restaurantId/zones/:zoneId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateZone);
+router.delete('/:restaurantId/zones/:zoneId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteZone);
 
 // Taxes Routes (Staff can view, Manager/Super Admin can configure)
-router.get('/:restaurantId/taxes', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listTaxes);
-router.post('/:restaurantId/taxes', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createTax);
-router.patch('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateTax);
-router.delete('/:restaurantId/taxes/:taxId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteTax);
+router.get('/:restaurantId/taxes', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.listTaxes);
+router.post('/:restaurantId/taxes', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createTax);
+router.patch('/:restaurantId/taxes/:taxId', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateTax);
+router.delete('/:restaurantId/taxes/:taxId', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteTax);
 
 
 // Customer Directory Routes (Manager/Super Admin only)
-router.get('/:restaurantId/customers', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listCustomers);
-router.get('/:restaurantId/customers/:customerId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
+router.get('/:restaurantId/customers', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listCustomers);
+router.get('/:restaurantId/customers/:customerId', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
 
 // Waiter Staff Management Endpoints (Manager-only)
 router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);

@@ -1,8 +1,10 @@
-import { FeatureFlagProvider } from './hooks/featureFlags/useFeatureFlags';
+import { FeatureFlagProvider, useFeatureFlags } from './hooks/featureFlags/useFeatureFlags';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './hooks/useToast';
 import ProtectedRoute from './routes/ProtectedRoute';
+import FeatureProtectedRoute from './routes/FeatureProtectedRoute';
+import { getPrimaryManagerRoute } from './utils/navigation';
 import Login from './pages/Login';
 import NetworkToast from './components/NetworkToast';
 
@@ -49,11 +51,21 @@ import ManagerCustomers from './pages/ManagerCustomers';
 
 const DashboardRedirect = () => {
   const { user } = useAuth();
+  const { isEnabled, isLoading } = useFeatureFlags();
+
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'SUPER_ADMIN') {
     return <Navigate to="/admin/dashboard" replace />;
   }
-  return <Navigate to="/manager/orders" replace />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+      </div>
+    );
+  }
+  const targetRoute = getPrimaryManagerRoute(isEnabled, user?.role);
+  return <Navigate to={targetRoute} replace />;
 };
 
 export const App = () => {
@@ -110,30 +122,73 @@ export const App = () => {
               {/* Nested Manager/Staff/Super Admin routes under ManagerLayout */}
               <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'STAFF', 'SUPER_ADMIN']} />}>
                 <Route element={<ManagerLayout />}>
-                  {/* Staff & Manager shared routes */}
-                  <Route path="/manager/orders" element={<ManagerOrders />} />
-                  <Route path="/manager/inventory" element={<ManagerInventory />} />
-                  <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
-                  <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
+                  {/* Shared Profile (Always accessible) */}
                   <Route path="/manager/profile" element={<ManagerProfile />} />
+
+                  {/* Feature-Gated Routes (Staff & Manager) */}
+                  <Route element={<FeatureProtectedRoute requiredFeature="ordering" featureName="Order Management" />}>
+                    <Route path="/manager/orders" element={<ManagerOrders />} />
+                  </Route>
+
+                  <Route element={<FeatureProtectedRoute requiredFeature="inventory" featureName="Inventory & Stock Control" />}>
+                    <Route path="/manager/inventory" element={<ManagerInventory />} />
+                  </Route>
+
+                  <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Digital Menu Availability" />}>
+                    <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
+                  </Route>
+
+                  <Route element={<FeatureProtectedRoute requiredFeature="waiter_call" featureName="Waiter Call Assistance" />}>
+                    <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
+                  </Route>
 
                   {/* Manager/Super Admin only routes inside layout */}
                   <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'SUPER_ADMIN']} />}>
-                    <Route path="/manager/counter" element={<ManagerCounter />} />
-                    <Route path="/manager/kds" element={<ManagerKDS />} />
-                    <Route path="/manager/transactions" element={<ManagerTransactions />} />
-                    <Route path="/manager/tables" element={<ManagerTables />} />
-                    <Route path="/manager/menu" element={<ManagerMenu />} />
-                    <Route path="/manager/staff" element={<ManagerStaff />} />
-                    <Route path="/manager/customers" element={<ManagerCustomers />} />
-                    <Route path="/manager/taxes" element={<ManagerTaxes />} />
+                    {/* Settings is always accessible for managers */}
                     <Route path="/manager/settings" element={<ManagerSettings />} />
-                    <Route path="/manager/analytics" element={<ManagerAnalytics />} />
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="pos" featureName="Counter POS" />}>
+                      <Route path="/manager/counter" element={<ManagerCounter />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="kds" featureName="Kitchen Display System (KDS)" />}>
+                      <Route path="/manager/kds" element={<ManagerKDS />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredAnyFeatures={['payments', 'pos']} featureName="Transactions & Payments" />}>
+                      <Route path="/manager/transactions" element={<ManagerTransactions />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Table Management" />}>
+                      <Route path="/manager/tables" element={<ManagerTables />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Digital Menu Management" />}>
+                      <Route path="/manager/menu" element={<ManagerMenu />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredAnyFeatures={['crm', 'pos']} featureName="Staff Management" />}>
+                      <Route path="/manager/staff" element={<ManagerStaff />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="crm" featureName="Customer Directory & CRM" />}>
+                      <Route path="/manager/customers" element={<ManagerCustomers />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="ordering" featureName="Tax Management" />}>
+                      <Route path="/manager/taxes" element={<ManagerTaxes />} />
+                    </Route>
+
+                    <Route element={<FeatureProtectedRoute requiredFeature="analytics" featureName="Analytics & Insights" />}>
+                      <Route path="/manager/analytics" element={<ManagerAnalytics />} />
+                    </Route>
                   </Route>
 
                   {/* Super Admin only routes inside layout */}
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
-                    <Route path="/manager/developer" element={<ManagerDeveloper />} />
+                    <Route element={<FeatureProtectedRoute requiredFeature="api_webhooks" featureName="Developer APIs & Webhooks" />}>
+                      <Route path="/manager/developer" element={<ManagerDeveloper />} />
+                    </Route>
                   </Route>
                 </Route>
               </Route>

@@ -17,6 +17,7 @@ import { checkoutService } from '../services/checkout.service';
 import { billService } from '../services/bill.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { cacheService } from '../utils/cacheService';
+import { featureFlagService } from '../services/featureFlag.service';
 import {
   toCustomerSafeOrderDTO,
   toCustomerSafeDiningSessionDTO,
@@ -183,6 +184,12 @@ export class PublicController {
         }
       }
 
+      const isMenuEnabled = await featureFlagService.isEnabled(restaurant._id.toString(), 'qr_menu');
+      if (!isMenuEnabled) {
+        sendError(res, 'FEATURE_DISABLED', 'Digital QR Menu is currently disabled for this restaurant.', null, 403);
+        return;
+      }
+
       const cacheKey = `public_menu_${restaurant._id.toString()}`;
       const cachedMenu = cacheService.get(cacheKey);
       if (cachedMenu) {
@@ -243,6 +250,12 @@ export class PublicController {
 
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
+        return;
+      }
+
+      const isOrderingEnabled = await featureFlagService.isEnabled(restaurant._id.toString(), 'ordering');
+      if (!isOrderingEnabled) {
+        sendError(res, 'FEATURE_DISABLED', 'Digital table ordering is currently disabled for this restaurant.', null, 403);
         return;
       }
 
@@ -697,6 +710,12 @@ export class PublicController {
         return;
       }
 
+      const isMenuEnabled = await featureFlagService.isEnabled(restaurant._id.toString(), 'qr_menu');
+      if (!isMenuEnabled) {
+        sendError(res, 'FEATURE_DISABLED', 'Digital QR Menu is currently disabled for this restaurant.', null, 403);
+        return;
+      }
+
       const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
 
       const categories = await Category.find({
@@ -779,6 +798,12 @@ export class PublicController {
       restaurant = (req as any).restaurant || (await Restaurant.findOne({ slug: restaurantSlug?.toLowerCase().trim() }));
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      const isOrderingEnabled = await featureFlagService.isEnabled(restaurant._id.toString(), 'ordering');
+      if (!isOrderingEnabled) {
+        sendError(res, 'FEATURE_DISABLED', 'Online ordering is currently disabled for this restaurant.', null, 403);
         return;
       }
 

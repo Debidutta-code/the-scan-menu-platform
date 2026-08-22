@@ -73,7 +73,7 @@ export const Login: React.FC = () => {
     if (user.role === 'SUPER_ADMIN') {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    return <Navigate to="/manager/orders" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (

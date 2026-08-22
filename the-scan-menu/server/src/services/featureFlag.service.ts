@@ -1,6 +1,7 @@
 import { FeatureFlag } from '../models/FeatureFlag';
 import { Types, ClientSession } from 'mongoose';
 import { logger } from '../utils/logger';
+import config from '../config';
 
 export interface FeatureFlagMeta {
   key: string;
@@ -172,6 +173,10 @@ export class FeatureFlagService {
    * Checks if a specific feature flag is enabled for a given restaurant.
    */
   async isEnabled(restaurantId: string | Types.ObjectId, key: string): Promise<boolean> {
+    if (config.app.isTest && !process.env.TESTING_FEATURE_FLAGS) {
+      return true;
+    }
+
     const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
       ? new Types.ObjectId(restaurantId)
       : restaurantId;

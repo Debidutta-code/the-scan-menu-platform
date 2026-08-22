@@ -5,6 +5,7 @@ import { Table } from '../models/Table';
 import { WaiterCall } from '../models/WaiterCall';
 import { validateWaiterCallTransition } from '../utils/waiterCallStateMachine';
 import { NotificationService } from '../services/notification.service';
+import { featureFlagService } from '../services/featureFlag.service';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -40,6 +41,12 @@ export class WaiterCallController {
       const restaurant = await Restaurant.findById(table.restaurantId);
       if (!restaurant || restaurant.status === 'SUSPENDED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
+        return;
+      }
+
+      const isWaiterCallEnabled = await featureFlagService.isEnabled(restaurant._id.toString(), 'waiter_call');
+      if (!isWaiterCallEnabled) {
+        sendError(res, 'FEATURE_DISABLED', 'Waiter call assistance is currently disabled for this restaurant.', null, 403);
         return;
       }
 

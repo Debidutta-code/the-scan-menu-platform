@@ -8,6 +8,7 @@ import { useSocket, ConnectionStatus } from '../hooks/useSocket';
 import ConnectionIndicator from './ConnectionIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import { ScanMenuLogo } from './ScanMenuLogo';
+import { getPrimaryManagerRoute } from '../utils/navigation';
 import {
   Lock,
   Receipt,
@@ -268,7 +269,7 @@ export const ManagerLayout: React.FC = () => {
     };
   }, [socket, activeRestaurantId, toast, playChime, queryClient]);
 
-  // If STAFF tries to visit MANAGER-only routes, redirect to /manager/orders
+  // If STAFF tries to visit MANAGER-only routes, redirect dynamically to allowed route
   useEffect(() => {
     const managerOnlyTabs = [
       'menu',
@@ -284,9 +285,10 @@ export const ManagerLayout: React.FC = () => {
       'developer',
     ];
     if (isStaff && managerOnlyTabs.includes(activeTab)) {
-      navigate('/manager/orders', { replace: true });
+      const fallback = getPrimaryManagerRoute(isEnabled, user?.role);
+      navigate(fallback, { replace: true });
     }
-  }, [activeTab, isStaff, navigate]);
+  }, [activeTab, isStaff, isEnabled, user?.role, navigate]);
 
   const renderHeader = () => (
     <header className="bg-white border-b border-slate-150 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-xs shrink-0 z-10">
@@ -698,20 +700,22 @@ export const ManagerLayout: React.FC = () => {
       {/* ----------------- BOTTOM BAR (MOBILE ONLY) ----------------- */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-150 flex items-center justify-around px-2 pb-safe z-40 shadow-lg">
         {/* Orders */}
-        <button
-          onClick={() => navigate('/manager/orders')}
-          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all min-w-0 ${
-            activeTab === 'orders' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
-          }`}
-        >
-          <Receipt className="w-5 h-5" strokeWidth={1.75} />
-          <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Orders</span>
-          <span className={`absolute top-2 right-1/4 px-1.5 py-0.5 text-[8px] bg-amber-500 text-slate-950 rounded-full font-bold font-mono border border-white transition-opacity ${
-              activeOrdersCount > 0 ? 'opacity-100' : 'opacity-0'
-            }`}>
-              {activeOrdersCount || ' '}
-            </span>
-        </button>
+        {isEnabled('ordering') && (
+          <button
+            onClick={() => navigate('/manager/orders')}
+            className={`flex flex-col items-center justify-center gap-1 flex-1 h-full relative transition-all min-w-0 ${
+              activeTab === 'orders' ? 'text-slate-950 font-bold' : 'text-slate-400 font-medium'
+            }`}
+          >
+            <Receipt className="w-5 h-5" strokeWidth={1.75} />
+            <span className="text-[9px] min-[375px]:text-[10px] truncate w-full text-center leading-none px-0.5">Orders</span>
+            <span className={`absolute top-2 right-1/4 px-1.5 py-0.5 text-[8px] bg-amber-500 text-slate-950 rounded-full font-bold font-mono border border-white transition-opacity ${
+                activeOrdersCount > 0 ? 'opacity-100' : 'opacity-0'
+              }`}>
+                {activeOrdersCount || ' '}
+              </span>
+          </button>
+        )}
 
 
         {/* Transactions Bottom Nav (Manager only) */}
