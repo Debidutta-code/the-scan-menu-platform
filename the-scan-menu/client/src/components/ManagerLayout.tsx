@@ -35,6 +35,7 @@ import {
   Minimize2,
   PanelLeftClose,
   PanelLeftOpen,
+  Tv,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -476,6 +477,25 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
+          {/* Customer Live Display tab — visible if customer_display module is enabled */}
+          {!isStaff && isEnabled('customer_display') && (
+            <a
+              href={`/r/${(user?.role === 'SUPER_ADMIN' ? impersonatedOutlet?.slug : (user as any)?.restaurants?.[0]?.slug) || 'demo-cafe'}/display`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between w-full px-4 py-3 rounded-2xl text-sm font-bold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/90 border border-emerald-200/80 transition-all group"
+              title="Open Customer Live Display (TV Queue Screen) in a new tab"
+            >
+              <div className="flex items-center gap-3">
+                <Tv className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" strokeWidth={2} />
+                <span>Live TV Display</span>
+              </div>
+              <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 uppercase">
+                TV ↗
+              </span>
+            </a>
+          )}
+
           {/* Transactions tab (Sidebar) — visible only for manager/admin */}
           {!isStaff && (isEnabled('payments') || isEnabled('pos')) && (
             <button
@@ -895,7 +915,7 @@ export const ManagerLayout: React.FC = () => {
                   <span className="text-[10px] font-bold text-center leading-none">Counter POS</span>
                 </button>
               )}
-              {/* KDS */}
+              {/* Kitchen */}
               {isEnabled('kds') && (
                 <button
                   id="mobile-more-kds-btn"
@@ -909,6 +929,19 @@ export const ManagerLayout: React.FC = () => {
                   <Flame className="w-6 h-6 text-amber-500" strokeWidth={2} />
                   <span className="text-[10px] font-bold text-center leading-none">Kitchen</span>
                 </button>
+              )}
+              {/* Live TV Display */}
+              {isEnabled('customer_display') && (
+                <a
+                  href={`/r/${(user?.role === 'SUPER_ADMIN' ? impersonatedOutlet?.slug : (user as any)?.restaurants?.[0]?.slug) || 'demo-cafe'}/display`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMoreDrawerOpen(false)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 transition-all text-center"
+                >
+                  <Tv className="w-6 h-6 text-emerald-600" strokeWidth={2} />
+                  <span className="text-[10px] font-bold text-center leading-none">TV Display ↗</span>
+                </a>
               )}
               {/* Inventory */}
               {isEnabled('inventory') && (
