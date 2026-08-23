@@ -47,12 +47,12 @@ export class LiveDisplayController {
 
       const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id }).lean();
 
-      // Fetch active preparing and ready orders from the last 12 hours
-      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      // Fetch active preparing and ready orders from the last 48 hours
+      const activeCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
       const activeOrders = await Order.find({
         restaurantId: restaurant._id,
         status: { $in: ['PREPARING', 'READY'] },
-        createdAt: { $gte: twelveHoursAgo },
+        createdAt: { $gte: activeCutoff },
       })
         .populate('tableId', 'name tableNumber')
         .sort({ updatedAt: -1 })
