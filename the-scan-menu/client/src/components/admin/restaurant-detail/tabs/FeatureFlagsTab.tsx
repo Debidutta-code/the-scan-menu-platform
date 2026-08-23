@@ -12,7 +12,7 @@ export const FeatureFlagsTab: React.FC<FeatureFlagsTabProps> = ({
   isToggling,
 }) => {
   return (
-    <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+    <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 h-full overflow-y-auto pr-2">
       <div className="border-b border-slate-100 pb-4">
         <h3 className="font-display text-xl font-bold text-slate-900">Feature Capability Matrix</h3>
         <p className="text-xs text-slate-500 mt-0.5">

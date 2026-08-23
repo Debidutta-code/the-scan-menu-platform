@@ -23,9 +23,9 @@ export const HardwareTab: React.FC<HardwareTabProps> = ({
   onTestPrint,
 }) => {
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      {/* Settings Form Studio */}
-      <div className="xl:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+    <div className="h-full flex flex-col xl:flex-row gap-6 min-h-0 overflow-hidden">
+      {/* Settings Form Studio (Middle Section - Scrolls Separately) */}
+      <div className="flex-1 min-w-0 bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 h-full overflow-y-auto pr-3">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div>
             <h3 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
@@ -424,8 +424,8 @@ export const HardwareTab: React.FC<HardwareTabProps> = ({
         </div>
       </div>
 
-      {/* Live Visual Thermal Receipt Canvas Preview */}
-      <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm flex flex-col items-center sticky top-4">
+      {/* Live Visual Thermal Receipt Canvas Preview (Right Section - Pinned/Fixed) */}
+      <div className="w-full xl:w-80 2xl:w-96 shrink-0 bg-white border border-slate-150 rounded-3xl p-5 shadow-sm flex flex-col items-center h-full overflow-y-auto">
         <span className="text-[10px] font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
           <Receipt className="w-3.5 h-3.5 text-amber-500" />
           <span>Live Receipt Canvas ({hardwareForm.paperWidth})</span>

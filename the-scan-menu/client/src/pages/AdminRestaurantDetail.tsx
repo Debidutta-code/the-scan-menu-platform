@@ -649,16 +649,18 @@ export const AdminRestaurantDetail: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-6 font-sans pb-24">
+    <div className="w-full h-full flex flex-col min-h-0 space-y-4 font-sans overflow-hidden">
       {/* MASTER TOP HEADER & AUDIT BAR */}
-      <AdminRestaurantHeader
-        restaurant={restaurant}
-        audit={audit}
-        setActiveTab={setActiveTab}
-      />
+      <div className="shrink-0">
+        <AdminRestaurantHeader
+          restaurant={restaurant}
+          audit={audit}
+          setActiveTab={setActiveTab}
+        />
+      </div>
 
       {/* 2-COLUMN HUB STUDIO: SUB-SIDEBAR + ACTIVE TAB CANVAS */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6 overflow-hidden">
         <AdminRestaurantSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -672,7 +674,7 @@ export const AdminRestaurantDetail: React.FC = () => {
           hardwareForm={hardwareForm}
         />
 
-        <div className="flex-1 min-w-0 w-full">
+        <div className="flex-1 min-w-0 h-full flex flex-col min-h-0 overflow-hidden">
           {activeTab === 'checklist' && (
             <ChecklistTab
               audit={audit}

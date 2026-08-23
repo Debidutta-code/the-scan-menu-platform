@@ -31,7 +31,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
   isSavingBilling,
 }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full overflow-y-auto pr-2">
       {/* TAXES SECTION */}
       <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">

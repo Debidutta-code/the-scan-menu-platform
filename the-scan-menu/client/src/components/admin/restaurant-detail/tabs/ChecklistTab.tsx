@@ -32,7 +32,7 @@ export const ChecklistTab: React.FC<ChecklistTabProps> = ({
   const isReady = audit?.isReadyForService ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full overflow-y-auto pr-1">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Quick 1-Click Starters */}
         <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 p-6 rounded-3xl shadow-sm flex flex-col justify-between">

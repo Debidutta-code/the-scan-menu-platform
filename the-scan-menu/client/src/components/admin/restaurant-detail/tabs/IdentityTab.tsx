@@ -16,7 +16,7 @@ export const IdentityTab: React.FC<IdentityTabProps> = ({
   isSaving,
 }) => {
   return (
-    <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+    <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6 h-full overflow-y-auto pr-2">
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
         <div>
           <h3 className="font-display text-xl font-bold text-slate-900">Store Profile & Branding</h3>

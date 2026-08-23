@@ -23,42 +23,42 @@ export const AdminRestaurantHeader: React.FC<AdminRestaurantHeaderProps> = ({
   const isReady = audit?.isReadyForService ?? false;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* TOP MASTER BAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-950 text-white p-6 md:p-8 rounded-3xl shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-950 text-white p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/admin/setup-hub')}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 rounded-2xl transition text-slate-400 hover:text-white"
+            className="p-2 bg-slate-900 hover:bg-slate-800 rounded-xl transition text-slate-400 hover:text-white"
             title="Back to Setup Hub"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <div className="w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-sm shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold text-lg shadow-sm shrink-0">
             {restaurant.name?.charAt(0) || 'R'}
           </div>
 
           <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="font-display text-2xl md:text-3xl font-extrabold tracking-tight">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-display text-lg md:text-xl font-extrabold tracking-tight">
                 {restaurant.name}
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase">
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase">
                 {(restaurant as any).status || (restaurant.isActive ? 'ACTIVE' : 'INACTIVE')}
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono mt-1">
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
               Slug: <span className="text-amber-400">/r/{restaurant.slug}</span> • Code: {(restaurant as any).code || 'RST-MAIN'}
             </p>
           </div>
         </div>
 
         {/* Action Controls & Progress Ring */}
-        <div className="flex items-center gap-4 shrink-0 flex-wrap">
-          <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-2xl">
-            <div className="relative w-9 h-9 flex items-center justify-center">
-              <svg className="w-9 h-9 transform -rotate-90" viewBox="0 0 36 36">
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl">
+            <div className="relative w-7 h-7 flex items-center justify-center">
+              <svg className="w-7 h-7 transform -rotate-90" viewBox="0 0 36 36">
                 <path
                   className="text-slate-800"
                   strokeWidth="4"
@@ -76,11 +76,11 @@ export const AdminRestaurantHeader: React.FC<AdminRestaurantHeaderProps> = ({
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
               </svg>
-              <span className="absolute text-[10px] font-black">{progress}%</span>
+              <span className="absolute text-[8px] font-black">{progress}%</span>
             </div>
             <div>
-              <p className="text-[10px] font-mono uppercase font-bold text-slate-400">Setup Status</p>
-              <p className="text-xs font-bold text-white">{isReady ? 'Ready for Service' : 'Incomplete'}</p>
+              <p className="text-[9px] font-mono uppercase font-bold text-slate-400">Setup Status</p>
+              <p className="text-[11px] font-bold text-white">{isReady ? 'Ready for Service' : 'Incomplete'}</p>
             </div>
           </div>
 
@@ -88,19 +88,19 @@ export const AdminRestaurantHeader: React.FC<AdminRestaurantHeaderProps> = ({
             href={`/r/${restaurant.slug}`}
             target="_blank"
             rel="noreferrer"
-            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition border border-slate-800"
+            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-slate-800"
           >
-            <Eye className="w-4 h-4 text-amber-400" />
+            <Eye className="w-3.5 h-3.5 text-amber-400" />
             <span>Customer Menu</span>
             <ExternalLink className="w-3 h-3 text-slate-400" />
           </a>
 
           <button
             onClick={() => impersonateOutlet({ id: restaurant._id, name: restaurant.name, slug: restaurant.slug })}
-            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl text-xs font-extrabold flex items-center gap-1.5 transition shadow-sm"
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition shadow-sm"
           >
-            <LogIn className="w-4 h-4 text-slate-950" />
-            <span>Launch Manager View</span>
+            <LogIn className="w-3.5 h-3.5 text-slate-950" />
+            <span>Manager View</span>
           </button>
         </div>
       </div>

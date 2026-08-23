@@ -45,9 +45,9 @@ export const AdminRestaurantSidebar: React.FC<AdminRestaurantSidebarProps> = ({
   const isReady = audit?.isReadyForService ?? false;
 
   return (
-    <aside className="w-full lg:w-72 shrink-0 space-y-4">
-      <div className="bg-white border border-slate-150 rounded-3xl p-3.5 shadow-sm space-y-4 sticky top-4">
-        <div className="space-y-3.5 text-xs">
+    <aside className="w-full lg:w-72 shrink-0 h-full flex flex-col min-h-0">
+      <div className="bg-white border border-slate-150 rounded-3xl p-3.5 shadow-sm h-full flex flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
           {/* Group 1: Overview */}
           <div>
             <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
@@ -310,7 +310,7 @@ export const AdminRestaurantSidebar: React.FC<AdminRestaurantSidebarProps> = ({
         </div>
 
         {/* Sidebar Footer Mini Status */}
-        <div className="pt-3 border-t border-slate-100 bg-slate-50/70 p-3 rounded-2xl">
+        <div className="pt-3 border-t border-slate-100 bg-slate-50/70 p-3 rounded-2xl shrink-0 mt-2">
           <div className="flex items-center justify-between text-[11px] font-bold">
             <span className="text-slate-500 font-mono uppercase">Readiness</span>
             <span className={isReady ? 'text-emerald-600' : 'text-amber-600'}>
