@@ -223,7 +223,9 @@ export const PublicLiveDisplay: React.FC = () => {
     previousReadyIdsRef.current = currentReadyIds;
 
     return () => {
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
   }, [readyOrders, playReadyChime]);
 
@@ -287,11 +289,9 @@ export const PublicLiveDisplay: React.FC = () => {
   const formatTableName = (tableName: string | null) => {
     if (!tableName || tableName.trim() === '') return 'Dine-In';
     const clean = tableName.trim();
-    // If it's pure numbers, e.g. "2" -> "Table 2"
     if (/^\d+$/.test(clean)) {
       return `Table ${clean}`;
     }
-    // If it already starts with Table / TBL / Table #, return clean
     return clean;
   };
 
