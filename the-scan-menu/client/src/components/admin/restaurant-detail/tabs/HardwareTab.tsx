@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Printer, Save, Loader, Store, Palette, Settings, Receipt, QrCode } from 'lucide-react';
 import { HardwareFormData, IdentityFormData } from '../types';
 import { Restaurant } from '../../../../services/restaurant.service';
@@ -22,6 +22,9 @@ export const HardwareTab: React.FC<HardwareTabProps> = ({
   isSavingHardware,
   onTestPrint,
 }) => {
+  const [previewReceiptType, setPreviewReceiptType] = useState<'BILL' | 'COUNTER' | 'KOT'>('BILL');
+  const [previewPaymentStatus, setPreviewPaymentStatus] = useState<'PENDING' | 'PAID'>('PENDING');
+
   return (
     <div className="h-full flex flex-col xl:flex-row gap-6 min-h-0 overflow-hidden">
       {/* Settings Form Studio (Middle Section - Scrolls Separately) */}
@@ -425,112 +428,274 @@ export const HardwareTab: React.FC<HardwareTabProps> = ({
       </div>
 
       {/* Live Visual Thermal Receipt Canvas Preview (Right Section - Pinned/Fixed) */}
-      <div className="w-full xl:w-80 2xl:w-96 shrink-0 bg-white border border-slate-150 rounded-3xl p-5 shadow-sm flex flex-col items-center h-full overflow-y-auto">
-        <span className="text-[10px] font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
-          <Receipt className="w-3.5 h-3.5 text-amber-500" />
-          <span>Live Receipt Canvas ({hardwareForm.paperWidth})</span>
-        </span>
+      <div className="w-full xl:w-80 2xl:w-96 shrink-0 bg-white border border-slate-150 rounded-3xl p-5 shadow-sm flex flex-col items-center h-full overflow-y-auto space-y-3">
+        <div className="w-full flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase font-bold text-slate-400 flex items-center gap-1.5">
+            <Receipt className="w-3.5 h-3.5 text-amber-500" />
+            <span>Preview ({hardwareForm.paperWidth})</span>
+          </span>
+          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+            {hardwareForm.templateTheme.toUpperCase()}
+          </span>
+        </div>
+
+        {/* 3-Way Preview Switcher Tabs */}
+        <div className="grid grid-cols-3 gap-1 w-full bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setPreviewReceiptType('BILL')}
+            className={`py-1 rounded-lg text-[11px] font-bold transition ${
+              previewReceiptType === 'BILL' ? 'bg-slate-950 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🧾 Customer
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewReceiptType('COUNTER')}
+            className={`py-1 rounded-lg text-[11px] font-bold transition ${
+              previewReceiptType === 'COUNTER' ? 'bg-slate-950 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            📋 Counter
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewReceiptType('KOT')}
+            className={`py-1 rounded-lg text-[11px] font-bold transition ${
+              previewReceiptType === 'KOT' ? 'bg-slate-950 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🍳 Kitchen
+          </button>
+        </div>
+
+        {/* Customer Bill Sub-Simulation Mode: Prepaid vs Postpaid */}
+        {previewReceiptType === 'BILL' && (
+          <div className="grid grid-cols-2 gap-1.5 w-full">
+            <button
+              type="button"
+              onClick={() => setPreviewPaymentStatus('PENDING')}
+              className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition text-center ${
+                previewPaymentStatus === 'PENDING'
+                  ? 'bg-amber-500 text-slate-950 shadow-2xs font-extrabold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              💳 Unpaid + QR
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewPaymentStatus('PAID')}
+              className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition text-center ${
+                previewPaymentStatus === 'PAID'
+                  ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ✓ Paid Invoice
+            </button>
+          </div>
+        )}
 
         {/* Thermal Receipt Paper Canvas */}
         <div
-          className={`bg-white border border-slate-300 p-5 rounded-2xl text-slate-900 shadow-md transition-all ${
+          className={`bg-white border border-slate-300 p-4 rounded-2xl text-slate-900 shadow-md transition-all w-full select-none ${
             hardwareForm.templateTheme === 'modern' ? 'font-sans' : 'font-mono'
-          } ${hardwareForm.templateTheme === 'compact' ? 'text-[10px] leading-tight' : 'text-[11px] leading-relaxed'} ${
-            hardwareForm.paperWidth === '58mm' ? 'w-56' : 'w-72'
-          }`}
+          } ${hardwareForm.templateTheme === 'compact' ? 'text-[10px] leading-tight' : 'text-[11px] leading-relaxed'}`}
         >
-          {/* Header */}
-          <div className="text-center pb-3 border-b border-dashed border-slate-400">
-            {hardwareForm.showLogo && (hardwareForm.logoUrl || identityForm.logoUrl) && (
-              <img
-                src={hardwareForm.logoUrl || identityForm.logoUrl}
-                alt="Logo"
-                className="h-10 mx-auto mb-2 object-contain"
-              />
-            )}
-            <h4 className="font-bold text-sm tracking-tight">{restaurant.name}</h4>
-            <p className="text-[10px] text-slate-500 mt-0.5">{restaurant.address || 'Food Street, City'}</p>
-            {hardwareForm.receiptHeader && (
-              <p className="text-[10px] font-bold text-slate-700 italic mt-1">{hardwareForm.receiptHeader}</p>
-            )}
-            {hardwareForm.showGstNumber && hardwareForm.gstNumber && (
-              <p className="text-[9px] text-slate-500 mt-0.5">GSTIN: {hardwareForm.gstNumber}</p>
-            )}
-            {hardwareForm.showFssai && hardwareForm.fssaiNumber && (
-              <p className="text-[9px] text-slate-500">FSSAI: {hardwareForm.fssaiNumber}</p>
-            )}
-          </div>
+          {/* ─────────────────────────────────────────────────────────────
+              1. CUSTOMER BILL & COUNTER COPY PREVIEWS
+             ───────────────────────────────────────────────────────────── */}
+          {(previewReceiptType === 'BILL' || previewReceiptType === 'COUNTER') && (
+            <>
+              {/* Header */}
+              <div className="text-center pb-2.5 border-b border-dashed border-slate-400">
+                {hardwareForm.showLogo && (hardwareForm.logoUrl || identityForm.logoUrl) && (
+                  <img
+                    src={hardwareForm.logoUrl || identityForm.logoUrl}
+                    alt="Logo"
+                    className="h-9 mx-auto mb-1.5 object-contain"
+                  />
+                )}
+                <div className="font-bold text-sm text-slate-950 uppercase tracking-wide">
+                  {restaurant.name || 'THE WOODFIRED BISTRO'}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{restaurant.address || '456 Gourmet Lane, City'}</div>
+                <div className="text-[10px] text-slate-500 font-bold">{restaurant.phone || 'Ph: +91 98765 43210'}</div>
+                {hardwareForm.showGstNumber && (hardwareForm.gstNumber || identityForm.gstNumber) && (
+                  <div className="text-[10px] text-slate-700 font-bold mt-0.5">
+                    GSTIN: {hardwareForm.gstNumber || identityForm.gstNumber || '27AAAAA1111A1Z1'}
+                  </div>
+                )}
+                {hardwareForm.showFssai && hardwareForm.fssaiNumber && (
+                  <div className="text-[10px] text-slate-600">FSSAI: {hardwareForm.fssaiNumber}</div>
+                )}
+                {hardwareForm.receiptHeader && (
+                  <div className="text-[10px] italic text-amber-800 mt-1 font-bold">{hardwareForm.receiptHeader}</div>
+                )}
 
-          {/* Order Info */}
-          <div className="py-2.5 border-b border-dashed border-slate-400 text-[10px]">
-            <div className="flex justify-between font-bold">
-              <span>Table #4</span>
-              <span>Invoice #1042</span>
-            </div>
-            <div className="flex justify-between text-slate-500 mt-0.5">
-              <span>24-Aug-2026</span>
-              <span>14:20 PM</span>
-            </div>
-            {hardwareForm.showCustomerInfo && (
-              <div className="text-slate-500 mt-0.5">
-                <span>Guest: John Doe (+91 98765 43210)</span>
+                <div className="mt-1.5 inline-block bg-slate-950 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">
+                  {previewReceiptType === 'COUNTER'
+                    ? 'COUNTER / AUDIT COPY'
+                    : previewPaymentStatus === 'PAID'
+                    ? 'TAX INVOICE'
+                    : 'BILL FOR PAYMENT (PROFORMA)'}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Items Table */}
-          <div className="py-3 space-y-1.5 border-b border-dashed border-slate-400">
-            <div className="flex justify-between">
-              <span>1x Paneer Tikka</span>
-              <span>₹280.00</span>
-            </div>
-            <div className="flex justify-between">
-              <span>2x Butter Naan</span>
-              <span>₹160.00</span>
-            </div>
-          </div>
+              {/* Order Meta Info */}
+              <div className="py-2 border-b border-slate-200 text-[10px]">
+                <div className="flex justify-between font-bold">
+                  <span>Order #104 · DINE_IN</span>
+                  <span>Table 04</span>
+                </div>
+                <div className="flex justify-between text-slate-500 mt-0.5">
+                  {hardwareForm.showCustomerInfo ? <span>Guest: Rahul Sharma</span> : <span>Guest: Dine-in</span>}
+                  <span>14-Aug-2026 12:35</span>
+                </div>
+              </div>
 
-          {/* Totals & Tax */}
-          <div className="pt-2.5 space-y-1">
-            <div className="flex justify-between text-slate-600">
-              <span>Subtotal</span>
-              <span>₹440.00</span>
-            </div>
-            {hardwareForm.showTaxBreakup && (
-              <div className="flex justify-between text-slate-500 text-[10px]">
-                <span>CGST (2.5%) + SGST (2.5%)</span>
-                <span>₹22.00</span>
+              {/* Items Table */}
+              <div className="py-2.5 space-y-1.5 border-b border-dashed border-slate-300">
+                <div className="flex justify-between">
+                  <span>2x Margherita Pizza</span>
+                  <span className="font-bold">₹898.00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>1x Filter Coffee</span>
+                  <span className="font-bold">₹120.00</span>
+                </div>
               </div>
-            )}
-            <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-400">
-              <span>GRAND TOTAL</span>
-              <span>₹462.00</span>
-            </div>
-            {hardwareForm.showPaymentMode && (
-              <div className="flex justify-between text-[10px] text-emerald-700 font-bold pt-0.5">
-                <span>Payment: UPI QR</span>
-                <span>[PENDING SETTLEMENT]</span>
-              </div>
-            )}
-          </div>
 
-          {/* Dynamic Payment QR */}
-          {hardwareForm.showPaymentQr && (
-            <div className="mt-3 pt-2.5 border-t border-dashed border-slate-400 text-center">
-              <div className="w-20 h-20 bg-slate-100 border border-slate-300 mx-auto rounded-lg flex flex-col items-center justify-center text-slate-400 p-1">
-                <QrCode className="w-10 h-10 text-slate-700" />
-                <span className="text-[8px] text-slate-600 font-bold">SCAN TO PAY</span>
+              {/* Totals & Tax Calculation */}
+              <div className="py-2 space-y-1 text-[10px]">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal:</span>
+                  <span className="font-bold">₹1,018.00</span>
+                </div>
+                {hardwareForm.showTaxBreakup ? (
+                  <>
+                    <div className="flex justify-between text-slate-500">
+                      <span>CGST (2.5%):</span>
+                      <span>₹25.45</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>SGST (2.5%):</span>
+                      <span>₹25.45</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-slate-500">
+                    <span>GST (5%):</span>
+                    <span>₹50.90</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between font-black text-slate-950 text-xs pt-1.5 border-t-2 border-slate-900">
+                  <span>
+                    {previewReceiptType === 'COUNTER' || previewPaymentStatus === 'PAID'
+                      ? 'TOTAL PAID:'
+                      : 'PAYABLE AMOUNT:'}
+                  </span>
+                  <span>₹1,068.90</span>
+                </div>
+
+                {hardwareForm.showPaymentMode && (
+                  <div
+                    className={`text-[10px] font-black text-center mt-1.5 py-0.5 rounded border ${
+                      previewPaymentStatus === 'PAID' || previewReceiptType === 'COUNTER'
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : 'text-amber-800 bg-amber-50 border-amber-200'
+                    }`}
+                  >
+                    {previewPaymentStatus === 'PAID' || previewReceiptType === 'COUNTER'
+                      ? '✓ PAID (UPI / QR)'
+                      : 'STATUS: PAYMENT DUE'}
+                  </div>
+                )}
               </div>
-              <p className="text-[9px] font-mono text-slate-500 mt-1">
-                {hardwareForm.upiId || 'merchant@upi'}
-              </p>
-            </div>
+
+              {/* Dynamic Scan-to-Pay UPI QR Code */}
+              {previewReceiptType === 'BILL' && previewPaymentStatus === 'PENDING' && hardwareForm.showPaymentQr && (
+                <div className="text-center border border-dashed border-slate-400 p-2 rounded-lg bg-slate-50 mt-2 space-y-1">
+                  <div className="text-[10px] font-black tracking-wider text-slate-900 flex items-center justify-center gap-1">
+                    <QrCode className="w-3.5 h-3.5 text-slate-700" />
+                    <span>SCAN & PAY VIA UPI</span>
+                  </div>
+                  <div className="w-20 h-20 bg-white border border-slate-300 mx-auto rounded-lg flex flex-col items-center justify-center text-slate-400 p-1 shadow-2xs">
+                    <QrCode className="w-14 h-14 text-slate-800" />
+                  </div>
+                  <div className="text-[8px] font-bold text-slate-700">GPay • PhonePe • Paytm • BHIM</div>
+                  <div className="text-[8px] font-mono text-slate-500 truncate">
+                    UPI: {hardwareForm.upiId || 'merchant@okhdfcbank'}
+                  </div>
+                </div>
+              )}
+
+              {/* Counter Copy Signatures */}
+              {previewReceiptType === 'COUNTER' && (
+                <div className="mt-2 pt-2 border-t border-dashed border-slate-400 flex justify-between text-[9px] text-slate-600">
+                  <span>Cashier: ___________</span>
+                  <span>Sign: ___________</span>
+                </div>
+              )}
+
+              {/* Footer Note */}
+              <div className="text-center border-t border-dashed border-slate-300 pt-2 text-[10px] text-slate-500 italic mt-2">
+                {hardwareForm.receiptFooter || 'Thank you for dining with us! Please visit again.'}
+              </div>
+            </>
           )}
 
-          {/* Footer */}
-          <div className="mt-3 pt-2 border-t border-dashed border-slate-400 text-center text-[9px] text-slate-500">
-            <p>{hardwareForm.receiptFooter}</p>
-          </div>
+          {/* ─────────────────────────────────────────────────────────────
+              2. KITCHEN ORDER TICKET (KOT) PREVIEW (NO LOGO, HIGHLIGHTED)
+             ───────────────────────────────────────────────────────────── */}
+          {previewReceiptType === 'KOT' && (
+            <div className="space-y-2">
+              <div className="text-center border-b-2 border-slate-900 pb-2">
+                <div className="text-[10px] font-black tracking-widest text-slate-900">
+                  *** KITCHEN ORDER TICKET ***
+                </div>
+                <div className="font-black text-lg text-slate-950 mt-0.5">ORDER #104</div>
+                <div className="inline-block bg-slate-950 text-white text-[10px] font-bold px-2.5 py-0.5 rounded mt-1">
+                  DINE-IN • Table 04
+                </div>
+              </div>
+
+              <div className="flex justify-between text-[10px] border-b border-slate-200 pb-1">
+                <span>Time: 12:35 PM</span>
+                {hardwareForm.kotShowServerName && <span className="font-bold">Server: Cashier/Mgr</span>}
+              </div>
+
+              <div className="space-y-2 py-1.5 border-b-2 border-slate-900">
+                <div className="flex items-start gap-2">
+                  <span className="font-black text-xs">[ 2x ]</span>
+                  <div>
+                    <div className="font-bold text-xs text-slate-900">Margherita Pizza</div>
+                    <div className="text-[9px] text-amber-800 font-bold">* Note: Extra crispy crust</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-black text-xs">[ 1x ]</span>
+                  <div>
+                    <div className="font-bold text-xs text-slate-900">Filter Coffee</div>
+                    <div className="text-[9px] text-slate-500">+ Less sugar</div>
+                  </div>
+                </div>
+              </div>
+
+              {hardwareForm.kotNotes && (
+                <div className="p-1.5 bg-slate-100 border-l-2 border-slate-700 text-[9px] italic text-slate-800 font-medium">
+                  {hardwareForm.kotNotes}
+                </div>
+              )}
+
+              <div className="text-center text-[10px] font-bold text-slate-900 pt-1">
+                *** END OF KOT ***
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
