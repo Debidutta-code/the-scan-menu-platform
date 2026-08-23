@@ -681,46 +681,237 @@ export const AdminRestaurantDetail: React.FC = () => {
         </div>
       )}
 
-      {/* HORIZONTAL TAB NAVIGATION */}
-      <div className="bg-white border border-slate-150 rounded-2xl p-1.5 shadow-sm flex items-center gap-1 overflow-x-auto">
-        {[
-          { id: 'checklist', label: 'Setup Checklist', icon: CheckCircle2, count: `${audit?.completedSteps || 0}/${audit?.totalSteps || 0}` },
-          { id: 'identity', label: 'Store Identity & Branding', icon: Store },
-          { id: 'flags', label: 'Feature Flags', icon: ToggleRight, count: flagsList.filter((f: any) => f.isEnabled).length },
-          { id: 'billing', label: 'Taxes & Payments', icon: CreditCard },
-          { id: 'tables', label: 'Dining Tables & Zones', icon: TableProperties, count: tablesList.length },
-          { id: 'menu', label: 'Digital Menu & Catalog', icon: Utensils, count: menuItemsList.length },
-          { id: 'hardware', label: 'Hardware & POS Printers', icon: Printer },
-          { id: 'staff', label: 'Staff Accounts', icon: Users, count: staffList.length },
-          { id: 'integrations', label: 'POS Integrations', icon: Plug },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                isActive
-                  ? 'bg-slate-950 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
-              <span>{tab.label}</span>
-              {tab.count !== undefined && (
-                <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
-                    isActive ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {tab.count}
+      {/* 2-COLUMN HUB STUDIO LAYOUT: INTERNAL SUB-SIDEBAR + MAIN CANVAS */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* LEFT SUB-SIDEBAR */}
+        <aside className="w-full lg:w-72 shrink-0 space-y-4">
+          <div className="bg-white border border-slate-150 rounded-3xl p-3.5 shadow-sm space-y-4 sticky top-4">
+            {/* Nav Groups */}
+            <div className="space-y-3.5 text-xs">
+              {/* Group 1: Overview */}
+              <div>
+                <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
+                  Overview & Audit
                 </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    onClick={() => setActiveTab('checklist')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'checklist'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className={`w-4 h-4 ${activeTab === 'checklist' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Setup Checklist</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        activeTab === 'checklist' ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {audit?.completedSteps || 0}/{audit?.totalSteps || 0}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 2: Core Store */}
+              <div>
+                <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
+                  Core Configuration
+                </span>
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    onClick={() => setActiveTab('identity')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'identity'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Store className={`w-4 h-4 ${activeTab === 'identity' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Store Identity & Branding</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('flags')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'flags'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ToggleRight className={`w-4 h-4 ${activeTab === 'flags' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Feature Flags</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        activeTab === 'flags' ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {flagsList.filter((f: any) => f.isEnabled).length} active
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 3: Operations & Menu */}
+              <div>
+                <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
+                  Menu & Floor Layout
+                </span>
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    onClick={() => setActiveTab('menu')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'menu'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Utensils className={`w-4 h-4 ${activeTab === 'menu' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Digital Menu & Catalog</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        activeTab === 'menu' ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {menuItemsList.length} items
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('tables')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'tables'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <TableProperties className={`w-4 h-4 ${activeTab === 'tables' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Dining Tables & Zones</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        activeTab === 'tables' ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {tablesList.length} tables
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 4: Finance & Hardware */}
+              <div>
+                <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
+                  Billing & POS Hardware
+                </span>
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    onClick={() => setActiveTab('billing')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'billing'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard className={`w-4 h-4 ${activeTab === 'billing' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Taxes & Payments</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('hardware')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'hardware'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Printer className={`w-4 h-4 ${activeTab === 'hardware' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Hardware & POS Printers</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 5: Team & Integrations */}
+              <div>
+                <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
+                  Staff & Integrations
+                </span>
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    onClick={() => setActiveTab('staff')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'staff'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Users className={`w-4 h-4 ${activeTab === 'staff' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Staff Accounts</span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        activeTab === 'staff' ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {staffList.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('integrations')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'integrations'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Plug className={`w-4 h-4 ${activeTab === 'integrations' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>POS Integrations</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar Footer Mini Status */}
+            <div className="pt-3 border-t border-slate-100 bg-slate-50/70 p-3 rounded-2xl">
+              <div className="flex items-center justify-between text-[11px] font-bold">
+                <span className="text-slate-500 font-mono uppercase">Readiness</span>
+                <span className={isReady ? 'text-emerald-600' : 'text-amber-600'}>
+                  {isReady ? 'Ready for Service' : `${progress}% Complete`}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1.5">
+                <div
+                  className={`h-full rounded-full ${
+                    progress >= 80 ? 'bg-emerald-500' : progress >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                  }`}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* RIGHT MAIN CONTENT CANVAS */}
+        <div className="flex-1 min-w-0 w-full">
 
       {/* ─────────────────────────────────────────────────────────────
           TAB 1: SETUP AUDIT & CHECKLIST
@@ -2048,6 +2239,8 @@ export const AdminRestaurantDetail: React.FC = () => {
           )}
         </div>
       )}
+        </div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────
           MODALS
