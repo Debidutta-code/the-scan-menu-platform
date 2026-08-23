@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminService, managerService, OutletSetupAuditResult, Table, Category, MenuItem, Tax, TableZone } from '../services/restaurant.service';
+import { adminService, managerService, OutletSetupAuditResult, Table, Category, MenuItem, Tax, TableZone, Staff } from '../services/restaurant.service';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../lib/api';
@@ -23,6 +23,7 @@ import {
   Plug,
   Plus,
   Eye,
+  EyeOff,
   LogIn,
   Utensils,
   Sparkles,
@@ -34,6 +35,7 @@ import {
   Check,
   RotateCw,
   Receipt,
+  KeyRound,
 } from 'lucide-react';
 
 type AdminTab =
@@ -56,6 +58,7 @@ export const AdminRestaurantDetail: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<AdminTab>('checklist');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [revealPinForId, setRevealPinForId] = useState<string | null>(null);
 
   // Queries
   const { data: restResponse, isLoading: isLoadingRest } = useQuery({
@@ -117,7 +120,7 @@ export const AdminRestaurantDetail: React.FC = () => {
 
   const restaurant = restResponse?.data;
   const audit: OutletSetupAuditResult | undefined = auditResponse?.data;
-  const staffList = useMemo(() => staffResponse?.data || [], [staffResponse?.data]);
+  const staffList: Staff[] = useMemo(() => staffResponse?.data || [], [staffResponse?.data]);
   const tablesList: Table[] = useMemo(() => tablesResponse?.data || [], [tablesResponse?.data]);
   const zonesList: TableZone[] = useMemo(() => zonesResponse?.data || [], [zonesResponse?.data]);
   const categoriesList: Category[] = useMemo(() => categoriesResponse?.data || [], [categoriesResponse?.data]);
@@ -162,7 +165,7 @@ export const AdminRestaurantDetail: React.FC = () => {
 
   const [hardwareForm, setHardwareForm] = useState({
     paperWidth: '80mm' as '80mm' | '58mm' | 'A4',
-    templateTheme: 'classic' as 'classic' | 'modern' | 'compact',
+    templateTheme: 'classic' as 'classic' | 'modern' | 'compact' | 'detailed',
     showLogo: true,
     showGstNumber: true,
     showFssai: true,
@@ -174,6 +177,7 @@ export const AdminRestaurantDetail: React.FC = () => {
     showTaxBreakup: true,
     kotNotes: '',
     defaultPrintTarget: 'BOTH' as 'BOTH' | 'KITCHEN' | 'COUNTER' | 'NONE',
+    autoPrintOnAccept: false,
   });
 
   const [integrationForm, setIntegrationForm] = useState({
@@ -220,8 +224,9 @@ export const AdminRestaurantDetail: React.FC = () => {
     name: '',
     email: '',
     password: '',
-    role: 'MANAGER' as 'MANAGER' | 'WAITER' | 'KITCHEN',
+    role: 'MANAGER' as 'MANAGER' | 'STAFF',
     pin: '',
+    isActive: true,
   });
   const [newPassword, setNewPassword] = useState('');
 
@@ -281,6 +286,7 @@ export const AdminRestaurantDetail: React.FC = () => {
           showTaxBreakup: s.printerConfig.showTaxBreakup ?? true,
           kotNotes: s.printerConfig.kotNotes || '',
           defaultPrintTarget: s.printerConfig.defaultPrintTarget || 'BOTH',
+          autoPrintOnAccept: s.printerConfig.autoPrintOnAccept ?? false,
         });
       }
 
@@ -324,8 +330,7 @@ export const AdminRestaurantDetail: React.FC = () => {
   const toggleFlagMutation = useMutation({
     mutationFn: async ({ flagKey, isEnabled }: { flagKey: string; isEnabled: boolean }) => {
       const res = await apiClient.patch(`/restaurants/${id}/feature-flags`, {
-        flagKey,
-        isEnabled,
+        flags: [{ key: flagKey, enabled: isEnabled }],
       });
       return res.data;
     },
@@ -498,10 +503,19 @@ export const AdminRestaurantDetail: React.FC = () => {
     onSuccess: () => {
       invalidateAll();
       setShowAddStaffModal(false);
-      setStaffData({ name: '', email: '', password: '', role: 'MANAGER', pin: '' });
+      setStaffData({ name: '', email: '', password: '', role: 'MANAGER', pin: '', isActive: true });
       toast('Staff member account created', 'success');
     },
     onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to add staff', 'error'),
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: ({ staffId, data }: { staffId: string; data: any }) => managerService.updateStaff(id!, staffId, data),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Staff member updated', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to update staff', 'error'),
   });
 
   const resetPasswordMutation = useMutation({
@@ -539,6 +553,17 @@ export const AdminRestaurantDetail: React.FC = () => {
     if (selectedMenuCategory === 'ALL') return menuItemsList;
     return menuItemsList.filter((item: any) => item.categoryId === selectedMenuCategory || item.categoryId?._id === selectedMenuCategory);
   }, [menuItemsList, selectedMenuCategory]);
+
+  // Tax Groups and Standalone Taxes breakdown
+  const taxGroups = useMemo(() => taxesList.filter((t) => t.type === 'GROUP'), [taxesList]);
+  const standaloneTaxes = useMemo(() => taxesList.filter((t) => t.type === 'TAX' && !t.groupId), [taxesList]);
+  const getSubTaxes = (groupId: string) =>
+    taxesList.filter((t) => t.type === 'TAX' && (typeof t.groupId === 'string' ? t.groupId === groupId : (t.groupId as any)?._id === groupId));
+
+  // Active flags count calculation
+  const activeFlagsCount = useMemo(() => {
+    return flagsList.filter((f: any) => f.enabled === true || f.isEnabled === true).length;
+  }, [flagsList]);
 
   if (isLoadingRest || isLoadingAudit) {
     return (
@@ -754,7 +779,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                         activeTab === 'flags' ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
-                      {flagsList.filter((f: any) => f.isEnabled).length} active
+                      {activeFlagsCount} active
                     </span>
                   </button>
                 </div>
@@ -1045,249 +1070,200 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 2: STORE IDENTITY & LIVE BRANDING PREVIEW
+          TAB 2: STORE IDENTITY & BRANDING (FULL WIDTH CLEAN LAYOUT)
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'identity' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
-          <div className="lg:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h3 className="font-display text-lg font-bold text-slate-900">Store Profile & Branding</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Primary store profile, timings, and custom theme colors.</p>
-              </div>
-
-              <button
-                onClick={() =>
-                  saveSettingsMutation.mutate({
-                    name: identityForm.name,
-                    slug: identityForm.slug,
-                    phone: identityForm.phone,
-                    email: identityForm.email,
-                    address: identityForm.address,
-                    description: identityForm.description,
-                    gstNumber: identityForm.gstNumber,
-                    timings: { openTime: identityForm.openTime, closeTime: identityForm.closeTime },
-                    whatsapp: identityForm.whatsapp,
-                    googleReviewUrl: identityForm.googleReviewUrl,
-                    logoUrl: identityForm.logoUrl,
-                    coverImageUrl: identityForm.coverImageUrl,
-                    branding: {
-                      primaryColor: identityForm.primaryColor,
-                      secondaryColor: identityForm.secondaryColor,
-                      accentColor: identityForm.accentColor,
-                    },
-                    currency: identityForm.currency,
-                    timezone: identityForm.timezone,
-                  })
-                }
-                disabled={saveSettingsMutation.isPending}
-                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-              >
-                {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
-                <span>Save Profile</span>
-              </button>
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-slate-900">Store Profile & Branding</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Primary store profile, legal details, timings, and custom theme colors.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Outlet Name *</label>
-                <input
-                  type="text"
-                  value={identityForm.name}
-                  onChange={(e) => setIdentityForm({ ...identityForm, name: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Unique URL Slug *</label>
-                <div className="flex items-center mt-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden px-3 py-2 text-xs">
-                  <span className="text-slate-400 font-mono">/r/</span>
-                  <input
-                    type="text"
-                    value={identityForm.slug}
-                    onChange={(e) => setIdentityForm({ ...identityForm, slug: e.target.value })}
-                    className="w-full bg-transparent font-mono font-bold focus:outline-none ml-1 text-slate-900"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Store Contact Phone *</label>
-                <input
-                  type="text"
-                  value={identityForm.phone}
-                  onChange={(e) => setIdentityForm({ ...identityForm, phone: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Store Contact Email *</label>
-                <input
-                  type="email"
-                  value={identityForm.email}
-                  onChange={(e) => setIdentityForm({ ...identityForm, email: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-[11px] font-bold text-slate-700">Physical Address *</label>
-                <input
-                  type="text"
-                  value={identityForm.address}
-                  onChange={(e) => setIdentityForm({ ...identityForm, address: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Opening Time</label>
-                <input
-                  type="time"
-                  value={identityForm.openTime}
-                  onChange={(e) => setIdentityForm({ ...identityForm, openTime: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Closing Time</label>
-                <input
-                  type="time"
-                  value={identityForm.closeTime}
-                  onChange={(e) => setIdentityForm({ ...identityForm, closeTime: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Logo Image URL</label>
-                <input
-                  type="text"
-                  placeholder="https://example.com/logo.png"
-                  value={identityForm.logoUrl}
-                  onChange={(e) => setIdentityForm({ ...identityForm, logoUrl: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Cover Banner Image URL</label>
-                <input
-                  type="text"
-                  placeholder="https://example.com/cover.jpg"
-                  value={identityForm.coverImageUrl}
-                  onChange={(e) => setIdentityForm({ ...identityForm, coverImageUrl: e.target.value })}
-                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Theme Colors */}
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Primary Brand Color</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="color"
-                    value={identityForm.primaryColor}
-                    onChange={(e) => setIdentityForm({ ...identityForm, primaryColor: e.target.value })}
-                    className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
-                  />
-                  <input
-                    type="text"
-                    value={identityForm.primaryColor}
-                    onChange={(e) => setIdentityForm({ ...identityForm, primaryColor: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700">Accent Highlight Color</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="color"
-                    value={identityForm.accentColor}
-                    onChange={(e) => setIdentityForm({ ...identityForm, accentColor: e.target.value })}
-                    className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
-                  />
-                  <input
-                    type="text"
-                    value={identityForm.accentColor}
-                    onChange={(e) => setIdentityForm({ ...identityForm, accentColor: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
-                  />
-                </div>
-              </div>
-            </div>
+            <button
+              onClick={() =>
+                saveSettingsMutation.mutate({
+                  name: identityForm.name,
+                  slug: identityForm.slug,
+                  phone: identityForm.phone,
+                  email: identityForm.email,
+                  address: identityForm.address,
+                  description: identityForm.description,
+                  gstNumber: identityForm.gstNumber,
+                  timings: { openTime: identityForm.openTime, closeTime: identityForm.closeTime },
+                  whatsapp: identityForm.whatsapp,
+                  googleReviewUrl: identityForm.googleReviewUrl,
+                  logoUrl: identityForm.logoUrl,
+                  coverImageUrl: identityForm.coverImageUrl,
+                  branding: {
+                    primaryColor: identityForm.primaryColor,
+                    secondaryColor: identityForm.secondaryColor,
+                    accentColor: identityForm.accentColor,
+                  },
+                  currency: identityForm.currency,
+                  timezone: identityForm.timezone,
+                })
+              }
+              disabled={saveSettingsMutation.isPending}
+              className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+              <span>Save Profile & Branding</span>
+            </button>
           </div>
 
-          {/* Live Mobile Customer Menu Preview */}
-          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm flex flex-col items-center">
-            <span className="text-[10px] font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-amber-500" />
-              <span>Customer Mobile Preview</span>
-            </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Outlet Name *</label>
+              <input
+                type="text"
+                value={identityForm.name}
+                onChange={(e) => setIdentityForm({ ...identityForm, name: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-amber-500 focus:outline-none"
+              />
+            </div>
 
-            {/* Phone Screen Frame */}
-            <div className="w-64 bg-slate-950 rounded-[36px] p-3 shadow-xl border-4 border-slate-800 flex flex-col items-center">
-              <div className="w-16 h-4 bg-slate-900 rounded-full mb-2" />
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Unique URL Slug *</label>
+              <div className="flex items-center mt-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden px-3 py-2 text-xs">
+                <span className="text-slate-400 font-mono">/r/</span>
+                <input
+                  type="text"
+                  value={identityForm.slug}
+                  onChange={(e) => setIdentityForm({ ...identityForm, slug: e.target.value })}
+                  className="w-full bg-transparent font-mono font-bold focus:outline-none ml-1 text-slate-900"
+                />
+              </div>
+            </div>
 
-              <div className="w-full bg-white rounded-[24px] overflow-hidden flex flex-col h-[400px]">
-                {/* Header Banner */}
-                <div
-                  className="h-20 w-full relative flex items-center justify-center p-3"
-                  style={{ backgroundColor: identityForm.primaryColor }}
-                >
-                  {identityForm.coverImageUrl && (
-                    <img
-                      src={identityForm.coverImageUrl}
-                      alt="Cover"
-                      className="absolute inset-0 w-full h-full object-cover opacity-30"
-                    />
-                  )}
-                  <div className="relative text-center text-white z-10">
-                    <h5 className="font-display font-extrabold text-xs leading-tight">{identityForm.name || 'Store Name'}</h5>
-                    <p className="text-[9px] opacity-80 mt-0.5">Scan & Order Direct</p>
-                  </div>
-                </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Store Contact Phone *</label>
+              <input
+                type="text"
+                value={identityForm.phone}
+                onChange={(e) => setIdentityForm({ ...identityForm, phone: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
 
-                {/* Sample Menu Items in Phone */}
-                <div className="p-3 space-y-2 flex-1 overflow-y-auto">
-                  <div className="p-2 bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between text-[11px]">
-                    <div>
-                      <span className="font-bold text-slate-900">Paneer Tikka</span>
-                      <p className="text-[9px] text-slate-400 font-mono">₹280</p>
-                    </div>
-                    <button
-                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-white shadow-xs"
-                      style={{ backgroundColor: identityForm.accentColor }}
-                    >
-                      + ADD
-                    </button>
-                  </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Store Contact Email *</label>
+              <input
+                type="email"
+                value={identityForm.email}
+                onChange={(e) => setIdentityForm({ ...identityForm, email: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
 
-                  <div className="p-2 bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between text-[11px]">
-                    <div>
-                      <span className="font-bold text-slate-900">Butter Chicken</span>
-                      <p className="text-[9px] text-slate-400 font-mono">₹420</p>
-                    </div>
-                    <button
-                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-white shadow-xs"
-                      style={{ backgroundColor: identityForm.accentColor }}
-                    >
-                      + ADD
-                    </button>
-                  </div>
-                </div>
+            <div className="md:col-span-2">
+              <label className="text-[11px] font-bold text-slate-700">Physical Store Address *</label>
+              <input
+                type="text"
+                value={identityForm.address}
+                onChange={(e) => setIdentityForm({ ...identityForm, address: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
 
-                {/* Bottom Bar in Phone */}
-                <div className="p-2 bg-slate-900 text-white flex items-center justify-between text-[10px] font-bold">
-                  <span>Table #1</span>
-                  <span className="text-amber-400">View Cart (₹700)</span>
-                </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Opening Time</label>
+              <input
+                type="time"
+                value={identityForm.openTime}
+                onChange={(e) => setIdentityForm({ ...identityForm, openTime: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Closing Time</label>
+              <input
+                type="time"
+                value={identityForm.closeTime}
+                onChange={(e) => setIdentityForm({ ...identityForm, closeTime: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">WhatsApp Notification Number</label>
+              <input
+                type="text"
+                placeholder="+91 9876543210"
+                value={identityForm.whatsapp}
+                onChange={(e) => setIdentityForm({ ...identityForm, whatsapp: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="text-[11px] font-bold text-slate-700">Google Review URL</label>
+              <input
+                type="text"
+                placeholder="https://g.page/r/example/review"
+                value={identityForm.googleReviewUrl}
+                onChange={(e) => setIdentityForm({ ...identityForm, googleReviewUrl: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-[11px] font-bold text-slate-700">Logo Image URL</label>
+              <input
+                type="text"
+                placeholder="https://example.com/logo.png"
+                value={identityForm.logoUrl}
+                onChange={(e) => setIdentityForm({ ...identityForm, logoUrl: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Cover Banner Image URL</label>
+              <input
+                type="text"
+                placeholder="https://example.com/cover.jpg"
+                value={identityForm.coverImageUrl}
+                onChange={(e) => setIdentityForm({ ...identityForm, coverImageUrl: e.target.value })}
+                className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Theme Colors */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Primary Brand Color</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="color"
+                  value={identityForm.primaryColor}
+                  onChange={(e) => setIdentityForm({ ...identityForm, primaryColor: e.target.value })}
+                  className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
+                />
+                <input
+                  type="text"
+                  value={identityForm.primaryColor}
+                  onChange={(e) => setIdentityForm({ ...identityForm, primaryColor: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Accent Highlight Color</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="color"
+                  value={identityForm.accentColor}
+                  onChange={(e) => setIdentityForm({ ...identityForm, accentColor: e.target.value })}
+                  className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
+                />
+                <input
+                  type="text"
+                  value={identityForm.accentColor}
+                  onChange={(e) => setIdentityForm({ ...identityForm, accentColor: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                />
               </div>
             </div>
           </div>
@@ -1298,50 +1274,53 @@ export const AdminRestaurantDetail: React.FC = () => {
           TAB 3: FEATURE FLAGS MATRIX
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'flags' && (
-        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-4">
-            <h3 className="font-display text-lg font-bold text-slate-900">Feature Capability Matrix</h3>
+            <h3 className="font-display text-xl font-bold text-slate-900">Feature Capability Matrix</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              SuperAdmin toggle switches to enable or disable specific modules for this tenant. Missing prerequisites will prompt setup alerts.
+              SuperAdmin switches to enable or disable specific modules for this tenant. Missing prerequisites will prompt setup alerts.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {flagsList.map((flag: any) => (
-              <div
-                key={flag.key}
-                className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
-                  flag.isEnabled ? 'bg-slate-50 border-slate-300' : 'bg-white border-slate-200 opacity-75'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900">{flag.name}</span>
-                    <button
-                      onClick={() => toggleFlagMutation.mutate({ flagKey: flag.key, isEnabled: !flag.isEnabled })}
-                      disabled={toggleFlagMutation.isPending}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        flag.isEnabled ? 'bg-amber-500' : 'bg-slate-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          flag.isEnabled ? 'translate-x-4' : 'translate-x-1'
+            {flagsList.map((flag: any) => {
+              const isFlagActive = flag.enabled === true || flag.isEnabled === true;
+              return (
+                <div
+                  key={flag.key}
+                  className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
+                    isFlagActive ? 'bg-slate-50 border-slate-300' : 'bg-white border-slate-200 opacity-75'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">{flag.name}</span>
+                      <button
+                        onClick={() => toggleFlagMutation.mutate({ flagKey: flag.key, isEnabled: !isFlagActive })}
+                        disabled={toggleFlagMutation.isPending}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          isFlagActive ? 'bg-amber-500' : 'bg-slate-300'
                         }`}
-                      />
-                    </button>
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                            isFlagActive ? 'translate-x-4' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">{flag.description}</p>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">{flag.description}</p>
-                </div>
 
-                <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-mono">
-                  <span className="text-slate-400">{flag.key}</span>
-                  <span className={`font-bold ${flag.isEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    {flag.isEnabled ? 'ENABLED' : 'DISABLED'}
-                  </span>
+                  <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-mono">
+                    <span className="text-slate-400">{flag.key}</span>
+                    <span className={`font-bold ${isFlagActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      {isFlagActive ? 'ENABLED' : 'DISABLED'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1352,10 +1331,10 @@ export const AdminRestaurantDetail: React.FC = () => {
       {activeTab === 'billing' && (
         <div className="space-y-6">
           {/* TAXES SECTION */}
-          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
-                <h3 className="font-display text-lg font-bold text-slate-900">Tax Rates & GST Rules</h3>
+                <h3 className="font-display text-xl font-bold text-slate-900">Tax Rates & GST Rules</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Configure GST Groups, CGST/SGST breakdowns, or apply standard 1-click presets.
                 </p>
@@ -1410,46 +1389,73 @@ export const AdminRestaurantDetail: React.FC = () => {
               </div>
             </div>
 
-            {/* Taxes List Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {taxesList.map((tax: Tax) => (
-                <div
-                  key={tax._id}
-                  className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-2xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-extrabold text-xs text-slate-900">{tax.name}</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded">
-                        {tax.type}
-                      </span>
+            {/* Hierarchical Tax Groups & Rules */}
+            <div className="space-y-4">
+              {taxGroups.map((group) => {
+                const subTaxes = getSubTaxes(group._id);
+                return (
+                  <div key={group._id} className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                    <div className="bg-slate-50/90 px-4 py-3 flex items-center justify-between border-b border-slate-200/70">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-xs text-slate-900">{group.name}</span>
+                        <span className="text-[9px] font-mono px-2 py-0.5 bg-amber-100 text-amber-900 font-bold rounded-full">
+                          TAX GROUP ({group.percentage}%)
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => deleteTaxMutation.mutate(group._id)}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                        title="Delete Tax Group"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <p className="text-sm font-black font-mono text-amber-600 mt-1">{tax.percentage}%</p>
-                  </div>
 
-                  <button
-                    onClick={() => deleteTaxMutation.mutate(tax._id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                    title="Delete Tax"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <div className="p-3 divide-y divide-slate-100 bg-white">
+                      {subTaxes.map((st) => (
+                        <div key={st._id} className="py-2 px-2 flex items-center justify-between text-xs">
+                          <span className="font-medium text-slate-700">{st.name}</span>
+                          <span className="font-mono font-bold text-slate-900">{st.percentage}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Standalone Taxes */}
+              {standaloneTaxes.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {standaloneTaxes.map((tax) => (
+                    <div key={tax._id} className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-2xs">
+                      <div>
+                        <span className="font-extrabold text-xs text-slate-900">{tax.name}</span>
+                        <p className="text-sm font-black font-mono text-amber-600 mt-1">{tax.percentage}%</p>
+                      </div>
+                      <button
+                        onClick={() => deleteTaxMutation.mutate(tax._id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
 
               {taxesList.length === 0 && (
-                <div className="col-span-full py-6 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  No custom tax rules configured. Default fallback rate is applied.
+                <div className="py-6 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  No tax rules configured. Click "GST 5%" above to apply default restaurant tax.
                 </div>
               )}
             </div>
           </div>
 
           {/* PAYMENT GATEWAYS SECTION */}
-          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h3 className="font-display text-lg font-bold text-slate-900">Payment Methods & Razorpay Gateway</h3>
+                <h3 className="font-display text-xl font-bold text-slate-900">Payment Gateways & Tenders</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Configure digital checkout gateways, UPI IDs, and cash tenders.</p>
               </div>
 
@@ -1475,7 +1481,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                   })
                 }
                 disabled={saveSettingsMutation.isPending}
-                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
               >
                 {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
                 <span>Save Billing Settings</span>
@@ -1517,7 +1523,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                 ].map((m) => (
                   <label
                     key={m.key}
-                    className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-2.5 transition ${
+                    className={`p-3.5 rounded-2xl border cursor-pointer flex items-center gap-2.5 transition ${
                       m.state ? 'bg-amber-50/80 border-amber-300' : 'bg-slate-50 border-slate-200'
                     }`}
                   >
@@ -1608,10 +1614,10 @@ export const AdminRestaurantDetail: React.FC = () => {
           TAB 5: DINING TABLES & FLOOR ZONES
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'tables' && (
-        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
+              <h3 className="font-display text-xl font-bold text-slate-900">
                 Dining Tables & Floor Zones ({tablesList.length} Tables)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1733,10 +1739,10 @@ export const AdminRestaurantDetail: React.FC = () => {
           TAB 6: DIGITAL MENU & CATALOG
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'menu' && (
-        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
+              <h3 className="font-display text-xl font-bold text-slate-900">
                 Digital Menu & Catalog ({menuItemsList.length} Dishes)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1871,16 +1877,16 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 7: HARDWARE & POS THERMAL PRINTERS
+          TAB 7: HARDWARE & POS THERMAL PRINTERS (MATCHES MANAGER LEVEL)
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'hardware' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Settings Form */}
-          <div className="lg:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="lg:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h3 className="font-display text-lg font-bold text-slate-900">Thermal Receipt & Hardware Formats</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Customize paper width, header disclaimers, GST/FSSAI badges, and KOT routes.</p>
+                <h3 className="font-display text-xl font-bold text-slate-900">Thermal Receipt & Hardware Config</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Customize paper width, template styles, KOT station routes, and legal headers.</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1898,7 +1904,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                   className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
                 >
                   {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
-                  <span>Save Printer Config</span>
+                  <span>Save Config</span>
                 </button>
               </div>
             </div>
@@ -1914,6 +1920,34 @@ export const AdminRestaurantDetail: React.FC = () => {
                   <option value="80mm">80mm (Standard POS Thermal)</option>
                   <option value="58mm">58mm (Compact Mobile Bluetooth)</option>
                   <option value="A4">A4 (Full Sheet Invoicing)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Receipt Template Theme</label>
+                <select
+                  value={hardwareForm.templateTheme}
+                  onChange={(e) => setHardwareForm({ ...hardwareForm, templateTheme: e.target.value as any })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                >
+                  <option value="classic">Classic (Standard Restaurant)</option>
+                  <option value="modern">Modern Clean</option>
+                  <option value="compact">Compact Minimalist</option>
+                  <option value="detailed">Detailed with Tax Breakdown</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Default Print Route Target</label>
+                <select
+                  value={hardwareForm.defaultPrintTarget}
+                  onChange={(e) => setHardwareForm({ ...hardwareForm, defaultPrintTarget: e.target.value as any })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                >
+                  <option value="BOTH">Both Kitchen (KOT) & Counter (Bill)</option>
+                  <option value="KITCHEN">Kitchen KOT Only</option>
+                  <option value="COUNTER">Counter Bill Only</option>
+                  <option value="NONE">None (Digital Screen Only)</option>
                 </select>
               </div>
 
@@ -1954,6 +1988,7 @@ export const AdminRestaurantDetail: React.FC = () => {
             {/* Checkbox Toggles */}
             <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
+                { key: 'autoPrintOnAccept', label: 'Auto-Print on Order Accept', state: hardwareForm.autoPrintOnAccept },
                 { key: 'showGstNumber', label: 'Show GSTIN on Bill', state: hardwareForm.showGstNumber },
                 { key: 'showFssai', label: 'Show FSSAI License', state: hardwareForm.showFssai },
                 { key: 'showTaxBreakup', label: 'Itemized Tax Breakdown', state: hardwareForm.showTaxBreakup },
@@ -2045,13 +2080,13 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 8: STAFF & ACCESS ACCOUNTS
+          TAB 8: STAFF & ACCESS ACCOUNTS (MATCHES MANAGER LEVEL)
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'staff' && (
-        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
+              <h3 className="font-display text-xl font-bold text-slate-900">
                 Staff & Manager Accounts ({staffList.length})
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -2060,7 +2095,10 @@ export const AdminRestaurantDetail: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setShowAddStaffModal(true)}
+              onClick={() => {
+                setStaffData({ name: '', email: '', password: '', role: 'MANAGER', pin: '', isActive: true });
+                setShowAddStaffModal(true);
+              }}
               className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
             >
               <Plus className="w-4 h-4 text-amber-400" />
@@ -2069,24 +2107,20 @@ export const AdminRestaurantDetail: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {staffList.map((member: any) => (
+            {staffList.map((member: Staff) => (
               <div
                 key={member._id}
-                className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between"
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-300 transition"
               >
                 <div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center">
-                        {(member.userId?.name || member.name || 'S').charAt(0).toUpperCase()}
+                      <div className="w-9 h-9 rounded-2xl bg-slate-900 text-amber-400 font-extrabold text-sm flex items-center justify-center shadow-2xs">
+                        {member.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs text-slate-900">
-                          {member.userId?.name || member.name || 'Staff Member'}
-                        </h4>
-                        <p className="text-[10px] text-slate-400 font-mono">
-                          {member.userId?.email || member.email || 'No email registered'}
-                        </p>
+                        <h4 className="font-bold text-xs text-slate-900">{member.name}</h4>
+                        <p className="text-[10px] text-slate-400 font-mono">{member.email}</p>
                       </div>
                     </div>
 
@@ -2094,20 +2128,46 @@ export const AdminRestaurantDetail: React.FC = () => {
                       {member.role}
                     </span>
                   </div>
+
+                  {/* PIN & Status display */}
+                  <div className="mt-3 flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-slate-200/70">
+                    <div className="flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-[11px] font-mono">
+                        PIN: {revealPinForId === member._id ? member.pin || 'None' : member.pin ? '••••' : 'None'}
+                      </span>
+                    </div>
+
+                    {member.pin && (
+                      <button
+                        onClick={() => setRevealPinForId(revealPinForId === member._id ? null : member._id)}
+                        className="text-slate-400 hover:text-slate-700"
+                        title={revealPinForId === member._id ? 'Hide PIN' : 'Reveal PIN'}
+                      >
+                        {revealPinForId === member._id ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs">
-                  <span className="text-[10px] font-mono text-slate-400">
-                    PIN: {member.pin ? '••••' : 'Not Set'}
-                  </span>
+                  <button
+                    onClick={() => updateStaffMutation.mutate({ staffId: member._id, data: { isActive: !member.isActive } })}
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                      member.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    {member.isActive ? 'ACTIVE' : 'SUSPENDED'}
+                  </button>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => setShowResetPasswordModal(member.userId?._id || member.userId)}
+                      onClick={() => setShowResetPasswordModal(member._id)}
                       className="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-[11px] font-bold text-slate-700 transition"
                     >
                       Reset Password
                     </button>
+
                     <button
                       onClick={() => deleteStaffMutation.mutate(member._id)}
                       className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
@@ -2122,7 +2182,7 @@ export const AdminRestaurantDetail: React.FC = () => {
 
             {staffList.length === 0 && (
               <div className="col-span-full py-10 text-center text-slate-400 text-xs bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                No staff accounts assigned. Click "Add Staff Account" to assign a Manager.
+                No staff accounts assigned. Click "Add Staff Account" to create a Manager.
               </div>
             )}
           </div>
@@ -2133,10 +2193,10 @@ export const AdminRestaurantDetail: React.FC = () => {
           TAB 9: EXTERNAL POS INTEGRATIONS
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'integrations' && (
-        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">External POS Bridge (Petpooja & UrbanPiper)</h3>
+              <h3 className="font-display text-xl font-bold text-slate-900">External POS Bridge (Petpooja & UrbanPiper)</h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Two-way menu synchronization and live order dispatch into physical POS terminals.
               </p>
@@ -2160,7 +2220,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                 })
               }
               disabled={saveSettingsMutation.isPending}
-              className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
             >
               {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
               <span>Save Integration Bridge</span>
@@ -2597,6 +2657,22 @@ export const AdminRestaurantDetail: React.FC = () => {
                 </select>
               </div>
 
+              {taxData.type === 'TAX' && taxGroups.length > 0 && (
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700">Parent Tax Group (Optional)</label>
+                  <select
+                    value={taxData.groupId}
+                    onChange={(e) => setTaxData({ ...taxData, groupId: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                  >
+                    <option value="">None (Standalone)</option>
+                    {taxGroups.map((g) => (
+                      <option key={g._id} value={g._id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="text-[11px] font-bold text-slate-700">Tax Name *</label>
                 <input
@@ -2645,7 +2721,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       {showAddStaffModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="font-display text-lg font-bold text-slate-900">Add Staff Member</h3>
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Staff Account</h3>
 
             <div className="space-y-3">
               <div>
@@ -2690,8 +2766,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                     className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
                   >
                     <option value="MANAGER">Manager</option>
-                    <option value="WAITER">Captain / Waiter</option>
-                    <option value="KITCHEN">Kitchen Staff</option>
+                    <option value="STAFF">Captain / Waiter</option>
                   </select>
                 </div>
 
