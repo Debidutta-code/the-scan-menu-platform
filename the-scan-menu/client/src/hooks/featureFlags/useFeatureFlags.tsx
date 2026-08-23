@@ -43,36 +43,37 @@ function writeCache(restaurantId: string, flags: Record<string, boolean>): void 
 
 export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ children }) => {
   const { user, activeRestaurantId } = useAuth();
+  const effectiveRestaurantId = activeRestaurantId || (user as any)?.restaurantId;
 
   // Seed initial state from localStorage so the sidebar renders fully on first paint (no layout jump)
   const [flags, setFlags] = useState<Record<string, boolean>>(() => {
-    if (!activeRestaurantId) return {};
-    return readCache(activeRestaurantId) ?? {};
+    if (!effectiveRestaurantId) return {};
+    return readCache(effectiveRestaurantId) ?? {};
   });
 
   // isLoading is only true when there is no cached data — prevents spinner on subsequent loads
   const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (!activeRestaurantId) return false;
-    return readCache(activeRestaurantId) === null;
+    if (!effectiveRestaurantId) return false;
+    return readCache(effectiveRestaurantId) === null;
   });
 
   const [error, setError] = useState<Error | null>(null);
 
   const fetchFlags = useCallback(async () => {
     // If no restaurantId is provided, we might be in a context where flags aren't needed yet
-    if (!activeRestaurantId) {
+    if (!effectiveRestaurantId) {
       setIsLoading(false);
       return;
     }
 
     try {
       // Only show loading spinner when there is no cached data to display
-      if (readCache(activeRestaurantId) === null) {
+      if (readCache(effectiveRestaurantId) === null) {
         setIsLoading(true);
       }
       setError(null);
 
-      const response = await api.get(`/restaurants/${activeRestaurantId}/feature-flags`);
+      const response = await api.get(`/restaurants/${effectiveRestaurantId}/feature-flags`);
 
       const flagsMap: Record<string, boolean> = {};
 
@@ -83,19 +84,19 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ childr
       }
 
       setFlags(flagsMap);
-      writeCache(activeRestaurantId, flagsMap);
+      writeCache(effectiveRestaurantId, flagsMap);
     } catch (err: any) {
       console.error('Failed to fetch feature flags', err);
       setError(err);
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [effectiveRestaurantId]);
 
   // Re-seed from cache when restaurantId changes (e.g. impersonation switch)
   useEffect(() => {
-    if (!activeRestaurantId) return;
-    const cached = readCache(activeRestaurantId);
+    if (!effectiveRestaurantId) return;
+    const cached = readCache(effectiveRestaurantId);
     if (cached) {
       setFlags(cached);
       setIsLoading(false);
@@ -103,7 +104,7 @@ export const FeatureFlagProvider: React.FC<FeatureFlagProviderProps> = ({ childr
       setFlags({});
       setIsLoading(true);
     }
-  }, [activeRestaurantId]);
+  }, [effectiveRestaurantId]);
 
   useEffect(() => {
     fetchFlags();
