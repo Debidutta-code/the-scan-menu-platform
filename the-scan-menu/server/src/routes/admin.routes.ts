@@ -14,6 +14,8 @@ router.post('/restaurants/provision', adminController.provisionRestaurant);
 router.get('/restaurants/:id/onboarding', adminController.getOnboardingProgress);
 router.get('/restaurants/:id/setup-audit', adminController.getOutletSetupAudit);
 router.patch('/restaurants/:id/settings', adminController.updateOutletSettings);
+router.post('/restaurants/:id/seed-demo-menu', adminController.seedDemoMenu);
+router.post('/restaurants/:id/apply-tax-preset', adminController.applyTaxPreset);
 router.post('/restaurants', adminController.createRestaurant);
 router.get('/restaurants', adminController.listRestaurants);
 router.get('/restaurants/:id', adminController.getRestaurant);

@@ -6,6 +6,9 @@ import { User } from '../models/User';
 import { Order } from '../models/Order';
 import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
 import { RestaurantSettings } from '../models/RestaurantSettings';
+import { Category } from '../models/Category';
+import { MenuItem } from '../models/MenuItem';
+import { Tax } from '../models/Tax';
 import { auditLogService } from '../services/auditLog.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { EmailService } from '../services/email.service';
@@ -32,6 +35,8 @@ export class AdminController {
     this.getOnboardingProgress = this.getOnboardingProgress.bind(this);
     this.getOutletSetupAudit = this.getOutletSetupAudit.bind(this);
     this.updateOutletSettings = this.updateOutletSettings.bind(this);
+    this.seedDemoMenu = this.seedDemoMenu.bind(this);
+    this.applyTaxPreset = this.applyTaxPreset.bind(this);
     this.createRestaurant = this.createRestaurant.bind(this);
     this.listRestaurants = this.listRestaurants.bind(this);
     this.getRestaurant = this.getRestaurant.bind(this);
@@ -158,6 +163,338 @@ export class AdminController {
       const audit = await outletSetupAuditService.auditOutlet(id);
 
       sendSuccess(res, { settings, audit }, 'Outlet settings and profile updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async seedDemoMenu(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const restaurant = await Restaurant.findById(id);
+      if (!restaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      // Check existing categories
+      const existingCategories = await Category.find({ restaurantId: restaurant._id });
+      if (existingCategories.length > 0) {
+        sendError(res, 'MENU_EXISTS', 'Restaurant already has categories. Delete them first or add items individually.', null, 400);
+        return;
+      }
+
+      // 1. Create Starter Categories
+      const catStarters = await Category.create({
+        restaurantId: restaurant._id,
+        name: 'Starters & Appetizers',
+        description: 'Crispy bites and freshly grilled appetizers',
+        sortOrder: 1,
+        isActive: true,
+      });
+
+      const catMains = await Category.create({
+        restaurantId: restaurant._id,
+        name: 'Main Course',
+        description: 'Chef signature curries and rich gravies',
+        sortOrder: 2,
+        isActive: true,
+      });
+
+      const catBreads = await Category.create({
+        restaurantId: restaurant._id,
+        name: 'Breads & Rice',
+        description: 'Clay-oven baked naans, rotis, and aromatic biryanis',
+        sortOrder: 3,
+        isActive: true,
+      });
+
+      const catDesserts = await Category.create({
+        restaurantId: restaurant._id,
+        name: 'Desserts',
+        description: 'Sweet treats and authentic desserts',
+        sortOrder: 4,
+        isActive: true,
+      });
+
+      const catDrinks = await Category.create({
+        restaurantId: restaurant._id,
+        name: 'Beverages & Mocktails',
+        description: 'Refreshing coolers, smoothies, and artisan shakes',
+        sortOrder: 5,
+        isActive: true,
+      });
+
+      // 2. Create Dishes
+      const demoItems = [
+        // Starters
+        {
+          restaurantId: restaurant._id,
+          categoryId: catStarters._id,
+          name: 'Crispy Paneer Tikka',
+          description: 'Cottage cheese marinated in spiced yogurt and roasted in clay oven.',
+          price: 28000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: true,
+          isChefsSpecial: true,
+          isAvailable: true,
+          sortOrder: 1,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catStarters._id,
+          name: 'Classic Chicken Tikka',
+          description: 'Juicy boneless chicken thighs grilled with smoky tandoori spices.',
+          price: 34000,
+          pricingType: 'SINGLE',
+          isVegetarian: false,
+          isSpicy: true,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 2,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catStarters._id,
+          name: 'Truffle French Fries',
+          description: 'Golden fries tossed in parmesan, truffle oil, and fresh herbs.',
+          price: 19000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 3,
+        },
+        // Mains
+        {
+          restaurantId: restaurant._id,
+          categoryId: catMains._id,
+          name: 'Butter Chicken Grand Cru',
+          description: 'Slow-cooked roasted chicken simmered in rich creamy tomato and butter gravy.',
+          price: 42000,
+          pricingType: 'SINGLE',
+          isVegetarian: false,
+          isSpicy: false,
+          isChefsSpecial: true,
+          isAvailable: true,
+          sortOrder: 1,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catMains._id,
+          name: 'Paneer Butter Masala',
+          description: 'Velvety cottage cheese cubes in aromatic cashew nut and tomato gravy.',
+          price: 36000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 2,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catMains._id,
+          name: 'Dal Makhani Heritage',
+          description: 'Black lentils slow cooked overnight on charcoal with rich white butter.',
+          price: 29000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: true,
+          isAvailable: true,
+          sortOrder: 3,
+        },
+        // Breads & Rice
+        {
+          restaurantId: restaurant._id,
+          categoryId: catBreads._id,
+          name: 'Garlic Butter Naan',
+          description: 'Tandoor leavened flatbread brushed with garlic butter.',
+          price: 8000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 1,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catBreads._id,
+          name: 'Hyderabadi Dum Biryani',
+          description: 'Fragrant basmati rice layered with spiced marinated chicken and saffron.',
+          price: 38000,
+          pricingType: 'SINGLE',
+          isVegetarian: false,
+          isSpicy: true,
+          isChefsSpecial: true,
+          isAvailable: true,
+          sortOrder: 2,
+        },
+        // Desserts
+        {
+          restaurantId: restaurant._id,
+          categoryId: catDesserts._id,
+          name: 'Warm Chocolate Lava Cake',
+          description: 'Gooey dark chocolate center served with vanilla bean gelato.',
+          price: 24000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: true,
+          isAvailable: true,
+          sortOrder: 1,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catDesserts._id,
+          name: 'Gulab Jamun with Rabri',
+          description: 'Soft saffron milk dumplings served on a bed of thick creamy rabri.',
+          price: 18000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 2,
+        },
+        // Drinks
+        {
+          restaurantId: restaurant._id,
+          categoryId: catDrinks._id,
+          name: 'Virgin Mojito Cooler',
+          description: 'Crushed fresh mint, lime juice, and sparkling soda over crushed ice.',
+          price: 15000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 1,
+        },
+        {
+          restaurantId: restaurant._id,
+          categoryId: catDrinks._id,
+          name: 'Cold Brew Iced Latte',
+          description: 'Signature 18-hour steeped arabica coffee with creamy chilled milk.',
+          price: 18000,
+          pricingType: 'SINGLE',
+          isVegetarian: true,
+          isSpicy: false,
+          isChefsSpecial: false,
+          isAvailable: true,
+          sortOrder: 2,
+        },
+      ];
+
+      await MenuItem.insertMany(demoItems);
+
+      const audit = await outletSetupAuditService.auditOutlet(id);
+      sendSuccess(res, { categoriesCount: 5, itemsCount: demoItems.length, audit }, 'Starter demo menu seeded successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async applyTaxPreset(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { preset } = req.body; // 'GST_5' | 'GST_18' | 'VAT_10' | 'NONE'
+
+      const restaurant = await Restaurant.findById(id);
+      if (!restaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      // Remove existing taxes
+      await Tax.deleteMany({ restaurantId: restaurant._id });
+
+      let createdTaxes: any[] = [];
+      let defaultRate = 0;
+
+      if (preset === 'GST_5') {
+        defaultRate = 5;
+        const group = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'GROUP',
+          name: 'GST (5%)',
+          percentage: 5,
+          isActive: true,
+        });
+
+        const cgst = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'TAX',
+          groupId: group._id,
+          name: 'CGST',
+          percentage: 2.5,
+          isActive: true,
+        });
+
+        const sgst = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'TAX',
+          groupId: group._id,
+          name: 'SGST',
+          percentage: 2.5,
+          isActive: true,
+        });
+
+        createdTaxes = [group, cgst, sgst];
+      } else if (preset === 'GST_18') {
+        defaultRate = 18;
+        const group = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'GROUP',
+          name: 'GST (18%)',
+          percentage: 18,
+          isActive: true,
+        });
+
+        const cgst = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'TAX',
+          groupId: group._id,
+          name: 'CGST',
+          percentage: 9,
+          isActive: true,
+        });
+
+        const sgst = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'TAX',
+          groupId: group._id,
+          name: 'SGST',
+          percentage: 9,
+          isActive: true,
+        });
+
+        createdTaxes = [group, cgst, sgst];
+      } else if (preset === 'VAT_10') {
+        defaultRate = 10;
+        const vat = await Tax.create({
+          restaurantId: restaurant._id,
+          type: 'TAX',
+          name: 'VAT',
+          percentage: 10,
+          isActive: true,
+        });
+        createdTaxes = [vat];
+      }
+
+      // Update settings default tax rate
+      await RestaurantSettings.findOneAndUpdate(
+        { restaurantId: restaurant._id },
+        { 'paymentConfig.taxRatePercent': defaultRate },
+        { new: true, upsert: true }
+      );
+
+      const audit = await outletSetupAuditService.auditOutlet(id);
+      sendSuccess(res, { preset, taxes: createdTaxes, defaultRate, audit }, 'Tax preset applied successfully');
     } catch (error) {
       next(error);
     }

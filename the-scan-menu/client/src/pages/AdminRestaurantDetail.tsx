@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminService, managerService, OutletSetupAuditResult } from '../services/restaurant.service';
+import { adminService, managerService, OutletSetupAuditResult, Table, Category, MenuItem, Tax, TableZone } from '../services/restaurant.service';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../lib/api';
 import {
   CheckCircle2,
-  ShieldAlert,
   Users,
   CreditCard,
   ToggleRight,
@@ -24,8 +23,17 @@ import {
   Plug,
   Plus,
   Eye,
-  Key,
   LogIn,
+  Utensils,
+  Sparkles,
+  Layers,
+  Trash2,
+  QrCode,
+  Smartphone,
+  Copy,
+  Check,
+  RotateCw,
+  Receipt,
 } from 'lucide-react';
 
 type AdminTab =
@@ -34,6 +42,7 @@ type AdminTab =
   | 'flags'
   | 'billing'
   | 'tables'
+  | 'menu'
   | 'hardware'
   | 'staff'
   | 'integrations';
@@ -46,6 +55,7 @@ export const AdminRestaurantDetail: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('checklist');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Queries
   const { data: restResponse, isLoading: isLoadingRest } = useQuery({
@@ -72,6 +82,30 @@ export const AdminRestaurantDetail: React.FC = () => {
     enabled: !!id,
   });
 
+  const { data: zonesResponse } = useQuery({
+    queryKey: ['adminZones', id],
+    queryFn: () => managerService.listZones(id!),
+    enabled: !!id,
+  });
+
+  const { data: categoriesResponse } = useQuery({
+    queryKey: ['adminCategories', id],
+    queryFn: () => managerService.listCategories(id!),
+    enabled: !!id,
+  });
+
+  const { data: menuItemsResponse } = useQuery({
+    queryKey: ['adminMenuItems', id],
+    queryFn: () => managerService.listMenuItems(id!),
+    enabled: !!id,
+  });
+
+  const { data: taxesResponse } = useQuery({
+    queryKey: ['adminTaxes', id],
+    queryFn: () => managerService.listTaxes(id!),
+    enabled: !!id,
+  });
+
   const { data: flagsResponse } = useQuery({
     queryKey: ['adminFlags', id],
     queryFn: async () => {
@@ -83,9 +117,13 @@ export const AdminRestaurantDetail: React.FC = () => {
 
   const restaurant = restResponse?.data;
   const audit: OutletSetupAuditResult | undefined = auditResponse?.data;
-  const staffList = staffResponse?.data || [];
-  const tablesList = tablesResponse?.data || [];
-  const flagsList = flagsResponse?.data || [];
+  const staffList = useMemo(() => staffResponse?.data || [], [staffResponse?.data]);
+  const tablesList: Table[] = useMemo(() => tablesResponse?.data || [], [tablesResponse?.data]);
+  const zonesList: TableZone[] = useMemo(() => zonesResponse?.data || [], [zonesResponse?.data]);
+  const categoriesList: Category[] = useMemo(() => categoriesResponse?.data || [], [categoriesResponse?.data]);
+  const menuItemsList: MenuItem[] = useMemo(() => menuItemsResponse?.data || [], [menuItemsResponse?.data]);
+  const taxesList: Tax[] = useMemo(() => taxesResponse?.data || [], [taxesResponse?.data]);
+  const flagsList = useMemo(() => flagsResponse?.data || [], [flagsResponse?.data]);
 
   // Form States for Direct SuperAdmin Configuration
   const [identityForm, setIdentityForm] = useState({
@@ -117,6 +155,8 @@ export const AdminRestaurantDetail: React.FC = () => {
     razorpay: false,
     razorpayKeyId: '',
     razorpayKeySecret: '',
+    upiId: '',
+    upiMerchantName: '',
     gstNumber: '',
   });
 
@@ -145,9 +185,53 @@ export const AdminRestaurantDetail: React.FC = () => {
     urbanpiperApiKey: '',
   });
 
+  // Modals state
+  const [showAddTableModal, setShowAddTableModal] = useState(false);
+  const [showBulkTableModal, setShowBulkTableModal] = useState(false);
+  const [showAddZoneModal, setShowAddZoneModal] = useState(false);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddDishModal, setShowAddDishModal] = useState(false);
+  const [showAddTaxModal, setShowAddTaxModal] = useState(false);
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState<any>(null);
+
+  // Field states for Modals
+  const [singleTableData, setSingleTableData] = useState({ tableNumber: '', displayName: '', zoneId: '' });
+  const [bulkTableData, setBulkTableData] = useState({ count: 10, prefix: 'T', zoneId: '' });
+  const [zoneData, setZoneData] = useState({ name: '' });
+  const [categoryData, setCategoryData] = useState({ name: '', description: '', sortOrder: 0 });
+  const [dishData, setDishData] = useState({
+    name: '',
+    categoryId: '',
+    price: 0,
+    isVegetarian: true,
+    isSpicy: false,
+    isChefsSpecial: false,
+    description: '',
+    imageUrl: '',
+  });
+  const [taxData, setTaxData] = useState({
+    type: 'TAX' as 'TAX' | 'GROUP',
+    name: '',
+    percentage: 5,
+    groupId: '',
+  });
+  const [staffData, setStaffData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'MANAGER' as 'MANAGER' | 'WAITER' | 'KITCHEN',
+    pin: '',
+  });
+  const [newPassword, setNewPassword] = useState('');
+
+  // Selected Category filter in Menu tab
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState<string>('ALL');
+
   // Populate forms when restaurant data arrives
   useEffect(() => {
     if (restaurant) {
+      const s = restaurant.settings;
       setIdentityForm({
         name: restaurant.name || '',
         slug: restaurant.slug || '',
@@ -155,350 +239,374 @@ export const AdminRestaurantDetail: React.FC = () => {
         email: restaurant.email || '',
         address: restaurant.address || '',
         description: restaurant.description || '',
-        gstNumber: restaurant.gstNumber || '',
-        openTime: restaurant.timings?.open || '09:00',
-        closeTime: restaurant.timings?.close || '23:00',
-        whatsapp: restaurant.whatsapp || '',
-        googleReviewUrl: restaurant.googleReviewUrl || '',
-        logoUrl: restaurant.logoUrl || restaurant.branding?.logoUrl || '',
-        coverImageUrl: restaurant.coverImageUrl || restaurant.branding?.coverImageUrl || '',
-        primaryColor: restaurant.theme?.primaryColor || '#111827',
-        secondaryColor: restaurant.theme?.secondaryColor || '#FFFFFF',
-        accentColor: restaurant.theme?.accentColor || '#F59E0B',
-        currency: restaurant.currency || 'INR',
-        timezone: restaurant.timezone || 'Asia/Kolkata',
+        gstNumber: s?.paymentConfig?.gstNumber || '',
+        openTime: s?.timings?.openTime || '09:00',
+        closeTime: s?.timings?.closeTime || '23:00',
+        whatsapp: s?.branding?.whatsapp || '',
+        googleReviewUrl: s?.branding?.googleReviewUrl || '',
+        logoUrl: restaurant.logoUrl || s?.branding?.logoUrl || '',
+        coverImageUrl: restaurant.coverImageUrl || s?.branding?.coverImageUrl || '',
+        primaryColor: s?.branding?.primaryColor || '#111827',
+        secondaryColor: s?.branding?.secondaryColor || '#FFFFFF',
+        accentColor: s?.branding?.accentColor || '#F59E0B',
+        currency: s?.currency || 'INR',
+        timezone: s?.timezone || 'Asia/Kolkata',
       });
 
-      const pm = restaurant.paymentMethods || { cash: true, card: true, upi: true, razorpay: false };
       setBillingForm({
-        taxRatePercent: restaurant.taxRatePercent !== undefined ? restaurant.taxRatePercent : 5,
-        cash: pm.cash ?? true,
-        card: pm.card ?? true,
-        upi: pm.upi ?? true,
-        razorpay: pm.razorpay ?? false,
-        razorpayKeyId: restaurant.razorpayConfig?.keyId || '',
-        razorpayKeySecret: restaurant.razorpayConfig?.keySecret || '',
-        gstNumber: restaurant.gstNumber || '',
+        taxRatePercent: s?.paymentConfig?.taxRatePercent ?? 5,
+        cash: s?.paymentConfig?.paymentMethods?.cash ?? true,
+        card: s?.paymentConfig?.paymentMethods?.card ?? true,
+        upi: s?.paymentConfig?.paymentMethods?.upi ?? true,
+        razorpay: s?.paymentConfig?.paymentMethods?.razorpay ?? false,
+        razorpayKeyId: s?.paymentConfig?.razorpayConfig?.keyId || '',
+        razorpayKeySecret: s?.paymentConfig?.razorpayConfig?.keySecret || '',
+        upiId: s?.paymentConfig?.upiConfig?.upiId || '',
+        upiMerchantName: s?.paymentConfig?.upiConfig?.merchantName || '',
+        gstNumber: s?.paymentConfig?.gstNumber || '',
       });
 
-      if (restaurant.printerConfig) {
+      if (s?.printerConfig) {
         setHardwareForm({
-          paperWidth: restaurant.printerConfig.paperWidth || '80mm',
-          templateTheme: restaurant.printerConfig.templateTheme || 'classic',
-          showLogo: restaurant.printerConfig.showLogo ?? true,
-          showGstNumber: restaurant.printerConfig.showGstNumber ?? true,
-          showFssai: restaurant.printerConfig.showFssai ?? true,
-          fssaiNumber: restaurant.printerConfig.fssaiNumber || '',
-          receiptHeader: restaurant.printerConfig.receiptHeader || '',
-          receiptFooter: restaurant.printerConfig.receiptFooter || 'Thank you for dining with us!',
-          showCustomerInfo: restaurant.printerConfig.showCustomerInfo ?? true,
-          showPaymentMode: restaurant.printerConfig.showPaymentMode ?? true,
-          showTaxBreakup: restaurant.printerConfig.showTaxBreakup ?? true,
-          kotNotes: restaurant.printerConfig.kotNotes || '',
-          defaultPrintTarget: restaurant.printerConfig.defaultPrintTarget || 'BOTH',
+          paperWidth: s.printerConfig.paperWidth || '80mm',
+          templateTheme: s.printerConfig.templateTheme || 'classic',
+          showLogo: s.printerConfig.showLogo ?? true,
+          showGstNumber: s.printerConfig.showGstNumber ?? true,
+          showFssai: s.printerConfig.showFssai ?? true,
+          fssaiNumber: s.printerConfig.fssaiNumber || '',
+          receiptHeader: s.printerConfig.receiptHeader || '',
+          receiptFooter: s.printerConfig.receiptFooter || 'Thank you for dining with us!',
+          showCustomerInfo: s.printerConfig.showCustomerInfo ?? true,
+          showPaymentMode: s.printerConfig.showPaymentMode ?? true,
+          showTaxBreakup: s.printerConfig.showTaxBreakup ?? true,
+          kotNotes: s.printerConfig.kotNotes || '',
+          defaultPrintTarget: s.printerConfig.defaultPrintTarget || 'BOTH',
         });
       }
 
-      if (restaurant.integrationConfig) {
-        const ic = restaurant.integrationConfig;
+      if (s?.posIntegration) {
         setIntegrationForm({
-          provider: ic.provider || 'NONE',
-          petpoojaRestId: ic.config?.restID || '',
-          petpoojaAppKey: ic.config?.appKey || '',
-          petpoojaAppSecret: ic.config?.appSecret || '',
-          urbanpiperStoreId: ic.config?.storeId || '',
-          urbanpiperApiKey: ic.config?.apiKey || '',
+          provider: s.posIntegration.provider || 'NONE',
+          petpoojaRestId: s.posIntegration.petpooja?.restId || '',
+          petpoojaAppKey: s.posIntegration.petpooja?.appKey || '',
+          petpoojaAppSecret: s.posIntegration.petpooja?.appSecret || '',
+          urbanpiperStoreId: s.posIntegration.urbanpiper?.storeId || '',
+          urbanpiperApiKey: s.posIntegration.urbanpiper?.apiKey || '',
         });
       }
     }
   }, [restaurant]);
 
   // Mutations
-  const updateSettingsMutation = useMutation({
-    mutationFn: (data: any) => adminService.updateOutletSettings(id!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurants'] });
-      toast('Outlet settings updated and audit recalculated successfully!', 'success');
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminTables', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminZones', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminCategories', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminMenuItems', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminTaxes', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminStaff', id] });
+    queryClient.invalidateQueries({ queryKey: ['adminFlags', id] });
+  };
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: (payload: any) => adminService.updateOutletSettings(id!, payload),
+    onSuccess: (res: any) => {
+      invalidateAll();
+      toast(res.message || 'Configuration saved successfully', 'success');
     },
     onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error updating outlet settings', 'error');
+      toast(err.response?.data?.error?.message || 'Failed to save settings', 'error');
     },
   });
 
   const toggleFlagMutation = useMutation({
-    mutationFn: async (updatedFlags: any[]) => {
-      const res = await apiClient.patch(`/restaurants/${id}/feature-flags`, { flags: updatedFlags });
+    mutationFn: async ({ flagKey, isEnabled }: { flagKey: string; isEnabled: boolean }) => {
+      const res = await apiClient.patch(`/restaurants/${id}/feature-flags`, {
+        flagKey,
+        isEnabled,
+      });
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminFlags', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
-      toast('Feature flags updated for outlet!', 'success');
+      invalidateAll();
+      toast('Feature flag updated', 'success');
     },
     onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error updating feature flags', 'error');
+      toast(err.response?.data?.error?.message || 'Failed to toggle feature flag', 'error');
     },
   });
 
-  const suspendMutation = useMutation({
-    mutationFn: adminService.suspendRestaurant,
+  const seedDemoMenuMutation = useMutation({
+    mutationFn: () => adminService.seedDemoMenu(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurants'] });
-      toast('Restaurant suspended immediately.', 'info');
-    },
-  });
-
-  const activateMutation = useMutation({
-    mutationFn: adminService.activateRestaurant,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurants'] });
-      toast('Restaurant activated.', 'success');
-    },
-  });
-
-  const updatePlanMutation = useMutation({
-    mutationFn: async (planKey: string) => {
-      const res = await apiClient.patch(`/restaurants/${id}/subscription`, { planKey });
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminFlags', id] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', id] });
-      toast('Subscription plan updated and feature flags synced!', 'success');
+      invalidateAll();
+      toast('Starter Demo Menu (5 Categories, 12 Dishes) seeded successfully!', 'success');
     },
     onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error updating subscription plan', 'error');
+      toast(err.response?.data?.error?.message || 'Failed to seed menu', 'error');
     },
   });
 
-  const handleSaveIdentity = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSettingsMutation.mutate({
-      name: identityForm.name,
-      slug: identityForm.slug,
-      phone: identityForm.phone,
-      email: identityForm.email,
-      address: identityForm.address,
-      description: identityForm.description,
-      gstNumber: identityForm.gstNumber,
-      logoUrl: identityForm.logoUrl,
-      coverImageUrl: identityForm.coverImageUrl,
-      currency: identityForm.currency,
-      timezone: identityForm.timezone,
-      timings: { open: identityForm.openTime, close: identityForm.closeTime },
-      googleReviewUrl: identityForm.googleReviewUrl,
-      whatsapp: identityForm.whatsapp,
-      theme: {
-        primaryColor: identityForm.primaryColor,
-        secondaryColor: identityForm.secondaryColor,
-        accentColor: identityForm.accentColor,
-        fontFamily: 'Plus Jakarta Sans',
-      },
-    });
+  const applyTaxPresetMutation = useMutation({
+    mutationFn: (preset: 'GST_5' | 'GST_18' | 'VAT_10' | 'NONE') => adminService.applyTaxPreset(id!, preset),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Tax preset applied successfully', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Failed to apply tax preset', 'error');
+    },
+  });
+
+  // Table actions
+  const createTableMutation = useMutation({
+    mutationFn: (data: any) => managerService.createTable(id!, data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowAddTableModal(false);
+      setSingleTableData({ tableNumber: '', displayName: '', zoneId: '' });
+      toast('Table created successfully', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to create table', 'error'),
+  });
+
+  const bulkCreateTablesMutation = useMutation({
+    mutationFn: (data: any) => managerService.bulkCreateTables(id!, data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowBulkTableModal(false);
+      toast('Tables generated successfully', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to bulk generate tables', 'error'),
+  });
+
+  const deleteTableMutation = useMutation({
+    mutationFn: (tableId: string) => managerService.deleteTable(id!, tableId),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Table deleted', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to delete table', 'error'),
+  });
+
+  const regenerateTableQrMutation = useMutation({
+    mutationFn: (tableId: string) => managerService.regenerateTableQr(id!, tableId),
+    onSuccess: () => {
+      invalidateAll();
+      toast('QR token regenerated', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to regenerate token', 'error'),
+  });
+
+  // Zone actions
+  const createZoneMutation = useMutation({
+    mutationFn: (data: any) => managerService.createZone(id!, data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowAddZoneModal(false);
+      setZoneData({ name: '' });
+      toast('Floor Zone added', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to create zone', 'error'),
+  });
+
+  const deleteZoneMutation = useMutation({
+    mutationFn: (zoneId: string) => managerService.deleteZone(id!, zoneId),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Zone deleted', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to delete zone', 'error'),
+  });
+
+  // Category & Dish actions
+  const createCategoryMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post(`/restaurants/${id}/categories`, data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowAddCategoryModal(false);
+      setCategoryData({ name: '', description: '', sortOrder: 0 });
+      toast('Menu category created', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to create category', 'error'),
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (catId: string) => apiClient.delete(`/restaurants/${id}/categories/${catId}`),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Category removed', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to delete category', 'error'),
+  });
+
+  const createDishMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post(`/restaurants/${id}/menu-items`, { ...data, price: Math.round(data.price * 100) }),
+    onSuccess: () => {
+      invalidateAll();
+      setShowAddDishModal(false);
+      setDishData({
+        name: '',
+        categoryId: '',
+        price: 0,
+        isVegetarian: true,
+        isSpicy: false,
+        isChefsSpecial: false,
+        description: '',
+        imageUrl: '',
+      });
+      toast('Dish added to menu', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to create dish', 'error'),
+  });
+
+  const deleteDishMutation = useMutation({
+    mutationFn: (itemId: string) => apiClient.delete(`/restaurants/${id}/menu-items/${itemId}`),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Dish removed', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to delete dish', 'error'),
+  });
+
+  // Tax actions
+  const createTaxMutation = useMutation({
+    mutationFn: (data: any) => managerService.createTax(id!, data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowAddTaxModal(false);
+      setTaxData({ type: 'TAX', name: '', percentage: 5, groupId: '' });
+      toast('Tax rule created', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to create tax rule', 'error'),
+  });
+
+  const deleteTaxMutation = useMutation({
+    mutationFn: (taxId: string) => managerService.deleteTax(id!, taxId),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Tax rule deleted', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to delete tax', 'error'),
+  });
+
+  // Staff actions
+  const createStaffMutation = useMutation({
+    mutationFn: (data: any) => managerService.createStaff(id!, data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowAddStaffModal(false);
+      setStaffData({ name: '', email: '', password: '', role: 'MANAGER', pin: '' });
+      toast('Staff member account created', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to add staff', 'error'),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ userId, password }: any) => apiClient.patch(`/admin/restaurants/${id}/staff/${userId}/password`, { password }),
+    onSuccess: () => {
+      setShowResetPasswordModal(null);
+      setNewPassword('');
+      toast('Staff credentials updated', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to reset password', 'error'),
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: (staffId: string) => managerService.deleteStaff(id!, staffId),
+    onSuccess: () => {
+      invalidateAll();
+      toast('Staff member removed', 'success');
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || 'Failed to remove staff', 'error'),
+  });
+
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+    toast('Copied to clipboard', 'info');
   };
 
-  const handleSaveBilling = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSettingsMutation.mutate({
-      taxRatePercent: billingForm.taxRatePercent,
-      gstNumber: billingForm.gstNumber,
-      paymentMethods: {
-        cash: billingForm.cash,
-        card: billingForm.card,
-        upi: billingForm.upi,
-        razorpay: billingForm.razorpay,
-      },
-      razorpayConfig: {
-        keyId: billingForm.razorpayKeyId,
-        keySecret: billingForm.razorpayKeySecret,
-      },
-    });
+  const handleTestPrint = () => {
+    window.print();
   };
 
-  const handleSaveHardware = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSettingsMutation.mutate({
-      printerConfig: {
-        paperWidth: hardwareForm.paperWidth,
-        templateTheme: hardwareForm.templateTheme,
-        showLogo: hardwareForm.showLogo,
-        showGstNumber: hardwareForm.showGstNumber,
-        showFssai: hardwareForm.showFssai,
-        fssaiNumber: hardwareForm.fssaiNumber,
-        receiptHeader: hardwareForm.receiptHeader,
-        receiptFooter: hardwareForm.receiptFooter,
-        showCustomerInfo: hardwareForm.showCustomerInfo,
-        showPaymentMode: hardwareForm.showPaymentMode,
-        showTaxBreakup: hardwareForm.showTaxBreakup,
-        kotNotes: hardwareForm.kotNotes,
-        defaultPrintTarget: hardwareForm.defaultPrintTarget,
-      },
-    });
-  };
-
-  const handleSaveIntegrations = (e: React.FormEvent) => {
-    e.preventDefault();
-    let configData: any = {};
-    if (integrationForm.provider === 'PETPOOJA') {
-      configData = {
-        restID: integrationForm.petpoojaRestId,
-        appKey: integrationForm.petpoojaAppKey,
-        appSecret: integrationForm.petpoojaAppSecret,
-      };
-    } else if (integrationForm.provider === 'URBANPIPER') {
-      configData = {
-        storeId: integrationForm.urbanpiperStoreId,
-        apiKey: integrationForm.urbanpiperApiKey,
-      };
-    }
-
-    updateSettingsMutation.mutate({
-      integrationConfig: {
-        provider: integrationForm.provider,
-        config: configData,
-      },
-    });
-  };
-
-  const handleFlagToggle = (key: string, enabled: boolean) => {
-    const updated = flagsList.map((f: any) => (f.key === key ? { ...f, enabled } : f));
-    toggleFlagMutation.mutate(updated);
-  };
+  // Filtered dishes for Menu tab
+  const filteredDishes = useMemo(() => {
+    if (selectedMenuCategory === 'ALL') return menuItemsList;
+    return menuItemsList.filter((item: any) => item.categoryId === selectedMenuCategory || item.categoryId?._id === selectedMenuCategory);
+  }, [menuItemsList, selectedMenuCategory]);
 
   if (isLoadingRest || isLoadingAudit) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <Loader className="w-8 h-8 text-amber-500 animate-spin" />
+      <div className="h-96 flex items-center justify-center">
+        <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
       </div>
     );
   }
 
   if (!restaurant) {
     return (
-      <div className="p-8 text-center bg-white rounded-3xl border border-slate-150 shadow-sm">
-        <p className="text-slate-600 font-bold">Restaurant not found.</p>
+      <div className="p-8 text-center bg-white rounded-3xl border border-slate-150">
+        <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h3 className="font-bold text-lg text-slate-900">Restaurant Not Found</h3>
+        <p className="text-xs text-slate-500 mt-1">The requested outlet does not exist or has been removed.</p>
         <button
-          onClick={() => navigate('/admin/restaurants')}
+          onClick={() => navigate('/admin/setup-hub')}
           className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
         >
-          Back to Tenants Directory
+          Return to Setup Hub
         </button>
       </div>
     );
   }
 
-  const isSuspended = restaurant.status === 'SUSPENDED';
   const progress = audit?.overallPercentage ?? 0;
-  const missingCount = audit?.missingFeatureSetups?.length ?? 0;
+  const isReady = audit?.isReadyForService ?? false;
 
   return (
-    <div className="w-full space-y-6 font-sans pb-16">
-      {/* Top Breadcrumb & Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <button
-          onClick={() => navigate('/admin/restaurants')}
-          className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition"
-        >
-          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
-          <span>Back to Tenants Directory</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          {/* Direct Public Preview */}
-          <a
-            href={`/r/${restaurant.slug}/menu`}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5 shadow-sm transition"
-          >
-            <Eye className="w-3.5 h-3.5 text-slate-500" />
-            <span>Public Menu</span>
-            <ExternalLink className="w-3 h-3 text-slate-400" />
-          </a>
-
-          {/* Impersonate */}
+    <div className="w-full space-y-6 font-sans pb-24">
+      {/* TOP BREADCRUMB & MASTER BAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-950 text-white p-6 md:p-8 rounded-3xl shadow-sm">
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => impersonateOutlet({ id: restaurant._id, name: restaurant.name, slug: restaurant.slug })}
-            className="px-3.5 py-2 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            onClick={() => navigate('/admin/setup-hub')}
+            className="p-2.5 bg-slate-900 hover:bg-slate-800 rounded-2xl transition text-slate-400 hover:text-white"
+            title="Back to Setup Hub"
           >
-            <LogIn className="w-3.5 h-3.5 text-amber-600" />
-            <span>Launch Manager View</span>
+            <ArrowLeft className="w-5 h-5" />
           </button>
 
-          {/* Suspend / Activate */}
-          {isSuspended ? (
-            <button
-              onClick={() => activateMutation.mutate(id!)}
-              disabled={activateMutation.isPending}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Activate Outlet</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => suspendMutation.mutate(id!)}
-              disabled={suspendMutation.isPending}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Suspend Outlet</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Outlet Header Card with Real-time Progress Ring */}
-      <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold text-xl shrink-0 shadow-md">
-              {restaurant.name?.charAt(0) || 'R'}
-            </div>
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="font-display text-2xl md:text-3xl font-extrabold tracking-tight">
-                  {restaurant.name}
-                </h1>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                    isSuspended
-                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  }`}
-                >
-                  {isSuspended ? 'Suspended' : restaurant.status || 'Active'}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                  {restaurant.subscription?.planKey || 'ENTERPRISE'}
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-400 flex flex-wrap items-center gap-3 font-mono">
-                <span>Code: {restaurant.code || 'RST-000'}</span>
-                <span>•</span>
-                <span>Slug: /r/{restaurant.slug}</span>
-                <span>•</span>
-                <span>{restaurant.address || 'Address not specified'}</span>
-              </p>
-            </div>
+          <div className="w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-sm shrink-0">
+            {restaurant.name?.charAt(0) || 'R'}
           </div>
 
-          {/* Setup Progress Widget */}
-          <div className="flex items-center gap-4 bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shrink-0">
-            <div className="relative w-14 h-14 flex items-center justify-center">
-              <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 36 36">
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="font-display text-2xl md:text-3xl font-extrabold tracking-tight">
+                {restaurant.name}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase">
+                {restaurant.status}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 font-mono mt-1">
+              Slug: <span className="text-amber-400">/r/{restaurant.slug}</span> • Code: {restaurant.code || 'RST-MAIN'}
+            </p>
+          </div>
+        </div>
+
+        {/* Action Controls & Progress Ring */}
+        <div className="flex items-center gap-4 shrink-0 flex-wrap">
+          <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-2xl">
+            <div className="relative w-9 h-9 flex items-center justify-center">
+              <svg className="w-9 h-9 transform -rotate-90" viewBox="0 0 36 36">
                 <path
                   className="text-slate-800"
-                  strokeWidth="3.5"
+                  strokeWidth="4"
                   stroke="currentColor"
                   fill="none"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -506,65 +614,65 @@ export const AdminRestaurantDetail: React.FC = () => {
                 <path
                   className={progress >= 80 ? 'text-emerald-400' : progress >= 50 ? 'text-amber-400' : 'text-rose-400'}
                   strokeDasharray={`${progress}, 100`}
-                  strokeWidth="3.5"
+                  strokeWidth="4"
                   strokeLinecap="round"
                   stroke="currentColor"
                   fill="none"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
               </svg>
-              <span className="absolute font-display font-extrabold text-xs text-white">
-                {progress}%
-              </span>
+              <span className="absolute text-[10px] font-black">{progress}%</span>
             </div>
-
             <div>
-              <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Outlet Setup Status</span>
-                {audit?.isReadyForService ? (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-                    Ready
-                  </span>
-                ) : (
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
-                    Incomplete
-                  </span>
-                )}
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                {audit?.completedSteps} of {audit?.totalSteps} core steps configured
-              </p>
+              <p className="text-[10px] font-mono uppercase font-bold text-slate-400">Setup Status</p>
+              <p className="text-xs font-bold text-white">{isReady ? 'Ready for Service' : 'Incomplete'}</p>
             </div>
           </div>
+
+          <a
+            href={`/r/${restaurant.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition border border-slate-800"
+          >
+            <Eye className="w-4 h-4 text-amber-400" />
+            <span>Customer Menu</span>
+            <ExternalLink className="w-3 h-3 text-slate-400" />
+          </a>
+
+          <button
+            onClick={() => impersonateOutlet({ id: restaurant._id, name: restaurant.name, slug: restaurant.slug })}
+            className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl text-xs font-extrabold flex items-center gap-1.5 transition shadow-sm"
+          >
+            <LogIn className="w-4 h-4 text-slate-950" />
+            <span>Launch Manager View</span>
+          </button>
         </div>
       </div>
 
-      {/* Dynamic Missing Requirements Warning Banner */}
-      {missingCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm space-y-3">
-          <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
+      {/* MISSING PREREQUISITES BANNER */}
+      {audit && audit.missingFeatureSetups && audit.missingFeatureSetups.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300/80 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center gap-2 text-amber-950 font-bold text-sm">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-            <span>Setup Action Required for {missingCount} Active Feature{missingCount > 1 ? 's' : ''}</span>
+            <span>Setup Action Required for {audit.missingFeatureSetups.length} Active Features:</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {audit?.missingFeatureSetups.map((item) => (
+            {audit.missingFeatureSetups.map((mf, idx) => (
               <div
-                key={item.featureKey}
-                className="bg-white border border-amber-200/80 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xs"
+                key={idx}
+                className="bg-white/80 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-xs"
               >
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">{item.featureName}</h4>
-                  <p className="text-[11px] text-amber-800 mt-0.5 font-medium">
-                    {item.missingRequirements.join(' • ')}
-                  </p>
+                  <h4 className="font-extrabold text-xs text-slate-900">{mf.featureName}</h4>
+                  <p className="text-[11px] text-amber-800 mt-0.5">{mf.missingRequirements.join(' • ')}</p>
                 </div>
                 <button
-                  type="button"
-                  onClick={() => setActiveTab(item.actionTab as AdminTab)}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] rounded-xl transition shrink-0 flex items-center gap-1 shadow-xs"
+                  onClick={() => setActiveTab(mf.actionTab as any)}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl transition shrink-0 flex items-center gap-1"
                 >
-                  <span>{item.actionLabel}</span>
+                  <span>{mf.actionLabel}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -573,110 +681,169 @@ export const AdminRestaurantDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Navigation Tabs Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-200">
+      {/* HORIZONTAL TAB NAVIGATION */}
+      <div className="bg-white border border-slate-150 rounded-2xl p-1.5 shadow-sm flex items-center gap-1 overflow-x-auto">
         {[
-          { id: 'checklist', label: 'Setup Audit & Checklist', icon: CheckCircle2 },
+          { id: 'checklist', label: 'Setup Checklist', icon: CheckCircle2, count: `${audit?.completedSteps || 0}/${audit?.totalSteps || 0}` },
           { id: 'identity', label: 'Store Identity & Branding', icon: Store },
-          { id: 'flags', label: 'Feature Flags & Matrix', icon: ToggleRight },
-          { id: 'billing', label: 'Taxes & Payments Gateways', icon: CreditCard },
-          { id: 'tables', label: 'Dining Tables & QR Codes', icon: TableProperties },
+          { id: 'flags', label: 'Feature Flags', icon: ToggleRight, count: flagsList.filter((f: any) => f.isEnabled).length },
+          { id: 'billing', label: 'Taxes & Payments', icon: CreditCard },
+          { id: 'tables', label: 'Dining Tables & Zones', icon: TableProperties, count: tablesList.length },
+          { id: 'menu', label: 'Digital Menu & Catalog', icon: Utensils, count: menuItemsList.length },
           { id: 'hardware', label: 'Hardware & POS Printers', icon: Printer },
-          { id: 'staff', label: 'Staff Accounts', icon: Users },
-          { id: 'integrations', label: 'External POS Integrations', icon: Plug },
+          { id: 'staff', label: 'Staff Accounts', icon: Users, count: staffList.length },
+          { id: 'integrations', label: 'POS Integrations', icon: Plug },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as AdminTab)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition whitespace-nowrap ${
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 isActive
-                  ? 'bg-slate-950 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  ? 'bg-slate-950 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <Icon className="w-4 h-4" strokeWidth={1.75} />
+              <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
               <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                    isActive ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* TAB 1: SETUP CHECKLIST & AUDIT */}
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 1: SETUP AUDIT & CHECKLIST
+         ───────────────────────────────────────────────────────────── */}
       {activeTab === 'checklist' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Quick 1-Click Starters */}
+            <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 p-6 rounded-3xl shadow-sm flex flex-col justify-between">
               <div>
-                <h3 className="font-display text-lg font-bold text-slate-900">
-                  Comprehensive Setup Audit Breakdown
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Real-time database verification across all restaurant domains.
+                <span className="text-[10px] font-mono font-extrabold uppercase bg-slate-950 text-amber-400 px-2 py-0.5 rounded-md">
+                  Fast Onboarding
+                </span>
+                <h3 className="font-display text-xl font-black mt-2">1-Click Starter Pack</h3>
+                <p className="text-xs text-slate-900/80 mt-1 font-medium">
+                  Populate a ready-to-test starter menu (5 categories + 12 dishes) and default GST tax group.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-600">Plan:</span>
-                <select
-                  value={restaurant.subscription?.planKey || 'ENTERPRISE'}
-                  onChange={(e) => updatePlanMutation.mutate(e.target.value)}
-                  disabled={updatePlanMutation.isPending}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none"
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => seedDemoMenuMutation.mutate()}
+                  disabled={seedDemoMenuMutation.isPending || menuItemsList.length > 0}
+                  className="w-full py-2.5 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <option value="FREE">FREE</option>
-                  <option value="STARTER">STARTER</option>
-                  <option value="PROFESSIONAL">PROFESSIONAL</option>
-                  <option value="ENTERPRISE">ENTERPRISE</option>
-                </select>
+                  {seedDemoMenuMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-400" />}
+                  <span>{menuItemsList.length > 0 ? '✓ Menu Catalog Seeded' : 'Seed Starter Menu (12 Dishes)'}</span>
+                </button>
+
+                <button
+                  onClick={() => applyTaxPresetMutation.mutate('GST_5')}
+                  disabled={applyTaxPresetMutation.isPending}
+                  className="w-full py-2 bg-white/90 hover:bg-white text-slate-950 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Apply GST 5% (CGST 2.5% + SGST 2.5%)</span>
+                </button>
               </div>
             </div>
 
-            {/* Checklist Items */}
-            <div className="space-y-3">
+            {/* Overall Setup Card */}
+            <div className="bg-white border border-slate-150 p-6 rounded-3xl shadow-sm flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Total Setup Score</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <h3 className="text-4xl font-black font-mono text-slate-900">{progress}%</h3>
+                  <span className="text-xs text-slate-400">completed</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-3">
+                  <div
+                    className={`h-full rounded-full ${
+                      progress >= 80 ? 'bg-emerald-500' : progress >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>{audit?.completedSteps || 0} of {audit?.totalSteps || 0} Prerequisites Complete</span>
+                <span className={`font-bold ${isReady ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {isReady ? '✓ Ready for Service' : '⚠️ Action Needed'}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Summary Card */}
+            <div className="bg-white border border-slate-150 p-6 rounded-3xl shadow-sm flex flex-col justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Live Inventory Counts</span>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">Tables</span>
+                  <p className="text-lg font-black text-slate-900">{tablesList.length}</p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">Dishes</span>
+                  <p className="text-lg font-black text-slate-900">{menuItemsList.length}</p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">Categories</span>
+                  <p className="text-lg font-black text-slate-900">{categoriesList.length}</p>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">Staff</span>
+                  <p className="text-lg font-black text-slate-900">{staffList.length}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Itemized Step Breakdown */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm">
+            <h3 className="font-display text-lg font-bold text-slate-900 mb-4">
+              Prerequisite Audit & Verification Checklist
+            </h3>
+
+            <div className="divide-y divide-slate-100">
               {audit?.steps.map((step) => (
-                <div
-                  key={step.id}
-                  className={`p-4 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                    step.isCompleted
-                      ? 'bg-slate-50/60 border-slate-200'
-                      : 'bg-amber-50/50 border-amber-200'
-                  }`}
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className="mt-0.5">
-                      {step.isCompleted ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-amber-600" />
-                      )}
-                    </div>
+                <div key={step.id} className="py-3.5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    {step.isCompleted ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-slate-900">{step.title}</h4>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 text-slate-700">
+                        <span className="text-xs font-bold text-slate-900">{step.title}</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
                           Weight: {step.weight}%
                         </span>
-                        {step.isRequired && (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-100 text-rose-700">
-                            Required
-                          </span>
-                        )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">{step.description}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{step.description}</p>
                     </div>
                   </div>
 
                   {step.actionTab && (
                     <button
-                      type="button"
-                      onClick={() => setActiveTab(step.actionTab as AdminTab)}
-                      className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-900 rounded-xl text-xs font-bold transition shrink-0 flex items-center justify-center gap-1 shadow-xs"
+                      onClick={() => setActiveTab(step.actionTab as any)}
+                      className="px-3 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition shrink-0 flex items-center gap-1"
                     >
                       <span>{step.actionLabel || 'Configure'}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                   )}
                 </div>
@@ -686,587 +853,1725 @@ export const AdminRestaurantDetail: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: STORE IDENTITY & PROFILE */}
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 2: STORE IDENTITY & LIVE BRANDING PREVIEW
+         ───────────────────────────────────────────────────────────── */}
       {activeTab === 'identity' && (
-        <form onSubmit={handleSaveIdentity} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
-                Store Profile & Identity Settings
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Core legal, contact, and visual branding managed exclusively by SuperAdmin.
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Form */}
+          <div className="lg:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-900">Store Profile & Branding</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Primary store profile, timings, and custom theme colors.</p>
+              </div>
+
+              <button
+                onClick={() =>
+                  saveSettingsMutation.mutate({
+                    name: identityForm.name,
+                    slug: identityForm.slug,
+                    phone: identityForm.phone,
+                    email: identityForm.email,
+                    address: identityForm.address,
+                    description: identityForm.description,
+                    gstNumber: identityForm.gstNumber,
+                    timings: { openTime: identityForm.openTime, closeTime: identityForm.closeTime },
+                    whatsapp: identityForm.whatsapp,
+                    googleReviewUrl: identityForm.googleReviewUrl,
+                    logoUrl: identityForm.logoUrl,
+                    coverImageUrl: identityForm.coverImageUrl,
+                    branding: {
+                      primaryColor: identityForm.primaryColor,
+                      secondaryColor: identityForm.secondaryColor,
+                      accentColor: identityForm.accentColor,
+                    },
+                    currency: identityForm.currency,
+                    timezone: identityForm.timezone,
+                  })
+                }
+                disabled={saveSettingsMutation.isPending}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+                <span>Save Profile</span>
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={updateSettingsMutation.isPending}
-              className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400"
-            >
-              {updateSettingsMutation.isPending ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>Save Store Profile</span>
-            </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Outlet Name *</label>
+                <input
+                  type="text"
+                  value={identityForm.name}
+                  onChange={(e) => setIdentityForm({ ...identityForm, name: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Unique URL Slug *</label>
+                <div className="flex items-center mt-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden px-3 py-2 text-xs">
+                  <span className="text-slate-400 font-mono">/r/</span>
+                  <input
+                    type="text"
+                    value={identityForm.slug}
+                    onChange={(e) => setIdentityForm({ ...identityForm, slug: e.target.value })}
+                    className="w-full bg-transparent font-mono font-bold focus:outline-none ml-1 text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Store Contact Phone *</label>
+                <input
+                  type="text"
+                  value={identityForm.phone}
+                  onChange={(e) => setIdentityForm({ ...identityForm, phone: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Store Contact Email *</label>
+                <input
+                  type="email"
+                  value={identityForm.email}
+                  onChange={(e) => setIdentityForm({ ...identityForm, email: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-[11px] font-bold text-slate-700">Physical Address *</label>
+                <input
+                  type="text"
+                  value={identityForm.address}
+                  onChange={(e) => setIdentityForm({ ...identityForm, address: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Opening Time</label>
+                <input
+                  type="time"
+                  value={identityForm.openTime}
+                  onChange={(e) => setIdentityForm({ ...identityForm, openTime: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Closing Time</label>
+                <input
+                  type="time"
+                  value={identityForm.closeTime}
+                  onChange={(e) => setIdentityForm({ ...identityForm, closeTime: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Logo Image URL</label>
+                <input
+                  type="text"
+                  placeholder="https://example.com/logo.png"
+                  value={identityForm.logoUrl}
+                  onChange={(e) => setIdentityForm({ ...identityForm, logoUrl: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Cover Banner Image URL</label>
+                <input
+                  type="text"
+                  placeholder="https://example.com/cover.jpg"
+                  value={identityForm.coverImageUrl}
+                  onChange={(e) => setIdentityForm({ ...identityForm, coverImageUrl: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Theme Colors */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Primary Brand Color</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="color"
+                    value={identityForm.primaryColor}
+                    onChange={(e) => setIdentityForm({ ...identityForm, primaryColor: e.target.value })}
+                    className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
+                  />
+                  <input
+                    type="text"
+                    value={identityForm.primaryColor}
+                    onChange={(e) => setIdentityForm({ ...identityForm, primaryColor: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Accent Highlight Color</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="color"
+                    value={identityForm.accentColor}
+                    onChange={(e) => setIdentityForm({ ...identityForm, accentColor: e.target.value })}
+                    className="w-9 h-9 rounded-xl border border-slate-200 cursor-pointer p-0.5 bg-white"
+                  />
+                  <input
+                    type="text"
+                    value={identityForm.accentColor}
+                    onChange={(e) => setIdentityForm({ ...identityForm, accentColor: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Restaurant Name *</label>
-              <input
-                type="text"
-                value={identityForm.name}
-                onChange={(e) => setIdentityForm({ ...identityForm, name: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-amber-500"
-                required
-              />
-            </div>
+          {/* Live Mobile Customer Menu Preview */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm flex flex-col items-center">
+            <span className="text-[10px] font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-amber-500" />
+              <span>Customer Mobile Preview</span>
+            </span>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Slug (URL Identifier) *</label>
-              <input
-                type="text"
-                value={identityForm.slug}
-                onChange={(e) => setIdentityForm({ ...identityForm, slug: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
-                required
-              />
-            </div>
+            {/* Phone Screen Frame */}
+            <div className="w-64 bg-slate-950 rounded-[36px] p-3 shadow-xl border-4 border-slate-800 flex flex-col items-center">
+              <div className="w-16 h-4 bg-slate-900 rounded-full mb-2" />
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Contact Phone</label>
-              <input
-                type="text"
-                value={identityForm.phone}
-                onChange={(e) => setIdentityForm({ ...identityForm, phone: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Contact Email</label>
-              <input
-                type="email"
-                value={identityForm.email}
-                onChange={(e) => setIdentityForm({ ...identityForm, email: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Opening Time</label>
-              <input
-                type="time"
-                value={identityForm.openTime}
-                onChange={(e) => setIdentityForm({ ...identityForm, openTime: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Closing Time</label>
-              <input
-                type="time"
-                value={identityForm.closeTime}
-                onChange={(e) => setIdentityForm({ ...identityForm, closeTime: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Currency (ISO)</label>
-              <input
-                type="text"
-                value={identityForm.currency}
-                onChange={(e) => setIdentityForm({ ...identityForm, currency: e.target.value.toUpperCase() })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Timezone</label>
-              <input
-                type="text"
-                value={identityForm.timezone}
-                onChange={(e) => setIdentityForm({ ...identityForm, timezone: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Physical Address</label>
-              <textarea
-                rows={2}
-                value={identityForm.address}
-                onChange={(e) => setIdentityForm({ ...identityForm, address: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Logo Image URL</label>
-              <input
-                type="text"
-                value={identityForm.logoUrl}
-                onChange={(e) => setIdentityForm({ ...identityForm, logoUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Cover Banner URL</label>
-              <input
-                type="text"
-                value={identityForm.coverImageUrl}
-                onChange={(e) => setIdentityForm({ ...identityForm, coverImageUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Google Review URL</label>
-              <input
-                type="text"
-                value={identityForm.googleReviewUrl}
-                onChange={(e) => setIdentityForm({ ...identityForm, googleReviewUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-                placeholder="https://g.page/r/..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">WhatsApp Business Number</label>
-              <input
-                type="text"
-                value={identityForm.whatsapp}
-                onChange={(e) => setIdentityForm({ ...identityForm, whatsapp: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-                placeholder="+91..."
-              />
-            </div>
-          </div>
-        </form>
-      )}
-
-      {/* TAB 3: FEATURE FLAGS & MATRIX */}
-      {activeTab === 'flags' && (
-        <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h3 className="font-display text-lg font-bold text-slate-900">
-              Outlet Capabilities & Feature Matrix
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Enabling modules here will trigger setup dependency tracking in the audit engine.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {flagsList.map((flag: any) => {
-              const readiness = audit?.featureReadiness?.[flag.key];
-              const isEnabled = flag.enabled;
-              const isReady = readiness ? readiness.isReady : true;
-
-              return (
+              <div className="w-full bg-white rounded-[24px] overflow-hidden flex flex-col h-[400px]">
+                {/* Header Banner */}
                 <div
-                  key={flag.key}
-                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
-                    isEnabled
-                      ? isReady
-                        ? 'bg-slate-50/80 border-slate-300'
-                        : 'bg-amber-50/50 border-amber-300'
-                      : 'bg-white border-slate-200 opacity-60'
-                  }`}
+                  className="h-20 w-full relative flex items-center justify-center p-3"
+                  style={{ backgroundColor: identityForm.primaryColor }}
                 >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-slate-900">{flag.name}</span>
-                      <input
-                        type="checkbox"
-                        checked={isEnabled}
-                        onChange={(e) => handleFlagToggle(flag.key, e.target.checked)}
-                        className="w-4 h-4 text-amber-600 rounded cursor-pointer"
-                      />
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">{flag.description}</p>
-                  </div>
-
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                    <span className="font-mono text-slate-400">{flag.key}</span>
-                    {isEnabled && (
-                      <span
-                        className={`font-extrabold px-2 py-0.5 rounded-full ${
-                          isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-200 text-amber-900'
-                        }`}
-                      >
-                        {isReady ? 'Ready' : 'Setup Required'}
-                      </span>
-                    )}
+                  {identityForm.coverImageUrl && (
+                    <img
+                      src={identityForm.coverImageUrl}
+                      alt="Cover"
+                      className="absolute inset-0 w-full h-full object-cover opacity-30"
+                    />
+                  )}
+                  <div className="relative text-center text-white z-10">
+                    <h5 className="font-display font-extrabold text-xs leading-tight">{identityForm.name || 'Store Name'}</h5>
+                    <p className="text-[9px] opacity-80 mt-0.5">Scan & Order Direct</p>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Sample Menu Items in Phone */}
+                <div className="p-3 space-y-2 flex-1 overflow-y-auto">
+                  <div className="p-2 bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="font-bold text-slate-900">Paneer Tikka</span>
+                      <p className="text-[9px] text-slate-400 font-mono">₹280</p>
+                    </div>
+                    <button
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-white shadow-xs"
+                      style={{ backgroundColor: identityForm.accentColor }}
+                    >
+                      + ADD
+                    </button>
+                  </div>
+
+                  <div className="p-2 bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="font-bold text-slate-900">Butter Chicken</span>
+                      <p className="text-[9px] text-slate-400 font-mono">₹420</p>
+                    </div>
+                    <button
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-white shadow-xs"
+                      style={{ backgroundColor: identityForm.accentColor }}
+                    >
+                      + ADD
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bottom Bar in Phone */}
+                <div className="p-2 bg-slate-900 text-white flex items-center justify-between text-[10px] font-bold">
+                  <span>Table #1</span>
+                  <span className="text-amber-400">View Cart (₹700)</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TAB 4: BILLING, TAXES & GATEWAYS */}
-      {activeTab === 'billing' && (
-        <form onSubmit={handleSaveBilling} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
-                Taxes & Payment Gateways
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Configure settlement modes, GST numbers, and payment gateway credentials.
-              </p>
-            </div>
-            <button
-              type="submit"
-              disabled={updateSettingsMutation.isPending}
-              className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400"
-            >
-              {updateSettingsMutation.isPending ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>Save Billing Settings</span>
-            </button>
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 3: FEATURE FLAGS MATRIX
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'flags' && (
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Feature Capability Matrix</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              SuperAdmin toggle switches to enable or disable specific modules for this tenant. Missing prerequisites will prompt setup alerts.
+            </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {flagsList.map((flag: any) => (
+              <div
+                key={flag.key}
+                className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
+                  flag.isEnabled ? 'bg-slate-50 border-slate-300' : 'bg-white border-slate-200 opacity-75'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900">{flag.name}</span>
+                    <button
+                      onClick={() => toggleFlagMutation.mutate({ flagKey: flag.key, isEnabled: !flag.isEnabled })}
+                      disabled={toggleFlagMutation.isPending}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                        flag.isEnabled ? 'bg-amber-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          flag.isEnabled ? 'translate-x-4' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">{flag.description}</p>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-slate-400">{flag.key}</span>
+                  <span className={`font-bold ${flag.isEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {flag.isEnabled ? 'ENABLED' : 'DISABLED'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 4: TAXES & PAYMENT GATEWAYS
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'billing' && (
+        <div className="space-y-6">
+          {/* TAXES SECTION */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-900">Tax Rates & GST Rules</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Configure GST Groups, CGST/SGST breakdowns, or apply standard 1-click presets.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAddTaxModal(true)}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Add Custom Tax</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 1-Click Tax Presets */}
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase font-bold text-slate-400">1-Click Presets</span>
+                <p className="text-xs font-bold text-slate-900 mt-0.5">Quickly apply standard national tax rules</p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => applyTaxPresetMutation.mutate('GST_5')}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-800 font-bold text-xs rounded-xl transition shadow-2xs"
+                >
+                  GST 5% (Restaurant Std)
+                </button>
+
+                <button
+                  onClick={() => applyTaxPresetMutation.mutate('GST_18')}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-800 font-bold text-xs rounded-xl transition shadow-2xs"
+                >
+                  GST 18% (AC/Bar)
+                </button>
+
+                <button
+                  onClick={() => applyTaxPresetMutation.mutate('VAT_10')}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-800 font-bold text-xs rounded-xl transition shadow-2xs"
+                >
+                  VAT 10%
+                </button>
+
+                <button
+                  onClick={() => applyTaxPresetMutation.mutate('NONE')}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 text-slate-600 font-bold text-xs rounded-xl transition shadow-2xs"
+                >
+                  Clear (0%)
+                </button>
+              </div>
+            </div>
+
+            {/* Taxes List Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {taxesList.map((tax: Tax) => (
+                <div
+                  key={tax._id}
+                  className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-2xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-xs text-slate-900">{tax.name}</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded">
+                        {tax.type}
+                      </span>
+                    </div>
+                    <p className="text-sm font-black font-mono text-amber-600 mt-1">{tax.percentage}%</p>
+                  </div>
+
+                  <button
+                    onClick={() => deleteTaxMutation.mutate(tax._id)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                    title="Delete Tax"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              {taxesList.length === 0 && (
+                <div className="col-span-full py-6 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  No custom tax rules configured. Default fallback rate is applied.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* PAYMENT GATEWAYS SECTION */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-900">Payment Methods & Razorpay Gateway</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Configure digital checkout gateways, UPI IDs, and cash tenders.</p>
+              </div>
+
+              <button
+                onClick={() =>
+                  saveSettingsMutation.mutate({
+                    taxRatePercent: Number(billingForm.taxRatePercent),
+                    gstNumber: billingForm.gstNumber,
+                    paymentMethods: {
+                      cash: billingForm.cash,
+                      card: billingForm.card,
+                      upi: billingForm.upi,
+                      razorpay: billingForm.razorpay,
+                    },
+                    razorpayConfig: {
+                      keyId: billingForm.razorpayKeyId,
+                      keySecret: billingForm.razorpayKeySecret,
+                    },
+                    upiConfig: {
+                      upiId: billingForm.upiId,
+                      merchantName: billingForm.upiMerchantName,
+                    },
+                  })
+                }
+                disabled={saveSettingsMutation.isPending}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+                <span>Save Billing Settings</span>
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Default Tax Rate (%)</label>
+                <label className="text-[11px] font-bold text-slate-700">Default Tax Fallback Rate (%)</label>
                 <input
                   type="number"
-                  step="0.01"
                   value={billingForm.taxRatePercent}
-                  onChange={(e) => setBillingForm({ ...billingForm, taxRatePercent: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500"
+                  onChange={(e) => setBillingForm({ ...billingForm, taxRatePercent: Number(e.target.value) })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">GSTIN / Tax ID</label>
+                <label className="text-[11px] font-bold text-slate-700">GSTIN / Tax ID Number</label>
                 <input
                   type="text"
+                  placeholder="e.g. 29AAAAA0000A1Z5"
                   value={billingForm.gstNumber}
-                  onChange={(e) => setBillingForm({ ...billingForm, gstNumber: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
+                  onChange={(e) => setBillingForm({ ...billingForm, gstNumber: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
                 />
               </div>
             </div>
 
-            {/* Payment Methods */}
+            {/* Accepted Methods */}
             <div>
-              <h4 className="text-xs font-bold text-slate-900 mb-3">Accepted Settlement Modes</h4>
+              <label className="text-[11px] font-bold text-slate-700 mb-2 block">Accepted Tender Modes</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { key: 'cash', label: 'Cash at Counter' },
-                  { key: 'card', label: 'Credit / Debit Card' },
-                  { key: 'upi', label: 'Direct UPI QR' },
-                  { key: 'razorpay', label: 'Razorpay Online Gateway' },
-                ].map((item) => (
+                  { key: 'cash', label: 'Cash at Counter', state: billingForm.cash },
+                  { key: 'card', label: 'Credit / Debit Card', state: billingForm.card },
+                  { key: 'upi', label: 'Direct UPI QR', state: billingForm.upi },
+                  { key: 'razorpay', label: 'Razorpay Online Gateway', state: billingForm.razorpay },
+                ].map((m) => (
                   <label
-                    key={item.key}
-                    className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer"
+                    key={m.key}
+                    className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-2.5 transition ${
+                      m.state ? 'bg-amber-50/80 border-amber-300' : 'bg-slate-50 border-slate-200'
+                    }`}
                   >
                     <input
                       type="checkbox"
-                      checked={(billingForm as any)[item.key]}
-                      onChange={(e) => setBillingForm({ ...billingForm, [item.key]: e.target.checked })}
-                      className="w-4 h-4 text-amber-600 rounded cursor-pointer"
+                      checked={m.state}
+                      onChange={(e) => setBillingForm({ ...billingForm, [m.key]: e.target.checked })}
+                      className="rounded text-amber-500 focus:ring-amber-400"
                     />
-                    <span className="text-xs font-bold text-slate-800">{item.label}</span>
+                    <span className="text-xs font-bold text-slate-900">{m.label}</span>
                   </label>
                 ))}
               </div>
             </div>
 
-            {/* Razorpay Gateway Keys */}
-            {billingForm.razorpay && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
-                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <Key className="w-4 h-4 text-amber-500" />
-                  <span>Razorpay API Credentials (SuperAdmin Managed)</span>
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Direct UPI Configuration */}
+            {billingForm.upi && (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-purple-600" />
+                  <span>Direct UPI Dynamic QR Settings</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Razorpay Key ID</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">UPI VPA Address *</label>
                     <input
                       type="text"
-                      value={billingForm.razorpayKeyId}
-                      onChange={(e) => setBillingForm({ ...billingForm, razorpayKeyId: e.target.value })}
-                      placeholder="rzp_live_..."
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
+                      placeholder="restaurant@upi or 9876543210@paytm"
+                      value={billingForm.upiId}
+                      onChange={(e) => setBillingForm({ ...billingForm, upiId: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Razorpay Key Secret</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">Merchant Display Name</label>
+                    <input
+                      type="text"
+                      placeholder="Restaurant Name on UPI"
+                      value={billingForm.upiMerchantName}
+                      onChange={(e) => setBillingForm({ ...billingForm, upiMerchantName: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Razorpay Online Gateway Credentials */}
+            {billingForm.razorpay && (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-emerald-600" />
+                  <span>Razorpay API Credentials</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">Razorpay Key ID *</label>
+                    <input
+                      type="text"
+                      placeholder="rzp_live_xxxxxxxxxxxx"
+                      value={billingForm.razorpayKeyId}
+                      onChange={(e) => setBillingForm({ ...billingForm, razorpayKeyId: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">Razorpay Key Secret *</label>
                     <input
                       type="password"
+                      placeholder="••••••••••••••••"
                       value={billingForm.razorpayKeySecret}
                       onChange={(e) => setBillingForm({ ...billingForm, razorpayKeySecret: e.target.value })}
-                      placeholder="••••••••••••"
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono"
                     />
                   </div>
                 </div>
               </div>
             )}
           </div>
-        </form>
+        </div>
       )}
 
-      {/* TAB 5: DINING TABLES */}
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 5: DINING TABLES & FLOOR ZONES
+         ───────────────────────────────────────────────────────────── */}
       {activeTab === 'tables' && (
-        <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="font-display text-lg font-bold text-slate-900">
-                Dining Tables & QR Tokens ({tablesList.length})
+                Dining Tables & Floor Zones ({tablesList.length} Tables)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Physical tables mapped to secure token URLs.
+                Manage physical dining tables, floor zones (AC, Rooftop, Bar), and secure QR scan tokens.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => impersonateOutlet({ id: restaurant._id, name: restaurant.name, slug: restaurant.slug })}
-              className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5 text-amber-600" />
-              <span>Manage Tables in Outlet View</span>
-            </button>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowAddZoneModal(true)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <Layers className="w-3.5 h-3.5 text-slate-500" />
+                <span>+ Add Zone</span>
+              </button>
+
+              <button
+                onClick={() => setShowBulkTableModal(true)}
+                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Bulk Generator</span>
+              </button>
+
+              <button
+                onClick={() => setShowAddTableModal(true)}
+                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                <span>Add Single Table</span>
+              </button>
+            </div>
           </div>
 
+          {/* Zones Filter Strip */}
+          {zonesList.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Zones:</span>
+              {zonesList.map((z: any) => (
+                <div
+                  key={z._id}
+                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5"
+                >
+                  <span>{z.name}</span>
+                  <button
+                    onClick={() => deleteZoneMutation.mutate(z._id)}
+                    className="text-slate-400 hover:text-rose-600"
+                    title="Delete Zone"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tables Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {tablesList.map((table: any) => (
+            {tablesList.map((table: Table) => (
               <div
                 key={table._id}
-                className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between"
+                className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between hover:border-slate-300 transition"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-sm text-slate-900">{table.displayName || `Table ${table.tableNumber}`}</span>
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      table.isActive ? 'bg-emerald-500' : 'bg-slate-300'
-                    }`}
-                  />
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-sm text-slate-900">
+                      {table.displayName || `Table ${table.tableNumber}`}
+                    </span>
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${table.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                      title={table.isActive ? 'Active' : 'Inactive'}
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">#{table.tableNumber}</p>
                 </div>
-                <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500 font-mono">#{table.tableNumber}</span>
+
+                <div className="mt-4 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs">
                   <a
                     href={`/r/${restaurant.slug}/t/${table.token}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-amber-600 hover:text-amber-700 font-bold flex items-center gap-0.5"
+                    className="text-amber-600 hover:text-amber-700 font-bold flex items-center gap-1 text-[11px]"
                   >
+                    <QrCode className="w-3 h-3" />
                     <span>Scan</span>
-                    <ExternalLink className="w-3 h-3" />
                   </a>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => regenerateTableQrMutation.mutate(table._id)}
+                      className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                      title="Regenerate QR Token"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => deleteTableMutation.mutate(table._id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                      title="Delete Table"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
+
+            {tablesList.length === 0 && (
+              <div className="col-span-full py-10 text-center text-slate-400 text-xs bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                No tables created yet. Click "Bulk Generator" to add 10 tables in one second.
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* TAB 6: HARDWARE & PRINTERS */}
-      {activeTab === 'hardware' && (
-        <form onSubmit={handleSaveHardware} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 6: DIGITAL MENU & CATALOG
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'menu' && (
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="font-display text-lg font-bold text-slate-900">
-                Hardware & POS Thermal Printers
+                Digital Menu & Catalog ({menuItemsList.length} Dishes)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Receipt width standards, receipt header/footer, and billing print layout.
+                Manage menu categories, dishes, prices, food tags, and images.
               </p>
             </div>
-            <button
-              type="submit"
-              disabled={updateSettingsMutation.isPending}
-              className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400"
-            >
-              {updateSettingsMutation.isPending ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {menuItemsList.length === 0 && (
+                <button
+                  onClick={() => seedDemoMenuMutation.mutate()}
+                  disabled={seedDemoMenuMutation.isPending}
+                  className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Seed Demo Menu (12 Dishes)</span>
+                </button>
               )}
-              <span>Save Hardware Config</span>
+
+              <button
+                onClick={() => setShowAddCategoryModal(true)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <Layers className="w-3.5 h-3.5 text-slate-500" />
+                <span>+ Add Category</span>
+              </button>
+
+              <button
+                onClick={() => setShowAddDishModal(true)}
+                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                <span>Add Dish</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Category Tabs Strip */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setSelectedMenuCategory('ALL')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                selectedMenuCategory === 'ALL'
+                  ? 'bg-slate-950 text-white'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              All Dishes ({menuItemsList.length})
             </button>
+
+            {categoriesList.map((cat: Category) => (
+              <div key={cat._id} className="flex items-center">
+                <button
+                  onClick={() => setSelectedMenuCategory(cat._id)}
+                  className={`px-3 py-1.5 rounded-l-xl text-xs font-bold transition whitespace-nowrap ${
+                    selectedMenuCategory === cat._id
+                      ? 'bg-slate-950 text-white'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+                <button
+                  onClick={() => deleteCategoryMutation.mutate(cat._id)}
+                  className="px-1.5 py-1.5 bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-r-xl text-xs font-bold border-l border-slate-200 transition"
+                  title="Delete Category"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Paper Width</label>
-              <select
-                value={hardwareForm.paperWidth}
-                onChange={(e) => setHardwareForm({ ...hardwareForm, paperWidth: e.target.value as any })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500"
+          {/* Dishes Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredDishes.map((dish: MenuItem) => (
+              <div
+                key={dish._id}
+                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition"
               >
-                <option value="80mm">80mm (Standard POS Thermal)</option>
-                <option value="58mm">58mm (Compact Portable Thermal)</option>
-                <option value="A4">A4 (Full Sheet Invoicing)</option>
-              </select>
-            </div>
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center ${
+                          dish.isVegetarian ? 'border-emerald-600' : 'border-rose-600'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            dish.isVegetarian ? 'bg-emerald-600' : 'bg-rose-600'
+                          }`}
+                        />
+                      </span>
+                      <h4 className="font-bold text-xs text-slate-900">{dish.name}</h4>
+                    </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Receipt Template Theme</label>
-              <select
-                value={hardwareForm.templateTheme}
-                onChange={(e) => setHardwareForm({ ...hardwareForm, templateTheme: e.target.value as any })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500"
-              >
-                <option value="classic">Classic Clean</option>
-                <option value="modern">Modern Bordered</option>
-                <option value="compact">Compact Minimalist</option>
-              </select>
-            </div>
+                    <button
+                      onClick={() => deleteDishMutation.mutate(dish._id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                      title="Delete Dish"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Receipt Header Text</label>
-              <input
-                type="text"
-                value={hardwareForm.receiptHeader}
-                onChange={(e) => setHardwareForm({ ...hardwareForm, receiptHeader: e.target.value })}
-                placeholder="Welcome to our restaurant!"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
+                  {dish.description && (
+                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-1.5">{dish.description}</p>
+                  )}
+                </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Receipt Footer Text</label>
-              <input
-                type="text"
-                value={hardwareForm.receiptFooter}
-                onChange={(e) => setHardwareForm({ ...hardwareForm, receiptFooter: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
+                <div className="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                  <span className="font-mono font-black text-sm text-slate-900">
+                    ₹{(dish.price / 100).toFixed(0)}
+                  </span>
+
+                  <div className="flex items-center gap-1 text-[10px]">
+                    {dish.isSpicy && <span className="text-rose-500 font-bold">🌶️ Spicy</span>}
+                    {dish.isChefsSpecial && <span className="text-amber-600 font-bold">⭐ Chef's</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {filteredDishes.length === 0 && (
+              <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                No dishes found in this category. Click "Add Dish" or "Seed Demo Menu".
+              </div>
+            )}
           </div>
-        </form>
+        </div>
       )}
 
-      {/* TAB 7: STAFF ACCOUNTS */}
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 7: HARDWARE & POS THERMAL PRINTERS
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'hardware' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Settings Form */}
+          <div className="lg:col-span-2 bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-900">Thermal Receipt & Hardware Formats</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Customize paper width, header disclaimers, GST/FSSAI badges, and KOT routes.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleTestPrint}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Test Print</span>
+                </button>
+
+                <button
+                  onClick={() => saveSettingsMutation.mutate({ printerConfig: hardwareForm })}
+                  disabled={saveSettingsMutation.isPending}
+                  className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                >
+                  {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+                  <span>Save Printer Config</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Thermal Paper Width *</label>
+                <select
+                  value={hardwareForm.paperWidth}
+                  onChange={(e) => setHardwareForm({ ...hardwareForm, paperWidth: e.target.value as any })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                >
+                  <option value="80mm">80mm (Standard POS Thermal)</option>
+                  <option value="58mm">58mm (Compact Mobile Bluetooth)</option>
+                  <option value="A4">A4 (Full Sheet Invoicing)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">FSSAI License Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 10020011000123"
+                  value={hardwareForm.fssaiNumber}
+                  onChange={(e) => setHardwareForm({ ...hardwareForm, fssaiNumber: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Custom Receipt Header</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Welcome to Food Paradise"
+                  value={hardwareForm.receiptHeader}
+                  onChange={(e) => setHardwareForm({ ...hardwareForm, receiptHeader: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Custom Receipt Footer</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Thank you! Visit again"
+                  value={hardwareForm.receiptFooter}
+                  onChange={(e) => setHardwareForm({ ...hardwareForm, receiptFooter: e.target.value })}
+                  className="w-full mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Checkbox Toggles */}
+            <div className="pt-2 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { key: 'showGstNumber', label: 'Show GSTIN on Bill', state: hardwareForm.showGstNumber },
+                { key: 'showFssai', label: 'Show FSSAI License', state: hardwareForm.showFssai },
+                { key: 'showTaxBreakup', label: 'Itemized Tax Breakdown', state: hardwareForm.showTaxBreakup },
+                { key: 'showPaymentMode', label: 'Show Payment Tender', state: hardwareForm.showPaymentMode },
+              ].map((t) => (
+                <label key={t.key} className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={(hardwareForm as any)[t.key]}
+                    onChange={(e) => setHardwareForm({ ...hardwareForm, [t.key]: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>{t.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Visual Thermal Receipt Canvas Preview */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm flex flex-col items-center">
+            <span className="text-[10px] font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
+              <Receipt className="w-3.5 h-3.5 text-amber-500" />
+              <span>Thermal Receipt Canvas ({hardwareForm.paperWidth})</span>
+            </span>
+
+            {/* Thermal Receipt Paper Canvas */}
+            <div
+              className={`bg-amber-50/40 border border-dashed border-slate-300 p-5 rounded-2xl text-slate-900 font-mono text-[11px] leading-relaxed shadow-sm transition-all ${
+                hardwareForm.paperWidth === '58mm' ? 'w-56' : 'w-72'
+              }`}
+            >
+              <div className="text-center pb-3 border-b border-dashed border-slate-400">
+                <h4 className="font-bold text-sm tracking-tight">{restaurant.name}</h4>
+                <p className="text-[9px] text-slate-500 mt-0.5">{restaurant.address || 'Food Street, City'}</p>
+                {hardwareForm.showGstNumber && billingForm.gstNumber && (
+                  <p className="text-[9px] text-slate-500">GSTIN: {billingForm.gstNumber}</p>
+                )}
+                {hardwareForm.showFssai && hardwareForm.fssaiNumber && (
+                  <p className="text-[9px] text-slate-500">FSSAI: {hardwareForm.fssaiNumber}</p>
+                )}
+              </div>
+
+              <div className="py-2.5 border-b border-dashed border-slate-400 text-[10px]">
+                <div className="flex justify-between">
+                  <span>Table #4</span>
+                  <span>Invoice #1042</span>
+                </div>
+                <div className="flex justify-between text-slate-500 mt-0.5">
+                  <span>24-Aug-2026</span>
+                  <span>14:20 PM</span>
+                </div>
+              </div>
+
+              <div className="py-3 space-y-1.5 border-b border-dashed border-slate-400 text-[11px]">
+                <div className="flex justify-between">
+                  <span>1x Paneer Tikka</span>
+                  <span>₹280.00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>2x Butter Naan</span>
+                  <span>₹160.00</span>
+                </div>
+              </div>
+
+              <div className="pt-2.5 text-[11px] space-y-1">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal</span>
+                  <span>₹440.00</span>
+                </div>
+                {hardwareForm.showTaxBreakup && (
+                  <div className="flex justify-between text-slate-500 text-[10px]">
+                    <span>GST (5%)</span>
+                    <span>₹22.00</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-400">
+                  <span>GRAND TOTAL</span>
+                  <span>₹462.00</span>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-dashed border-slate-400 text-center text-[9px] text-slate-500">
+                <p>{hardwareForm.receiptFooter}</p>
+                <p className="mt-1 font-bold">Scan to Pay via UPI</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 8: STAFF & ACCESS ACCOUNTS
+         ───────────────────────────────────────────────────────────── */}
       {activeTab === 'staff' && (
-        <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="font-display text-lg font-bold text-slate-900">
                 Staff & Manager Accounts ({staffList.length})
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Staff users associated with this restaurant tenant.
+                Assign manager credentials, kitchen display staff, or captain PINs for mobile table taking.
               </p>
             </div>
+
+            <button
+              onClick={() => setShowAddStaffModal(true)}
+              className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <Plus className="w-4 h-4 text-amber-400" />
+              <span>Add Staff Account</span>
+            </button>
           </div>
 
-          <div className="space-y-3">
-            {staffList.map((user: any) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {staffList.map((member: any) => (
               <div
-                key={user._id}
-                className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-4"
+                key={member._id}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-                    {user.name?.charAt(0) || 'U'}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">{user.name}</h4>
-                    <p className="text-[11px] text-slate-500 font-mono">{user.email}</p>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center">
+                        {(member.userId?.name || member.name || 'S').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900">
+                          {member.userId?.name || member.name || 'Staff Member'}
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono">
+                          {member.userId?.email || member.email || 'No email registered'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-mono font-bold bg-amber-100 text-amber-900 uppercase">
+                      {member.role}
+                    </span>
                   </div>
                 </div>
 
-                <span className="px-3 py-1 bg-amber-100 text-amber-900 text-[10px] font-extrabold rounded-full uppercase">
-                  {user.role || 'STAFF'}
-                </span>
+                <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    PIN: {member.pin ? '••••' : 'Not Set'}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowResetPasswordModal(member.userId?._id || member.userId)}
+                      className="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-[11px] font-bold text-slate-700 transition"
+                    >
+                      Reset Password
+                    </button>
+                    <button
+                      onClick={() => deleteStaffMutation.mutate(member._id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                      title="Remove Staff"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
+
+            {staffList.length === 0 && (
+              <div className="col-span-full py-10 text-center text-slate-400 text-xs bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                No staff accounts assigned. Click "Add Staff Account" to assign a Manager.
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* TAB 8: INTEGRATIONS */}
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 9: EXTERNAL POS INTEGRATIONS
+         ───────────────────────────────────────────────────────────── */}
       {activeTab === 'integrations' && (
-        <form onSubmit={handleSaveIntegrations} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h3 className="font-display text-lg font-bold text-slate-900">
-                External POS Provider Integration
-              </h3>
+              <h3 className="font-display text-lg font-bold text-slate-900">External POS Bridge (Petpooja & UrbanPiper)</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Bi-directional sync bridge with Petpooja or UrbanPiper.
+                Two-way menu synchronization and live order dispatch into physical POS terminals.
               </p>
             </div>
+
             <button
-              type="submit"
-              disabled={updateSettingsMutation.isPending}
-              className="px-6 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400"
+              onClick={() =>
+                saveSettingsMutation.mutate({
+                  integrationConfig: {
+                    provider: integrationForm.provider,
+                    petpooja: {
+                      restId: integrationForm.petpoojaRestId,
+                      appKey: integrationForm.petpoojaAppKey,
+                      appSecret: integrationForm.petpoojaAppSecret,
+                    },
+                    urbanpiper: {
+                      storeId: integrationForm.urbanpiperStoreId,
+                      apiKey: integrationForm.urbanpiperApiKey,
+                    },
+                  },
+                })
+              }
+              disabled={saveSettingsMutation.isPending}
+              className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
             >
-              {updateSettingsMutation.isPending ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>Save Integrations</span>
+              {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+              <span>Save Integration Bridge</span>
             </button>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">POS Provider</label>
-              <select
-                value={integrationForm.provider}
-                onChange={(e) => setIntegrationForm({ ...integrationForm, provider: e.target.value })}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-500"
-              >
-                <option value="NONE">None (Standalone The Scan Menu Platform)</option>
-                <option value="PETPOOJA">Petpooja POS</option>
-                <option value="URBANPIPER">UrbanPiper Hub</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-[11px] font-bold text-slate-700">Select Integration Provider</label>
+            <select
+              value={integrationForm.provider}
+              onChange={(e) => setIntegrationForm({ ...integrationForm, provider: e.target.value })}
+              className="w-full sm:w-80 mt-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+            >
+              <option value="NONE">None (Standalone Cloud Mode)</option>
+              <option value="PETPOOJA">Petpooja POS Terminal</option>
+              <option value="URBANPIPER">UrbanPiper Hub</option>
+            </select>
+          </div>
 
-            {integrationForm.provider === 'PETPOOJA' && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+          {integrationForm.provider === 'PETPOOJA' && (
+            <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+              <span className="text-xs font-extrabold text-slate-900 flex items-center gap-2">
+                <Plug className="w-4 h-4 text-amber-500" />
+                <span>Petpooja API Configuration</span>
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Petpooja Rest ID</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">Rest ID *</label>
                   <input
                     type="text"
                     value={integrationForm.petpoojaRestId}
                     onChange={(e) => setIntegrationForm({ ...integrationForm, petpoojaRestId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                    className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">App Key</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">App Key *</label>
                   <input
                     type="text"
                     value={integrationForm.petpoojaAppKey}
                     onChange={(e) => setIntegrationForm({ ...integrationForm, petpoojaAppKey: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                    className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">App Secret</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">App Secret *</label>
                   <input
                     type="password"
                     value={integrationForm.petpoojaAppSecret}
                     onChange={(e) => setIntegrationForm({ ...integrationForm, petpoojaAppSecret: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                    className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono"
                   />
                 </div>
               </div>
-            )}
+
+              {/* Webhook Endpoint */}
+              <div className="mt-3 p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Petpooja Inbound Webhook URL:</span>
+                  <p className="text-xs font-mono font-bold text-slate-800 mt-0.5">
+                    https://api.thescanmenu.com/api/v1/pos/webhook/petpooja/{restaurant._id}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleCopy(`https://api.thescanmenu.com/api/v1/pos/webhook/petpooja/${restaurant._id}`, 'petpooja_webhook')}
+                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1"
+                >
+                  {copiedKey === 'petpooja_webhook' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === 'petpooja_webhook' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODALS
+         ───────────────────────────────────────────────────────────── */}
+
+      {/* Single Table Modal */}
+      {showAddTableModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Dining Table</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Table Number *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1, 10, A1"
+                  value={singleTableData.tableNumber}
+                  onChange={(e) => setSingleTableData({ ...singleTableData, tableNumber: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Display Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Table 1, Balcony Corner"
+                  value={singleTableData.displayName}
+                  onChange={(e) => setSingleTableData({ ...singleTableData, displayName: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Floor Zone (Optional)</label>
+                <select
+                  value={singleTableData.zoneId}
+                  onChange={(e) => setSingleTableData({ ...singleTableData, zoneId: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                >
+                  <option value="">No Zone</option>
+                  {zonesList.map((z: any) => (
+                    <option key={z._id} value={z._id}>{z.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => setShowAddTableModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createTableMutation.mutate(singleTableData)}
+                disabled={!singleTableData.tableNumber || createTableMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Create Table
+              </button>
+            </div>
           </div>
-        </form>
+        </div>
+      )}
+
+      {/* Bulk Tables Modal */}
+      {showBulkTableModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Bulk Generate Tables</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">How many tables to generate? (1-50)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={bulkTableData.count}
+                  onChange={(e) => setBulkTableData({ ...bulkTableData, count: Number(e.target.value) })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Table Prefix</label>
+                <input
+                  type="text"
+                  placeholder="e.g. T (creates T1, T2, ... T10)"
+                  value={bulkTableData.prefix}
+                  onChange={(e) => setBulkTableData({ ...bulkTableData, prefix: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Floor Zone (Optional)</label>
+                <select
+                  value={bulkTableData.zoneId}
+                  onChange={(e) => setBulkTableData({ ...bulkTableData, zoneId: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                >
+                  <option value="">No Zone</option>
+                  {zonesList.map((z: any) => (
+                    <option key={z._id} value={z._id}>{z.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => setShowBulkTableModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => bulkCreateTablesMutation.mutate(bulkTableData)}
+                disabled={bulkCreateTablesMutation.isPending}
+                className="px-4 py-2 bg-amber-500 text-slate-950 font-extrabold rounded-xl text-xs"
+              >
+                Generate {bulkTableData.count} Tables
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Zone Modal */}
+      {showAddZoneModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Floor Zone</h3>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">Zone Name *</label>
+              <input
+                type="text"
+                placeholder="e.g. Ground Floor, AC Dining, Rooftop, Bar"
+                value={zoneData.name}
+                onChange={(e) => setZoneData({ name: e.target.value })}
+                className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => setShowAddZoneModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createZoneMutation.mutate(zoneData)}
+                disabled={!zoneData.name || createZoneMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Save Zone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Menu Category</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Category Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Starters, Main Course, Beverages"
+                  value={categoryData.name}
+                  onChange={(e) => setCategoryData({ ...categoryData, name: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Description (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Short category description"
+                  value={categoryData.description}
+                  onChange={(e) => setCategoryData({ ...categoryData, description: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => setShowAddCategoryModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createCategoryMutation.mutate(categoryData)}
+                disabled={!categoryData.name || createCategoryMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Create Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Dish Modal */}
+      {showAddDishModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Menu Dish</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Dish Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Paneer Butter Masala"
+                  value={dishData.name}
+                  onChange={(e) => setDishData({ ...dishData, name: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700">Category *</label>
+                  <select
+                    value={dishData.categoryId}
+                    onChange={(e) => setDishData({ ...dishData, categoryId: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                  >
+                    <option value="">Select Category</option>
+                    {categoriesList.map((cat: Category) => (
+                      <option key={cat._id} value={cat._id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700">Price (₹) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="250"
+                    value={dishData.price || ''}
+                    onChange={(e) => setDishData({ ...dishData, price: Number(e.target.value) })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Description</label>
+                <input
+                  type="text"
+                  placeholder="Ingredients and culinary style"
+                  value={dishData.description}
+                  onChange={(e) => setDishData({ ...dishData, description: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Image URL (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="https://example.com/dish.jpg"
+                  value={dishData.imageUrl}
+                  onChange={(e) => setDishData({ ...dishData, imageUrl: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div className="flex items-center gap-4 pt-1">
+                <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer text-emerald-700">
+                  <input
+                    type="checkbox"
+                    checked={dishData.isVegetarian}
+                    onChange={(e) => setDishData({ ...dishData, isVegetarian: e.target.checked })}
+                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>Pure Veg</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer text-rose-700">
+                  <input
+                    type="checkbox"
+                    checked={dishData.isSpicy}
+                    onChange={(e) => setDishData({ ...dishData, isSpicy: e.target.checked })}
+                    className="rounded text-rose-600 focus:ring-rose-500"
+                  />
+                  <span>Spicy</span>
+                </label>
+
+                <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer text-amber-700">
+                  <input
+                    type="checkbox"
+                    checked={dishData.isChefsSpecial}
+                    onChange={(e) => setDishData({ ...dishData, isChefsSpecial: e.target.checked })}
+                    className="rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <span>Chef's Special</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                onClick={() => setShowAddDishModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createDishMutation.mutate(dishData)}
+                disabled={!dishData.name || !dishData.categoryId || createDishMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Add Dish to Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Tax Modal */}
+      {showAddTaxModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Tax Configuration</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Tax Type</label>
+                <select
+                  value={taxData.type}
+                  onChange={(e) => setTaxData({ ...taxData, type: e.target.value as any })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                >
+                  <option value="TAX">Standalone Tax (e.g. VAT, Service Charge)</option>
+                  <option value="GROUP">Tax Group (e.g. GST Group)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Tax Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. CGST, SGST, VAT"
+                  value={taxData.name}
+                  onChange={(e) => setTaxData({ ...taxData, name: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Percentage (%) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={taxData.percentage}
+                  onChange={(e) => setTaxData({ ...taxData, percentage: Number(e.target.value) })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => setShowAddTaxModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createTaxMutation.mutate(taxData)}
+                disabled={!taxData.name || createTaxMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Create Tax
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Staff Modal */}
+      {showAddStaffModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Add Staff Member</h3>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  value={staffData.name}
+                  onChange={(e) => setStaffData({ ...staffData, name: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Email Address *</label>
+                <input
+                  type="email"
+                  placeholder="staff@restaurant.com"
+                  value={staffData.email}
+                  onChange={(e) => setStaffData({ ...staffData, email: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700">Login Password *</label>
+                <input
+                  type="password"
+                  placeholder="Temporary password"
+                  value={staffData.password}
+                  onChange={(e) => setStaffData({ ...staffData, password: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700">Role</label>
+                  <select
+                    value={staffData.role}
+                    onChange={(e) => setStaffData({ ...staffData, role: e.target.value as any })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                  >
+                    <option value="MANAGER">Manager</option>
+                    <option value="WAITER">Captain / Waiter</option>
+                    <option value="KITCHEN">Kitchen Staff</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700">Captain PIN (4 Digits)</label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    placeholder="1234"
+                    value={staffData.pin}
+                    onChange={(e) => setStaffData({ ...staffData, pin: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-center"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => setShowAddStaffModal(false)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createStaffMutation.mutate(staffData)}
+                disabled={!staffData.name || !staffData.email || !staffData.password || createStaffMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <h3 className="font-display text-lg font-bold text-slate-900">Reset Staff Password</h3>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700">New Password *</label>
+              <input
+                type="password"
+                placeholder="Enter new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3">
+              <button
+                onClick={() => {
+                  setShowResetPasswordModal(null);
+                  setNewPassword('');
+                }}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => resetPasswordMutation.mutate({ userId: showResetPasswordModal, password: newPassword })}
+                disabled={!newPassword || resetPasswordMutation.isPending}
+                className="px-4 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                Update Password
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

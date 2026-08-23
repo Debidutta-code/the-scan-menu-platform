@@ -129,6 +129,18 @@ export interface MenuItem {
   updatedAt: string;
 }
 
+export interface Category {
+  _id: string;
+  restaurantId?: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface PublicCategory {
   _id: string;
   name: string;
@@ -233,6 +245,16 @@ export const adminService = {
     return res.data;
   },
 
+  async seedDemoMenu(id: string) {
+    const res = await apiClient.post(`/admin/restaurants/${id}/seed-demo-menu`);
+    return res.data;
+  },
+
+  async applyTaxPreset(id: string, preset: 'GST_5' | 'GST_18' | 'VAT_10' | 'NONE') {
+    const res = await apiClient.post(`/admin/restaurants/${id}/apply-tax-preset`, { preset });
+    return res.data;
+  },
+
   async editRestaurant(id: string, data: Partial<Restaurant>) {
     const res = await apiClient.patch(`/admin/restaurants/${id}`, data);
     return res.data;
@@ -324,6 +346,18 @@ export const managerService = {
     return res.data;
   },
 
+  // Menu Categories & Items
+  async listCategories(restaurantId: string) {
+    const res = await apiClient.get(`/restaurants/${restaurantId}/categories`);
+    return res.data;
+  },
+
+  async listMenuItems(restaurantId: string) {
+    const res = await apiClient.get(`/restaurants/${restaurantId}/menu-items`);
+    return res.data;
+  },
+
+  // Tables
   async listTables(restaurantId: string) {
     const res = await apiClient.get(`/restaurants/${restaurantId}/tables`);
     return res.data;
