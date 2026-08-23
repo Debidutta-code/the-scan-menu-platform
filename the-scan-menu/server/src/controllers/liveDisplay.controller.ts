@@ -79,6 +79,8 @@ export class LiveDisplayController {
         };
       });
 
+      const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
+
       sendSuccess(
         res,
         {
@@ -89,6 +91,7 @@ export class LiveDisplayController {
             logoUrl: (settings as any)?.branding?.logoUrl || (restaurant as any).logoUrl || null,
             bannerUrl: (settings as any)?.branding?.bannerUrl || null,
             currency: (settings as any)?.currency || (restaurant as any).currency || 'INR',
+            orderWorkflowMode: workflowMode,
           },
           orders: sanitizedOrders,
         },

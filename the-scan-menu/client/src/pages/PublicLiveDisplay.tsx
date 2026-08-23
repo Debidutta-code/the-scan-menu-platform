@@ -23,6 +23,7 @@ import {
   Moon,
   Sun,
   BellRing,
+  Info,
 } from 'lucide-react';
 
 interface DisplayOrder {
@@ -45,6 +46,7 @@ interface DisplayData {
     logoUrl: string | null;
     bannerUrl: string | null;
     currency: string;
+    orderWorkflowMode?: 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP';
   };
   orders: DisplayOrder[];
 }
@@ -184,6 +186,9 @@ export const PublicLiveDisplay: React.FC = () => {
   });
 
   const displayData = displayResponse?.data;
+  const workflowMode = displayData?.restaurant?.orderWorkflowMode || 'FIVE_STEP';
+  const isThreeStepWorkflow = workflowMode === 'THREE_STEP';
+
   const orders = useMemo(() => displayData?.orders || [], [displayData?.orders]);
 
   // Separate preparing and ready orders
@@ -552,9 +557,13 @@ export const PublicLiveDisplay: React.FC = () => {
       </header>
 
       {/* ==================================================================== */}
-      {/* 2. DUAL COLUMN LIVE DISPLAY BOARD (Maximized Height & Area)         */}
+      {/* 2. DUAL COLUMN OR SINGLE COLUMN ADAPTIVE LIVE BOARD                  */}
       {/* ==================================================================== */}
-      <main className="flex-1 p-3.5 md:p-4 lg:p-5 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5 min-h-0 overflow-hidden">
+      <main
+        className={`flex-1 p-3.5 md:p-4 lg:p-5 grid gap-4 lg:gap-5 min-h-0 overflow-hidden ${
+          isThreeStepWorkflow ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
+        }`}
+      >
         {/* ========================================= */}
         {/* COLUMN 1: PREPARING (IN KITCHEN)          */}
         {/* ========================================= */}
@@ -584,19 +593,36 @@ export const PublicLiveDisplay: React.FC = () => {
                     isDarkMode ? 'text-amber-400/80' : 'text-amber-800'
                   }`}
                 >
-                  Fresh dishes being cooked
+                  {isThreeStepWorkflow
+                    ? 'Orders being freshly prepared • Served directly to table once ready'
+                    : 'Fresh dishes being cooked right now'}
                 </p>
               </div>
             </div>
-            <span
-              className={`text-xs font-black font-mono px-3 py-1 rounded-lg shadow-2xs ${
-                isDarkMode
-                  ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
-                  : 'bg-amber-100 text-amber-900 border border-amber-300'
-              }`}
-            >
-              {preparingOrders.length} in progress
-            </span>
+            <div className="flex items-center gap-2">
+              {isThreeStepWorkflow && (
+                <span
+                  className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border ${
+                    isDarkMode
+                      ? 'bg-slate-800/80 text-slate-300 border-slate-700'
+                      : 'bg-white/80 text-slate-600 border-slate-200'
+                  }`}
+                  title="3-Step Dine-In Workflow: Orders are served directly after preparation"
+                >
+                  <Info className="w-3 h-3 text-amber-500" />
+                  <span>Direct Table Serving</span>
+                </span>
+              )}
+              <span
+                className={`text-xs font-black font-mono px-3 py-1 rounded-lg shadow-2xs ${
+                  isDarkMode
+                    ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                    : 'bg-amber-100 text-amber-900 border border-amber-300'
+                }`}
+              >
+                {preparingOrders.length} in progress
+              </span>
+            </div>
           </div>
 
           {/* Preparing Orders Cards Grid */}
@@ -627,7 +653,13 @@ export const PublicLiveDisplay: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              <div
+                className={`grid gap-3.5 ${
+                  isThreeStepWorkflow
+                    ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'
+                }`}
+              >
                 <AnimatePresence mode="popLayout">
                   {preparingOrders.map((order) => (
                     <motion.div
@@ -662,12 +694,12 @@ export const PublicLiveDisplay: React.FC = () => {
                           isDarkMode ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-500'
                         }`}
                       >
-                        <span className="flex items-center gap-1 font-medium">
+                        <span className="flex items-center gap-1 font-medium whitespace-nowrap">
                           <Clock className="w-3 h-3 text-amber-500 shrink-0" />
                           <span>{getElapsedMinutes(order.createdAt)}</span>
                         </span>
                         <span
-                          className={`font-mono font-bold px-2 py-0.5 rounded-md border text-[11px] ${
+                          className={`font-mono font-bold px-2 py-0.5 rounded-md border text-[11px] whitespace-nowrap ${
                             isDarkMode
                               ? 'bg-slate-800 text-slate-300 border-slate-700'
                               : 'bg-slate-100 text-slate-700 border-slate-200'
@@ -689,143 +721,145 @@ export const PublicLiveDisplay: React.FC = () => {
           </div>
         </section>
 
-        {/* ========================================= */}
-        {/* COLUMN 2: READY FOR PICKUP / SERVED       */}
-        {/* ========================================= */}
-        <section
-          className={`flex flex-col rounded-2xl p-4 md:p-5 shadow-xs relative overflow-hidden transition-colors duration-300 border-2 min-h-0 ${
-            isDarkMode
-              ? 'bg-[#112423]/90 border-emerald-500/30'
-              : 'bg-emerald-50/40 border-emerald-200/80'
-          }`}
-        >
-          {/* Column Header */}
-          <div
-            className={`flex items-center justify-between pb-3 mb-3 border-b shrink-0 ${
-              isDarkMode ? 'border-slate-800' : 'border-emerald-200/70'
+        {/* ==================================================================== */}
+        {/* COLUMN 2: READY FOR PICKUP (Only for 4-Step & 5-Step Workflows)     */}
+        {/* ==================================================================== */}
+        {!isThreeStepWorkflow && (
+          <section
+            className={`flex flex-col rounded-2xl p-4 md:p-5 shadow-xs relative overflow-hidden transition-colors duration-300 border-2 min-h-0 ${
+              isDarkMode
+                ? 'bg-[#112423]/90 border-emerald-500/30'
+                : 'bg-emerald-50/40 border-emerald-200/80'
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-slate-950" />
-              </div>
-              <div>
-                <h2 className="text-base md:text-lg lg:text-xl font-black uppercase tracking-tight leading-none flex items-center gap-1.5">
-                  <span>Ready for Pickup</span>
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                </h2>
-                <p
-                  className={`text-[11px] font-medium mt-0.5 ${
-                    isDarkMode ? 'text-emerald-400/80' : 'text-emerald-800'
-                  }`}
-                >
-                  Please collect or await serving
-                </p>
-              </div>
-            </div>
-            <span
-              className={`text-xs font-black font-mono px-3 py-1 rounded-lg shadow-2xs ${
-                isDarkMode
-                  ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
-                  : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+            {/* Column Header */}
+            <div
+              className={`flex items-center justify-between pb-3 mb-3 border-b shrink-0 ${
+                isDarkMode ? 'border-slate-800' : 'border-emerald-200/70'
               }`}
             >
-              {readyOrders.length} ready now
-            </span>
-          </div>
-
-          {/* Ready Orders Cards Grid */}
-          <div className="flex-1 overflow-y-auto pr-1">
-            {isLoading ? (
-              <div className="h-48 flex flex-col items-center justify-center space-y-2">
-                <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
-                <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                  Loading queue...
-                </span>
-              </div>
-            ) : readyOrders.length === 0 ? (
-              <div
-                className={`h-full min-h-[160px] flex flex-col items-center justify-center text-center space-y-2 rounded-xl border-2 border-dashed p-6 ${
-                  isDarkMode
-                    ? 'bg-slate-900/40 border-slate-800 text-slate-500'
-                    : 'bg-white/60 border-emerald-200/80 text-slate-400'
-                }`}
-              >
-                <Sparkles className="w-8 h-8 opacity-40 text-emerald-500" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-slate-950" />
+                </div>
                 <div>
-                  <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                    No Pickup Orders Waiting
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-xs">
-                    Cooked orders ready for collection will be called here.
+                  <h2 className="text-base md:text-lg lg:text-xl font-black uppercase tracking-tight leading-none flex items-center gap-1.5">
+                    <span>Ready for Pickup</span>
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                  </h2>
+                  <p
+                    className={`text-[11px] font-medium mt-0.5 ${
+                      isDarkMode ? 'text-emerald-400/80' : 'text-emerald-800'
+                    }`}
+                  >
+                    Please collect or await serving
                   </p>
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                <AnimatePresence mode="popLayout">
-                  {readyOrders.map((order) => {
-                    const isRecentlyReady = recentlyReadyIds.has(order.id);
-                    const tableLabel = formatTableName(order.tableName);
-                    const locationText =
-                      order.orderType === 'TAKEAWAY'
-                        ? 'Takeaway Ready'
-                        : order.orderType === 'DELIVERY'
-                        ? 'Delivery Ready'
-                        : tableLabel;
+              <span
+                className={`text-xs font-black font-mono px-3 py-1 rounded-lg shadow-2xs ${
+                  isDarkMode
+                    ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
+                    : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                }`}
+              >
+                {readyOrders.length} ready now
+              </span>
+            </div>
 
-                    return (
-                      <motion.div
-                        key={order.id}
-                        initial={{ opacity: 0, scale: 0.85, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ duration: 0.25 }}
-                        className={`p-4 rounded-xl border-2 flex flex-col justify-between gap-3 relative overflow-hidden transition-all duration-300 shadow-sm ${
-                          isRecentlyReady
-                            ? 'border-emerald-400 shadow-xl ring-2 ring-emerald-400/40'
-                            : isDarkMode
-                            ? 'bg-[#152928] border-emerald-500/40 hover:border-emerald-400 hover:shadow-md'
-                            : 'bg-white border-emerald-300 hover:border-emerald-400 hover:shadow-md'
-                        }`}
-                      >
-                        {/* Top Row: Big Calling Token & Table Badge */}
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-3xl lg:text-4xl font-black font-mono tracking-tight text-emerald-500 drop-shadow-xs">
-                            {order.displayToken}
-                          </span>
-                          {renderOrderTypeBadge(order)}
-                        </div>
+            {/* Ready Orders Cards Grid */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {isLoading ? (
+                <div className="h-48 flex flex-col items-center justify-center space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
+                  <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Loading queue...
+                  </span>
+                </div>
+              ) : readyOrders.length === 0 ? (
+                <div
+                  className={`h-full min-h-[160px] flex flex-col items-center justify-center text-center space-y-2 rounded-xl border-2 border-dashed p-6 ${
+                    isDarkMode
+                      ? 'bg-slate-900/40 border-slate-800 text-slate-500'
+                      : 'bg-white/60 border-emerald-200/80 text-slate-400'
+                  }`}
+                >
+                  <Sparkles className="w-8 h-8 opacity-40 text-emerald-500" />
+                  <div>
+                    <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      No Pickup Orders Waiting
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5 max-w-xs">
+                      Cooked orders ready for collection will be called here.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                  <AnimatePresence mode="popLayout">
+                    {readyOrders.map((order) => {
+                      const isRecentlyReady = recentlyReadyIds.has(order.id);
+                      const tableLabel = formatTableName(order.tableName);
+                      const locationText =
+                        order.orderType === 'TAKEAWAY'
+                          ? 'Takeaway'
+                          : order.orderType === 'DELIVERY'
+                          ? 'Delivery'
+                          : tableLabel;
 
-                        {/* Status calling banner */}
-                        <div className="flex items-center justify-between text-xs font-extrabold text-white bg-emerald-600 px-3 py-1.5 rounded-lg shadow-2xs">
-                          <span className="flex items-center gap-1.5 min-w-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
-                            <span className="truncate">{locationText}</span>
-                          </span>
-                          <span className="text-[10px] font-mono text-emerald-100 font-medium whitespace-nowrap pl-1.5">
-                            {getElapsedMinutes(order.updatedAt)}
-                          </span>
-                        </div>
-
-                        {/* Glowing Emerald Top Highlight Bar */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
-
-                        {/* Calling Notification Pill for New Orders */}
-                        {isRecentlyReady && (
-                          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-amber-400 text-slate-950 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-md animate-bounce">
-                            <BellRing className="w-2.5 h-2.5" />
-                            <span>Calling</span>
+                      return (
+                        <motion.div
+                          key={order.id}
+                          initial={{ opacity: 0, scale: 0.85, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ duration: 0.25 }}
+                          className={`p-4 rounded-xl border-2 flex flex-col justify-between gap-3 relative overflow-hidden transition-all duration-300 shadow-sm ${
+                            isRecentlyReady
+                              ? 'border-emerald-400 shadow-xl ring-2 ring-emerald-400/40'
+                              : isDarkMode
+                              ? 'bg-[#152928] border-emerald-500/40 hover:border-emerald-400 hover:shadow-md'
+                              : 'bg-white border-emerald-300 hover:border-emerald-400 hover:shadow-md'
+                          }`}
+                        >
+                          {/* Top Row: Big Calling Token & Table Badge */}
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-3xl lg:text-4xl font-black font-mono tracking-tight text-emerald-500 drop-shadow-xs">
+                              {order.displayToken}
+                            </span>
+                            {renderOrderTypeBadge(order)}
                           </div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        </section>
+
+                          {/* Status calling banner (no awkward truncation) */}
+                          <div className="flex items-center justify-between text-xs font-extrabold text-white bg-emerald-600 px-3 py-1.5 rounded-lg shadow-2xs gap-2">
+                            <span className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping shrink-0" />
+                              <span className="truncate">{locationText}</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-100 font-medium whitespace-nowrap shrink-0">
+                              {getElapsedMinutes(order.updatedAt)}
+                            </span>
+                          </div>
+
+                          {/* Glowing Emerald Top Highlight Bar */}
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
+
+                          {/* Calling Notification Pill for New Orders */}
+                          {isRecentlyReady && (
+                            <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-amber-400 text-slate-950 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-md animate-bounce">
+                              <BellRing className="w-2.5 h-2.5" />
+                              <span>Calling</span>
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* ==================================================================== */}
