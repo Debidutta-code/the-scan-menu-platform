@@ -10,6 +10,7 @@ import { auditLogService } from '../services/auditLog.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { EmailService } from '../services/email.service';
 import { restaurantProvisioningService } from '../services/restaurantProvisioning.service';
+import { outletSetupAuditService } from '../services/outletSetupAudit.service';
 import { counterService } from '../services/counter.service';
 import { logger } from '../utils/logger';
 import config from '../config';
@@ -29,6 +30,8 @@ export class AdminController {
   constructor() {
     this.provisionRestaurant = this.provisionRestaurant.bind(this);
     this.getOnboardingProgress = this.getOnboardingProgress.bind(this);
+    this.getOutletSetupAudit = this.getOutletSetupAudit.bind(this);
+    this.updateOutletSettings = this.updateOutletSettings.bind(this);
     this.createRestaurant = this.createRestaurant.bind(this);
     this.listRestaurants = this.listRestaurants.bind(this);
     this.getRestaurant = this.getRestaurant.bind(this);
@@ -86,6 +89,75 @@ export class AdminController {
       const { id } = req.params;
       const onboarding = await restaurantProvisioningService.getOnboardingProgress(id);
       sendSuccess(res, onboarding, 'Restaurant onboarding progress retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getOutletSetupAudit(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const audit = await outletSetupAuditService.auditOutlet(id);
+      sendSuccess(res, audit, 'Outlet setup audit completed successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateOutletSettings(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      const restaurant = await Restaurant.findById(id);
+      if (!restaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
+        return;
+      }
+
+      // 1. Update Restaurant Entity Fields if provided
+      const restFields: any = {};
+      if (updateData.name) restFields.name = updateData.name.trim();
+      if (updateData.slug) restFields.slug = slugify(updateData.slug);
+      if (updateData.phone !== undefined) restFields.phone = updateData.phone;
+      if (updateData.email !== undefined) restFields.email = updateData.email;
+      if (updateData.address !== undefined) restFields.address = updateData.address;
+      if (updateData.description !== undefined) restFields.description = updateData.description;
+      if (updateData.logoUrl !== undefined) restFields.logoUrl = updateData.logoUrl;
+      if (updateData.coverImageUrl !== undefined) restFields.coverImageUrl = updateData.coverImageUrl;
+
+      if (Object.keys(restFields).length > 0) {
+        await Restaurant.findByIdAndUpdate(id, restFields, { new: true });
+      }
+
+      // 2. Update or Upsert RestaurantSettings
+      let settings = await RestaurantSettings.findOne({ restaurantId: id });
+      if (!settings) {
+        settings = new RestaurantSettings({ restaurantId: id });
+      }
+
+      if (updateData.theme) settings.theme = { ...settings.theme, ...updateData.theme };
+      if (updateData.currency) settings.currency = updateData.currency;
+      if (updateData.timezone) settings.timezone = updateData.timezone;
+      if (updateData.taxRatePercent !== undefined) settings.paymentConfig.taxRatePercent = updateData.taxRatePercent;
+      if (updateData.paymentMethods) settings.paymentConfig.paymentMethods = { ...settings.paymentConfig.paymentMethods, ...updateData.paymentMethods };
+      if (updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
+      if (updateData.integrationConfig) settings.paymentConfig.integrationConfig = updateData.integrationConfig;
+      if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
+      if (updateData.orderWorkflowMode) settings.workflow.orderWorkflowMode = updateData.orderWorkflowMode;
+      if (updateData.autoAcceptConfig) settings.workflow.autoAcceptConfig = updateData.autoAcceptConfig;
+      if (updateData.timings) settings.timings = updateData.timings;
+      if (updateData.googleReviewUrl !== undefined) settings.branding.googleReviewUrl = updateData.googleReviewUrl;
+      if (updateData.whatsapp !== undefined) settings.branding.whatsapp = updateData.whatsapp;
+      if (updateData.socialLinks) settings.branding.socialLinks = { ...settings.branding.socialLinks, ...updateData.socialLinks };
+      if (updateData.printerConfig) settings.printerConfig = { ...(settings.printerConfig || {}), ...updateData.printerConfig };
+
+      await settings.save();
+
+      // Recalculate audit
+      const audit = await outletSetupAuditService.auditOutlet(id);
+
+      sendSuccess(res, { settings, audit }, 'Outlet settings and profile updated successfully');
     } catch (error) {
       next(error);
     }

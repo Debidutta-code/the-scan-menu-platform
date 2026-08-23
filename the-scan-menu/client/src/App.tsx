@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminRestaurants from './pages/AdminRestaurants';
 import AdminRestaurantDetail from './pages/AdminRestaurantDetail';
 import AdminProvision from './pages/AdminProvision';
+import AdminSetupHub from './pages/AdminSetupHub';
 import AdminSubscriptions from './pages/AdminSubscriptions';
 import AdminPOSIntegrations from './pages/AdminPOSIntegrations';
 import AdminPaymentGateways from './pages/AdminPaymentGateways';
@@ -110,6 +111,7 @@ export const App = () => {
               <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
                 <Route element={<AdminLayout />}>
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin/setup-hub" element={<AdminSetupHub />} />
                   <Route path="/admin/restaurants" element={<AdminRestaurants />} />
                   <Route path="/admin/restaurants/provision" element={<AdminProvision />} />
                   <Route path="/admin/restaurants/:id" element={<AdminRestaurantDetail />} />

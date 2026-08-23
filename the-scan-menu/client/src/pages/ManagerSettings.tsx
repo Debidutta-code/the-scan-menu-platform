@@ -10,7 +10,6 @@ import {
   AlertCircle,
   GitBranch,
   Timer,
-  ToggleLeft,
   CreditCard,
   Lock,
   Palette,
@@ -112,12 +111,11 @@ type TabType =
   | 'theme'
   | 'workflow'
   | 'notifications'
-  | 'social'
-  | 'feature_flags';
+  | 'social';
 
 export const ManagerSettings: React.FC = () => {
   const { user, activeRestaurantId } = useAuth();
-  const { flags, refreshFlags, isEnabled } = useFeatureFlags();
+  const { isEnabled } = useFeatureFlags();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canPromptDirectly, isInstalled, os, promptInstall } = usePWAInstall();
@@ -141,13 +139,6 @@ export const ManagerSettings: React.FC = () => {
   const hasActiveOrders = activeOrdersData?.success && activeOrdersData.data.length > 0;
 
   const [activeTab, setActiveTab] = useState<TabType>('general');
-  const [localFlags, setLocalFlags] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (flags) {
-      setLocalFlags(flags);
-    }
-  }, [flags]);
 
   // General Store Profile State
   const [name, setName] = useState('');
@@ -346,23 +337,6 @@ export const ManagerSettings: React.FC = () => {
     },
   });
 
-  // Feature flags mutation
-  const updateFlagsMutation = useMutation({
-    mutationFn: async (updatedFlags: { key: string; enabled: boolean }[]) => {
-      const { data } = await apiClient.patch(`/restaurants/${(user as any)?.restaurantId}/feature-flags`, {
-        flags: updatedFlags,
-      });
-      return data.data;
-    },
-    onSuccess: () => {
-      toast('Feature flags updated successfully!', 'success');
-      refreshFlags();
-    },
-    onError: (error: any) => {
-      toast(error.response?.data?.message || 'Failed to update feature flags', 'error');
-    },
-  });
-
   // Individual Section Submit Handlers
   const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
@@ -528,18 +502,6 @@ export const ManagerSettings: React.FC = () => {
     });
   };
 
-  const handleFlagChange = (key: string, enabled: boolean) => {
-    setLocalFlags((prev) => ({ ...prev, [key]: enabled }));
-  };
-
-  const handleSaveFlags = () => {
-    const updatedFlagsArray = Object.keys(localFlags).map((key) => ({
-      key,
-      enabled: localFlags[key],
-    }));
-    updateFlagsMutation.mutate(updatedFlagsArray);
-  };
-
   if (!activeRestaurantId) {
     return (
       <div className="min-h-[40vh] flex flex-col items-center justify-center p-6 text-center">
@@ -566,13 +528,6 @@ export const ManagerSettings: React.FC = () => {
     { id: 'workflow', label: 'Order Workflow', icon: <GitBranch className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('ordering') },
     { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('ordering') || isEnabled('waiter_call') || isEnabled('kds') },
     { id: 'social', label: 'Social Channels', icon: <Globe className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('marketing') || isEnabled('crm') },
-    {
-      id: 'feature_flags',
-      label: 'Feature Flags',
-      icon: <ToggleLeft className="w-4 h-4 text-indigo-500" strokeWidth={1.75} />,
-      badge: 'SuperAdmin',
-      show: user?.role === 'SUPER_ADMIN',
-    },
   ];
 
   const filteredTabs = tabsNav.filter((t) => t.show !== false);
@@ -2378,60 +2333,6 @@ export const ManagerSettings: React.FC = () => {
                 </button>
               </div>
             </form>
-          )}
-
-          {/* TAB 7: FEATURE FLAGS (SUPER ADMIN ONLY) */}
-          {activeTab === 'feature_flags' && user?.role === 'SUPER_ADMIN' && (
-            <div className="bg-white rounded-3xl border border-slate-150 p-6 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <ToggleLeft className="w-5 h-5 text-indigo-600" strokeWidth={1.75} />
-                    <span>Restaurant Feature Flags (Super Admin)</span>
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">Granularly enable or disable platform capabilities for this outlet.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSaveFlags}
-                  disabled={updateFlagsMutation.isPending}
-                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:opacity-50"
-                >
-                  {updateFlagsMutation.isPending ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>Save Flags</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.keys(localFlags).map((key) => (
-                  <label
-                    key={key}
-                    className="relative flex items-start p-4 cursor-pointer rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center h-5">
-                      <input
-                        type="checkbox"
-                        checked={localFlags[key] || false}
-                        onChange={(e) => handleFlagChange(key, e.target.checked)}
-                        className="w-4 h-4 text-amber-600 border-slate-300 rounded focus:ring-amber-500 cursor-pointer"
-                      />
-                    </div>
-                    <div className="ml-3 text-xs">
-                      <span className="font-bold text-slate-900 block truncate" title={key}>
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </span>
-                      <span className="text-slate-500 text-[10px] mt-0.5 block font-mono bg-slate-100 px-1.5 py-0.5 rounded truncate">
-                        {key}
-                      </span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
           )}
         </main>
       </div>

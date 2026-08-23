@@ -143,6 +143,50 @@ export interface PublicResolutionResponse {
   table: Table;
 }
 
+export interface SetupStep {
+  id: string;
+  category: 'CORE' | 'DINING' | 'CATALOG' | 'BILLING' | 'HARDWARE' | 'FEATURE_REQUIREMENT';
+  title: string;
+  description: string;
+  isCompleted: boolean;
+  isRequired: boolean;
+  weight: number;
+  actionTab?: string;
+  actionLabel?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface MissingFeatureSetup {
+  featureKey: string;
+  featureName: string;
+  missingRequirements: string[];
+  actionTab: string;
+  actionLabel: string;
+}
+
+export interface OutletSetupAuditResult {
+  restaurantId: string;
+  restaurantName: string;
+  restaurantSlug: string;
+  overallPercentage: number;
+  isReadyForService: boolean;
+  totalSteps: number;
+  completedSteps: number;
+  steps: SetupStep[];
+  missingFeatureSetups: MissingFeatureSetup[];
+  featureReadiness: Record<string, { isEnabled: boolean; isReady: boolean; reason?: string }>;
+  summary: {
+    tablesCount: number;
+    categoriesCount: number;
+    menuItemsCount: number;
+    taxesConfigured: boolean;
+    paymentsConfigured: boolean;
+    printerConfigured: boolean;
+    brandingConfigured: boolean;
+    managerActive: boolean;
+  };
+}
+
 export const adminService = {
   async getPlatformStats() {
     const res = await apiClient.get('/admin/stats');
@@ -176,6 +220,16 @@ export const adminService = {
 
   async getOnboardingProgress(id: string) {
     const res = await apiClient.get(`/admin/restaurants/${id}/onboarding`);
+    return res.data;
+  },
+
+  async getOutletSetupAudit(id: string) {
+    const res = await apiClient.get(`/admin/restaurants/${id}/setup-audit`);
+    return res.data;
+  },
+
+  async updateOutletSettings(id: string, data: any) {
+    const res = await apiClient.patch(`/admin/restaurants/${id}/settings`, data);
     return res.data;
   },
 

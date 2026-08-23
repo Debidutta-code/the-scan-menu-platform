@@ -19,10 +19,10 @@ import {
   LayoutGrid,
   Store,
   Layers,
-  Eye,
   Trash2,
   AlertTriangle,
   LogIn,
+  Settings,
 } from 'lucide-react';
 
 const restaurantSchema = z.object({
@@ -429,24 +429,24 @@ export const AdminRestaurants: React.FC = () => {
                     <div className="border-t border-slate-100 pt-3 mt-4 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
+                          onClick={() => navigate(`/admin/restaurants/${rest._id}`)}
+                          className="flex items-center gap-1 text-slate-950 font-bold bg-amber-400 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition shadow-xs"
+                          title="Open Outlet Setup Hub & Configuration"
+                        >
+                          <Settings className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span>Setup Hub</span>
+                        </button>
+
+                        <button
                           onClick={() => {
                             impersonateOutlet({ id: rest._id, name: rest.name, slug: rest.slug });
                             navigate('/manager/orders');
                           }}
-                          className="flex items-center gap-1 text-slate-950 font-bold bg-amber-400 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition shadow-sm"
-                          title="Manage Outlet as SuperAdmin"
+                          className="flex items-center gap-1 text-slate-800 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition"
+                          title="Open Live Manager View"
                         >
-                          <LogIn className="w-3.5 h-3.5" strokeWidth={2} />
-                          <span>Impersonate</span>
-                        </button>
-
-                        <button
-                          onClick={() => navigate(`/admin/restaurants/${rest._id}`)}
-                          className="flex items-center gap-1 text-slate-800 hover:text-slate-900 bg-slate-100 px-2 py-1 rounded-lg transition"
-                          title="View Details"
-                        >
-                          <Eye className="w-3.5 h-3.5" strokeWidth={1.75} />
-                          <span>Details</span>
+                          <LogIn className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          <span>Manager View</span>
                         </button>
 
                         <button

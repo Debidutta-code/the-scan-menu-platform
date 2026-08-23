@@ -16,6 +16,7 @@ import {
   X,
   Plug,
   Clock,
+  Settings,
 } from 'lucide-react';
 
 export const AdminLayout: React.FC = () => {
@@ -28,6 +29,8 @@ export const AdminLayout: React.FC = () => {
 
   const activeTab = currentPath.startsWith('/admin/dashboard')
     ? 'dashboard'
+    : currentPath === '/admin/setup-hub'
+    ? 'setup-hub'
     : currentPath === '/admin/restaurants/provision'
     ? 'provision'
     : currentPath.startsWith('/admin/restaurants')
@@ -51,6 +54,8 @@ export const AdminLayout: React.FC = () => {
   const pageTitle =
     activeTab === 'dashboard'
       ? 'Platform Command Center'
+      : activeTab === 'setup-hub'
+      ? 'Outlet Onboarding & Setup Hub'
       : activeTab === 'restaurants'
       ? 'Tenants Directory'
       : activeTab === 'provision'
@@ -103,6 +108,24 @@ export const AdminLayout: React.FC = () => {
           >
             <LayoutGrid className="w-4 h-4" strokeWidth={1.75} />
             <span>Dashboard</span>
+          </button>
+
+          {/* Outlet Setup & Onboarding Hub */}
+          <button
+            onClick={() => navigate('/admin/setup-hub')}
+            className={`flex items-center justify-between w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'setup-hub'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Settings className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+              <span>Setup Hub</span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-amber-400 text-slate-950">
+              Audit
+            </span>
           </button>
 
           {/* Tenants Directory */}
@@ -302,6 +325,10 @@ export const AdminLayout: React.FC = () => {
             </div>
             <div className="space-y-2 flex-1 overflow-y-auto text-xs font-bold">
               <button onClick={() => { navigate('/admin/dashboard'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Dashboard</button>
+              <button onClick={() => { navigate('/admin/setup-hub'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 font-extrabold flex items-center justify-between text-amber-700">
+                <span>Setup & Onboarding Hub</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono">Audit</span>
+              </button>
               <button onClick={() => { navigate('/admin/restaurants'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Tenants Directory</button>
               <button onClick={() => { navigate('/admin/restaurants/provision'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl bg-amber-50 text-amber-900 font-extrabold">Provision Outlet</button>
               <button onClick={() => { navigate('/admin/subscriptions'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Subscriptions</button>
