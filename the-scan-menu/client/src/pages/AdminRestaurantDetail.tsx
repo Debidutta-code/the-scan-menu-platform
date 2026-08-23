@@ -36,12 +36,24 @@ import {
   RotateCw,
   Receipt,
   KeyRound,
+  ChefHat,
+  Monitor,
+  Tv,
+  Bell,
+  Sliders,
+  ShoppingBag,
+  Volume2,
+  Clock,
+  Palette,
 } from 'lucide-react';
 
 type AdminTab =
   | 'checklist'
   | 'identity'
   | 'flags'
+  | 'kitchen'
+  | 'counter'
+  | 'customer'
   | 'billing'
   | 'tables'
   | 'menu'
@@ -150,6 +162,39 @@ export const AdminRestaurantDetail: React.FC = () => {
     timezone: 'Asia/Kolkata',
   });
 
+  // Kitchen Configuration Form State
+  const [kitchenForm, setKitchenForm] = useState({
+    orderWorkflowMode: 'FIVE_STEP' as 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP',
+    autoAcceptEnabled: false,
+    autoAcceptDelaySeconds: 0,
+    kdsSoundAlerts: true,
+    prepWarningThresholdMinutes: 15,
+    autoKotPrintOnBump: false,
+  });
+
+  // Counter POS Configuration Form State
+  const [counterForm, setCounterForm] = useState({
+    activeMode: 'HYBRID' as 'PREPAID' | 'POSTPAID' | 'HYBRID',
+    enableTableOrdering: true,
+    enableTakeaway: true,
+    enableDelivery: false,
+    minOrderAmount: 0,
+    allowSpecialInstructions: true,
+    quickCashButtons: true,
+    autoPrintOnCheckout: true,
+  });
+
+  // Customer Experience & Live Display Form State
+  const [customerForm, setCustomerForm] = useState({
+    displayItemImages: true,
+    enableDarkMode: false,
+    defaultLanguage: 'en',
+    allowWaiterCall: true,
+    allowBillRequest: true,
+    showEstimatedPrepTime: true,
+    liveDisplayAudioChime: true,
+  });
+
   const [billingForm, setBillingForm] = useState({
     taxRatePercent: 5,
     cash: true,
@@ -256,6 +301,36 @@ export const AdminRestaurantDetail: React.FC = () => {
         accentColor: s?.branding?.accentColor || '#F59E0B',
         currency: s?.currency || 'INR',
         timezone: s?.timezone || 'Asia/Kolkata',
+      });
+
+      setKitchenForm({
+        orderWorkflowMode: s?.workflow?.orderWorkflowMode || 'FIVE_STEP',
+        autoAcceptEnabled: s?.workflow?.autoAcceptConfig?.enabled ?? false,
+        autoAcceptDelaySeconds: s?.workflow?.autoAcceptConfig?.delaySeconds ?? 0,
+        kdsSoundAlerts: true,
+        prepWarningThresholdMinutes: 15,
+        autoKotPrintOnBump: false,
+      });
+
+      setCounterForm({
+        activeMode: s?.paymentConfig?.activeMode || 'HYBRID',
+        enableTableOrdering: s?.orderConfig?.enableTableOrdering ?? true,
+        enableTakeaway: s?.orderConfig?.enableTakeaway ?? true,
+        enableDelivery: s?.orderConfig?.enableDelivery ?? false,
+        minOrderAmount: s?.orderConfig?.minOrderAmount || 0,
+        allowSpecialInstructions: s?.orderConfig?.allowSpecialInstructions ?? true,
+        quickCashButtons: true,
+        autoPrintOnCheckout: true,
+      });
+
+      setCustomerForm({
+        displayItemImages: s?.uiSettings?.displayItemImages ?? true,
+        enableDarkMode: s?.uiSettings?.enableDarkMode ?? false,
+        defaultLanguage: s?.uiSettings?.defaultLanguage || 'en',
+        allowWaiterCall: true,
+        allowBillRequest: true,
+        showEstimatedPrepTime: true,
+        liveDisplayAudioChime: true,
       });
 
       setBillingForm({
@@ -772,7 +847,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5">
                       <ToggleRight className={`w-4 h-4 ${activeTab === 'flags' ? 'text-amber-400' : 'text-slate-400'}`} />
-                      <span>Feature Flags</span>
+                      <span>Feature Flags Matrix</span>
                     </div>
                     <span
                       className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
@@ -785,7 +860,63 @@ export const AdminRestaurantDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Group 3: Operations & Menu */}
+              {/* Group 3: Station Configurations (Kitchen, Counter, Customer) */}
+              <div>
+                <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
+                  Station Configurations
+                </span>
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    onClick={() => setActiveTab('kitchen')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'kitchen'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ChefHat className={`w-4 h-4 ${activeTab === 'kitchen' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Kitchen & KDS Engine</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
+                      {kitchenForm.orderWorkflowMode.replace('_', ' ')}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('counter')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'counter'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Monitor className={`w-4 h-4 ${activeTab === 'counter' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Counter POS Workstation</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
+                      {counterForm.activeMode}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('customer')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                      activeTab === 'customer'
+                        ? 'bg-slate-950 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Tv className={`w-4 h-4 ${activeTab === 'customer' ? 'text-amber-400' : 'text-slate-400'}`} />
+                      <span>Customer & Live Display</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 4: Menu & Floor Layout */}
               <div>
                 <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
                   Menu & Floor Layout
@@ -835,7 +966,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Group 4: Finance & Hardware */}
+              {/* Group 5: Finance & Hardware */}
               <div>
                 <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
                   Billing & POS Hardware
@@ -871,7 +1002,7 @@ export const AdminRestaurantDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* Group 5: Team & Integrations */}
+              {/* Group 6: Team & Integrations */}
               <div>
                 <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">
                   Staff & Integrations
@@ -1070,7 +1201,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 2: STORE IDENTITY & BRANDING (FULL WIDTH CLEAN LAYOUT)
+          TAB 2: STORE IDENTITY & BRANDING
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'identity' && (
         <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -1326,7 +1457,510 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 4: TAXES & PAYMENT GATEWAYS
+          TAB 4: KITCHEN & KDS ENGINE CONFIGURATION
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'kitchen' && (
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
+                <ChefHat className="w-5 h-5 text-amber-500" />
+                <span>Kitchen & KDS Engine Configuration</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configure order preparation pipeline, auto-acceptance delays, kitchen station bump rules, and audio chimes.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href="/kds"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <Monitor className="w-3.5 h-3.5 text-amber-600" />
+                <span>Launch KDS Screen</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
+              </a>
+
+              <button
+                onClick={() =>
+                  saveSettingsMutation.mutate({
+                    orderWorkflowMode: kitchenForm.orderWorkflowMode,
+                    autoAcceptConfig: {
+                      enabled: kitchenForm.autoAcceptEnabled,
+                      delaySeconds: Number(kitchenForm.autoAcceptDelaySeconds),
+                    },
+                  })
+                }
+                disabled={saveSettingsMutation.isPending}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+                <span>Save Kitchen Config</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Pipeline Mode */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-extrabold text-slate-900 block mb-1">
+                  Order Fulfillment Pipeline (Workflow Mode)
+                </label>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Determines the lifecycle steps every order passes through from kitchen preparation to guest serving.
+                </p>
+
+                <div className="space-y-2.5">
+                  {[
+                    {
+                      id: 'FIVE_STEP',
+                      title: 'Five-Step Standard Dine-In',
+                      desc: 'Received ➔ Confirmed ➔ In Preparation ➔ Ready for Pickup ➔ Served',
+                    },
+                    {
+                      id: 'FOUR_STEP',
+                      title: 'Four-Step Fast Casual',
+                      desc: 'Received ➔ Preparing ➔ Ready for Pickup ➔ Served',
+                    },
+                    {
+                      id: 'THREE_STEP',
+                      title: 'Three-Step Express Counter',
+                      desc: 'Received ➔ In Kitchen ➔ Order Fulfilled',
+                    },
+                  ].map((mode) => (
+                    <label
+                      key={mode.id}
+                      className={`p-3.5 rounded-2xl border cursor-pointer flex items-start gap-3 transition ${
+                        kitchenForm.orderWorkflowMode === mode.id
+                          ? 'bg-amber-50/80 border-amber-400 shadow-2xs'
+                          : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="orderWorkflowMode"
+                        value={mode.id}
+                        checked={kitchenForm.orderWorkflowMode === mode.id}
+                        onChange={(e) => setKitchenForm({ ...kitchenForm, orderWorkflowMode: e.target.value as any })}
+                        className="mt-0.5 text-amber-500 focus:ring-amber-400"
+                      />
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900">{mode.title}</h4>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">{mode.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Auto Accept & Kitchen Display Alerts */}
+            <div className="space-y-5">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  <span>Automated Order Confirmation</span>
+                </span>
+
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={kitchenForm.autoAcceptEnabled}
+                    onChange={(e) => setKitchenForm({ ...kitchenForm, autoAcceptEnabled: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>Automatically accept incoming customer orders</span>
+                </label>
+
+                {kitchenForm.autoAcceptEnabled && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <label className="text-[11px] font-bold text-slate-600 block">
+                      Auto-Accept Delay (Seconds)
+                    </label>
+                    <select
+                      value={kitchenForm.autoAcceptDelaySeconds}
+                      onChange={(e) => setKitchenForm({ ...kitchenForm, autoAcceptDelaySeconds: Number(e.target.value) })}
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                    >
+                      <option value={0}>0s (Instant Acceptance)</option>
+                      <option value={30}>30 Seconds Delay</option>
+                      <option value={60}>60 Seconds Delay</option>
+                      <option value={120}>2 Minutes Delay</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Volume2 className="w-4 h-4 text-purple-600" />
+                  <span>Kitchen Sound Alerts & Bump Thresholds</span>
+                </span>
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kitchenForm.kdsSoundAlerts}
+                      onChange={(e) => setKitchenForm({ ...kitchenForm, kdsSoundAlerts: e.target.checked })}
+                      className="rounded text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>Play Audio Chime when new ticket arrives on KDS</span>
+                  </label>
+
+                  <div className="pt-2">
+                    <label className="text-[11px] font-bold text-slate-600">
+                      Preparation Warning Threshold (Minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="60"
+                      value={kitchenForm.prepWarningThresholdMinutes}
+                      onChange={(e) => setKitchenForm({ ...kitchenForm, prepWarningThresholdMinutes: Number(e.target.value) })}
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold font-mono"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-0.5">Tickets turn red when preparation time exceeds this duration.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 5: COUNTER POS & BILLING WORKSTATION CONFIGURATION
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'counter' && (
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Monitor className="w-5 h-5 text-amber-500" />
+                <span>Counter POS & Billing Workstation</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configure counter cashier behavior, prepaid vs postpaid billing modes, fulfillment channels, and quick checkout.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href="/counter"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <Monitor className="w-3.5 h-3.5 text-slate-600" />
+                <span>Launch Counter POS</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
+              </a>
+
+              <button
+                onClick={() =>
+                  saveSettingsMutation.mutate({
+                    activeMode: counterForm.activeMode,
+                    orderConfig: {
+                      enableTableOrdering: counterForm.enableTableOrdering,
+                      enableTakeaway: counterForm.enableTakeaway,
+                      enableDelivery: counterForm.enableDelivery,
+                      minOrderAmount: Number(counterForm.minOrderAmount),
+                      allowSpecialInstructions: counterForm.allowSpecialInstructions,
+                    },
+                  })
+                }
+                disabled={saveSettingsMutation.isPending}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+                <span>Save Counter Config</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Billing Mode */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-extrabold text-slate-900 block mb-1">
+                  Primary Counter Billing Model
+                </label>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Select whether this outlet operates as a Pay-First fast food counter or Traditional Dine-in postpaid billing.
+                </p>
+
+                <div className="space-y-2.5">
+                  {[
+                    {
+                      id: 'HYBRID',
+                      title: 'Hybrid Mode (Dine-in Pay Later + Counter Pay First)',
+                      desc: 'Customers can dine and pay after meals, or pay immediately at the counter.',
+                    },
+                    {
+                      id: 'POSTPAID',
+                      title: 'Traditional Dine-In (Postpaid)',
+                      desc: 'Orders are accumulated onto dining tables; single final bill printed upon checkout.',
+                    },
+                    {
+                      id: 'PREPAID',
+                      title: 'Quick Counter QSR (Prepaid Pay-First)',
+                      desc: 'Orders must be paid immediately before kitchen ticket generation (e.g. Cafe/QSR).',
+                    },
+                  ].map((m) => (
+                    <label
+                      key={m.id}
+                      className={`p-3.5 rounded-2xl border cursor-pointer flex items-start gap-3 transition ${
+                        counterForm.activeMode === m.id
+                          ? 'bg-amber-50/80 border-amber-400 shadow-2xs'
+                          : 'bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="activeMode"
+                        value={m.id}
+                        checked={counterForm.activeMode === m.id}
+                        onChange={(e) => setCounterForm({ ...counterForm, activeMode: e.target.value as any })}
+                        className="mt-0.5 text-amber-500 focus:ring-amber-400"
+                      />
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900">{m.title}</h4>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">{m.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Active Fulfillment Channels & Controls */}
+            <div className="space-y-5">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                  <span>Enabled Fulfillment Channels</span>
+                </span>
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={counterForm.enableTableOrdering}
+                      onChange={(e) => setCounterForm({ ...counterForm, enableTableOrdering: e.target.checked })}
+                      className="rounded text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>Dine-In Table Ordering Active</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={counterForm.enableTakeaway}
+                      onChange={(e) => setCounterForm({ ...counterForm, enableTakeaway: e.target.checked })}
+                      className="rounded text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>Takeaway / Parcel Pickup Channel Active</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={counterForm.enableDelivery}
+                      onChange={(e) => setCounterForm({ ...counterForm, enableDelivery: e.target.checked })}
+                      className="rounded text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>Delivery / Direct Dispatch Channel Active</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Sliders className="w-4 h-4 text-slate-600" />
+                  <span>Counter Checkout Rules</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">
+                      Minimum Order Value (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={counterForm.minOrderAmount}
+                      onChange={(e) => setCounterForm({ ...counterForm, minOrderAmount: Number(e.target.value) })}
+                      className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase font-mono">
+                      Special Instructions
+                    </label>
+                    <label className="flex items-center gap-2 mt-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={counterForm.allowSpecialInstructions}
+                        onChange={(e) => setCounterForm({ ...counterForm, allowSpecialInstructions: e.target.checked })}
+                        className="rounded text-amber-500 focus:ring-amber-400"
+                      />
+                      <span>Allow Custom Chef Notes</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 6: CUSTOMER EXPERIENCE & LIVE QUEUE DISPLAY CONFIGURATION
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'customer' && (
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Tv className="w-5 h-5 text-amber-500" />
+                <span>Customer Experience & Live Display Configuration</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage customer-facing digital menu preferences, waiter assistance buttons, and live TV queue display screens.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={`/r/${restaurant.slug}/display`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <Tv className="w-3.5 h-3.5 text-purple-600" />
+                <span>Open Live Queue Display</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
+              </a>
+
+              <button
+                onClick={() =>
+                  saveSettingsMutation.mutate({
+                    uiSettings: {
+                      displayItemImages: customerForm.displayItemImages,
+                      enableDarkMode: customerForm.enableDarkMode,
+                      defaultLanguage: customerForm.defaultLanguage,
+                    },
+                  })
+                }
+                disabled={saveSettingsMutation.isPending}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+              >
+                {saveSettingsMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
+                <span>Save Customer Config</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Customer Digital Menu UI Controls */}
+            <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+              <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Palette className="w-4 h-4 text-amber-500" />
+                <span>Mobile Menu UI Preferences</span>
+              </span>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customerForm.displayItemImages}
+                    onChange={(e) => setCustomerForm({ ...customerForm, displayItemImages: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>Show Dish Photography on Mobile Menu</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customerForm.enableDarkMode}
+                    onChange={(e) => setCustomerForm({ ...customerForm, enableDarkMode: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>Enable Sleek Dark Theme by Default for Customers</span>
+                </label>
+
+                <div className="pt-2 border-t border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 block">
+                    Default Interface Language
+                  </label>
+                  <select
+                    value={customerForm.defaultLanguage}
+                    onChange={(e) => setCustomerForm({ ...customerForm, defaultLanguage: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none"
+                  >
+                    <option value="en">English (Default)</option>
+                    <option value="hi">Hindi (हिंदी)</option>
+                    <option value="or">Odia (ଓଡ଼ିଆ)</option>
+                    <option value="es">Spanish (Español)</option>
+                    <option value="fr">French (Français)</option>
+                    <option value="ar">Arabic (العربية)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Queue Display & Table Assistance */}
+            <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+              <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-purple-600" />
+                <span>Table Assistance & Public Display Screen</span>
+              </span>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customerForm.allowWaiterCall}
+                    onChange={(e) => setCustomerForm({ ...customerForm, allowWaiterCall: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>Show "Call Waiter" Assistance Button on Table Menu</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customerForm.allowBillRequest}
+                    onChange={(e) => setCustomerForm({ ...customerForm, allowBillRequest: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>Allow Customer to Request Bill directly from Table</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customerForm.liveDisplayAudioChime}
+                    onChange={(e) => setCustomerForm({ ...customerForm, liveDisplayAudioChime: e.target.checked })}
+                    className="rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span>Play Token Chime when Order is marked "Ready" on Live TV Display</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 7: TAXES & PAYMENT GATEWAYS
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'billing' && (
         <div className="space-y-6">
@@ -1611,7 +2245,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 5: DINING TABLES & FLOOR ZONES
+          TAB 8: DINING TABLES & FLOOR ZONES
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'tables' && (
         <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -1736,7 +2370,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 6: DIGITAL MENU & CATALOG
+          TAB 9: DIGITAL MENU & CATALOG
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'menu' && (
         <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -1877,7 +2511,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 7: HARDWARE & POS THERMAL PRINTERS (MATCHES MANAGER LEVEL)
+          TAB 10: HARDWARE & POS THERMAL PRINTERS
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'hardware' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2080,7 +2714,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 8: STAFF & ACCESS ACCOUNTS (MATCHES MANAGER LEVEL)
+          TAB 11: STAFF & ACCESS ACCOUNTS
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'staff' && (
         <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -2190,7 +2824,7 @@ export const AdminRestaurantDetail: React.FC = () => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 9: EXTERNAL POS INTEGRATIONS
+          TAB 12: EXTERNAL POS INTEGRATIONS
          ───────────────────────────────────────────────────────────── */}
       {activeTab === 'integrations' && (
         <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">

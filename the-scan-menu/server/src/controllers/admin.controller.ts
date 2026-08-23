@@ -145,12 +145,17 @@ export class AdminController {
       if (updateData.currency) settings.currency = updateData.currency;
       if (updateData.timezone) settings.timezone = updateData.timezone;
       if (updateData.taxRatePercent !== undefined) settings.paymentConfig.taxRatePercent = updateData.taxRatePercent;
+      if (updateData.activeMode) settings.paymentConfig.activeMode = updateData.activeMode;
       if (updateData.paymentMethods) settings.paymentConfig.paymentMethods = { ...settings.paymentConfig.paymentMethods, ...updateData.paymentMethods };
       if (updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
       if (updateData.integrationConfig) settings.paymentConfig.integrationConfig = updateData.integrationConfig;
       if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
+      if (updateData.workflow) settings.workflow = { ...settings.workflow, ...updateData.workflow };
       if (updateData.orderWorkflowMode) settings.workflow.orderWorkflowMode = updateData.orderWorkflowMode;
       if (updateData.autoAcceptConfig) settings.workflow.autoAcceptConfig = updateData.autoAcceptConfig;
+      if (updateData.orderConfig) settings.orderConfig = { ...(settings.orderConfig || {}), ...updateData.orderConfig };
+      if (updateData.uiSettings) settings.uiSettings = { ...(settings.uiSettings || {}), ...updateData.uiSettings };
+      if (updateData.inventoryConfig) settings.inventoryConfig = { ...(settings.inventoryConfig || {}), ...updateData.inventoryConfig };
       if (updateData.timings) settings.timings = updateData.timings;
       if (updateData.googleReviewUrl !== undefined) settings.branding.googleReviewUrl = updateData.googleReviewUrl;
       if (updateData.whatsapp !== undefined) settings.branding.whatsapp = updateData.whatsapp;
