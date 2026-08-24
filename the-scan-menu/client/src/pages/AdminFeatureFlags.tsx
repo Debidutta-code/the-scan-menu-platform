@@ -108,11 +108,25 @@ const FLAG_DEPENDENCIES: Record<string, string[]> = {
   loyalty: ['crm'],
 };
 
-export const AdminFeatureFlags: React.FC = () => {
+export interface AdminFeatureFlagsProps {
+  restaurantId?: string;
+  hideRestaurantSelector?: boolean;
+}
+
+export const AdminFeatureFlags: React.FC<AdminFeatureFlagsProps> = ({
+  restaurantId: propRestaurantId,
+  hideRestaurantSelector = false,
+}) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [flagSearchTerm, setFlagSearchTerm] = useState('');
-  const [selectedRestId, setSelectedRestId] = useState<string | null>(null);
+  const [selectedRestId, setSelectedRestId] = useState<string | null>(propRestaurantId || null);
+
+  React.useEffect(() => {
+    if (propRestaurantId) {
+      setSelectedRestId(propRestaurantId);
+    }
+  }, [propRestaurantId]);
 
   // Fetch all subscription plans
   const { data: plansResponse } = useQuery({
@@ -171,7 +185,16 @@ export const AdminFeatureFlags: React.FC = () => {
     },
   });
 
-  if (isLoadingRests) {
+  const { data: singleRestResponse } = useQuery({
+    queryKey: ['adminSingleRest', selectedRestId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${selectedRestId}`);
+      return res.data;
+    },
+    enabled: !!selectedRestId,
+  });
+
+  if (isLoadingRests && !propRestaurantId) {
     return (
       <div className="h-96 flex items-center justify-center">
         <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
@@ -184,7 +207,8 @@ export const AdminFeatureFlags: React.FC = () => {
   const filteredRestaurants = restaurants;
 
   const currentFlags = localFlags;
-  const selectedRestaurant = restaurants.find((r: any) => r._id === selectedRestId);
+  const selectedRestaurant = restaurants.find((r: any) => r._id === selectedRestId || r.id === selectedRestId);
+  const activeRestaurant = selectedRestaurant || singleRestResponse?.data;
 
   // Filter flags by search
   const filteredFlags = currentFlags.filter((flag: any) => {
@@ -219,25 +243,17 @@ export const AdminFeatureFlags: React.FC = () => {
       if (f.key === flagKey) {
         return { ...f, enabled: newStatus };
       }
-      if (newStatus === false && dependenciesToDisable.includes(f.key)) {
+      if (dependenciesToDisable.includes(f.key)) {
         return { ...f, enabled: false };
       }
       return f;
     });
 
-    // Optimistically update local state immediately
     setLocalFlags(updatedFlags);
-
-    if (dependenciesToDisable.length > 0 && newStatus === false) {
-      toast(`Disabled dependent modules automatically`, 'info');
-    }
-
-    // Use a slight debounce if necessary, but for now just mutate. 
-    // Since we don't invalidate onSettled, rapid clicks won't jitter.
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
-  // Preset 1: Enable All (Enterprise/Demo Mode)
+  // Preset 1: Enable All Standard
   const handleEnableAll = () => {
     if (!selectedRestId || currentFlags.length === 0) return;
     const updatedFlags = currentFlags.map((f: any) => ({ ...f, enabled: true }));
@@ -245,10 +261,10 @@ export const AdminFeatureFlags: React.FC = () => {
     updateFlagsMutation.mutate({ restaurantId: selectedRestId, flags: updatedFlags });
   };
 
-  // Preset 2: Sync with Assigned Subscription Plan
+  // Preset 2: Sync with Subscription Plan
   const handleSyncWithPlan = () => {
-    if (!selectedRestId || !selectedRestaurant || currentFlags.length === 0) return;
-    const currentPlanKey = selectedRestaurant.subscription?.planKey || 'ENTERPRISE';
+    if (!selectedRestId || !activeRestaurant || currentFlags.length === 0) return;
+    const currentPlanKey = activeRestaurant.subscription?.planKey || 'ENTERPRISE';
     const planDoc = plans.find((p: any) => p.key === currentPlanKey);
 
     const includedKeys = new Set(planDoc?.includedFeatureKeys || []);
@@ -280,55 +296,59 @@ export const AdminFeatureFlags: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-8">
-      {/* Executive Header Banner */}
-      <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase font-bold text-amber-400 tracking-wider">
-              Control Center
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              18 Modules Supported
-            </span>
+    <div className="w-full space-y-6">
+      {!hideRestaurantSelector && (
+        <>
+          {/* Executive Header Banner */}
+          <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-amber-400 tracking-wider">
+                  Control Center
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  18 Modules Supported
+                </span>
+              </div>
+              <h2 className="font-display text-3xl font-bold mt-1">Tenant Module Feature Flags</h2>
+              <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                Granularly grant, revoke, or synchronize feature access (Dine-in Ordering, KDS, Stock Control, Counter POS, Developer APIs) for any restaurant outlet.
+              </p>
+            </div>
           </div>
-          <h2 className="font-display text-3xl font-bold mt-1">Tenant Module Feature Flags</h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Granularly grant, revoke, or synchronize feature access (Dine-in Ordering, KDS, Stock Control, Counter POS, Developer APIs) for any restaurant outlet.
-          </p>
-        </div>
-      </div>
 
-      {/* Top Select Outlet */}
-      <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center shrink-0">
-            <Store className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">Select Outlet</h3>
-            <p className="text-[10px] text-slate-400 font-mono">Manage feature flags for a specific tenant</p>
-          </div>
-        </div>
+          {/* Top Select Outlet */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center shrink-0">
+                <Store className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Select Outlet</h3>
+                <p className="text-[10px] text-slate-400 font-mono">Manage feature flags for a specific tenant</p>
+              </div>
+            </div>
 
-        <div className="relative w-full md:w-[400px]">
-          <select
-            value={selectedRestId || ''}
-            onChange={(e) => setSelectedRestId(e.target.value)}
-            className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-amber-500 transition-all cursor-pointer shadow-xs"
-          >
-            <option value="" disabled>-- Choose a Restaurant Outlet --</option>
-            {filteredRestaurants.map((rest: any) => (
-              <option key={rest._id} value={rest._id}>
-                {rest.name} ({rest.slug}) - {rest.subscription?.planKey || 'FREE'} {rest.status === 'SUSPENDED' ? '[SUSPENDED]' : ''}
-              </option>
-            ))}
-          </select>
-          <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            <div className="relative w-full md:w-[400px]">
+              <select
+                value={selectedRestId || ''}
+                onChange={(e) => setSelectedRestId(e.target.value)}
+                className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:border-amber-500 transition-all cursor-pointer shadow-xs"
+              >
+                <option value="" disabled>-- Choose a Restaurant Outlet --</option>
+                {filteredRestaurants.map((rest: any) => (
+                  <option key={rest._id} value={rest._id}>
+                    {rest.name} ({rest.slug}) - {rest.subscription?.planKey || 'FREE'} {rest.status === 'SUSPENDED' ? '[SUSPENDED]' : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Main Layout: Feature Controls */}
       <div className="w-full bg-white border border-slate-150 rounded-3xl p-6 shadow-sm space-y-6">
@@ -355,14 +375,14 @@ export const AdminFeatureFlags: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
                       <h3 className="font-display text-xl font-bold text-slate-900">
-                        {selectedRestaurant?.name}
+                        {activeRestaurant?.name || 'Restaurant Feature Matrix'}
                       </h3>
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-900 text-amber-400 uppercase tracking-wider">
-                        {selectedRestaurant?.subscription?.planKey || 'FREE'} PLAN
+                        {activeRestaurant?.subscription?.planKey || 'ENTERPRISE'} PLAN
                       </span>
                     </div>
                     <p className="text-sm text-slate-500 font-mono">
-                      Slug: <span className="font-bold text-slate-700">{selectedRestaurant?.slug}</span>
+                      Slug: <span className="font-bold text-slate-700">{activeRestaurant?.slug || selectedRestId}</span>
                     </p>
                   </div>
 

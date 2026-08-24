@@ -32,7 +32,7 @@ import { ManagerMenu } from './ManagerMenu';
 
 // Specific SuperAdmin Management Tabs
 import { ChecklistTab } from '../components/admin/restaurant-detail/tabs/ChecklistTab';
-import { FeatureFlagsTab } from '../components/admin/restaurant-detail/tabs/FeatureFlagsTab';
+import { AdminFeatureFlags } from './AdminFeatureFlags';
 import { CounterTab } from '../components/admin/restaurant-detail/tabs/CounterTab';
 import { CustomerTab } from '../components/admin/restaurant-detail/tabs/CustomerTab';
 import { IntegrationsTab } from '../components/admin/restaurant-detail/tabs/IntegrationsTab';
@@ -200,21 +200,6 @@ export const AdminRestaurantDetail: React.FC = () => {
     },
   });
 
-  const toggleFlagMutation = useMutation({
-    mutationFn: async ({ flagKey, isEnabled }: { flagKey: string; isEnabled: boolean }) => {
-      const res = await apiClient.patch(`/restaurants/${id}/feature-flags`, {
-        flags: [{ key: flagKey, enabled: isEnabled }],
-      });
-      return res.data;
-    },
-    onSuccess: () => {
-      invalidateAll();
-      toast('Feature flag updated', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Failed to toggle feature flag', 'error');
-    },
-  });
 
   const seedDemoMenuMutation = useMutation({
     mutationFn: () => adminService.seedDemoMenu(id!),
@@ -319,11 +304,7 @@ export const AdminRestaurantDetail: React.FC = () => {
           )}
 
           {activeTab === 'flags' && (
-            <FeatureFlagsTab
-              flagsList={flagsList}
-              onToggleFlag={(key, enabled) => toggleFlagMutation.mutate({ flagKey: key, isEnabled: enabled })}
-              isToggling={toggleFlagMutation.isPending}
-            />
+            <AdminFeatureFlags restaurantId={id} hideRestaurantSelector={true} />
           )}
 
           {activeTab === 'kitchen' && (
