@@ -45,9 +45,9 @@ export const AdminRestaurantSidebar: React.FC<AdminRestaurantSidebarProps> = ({
   const isReady = audit?.isReadyForService ?? false;
 
   return (
-    <aside className="w-full lg:w-72 shrink-0 h-full flex flex-col min-h-0">
+    <aside className="w-full lg:w-80 xl:w-[330px] shrink-0 h-full flex flex-col min-h-0">
       <div className="bg-white border border-slate-150 rounded-3xl p-3.5 shadow-sm h-full flex flex-col min-h-0">
-        <div className="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-3.5 text-xs">
           {/* Group 1: Overview */}
           <div>
             <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 px-3">

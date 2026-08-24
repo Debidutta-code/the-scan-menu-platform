@@ -299,7 +299,7 @@ export const AdminRestaurantDetail: React.FC = () => {
         />
 
         {/* Dynamic Tab Workspace */}
-        <div className="flex-1 w-full min-w-0 h-full overflow-y-auto pr-1 pb-10 space-y-6">
+        <div className="flex-1 w-full min-w-0 h-full overflow-y-auto no-scrollbar pb-10 space-y-6">
           {activeTab === 'checklist' && (
             <ChecklistTab
               audit={audit}
