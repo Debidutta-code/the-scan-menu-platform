@@ -29,6 +29,7 @@ import {
   ChefHat,
   FileText,
   Tv,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -36,6 +37,10 @@ import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
 import { printOrderTicket, TicketPrintType } from '../utils/printReceipt';
 import { PrintOrderModal } from '../components/PrintOrderModal';
+import { ShiftManagementModal } from '../components/pos/ShiftManagementModal';
+import { ItemModifierModal } from '../components/pos/ItemModifierModal';
+import { useOfflineSync } from '../hooks/useOfflineSync';
+import { offlineStorage } from '../lib/offlineStorage';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
 
 interface SelectedCounterItem {
@@ -45,6 +50,7 @@ interface SelectedCounterItem {
   name: string;
   price: number;
   quantity: number;
+  selectedAddOns?: Array<{ name: string; priceDelta: number }>;
   specialInstructions?: string;
 }
 
@@ -103,12 +109,30 @@ export const ManagerCounter: React.FC = () => {
   const [checkoutStep, setCheckoutStep] = useState<'CUSTOMER_INFO' | 'PAYMENT_CONFIRM'>('CUSTOMER_INFO');
   const [selectedPrintTarget, setSelectedPrintTarget] = useState<TicketPrintType>('BOTH');
 
+  // Shift Management State
+  const [showShiftModal, setShowShiftModal] = useState(false);
+
+  const { data: currentShiftData } = useQuery({
+    queryKey: ['currentShift', restaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${restaurantId}/shifts/current`);
+      return res.data;
+    },
+    enabled: !!restaurantId,
+    refetchInterval: 15000,
+  });
+
+  const activeShift = currentShiftData?.data || null;
+
   // Recent Orders Drawer & Quick Reprint Modal State
   const [showRecentOrdersModal, setShowRecentOrdersModal] = useState(false);
   const [reprintModalOrder, setReprintModalOrder] = useState<any | null>(null);
 
   // Item variant selection modal state
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<any | null>(null);
+
+  // Offline Synchronization Hook
+  const { isOnline, queuedCount, syncPendingOrders } = useOfflineSync(restaurantId);
 
   // Input refs for automatic keyboard focus
   const customerNameInputRef = useRef<HTMLInputElement>(null);
@@ -312,22 +336,47 @@ export const ManagerCounter: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    try {
-      const payload = {
-        customerName: customerName.trim() || 'Walk-in Customer',
-        customerPhone: customerPhone.trim() || undefined,
-        customerNote: customerNote.trim() || undefined,
-        paymentStatus,
-        paymentMethod,
-        orderMode,
-        items: cartItems.map((item) => ({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          selectedAddOns: [],
-          specialInstructions: item.specialInstructions || '',
-        })),
-      };
+    const payload = {
+      customerName: customerName.trim() || 'Walk-in Customer',
+      customerPhone: customerPhone.trim() || undefined,
+      customerNote: customerNote.trim() || undefined,
+      paymentStatus,
+      paymentMethod,
+      orderMode,
+      items: cartItems.map((item) => ({
+        itemId: item.itemId,
+        quantity: item.quantity,
+        selectedAddOns: item.selectedAddOns || [],
+        specialInstructions: item.specialInstructions || '',
+      })),
+    };
 
+    if (!navigator.onLine) {
+      const queued = offlineStorage.queueOrder(restaurantId!, payload);
+      const offlineOrder = {
+        _id: queued.localTempId,
+        orderNumber: parseInt(queued.localTempId.split('-')[2] || '999', 10),
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        customerNote: payload.customerNote,
+        orderMode: payload.orderMode,
+        items: cartItems,
+        total: cartItems.reduce((s, i) => s + i.price * i.quantity, 0),
+        paymentMethod,
+        paymentStatus,
+        createdAt: new Date(),
+      };
+      if (selectedPrintTarget && (selectedPrintTarget as string) !== 'NONE') {
+        printOrderTicket(offlineOrder, settingsData?.data, selectedPrintTarget);
+      }
+      toast(`⚠️ Offline Order #${offlineOrder.orderNumber} queued locally & printed! Will sync when online.`, 'info');
+      setShowCheckoutModal(false);
+      clearCart();
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
       const res = await apiClient.post(`/restaurants/${restaurantId}/orders/counter`, payload);
 
       if (res.data.success) {
@@ -353,8 +402,30 @@ export const ManagerCounter: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', restaurantId] });
       }
     } catch (err: any) {
-      // Order placement failed -> DO NOT PRINT BILL
-      toast(err.response?.data?.error?.message || 'Failed to place order. No bill printed.', 'error');
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        const queued = offlineStorage.queueOrder(restaurantId!, payload);
+        const offlineOrder = {
+          _id: queued.localTempId,
+          orderNumber: parseInt(queued.localTempId.split('-')[2] || '999', 10),
+          customerName: payload.customerName,
+          customerPhone: payload.customerPhone,
+          customerNote: payload.customerNote,
+          orderMode: payload.orderMode,
+          items: cartItems,
+          total: cartItems.reduce((s, i) => s + i.price * i.quantity, 0),
+          paymentMethod,
+          paymentStatus,
+          createdAt: new Date(),
+        };
+        if (selectedPrintTarget && (selectedPrintTarget as string) !== 'NONE') {
+          printOrderTicket(offlineOrder, settingsData?.data, selectedPrintTarget);
+        }
+        toast(`⚠️ Network disconnected: Order queued locally & printed! Will auto-sync.`, 'error');
+        setShowCheckoutModal(false);
+        clearCart();
+      } else {
+        toast(err.response?.data?.error?.message || 'Failed to place order. No bill printed.', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -497,8 +568,39 @@ export const ManagerCounter: React.FC = () => {
           </div>
         </div>
 
-        {/* Header Right: Mode Toggle + Recent Orders */}
+        {/* Header Right: Shift Chip + Mode Toggle + Recent Orders */}
         <div className="flex items-center gap-2">
+          {/* Offline Sync Status Chip */}
+          {(!isOnline || queuedCount > 0) && (
+            <button
+              type="button"
+              onClick={() => syncPendingOrders()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs animate-pulse cursor-pointer"
+              title="Click to manually sync queued offline orders"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+              <span>{!isOnline ? 'Offline' : 'Syncing'} ({queuedCount} queued)</span>
+            </button>
+          )}
+
+          {/* Shift Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setShowShiftModal(true)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer active:scale-95 shadow-2xs ${
+              activeShift
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+            }`}
+            title="Manage Cash Drawer, Petty Cash, X-Report & Day Close"
+          >
+            <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <Banknote className="w-4 h-4" />
+            <span className="hidden sm:inline">
+              {activeShift ? `Shift #${activeShift.shiftNumber} (₹${(activeShift.expectedCashInDrawer / 100).toFixed(0)})` : 'Open Shift'}
+            </span>
+          </button>
+
           <a
             href={`/r/${(user?.role === 'SUPER_ADMIN' ? impersonatedOutlet?.slug : (user as any)?.restaurants?.[0]?.slug) || 'demo-cafe'}/display`}
             target="_blank"
@@ -695,7 +797,8 @@ export const ManagerCounter: React.FC = () => {
                               key={item._id}
                               onClick={() => {
                                 if (isOut) return;
-                                if (isPortion) {
+                                const hasCustomization = isPortion || (Array.isArray(item.addOns) && item.addOns.length > 0) || (Array.isArray(item.customizationGroups) && item.customizationGroups.length > 0);
+                                if (hasCustomization) {
                                   setSelectedItemForVariants(item);
                                 } else {
                                   addItemToCart(item);
@@ -1426,79 +1529,45 @@ export const ManagerCounter: React.FC = () => {
         restaurantInfo={settingsData?.data}
       />
 
-      {/* ── VARIANT SELECTION MODAL ────────────────────────────────────────── */}
-      {selectedItemForVariants && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => setSelectedItemForVariants(null)}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-          >
-            <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between bg-slate-50">
-              <div>
-                <h2 className="text-lg font-black text-slate-900">{selectedItemForVariants.name}</h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Select Option</p>
-              </div>
-              <button
-                onClick={() => setSelectedItemForVariants(null)}
-                className="p-2 bg-white hover:bg-slate-100 rounded-full text-slate-500 transition cursor-pointer shadow-sm border border-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <div className="space-y-3">
-                {selectedItemForVariants.variants.map((v: any) => {
-                  const variantId = `${selectedItemForVariants._id}_${v.name}`;
-                  const selectedVar = cartItems.find((ci) => ci.itemId === variantId);
-                  const isOut = !selectedItemForVariants.isAvailable || (selectedItemForVariants.trackStock && selectedItemForVariants.stockQuantity <= 0);
-                  return (
-                    <div
-                      key={v.name}
-                      onClick={() => {
-                        if (!isOut) {
-                          addItemToCart(selectedItemForVariants, v);
-                          setSelectedItemForVariants(null);
-                        }
-                      }}
-                      className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
-                        selectedVar
-                          ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20'
-                          : isOut
-                          ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
-                          : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md'
-                      }`}
-                    >
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-black uppercase text-slate-800">{v.name}</span>
-                        <span className="font-mono text-sm font-black text-slate-600">₹{(v.price / 100).toFixed(2)}</span>
-                      </div>
-                      {selectedVar ? (
-                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-mono text-sm flex items-center justify-center font-bold">
-                          {selectedVar.quantity}
-                        </div>
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200">
-                          <Plus className="w-4 h-4" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+      {/* ── ITEM MODIFIER & CUSTOMIZATION MODAL ────────────────────────── */}
+      <ItemModifierModal
+        isOpen={!!selectedItemForVariants}
+        onClose={() => setSelectedItemForVariants(null)}
+        item={selectedItemForVariants}
+        onAddToCart={(customizedItem) => {
+          setCartItems((prev) => {
+            const existingIndex = prev.findIndex((i) => i.itemId === customizedItem.itemId);
+            if (existingIndex > -1) {
+              const updated = [...prev];
+              updated[existingIndex].quantity += customizedItem.quantity;
+              return updated;
+            }
+            return [
+              ...prev,
+              {
+                itemId: customizedItem.itemId,
+                baseItemId: customizedItem.baseItemId,
+                name: customizedItem.variantName
+                  ? `${customizedItem.name} (${customizedItem.variantName})`
+                  : customizedItem.name,
+                variantName: customizedItem.variantName,
+                price: customizedItem.price,
+                quantity: customizedItem.quantity,
+                selectedAddOns: customizedItem.selectedAddOns,
+                specialInstructions: customizedItem.specialInstructions,
+              },
+            ];
+          });
+        }}
+      />
+
+      {/* ── Shift Management & Day Close Modal ────────────────────────────── */}
+      <ShiftManagementModal
+        isOpen={showShiftModal}
+        onClose={() => setShowShiftModal(false)}
+        restaurantId={restaurantId!}
+        restaurantInfo={settingsData?.data}
+      />
     </div>
   );
 };

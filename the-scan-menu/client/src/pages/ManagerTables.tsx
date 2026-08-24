@@ -42,6 +42,7 @@ import {
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { QrCodeStudioModal } from '../components/QrCodeStudioModal';
+import { TableActionModal } from '../components/pos/TableActionModal';
 import { printOrderTicket, PrintOrderData } from '../utils/printReceipt';
 import { generateStandeeCardPng, printStandeeCard } from '../utils/generateStandeeCard';
 
@@ -98,6 +99,8 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     regenerateQrMutation,
     clearTablesMutation,
     reserveTablesMutation,
+    transferTableMutation,
+    mergeTablesMutation,
     createZoneMutation,
     editZoneMutation,
     deleteZoneMutation,
@@ -1310,6 +1313,23 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         restaurantSlug={restaurantInfo.slug}
         restaurantName={restaurantInfo.name}
         restaurantLogo={restaurantInfo.logoUrl}
+      />
+
+      {/* ── Table Action Modal (Overview, Transfer, Merge) ────────────────────── */}
+      <TableActionModal
+        isOpen={!!activeTableAction}
+        onClose={() => setActiveTableAction(null)}
+        selectedTable={activeTableAction}
+        allTables={tables}
+        zones={zones}
+        onTransfer={async (sourceTableId, targetTableId, reason) => {
+          await transferTableMutation.mutateAsync({ sourceTableId, targetTableId, reason });
+        }}
+        onMerge={async (primaryTableId, secondaryTableIds) => {
+          await mergeTablesMutation.mutateAsync({ primaryTableId, secondaryTableIds });
+        }}
+        isTransferring={transferTableMutation.isPending}
+        isMerging={mergeTablesMutation.isPending}
       />
     </div>
   );

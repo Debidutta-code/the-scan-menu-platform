@@ -418,6 +418,23 @@ export const managerService = {
     return res.data;
   },
 
+  async transferTable(restaurantId: string, sourceTableId: string, targetTableId: string, reason?: string) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/tables/transfer`, {
+      sourceTableId,
+      targetTableId,
+      reason,
+    });
+    return res.data;
+  },
+
+  async mergeTables(restaurantId: string, primaryTableId: string, secondaryTableIds: string[]) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/tables/merge`, {
+      primaryTableId,
+      secondaryTableIds,
+    });
+    return res.data;
+  },
+
   // Zone endpoints
   async listZones(restaurantId: string) {
     const res = await apiClient.get(`/restaurants/${restaurantId}/zones`);

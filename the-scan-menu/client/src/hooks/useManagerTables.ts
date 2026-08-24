@@ -183,6 +183,30 @@ export function useManagerTables(activeRestaurantId?: string | null) {
     },
   });
 
+  const transferTableMutation = useMutation({
+    mutationFn: ({ sourceTableId, targetTableId, reason }: { sourceTableId: string; targetTableId: string; reason?: string }) =>
+      managerService.transferTable(activeRestaurantId!, sourceTableId, targetTableId, reason),
+    onSuccess: (res) => {
+      invalidateTables();
+      toast(res.message || 'Table transferred successfully!', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error transferring table', 'error');
+    },
+  });
+
+  const mergeTablesMutation = useMutation({
+    mutationFn: ({ primaryTableId, secondaryTableIds }: { primaryTableId: string; secondaryTableIds: string[] }) =>
+      managerService.mergeTables(activeRestaurantId!, primaryTableId, secondaryTableIds),
+    onSuccess: (res) => {
+      invalidateTables();
+      toast(res.message || 'Tables merged successfully!', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error merging tables', 'error');
+    },
+  });
+
   return {
     tables,
     zones,
@@ -196,6 +220,8 @@ export function useManagerTables(activeRestaurantId?: string | null) {
     updateStatusMutation,
     clearTablesMutation,
     reserveTablesMutation,
+    transferTableMutation,
+    mergeTablesMutation,
     createZoneMutation,
     editZoneMutation,
     deleteZoneMutation,

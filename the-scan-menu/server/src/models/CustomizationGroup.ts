@@ -10,6 +10,10 @@ export interface ICustomizationGroup extends Document {
   restaurantId: Types.ObjectId;
   name: string; // e.g. "Portion Sizes", "Extra Dips", "Dessert Add-ons"
   type: 'VARIANT' | 'ADDON';
+  selectionType: 'SINGLE' | 'MULTIPLE';
+  minSelections: number;
+  maxSelections: number;
+  isRequired: boolean;
   description?: string;
   options: ICustomizationOption[];
   categoryIds?: Types.ObjectId[]; // Categories this template is auto-linked to
@@ -33,6 +37,10 @@ const customizationGroupSchema = new Schema<ICustomizationGroup>(
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
     name: { type: String, required: true, trim: true },
     type: { type: String, enum: ['VARIANT', 'ADDON'], required: true, default: 'ADDON' },
+    selectionType: { type: String, enum: ['SINGLE', 'MULTIPLE'], default: 'MULTIPLE' },
+    minSelections: { type: Number, default: 0 },
+    maxSelections: { type: Number, default: 0 }, // 0 means unlimited
+    isRequired: { type: Boolean, default: false },
     description: { type: String, trim: true },
     options: [customizationOptionSchema],
     categoryIds: [{ type: Schema.Types.ObjectId, ref: 'Category' }],

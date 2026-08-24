@@ -7,6 +7,9 @@ export interface ICustomer extends Document {
   email?: string;
   totalOrdersCount: number;
   totalSpent: number;
+  loyaltyPoints: number;
+  lifetimePointsEarned: number;
+  tier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
   lastOrderAt?: Date;
   lastSeenAt?: Date;
   isBlocked: boolean;
@@ -48,6 +51,21 @@ const customerSchema = new Schema<ICustomer>(
       type: Number,
       required: true,
       default: 0,
+    },
+    loyaltyPoints: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    lifetimePointsEarned: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    tier: {
+      type: String,
+      enum: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'],
+      default: 'BRONZE',
     },
     lastOrderAt: {
       type: Date,

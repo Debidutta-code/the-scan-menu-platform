@@ -566,7 +566,7 @@ export class MenuController {
   async createCustomizationGroup(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { name, type, description, options, categoryIds, isGlobal } = req.body;
+      const { name, type, selectionType, minSelections, maxSelections, isRequired, description, options, categoryIds, isGlobal } = req.body;
 
       if (!name || !type || !Array.isArray(options) || options.length === 0) {
         sendError(res, 'BAD_REQUEST', 'name, type, and at least one option are required', null, 400);
@@ -577,6 +577,10 @@ export class MenuController {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         name: name.trim(),
         type,
+        selectionType: selectionType || 'MULTIPLE',
+        minSelections: Number(minSelections) || 0,
+        maxSelections: Number(maxSelections) || 0,
+        isRequired: !!isRequired,
         description: description?.trim(),
         options: options.map((opt: any) => ({
           name: opt.name.trim(),
@@ -600,7 +604,7 @@ export class MenuController {
   async editCustomizationGroup(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, id } = req.params;
-      const { name, type, description, options, categoryIds, isGlobal } = req.body;
+      const { name, type, selectionType, minSelections, maxSelections, isRequired, description, options, categoryIds, isGlobal } = req.body;
 
       const group = await CustomizationGroup.findOne({
         _id: id,
@@ -615,6 +619,10 @@ export class MenuController {
 
       if (name !== undefined) group.name = name.trim();
       if (type !== undefined) group.type = type;
+      if (selectionType !== undefined) group.selectionType = selectionType;
+      if (minSelections !== undefined) group.minSelections = Number(minSelections) || 0;
+      if (maxSelections !== undefined) group.maxSelections = Number(maxSelections) || 0;
+      if (isRequired !== undefined) group.isRequired = !!isRequired;
       if (description !== undefined) group.description = description.trim();
       if (Array.isArray(options)) {
         group.options = options.map((opt: any) => ({

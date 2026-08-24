@@ -3,6 +3,7 @@ import { RestaurantController } from '../controllers/restaurant.controller';
 import featureFlagController from '../controllers/featureFlag.controller';
 import integrationController from '../controllers/integration.controller';
 import kdsController from '../controllers/kds.controller';
+import printerController from '../controllers/printer.controller';
 import { requireFeature } from '../middleware/featureFlag';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
 
@@ -31,6 +32,8 @@ router.patch('/:restaurantId/tables/:tableId/activate', requireFeature('qr_menu'
 router.patch('/:restaurantId/tables/:tableId/deactivate', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.deactivateTable);
 router.post('/:restaurantId/tables/clear', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.clearTables);
 router.post('/:restaurantId/tables/reserve', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.reserveTables);
+router.post('/:restaurantId/tables/transfer', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.transferTable);
+router.post('/:restaurantId/tables/merge', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.mergeTables);
 router.patch('/:restaurantId/tables/:tableId/status', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.updateTableStatus);
 router.post('/:restaurantId/tables/:tableId/regenerate-qr', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.regenerateTableQr);
 
@@ -50,9 +53,12 @@ router.patch('/:restaurantId/taxes/:taxId', requireFeature('ordering') as any, r
 router.delete('/:restaurantId/taxes/:taxId', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteTax);
 
 
-// Customer Directory Routes (Manager/Super Admin only)
+// Customer Directory & Loyalty Routes (Manager/Staff/Super Admin)
 router.get('/:restaurantId/customers', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listCustomers);
 router.get('/:restaurantId/customers/:customerId', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
+router.get('/:restaurantId/loyalty/lookup', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyInfo);
+router.post('/:restaurantId/loyalty/adjust', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.adjustLoyaltyPoints);
+router.get('/:restaurantId/customers/:customerId/loyalty-ledger', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerLoyaltyLedger);
 
 // Waiter Staff Management Endpoints (Manager-only)
 router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);
@@ -75,5 +81,9 @@ router.get('/:restaurantId/kds/history', requireAuth as any, requireFeature('kds
 router.patch('/:restaurantId/kds/tickets/:orderId/items/:itemIndex/status', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.updateItemStatus);
 router.post('/:restaurantId/kds/tickets/:orderId/bump', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.bumpTicket);
 router.post('/:restaurantId/kds/tickets/:orderId/recall', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.recallTicket);
+
+// Direct Network Printer Endpoints (LAN / Thermal)
+router.post('/:restaurantId/printers/test', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, printerController.testPrinter);
+router.post('/:restaurantId/printers/print-kot', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printKOT);
 
 export default router;

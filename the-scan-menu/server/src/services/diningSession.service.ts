@@ -448,7 +448,221 @@ export class DiningSessionService {
 
     return session;
   }
+  /**
+   * Transfers an active dining session and its active orders to another table.
+   */
+  async transferTableSession(
+    restaurantId: Types.ObjectId | string,
+    sourceTableId: Types.ObjectId | string,
+    targetTableId: Types.ObjectId | string,
+    reason?: string,
+    staffUserId?: string
+  ): Promise<{ session: IDiningSession; sourceTable: any; targetTable: any }> {
+    const rId = new Types.ObjectId(restaurantId);
+    const srcId = new Types.ObjectId(sourceTableId);
+    const tgtId = new Types.ObjectId(targetTableId);
+
+    if (srcId.equals(tgtId)) {
+      throw new CustomError('SAME_TABLE_TRANSFER', 'Cannot transfer session to the same table', 400);
+    }
+
+    const [sourceTable, targetTable] = await Promise.all([
+      Table.findOne({ _id: srcId, restaurantId: rId, isActive: true }),
+      Table.findOne({ _id: tgtId, restaurantId: rId, isActive: true }),
+    ]);
+
+    if (!sourceTable) {
+      throw new CustomError('SOURCE_TABLE_NOT_FOUND', 'Source table not found or inactive', 404);
+    }
+    if (!targetTable) {
+      throw new CustomError('TARGET_TABLE_NOT_FOUND', 'Target table not found or inactive', 404);
+    }
+
+    const activeSession = await DiningSession.findOne({
+      restaurantId: rId,
+      tableId: srcId,
+      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+    });
+
+    if (!activeSession) {
+      throw new CustomError('NO_ACTIVE_SESSION', 'Source table does not have an active dining session', 409);
+    }
+
+    // Check if target table already has an active session
+    const targetSession = await DiningSession.findOne({
+      restaurantId: rId,
+      tableId: tgtId,
+      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+    });
+
+    if (targetSession) {
+      throw new CustomError(
+        'TARGET_TABLE_OCCUPIED',
+        `Target table ${targetTable.displayName || targetTable.tableNumber} is currently occupied with an active session`,
+        409
+      );
+    }
+
+    // Reassign session tableId
+    activeSession.tableId = tgtId;
+    activeSession.lastActivityAt = new Date();
+    await activeSession.save();
+
+    // Reassign non-cancelled orders to new table
+    await Order.updateMany(
+      { diningSessionId: activeSession._id, status: { $ne: 'CANCELLED' } },
+      { $set: { tableId: tgtId } }
+    );
+
+    // Audit log
+    await AuditLog.create({
+      action: 'TABLE_TRANSFERRED',
+      actorId: staffUserId,
+      actorRole: 'MANAGER',
+      restaurantId: rId.toString(),
+      entityType: 'DiningSession',
+      entityId: activeSession._id,
+      details: {
+        fromTable: sourceTable.displayName || sourceTable.tableNumber,
+        toTable: targetTable.displayName || targetTable.tableNumber,
+        reason: reason || 'Guest relocated',
+      },
+    });
+
+    // Notify clients over Socket.IO
+    try {
+      NotificationService.getInstance().notifyTableCleared(sourceTable.token, {
+        transferredTo: targetTable.displayName || targetTable.tableNumber,
+      });
+      NotificationService.getInstance().notifySessionUpdated(
+        rId.toString(),
+        activeSession._id.toString(),
+        activeSession,
+        targetTable.token
+      );
+    } catch (err) {
+      console.error('Failed to notify table transfer:', err);
+    }
+
+    return { session: activeSession, sourceTable, targetTable };
+  }
+
+  /**
+   * Merges one or more secondary tables into a primary active table session.
+   */
+  async mergeTableSessions(
+    restaurantId: Types.ObjectId | string,
+    primaryTableId: Types.ObjectId | string,
+    secondaryTableIds: (Types.ObjectId | string)[],
+    staffUserId?: string
+  ): Promise<{ primarySession: IDiningSession; primaryTable: any; mergedTables: any[] }> {
+    const rId = new Types.ObjectId(restaurantId);
+    const primId = new Types.ObjectId(primaryTableId);
+    const secIds = secondaryTableIds.map((id) => new Types.ObjectId(id));
+
+    if (secIds.length === 0) {
+      throw new CustomError('NO_SECONDARY_TABLES', 'At least one secondary table is required to merge', 400);
+    }
+
+    const primaryTable = await Table.findOne({ _id: primId, restaurantId: rId, isActive: true });
+    if (!primaryTable) {
+      throw new CustomError('PRIMARY_TABLE_NOT_FOUND', 'Primary table not found', 404);
+    }
+
+    const primarySession = await DiningSession.findOne({
+      restaurantId: rId,
+      tableId: primId,
+      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+    });
+
+    if (!primarySession) {
+      throw new CustomError('NO_PRIMARY_SESSION', 'Primary table must have an active session to merge into', 409);
+    }
+
+    const secondaryTables = await Table.find({ _id: { $in: secIds }, restaurantId: rId, isActive: true });
+    if (secondaryTables.length !== secIds.length) {
+      throw new CustomError('INVALID_SECONDARY_TABLES', 'One or more secondary tables could not be found', 404);
+    }
+
+    // Add unique secondary table IDs to primary session linkedTableIds
+    const existingLinked = (primarySession.linkedTableIds || []).map((id) => id.toString());
+    for (const secId of secIds) {
+      const sIdStr = secId.toString();
+      if (sIdStr !== primId.toString() && !existingLinked.includes(sIdStr)) {
+        primarySession.linkedTableIds = primarySession.linkedTableIds || [];
+        primarySession.linkedTableIds.push(secId);
+      }
+    }
+
+    // For any secondary table that had an active session, absorb its orders and close that session
+    const secondarySessions = await DiningSession.find({
+      restaurantId: rId,
+      tableId: { $in: secIds },
+      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+    });
+
+    for (const secSession of secondarySessions) {
+      // Reassign all active orders to primary session & primary table
+      await Order.updateMany(
+        { diningSessionId: secSession._id, status: { $ne: 'CANCELLED' } },
+        { $set: { diningSessionId: primarySession._id, tableId: primId } }
+      );
+
+      // Close merged secondary session
+      secSession.status = 'CLOSED';
+      secSession.closedAt = new Date();
+      secSession.abandonedReason = `Merged into Table ${primaryTable.displayName || primaryTable.tableNumber}`;
+      await secSession.save();
+    }
+
+    // Recalculate primary session totals
+    const allSessionOrders = await Order.find({
+      diningSessionId: primarySession._id,
+      status: { $ne: 'CANCELLED' },
+    });
+
+    primarySession.subtotal = allSessionOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+    primarySession.tax = allSessionOrders.reduce((sum, o) => sum + (o.tax || 0), 0);
+    primarySession.total = allSessionOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    primarySession.balanceDue = Math.max(0, primarySession.total - (primarySession.paidAmount || 0));
+    primarySession.lastActivityAt = new Date();
+    await primarySession.save();
+
+    // Audit log
+    await AuditLog.create({
+      action: 'TABLES_MERGED',
+      actorId: staffUserId,
+      actorRole: 'MANAGER',
+      restaurantId: rId.toString(),
+      entityType: 'DiningSession',
+      entityId: primarySession._id,
+      details: {
+        primaryTable: primaryTable.displayName || primaryTable.tableNumber,
+        secondaryTables: secondaryTables.map((t) => t.displayName || t.tableNumber),
+      },
+    });
+
+    // Sockets
+    try {
+      NotificationService.getInstance().notifySessionUpdated(
+        rId.toString(),
+        primarySession._id.toString(),
+        primarySession,
+        primaryTable.token
+      );
+      for (const st of secondaryTables) {
+        NotificationService.getInstance().notifyTableCleared(st.token, {
+          mergedInto: primaryTable.displayName || primaryTable.tableNumber,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to notify table merge:', err);
+    }
+
+    return { primarySession, primaryTable, mergedTables: secondaryTables };
+  }
 }
 
 export const diningSessionService = new DiningSessionService();
 export default diningSessionService;
+

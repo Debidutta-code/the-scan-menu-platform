@@ -9,6 +9,8 @@ import { diningSessionService } from '../services/diningSession.service';
 import { billService } from '../services/bill.service';
 import { analyticsService } from '../services/analytics.service';
 import { posIntegrationService } from '../services/posIntegration.service';
+import { customerService } from '../services/customer.service';
+import { loyaltyService } from '../services/loyalty.service';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -163,6 +165,21 @@ export class OrderController {
         paymentMethod: paymentMethod || 'CASH',
         createdByName: (req.user as any)?.name || 'Staff',
       });
+
+      // Background Customer Profile Sync & Loyalty Points Accrual
+      if (customerPhone && order) {
+        customerService
+          .findOrCreateCustomer(restaurantId, customerPhone, customerName)
+          .then(async (customer) => {
+            if (customer) {
+              await customerService.recordCustomerOrder(customer._id, order.total || 0);
+              if (isPaid) {
+                await loyaltyService.earnPoints(restaurantId, customer._id, order.total || 0, order._id);
+              }
+            }
+          })
+          .catch((err) => console.error('Failed to accrue customer loyalty:', err));
+      }
 
       sendSuccess(res, order, 'Counter order created successfully', 201);
     } catch (error: any) {

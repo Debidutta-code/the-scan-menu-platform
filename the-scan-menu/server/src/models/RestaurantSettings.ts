@@ -96,6 +96,11 @@ export interface IRestaurantSettingsPrinter {
   kotNotes?: string;
   kotShowServerName?: boolean;
   defaultPrintTarget: 'BOTH' | 'KITCHEN' | 'COUNTER' | 'NONE';
+  silentPrintingEnabled?: boolean;
+  kitchenPrinterIp?: string;
+  kitchenPrinterPort?: number;
+  counterPrinterIp?: string;
+  counterPrinterPort?: number;
 }
 
 export interface IRestaurantSettingsQrStyle {
@@ -235,6 +240,11 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       kotNotes: { type: String, trim: true, default: '' },
       kotShowServerName: { type: Boolean, default: true },
       defaultPrintTarget: { type: String, enum: ['BOTH', 'KITCHEN', 'COUNTER', 'NONE'], default: 'BOTH' },
+      silentPrintingEnabled: { type: Boolean, default: false },
+      kitchenPrinterIp: { type: String, trim: true, default: '' },
+      kitchenPrinterPort: { type: Number, default: 9100 },
+      counterPrinterIp: { type: String, trim: true, default: '' },
+      counterPrinterPort: { type: Number, default: 9100 },
     },
     qrCodeStyle: {
       fgColor: { type: String, default: '#0F172A' },

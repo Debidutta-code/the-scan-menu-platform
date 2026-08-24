@@ -13,6 +13,7 @@ import { Order } from '../models/Order';
 import { diningSessionService } from '../services/diningSession.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { customerService } from '../services/customer.service';
+import { loyaltyService } from '../services/loyalty.service';
 import { NotificationService } from '../services/notification.service';
 import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
@@ -38,6 +39,8 @@ export class RestaurantController {
     this.updateTableStatus = this.updateTableStatus.bind(this);
     this.clearTables = this.clearTables.bind(this);
     this.reserveTables = this.reserveTables.bind(this);
+    this.transferTable = this.transferTable.bind(this);
+    this.mergeTables = this.mergeTables.bind(this);
 
     // Waiter Staff Management
     this.createStaff = this.createStaff.bind(this);
@@ -46,6 +49,9 @@ export class RestaurantController {
     this.deleteTax = this.deleteTax.bind(this);
     this.listCustomers = this.listCustomers.bind(this);
     this.getCustomerDetails = this.getCustomerDetails.bind(this);
+    this.getLoyaltyInfo = this.getLoyaltyInfo.bind(this);
+    this.adjustLoyaltyPoints = this.adjustLoyaltyPoints.bind(this);
+    this.getCustomerLoyaltyLedger = this.getCustomerLoyaltyLedger.bind(this);
     this.listStaff = this.listStaff.bind(this);
     this.updateStaff = this.updateStaff.bind(this);
     this.deleteStaff = this.deleteStaff.bind(this);
@@ -724,6 +730,61 @@ export class RestaurantController {
     }
   }
 
+  async transferTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { sourceTableId, targetTableId, reason } = req.body;
+
+      if (!sourceTableId || !targetTableId) {
+        sendError(res, 'BAD_REQUEST', 'sourceTableId and targetTableId are required', null, 400);
+        return;
+      }
+
+      const result = await diningSessionService.transferTableSession(
+        restaurantId,
+        sourceTableId,
+        targetTableId,
+        reason,
+        req.user?.id
+      );
+
+      sendSuccess(res, result, `Table transferred successfully from ${result.sourceTable.displayName || result.sourceTable.tableNumber} to ${result.targetTable.displayName || result.targetTable.tableNumber}`);
+    } catch (error: any) {
+      if (error.code && error.status) {
+        sendError(res, error.code, error.message, error.details, error.status);
+        return;
+      }
+      next(error);
+    }
+  }
+
+  async mergeTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { primaryTableId, secondaryTableIds } = req.body;
+
+      if (!primaryTableId || !Array.isArray(secondaryTableIds) || secondaryTableIds.length === 0) {
+        sendError(res, 'BAD_REQUEST', 'primaryTableId and non-empty secondaryTableIds array are required', null, 400);
+        return;
+      }
+
+      const result = await diningSessionService.mergeTableSessions(
+        restaurantId,
+        primaryTableId,
+        secondaryTableIds,
+        req.user?.id
+      );
+
+      sendSuccess(res, result, `Successfully merged ${secondaryTableIds.length} table(s) into Table ${result.primaryTable.displayName || result.primaryTable.tableNumber}`);
+    } catch (error: any) {
+      if (error.code && error.status) {
+        sendError(res, error.code, error.message, error.details, error.status);
+        return;
+      }
+      next(error);
+    }
+  }
+
   async createTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
@@ -1319,6 +1380,57 @@ export class RestaurantController {
       const { restaurantId, customerId } = req.params;
       const result = await customerService.getCustomerDetails(restaurantId, customerId);
       sendSuccess(res, result, 'Customer details retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getLoyaltyInfo(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const phone = (req.query.phone as string) || '';
+
+      if (!phone) {
+        sendError(res, 'BAD_REQUEST', 'Customer phone number is required', null, 400);
+        return;
+      }
+
+      const result = await loyaltyService.getCustomerLoyalty(restaurantId, phone);
+      sendSuccess(res, result, 'Customer loyalty details retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adjustLoyaltyPoints(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { customerId, pointsDelta, reason } = req.body;
+
+      if (!customerId || pointsDelta === undefined || typeof pointsDelta !== 'number') {
+        sendError(res, 'BAD_REQUEST', 'customerId and numeric pointsDelta are required', null, 400);
+        return;
+      }
+
+      const result = await loyaltyService.adjustPoints(
+        restaurantId,
+        customerId,
+        pointsDelta,
+        reason || 'Manual staff adjustment',
+        req.user?.id
+      );
+
+      sendSuccess(res, result, `Loyalty points adjusted successfully by ${pointsDelta >= 0 ? '+' : ''}${pointsDelta} points`);
+    } catch (error: any) {
+      sendError(res, 'ADJUST_ERROR', error.message || 'Failed to adjust points', null, 400);
+    }
+  }
+
+  async getCustomerLoyaltyLedger(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, customerId } = req.params;
+      const ledger = await loyaltyService.getCustomerLedger(restaurantId, customerId);
+      sendSuccess(res, ledger, 'Customer loyalty history retrieved');
     } catch (error) {
       next(error);
     }

@@ -164,6 +164,7 @@ export const ManagerCustomers: React.FC = () => {
                   <th className="py-3.5 px-6">Diner</th>
                   <th className="py-3.5 px-4">Contact</th>
                   <th className="py-3.5 px-4 text-center">Visits</th>
+                  <th className="py-3.5 px-4 text-center">Loyalty Tier & Points</th>
                   <th className="py-3.5 px-4 text-right">Total Spent</th>
                   <th className="py-3.5 px-4">Last Order</th>
                   <th className="py-3.5 px-6 text-right">Actions</th>
@@ -207,6 +208,25 @@ export const ManagerCustomers: React.FC = () => {
                       }`}>
                         {c.totalOrdersCount || 0} order{c.totalOrdersCount === 1 ? '' : 's'}
                       </span>
+                    </td>
+
+                    <td className="py-4 px-4 text-center">
+                      <div className="inline-flex flex-col items-center gap-1">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          c.tier === 'PLATINUM'
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : c.tier === 'GOLD'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : c.tier === 'SILVER'
+                            ? 'bg-slate-200 text-slate-800 border border-slate-300'
+                            : 'bg-orange-50 text-orange-700 border border-orange-200'
+                        }`}>
+                          ⭐ {c.tier || 'BRONZE'}
+                        </span>
+                        <span className="font-mono font-bold text-xs text-slate-900">
+                          {c.loyaltyPoints || 0} pts (₹{(((c.loyaltyPoints || 0) * 50) / 100).toFixed(0)})
+                        </span>
+                      </div>
                     </td>
 
                     <td className="py-4 px-4 text-right font-mono font-bold text-slate-900">
