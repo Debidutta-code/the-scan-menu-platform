@@ -7,7 +7,6 @@ import {
   Lock,
   Unlock,
   Delete,
-  X,
   Loader,
   Store,
 } from 'lucide-react';
@@ -101,8 +100,6 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
         handleKeyPress(e.key);
       } else if (e.key === 'Backspace') {
         handleBackspace();
-      } else if (e.key === 'Escape') {
-        if (onClose) onClose();
       } else if (e.key === 'Enter') {
         if (pin.length >= 4) {
           unlockMutation.mutate(pin);
@@ -112,7 +109,7 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, pin, handleKeyPress, handleBackspace, unlockMutation, onClose]);
+  }, [isOpen, pin, handleKeyPress, handleBackspace, unlockMutation]);
 
   if (!isOpen) return null;
 
@@ -123,19 +120,6 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
           isShaking ? 'translate-x-2 animate-bounce' : ''
         }`}
       >
-        {/* Top Close Button (if optional lock) */}
-        {onClose && (
-          <div className="w-full flex justify-end -mt-2 -mr-2">
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-              title="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
         {/* Lock Icon & Branding */}
         <div className="w-16 h-16 rounded-3xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-lg mb-4">
           {unlockMutation.isPending ? (

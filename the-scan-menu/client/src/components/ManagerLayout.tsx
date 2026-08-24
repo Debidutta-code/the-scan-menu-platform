@@ -9,6 +9,7 @@ import ConnectionIndicator from './ConnectionIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import { ScanMenuLogo } from './ScanMenuLogo';
 import { getPrimaryManagerRoute } from '../utils/navigation';
+import { PosLockScreenModal } from './pos/PosLockScreenModal';
 import {
   Lock,
   Receipt,
@@ -87,6 +88,52 @@ export const ManagerLayout: React.FC = () => {
   }, []);
 
   const isStaff = user?.role === 'STAFF';
+
+  // Global Manager PIN Lock State (Prompts on page refresh/session start, or after 15m idle inactivity)
+  const [isPinLocked, setIsPinLocked] = useState<boolean>(() => {
+    if (!activeRestaurantId) return false;
+    const unlocked = sessionStorage.getItem(`manager_pin_unlocked_${activeRestaurantId}`);
+    return !unlocked;
+  });
+
+  // Long Inactivity Auto-Lock (15 Minutes of zero activity across manager dashboard)
+  useEffect(() => {
+    if (!activeRestaurantId || isPinLocked) return;
+
+    let timeoutId: any;
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsPinLocked(true);
+        sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    resetTimer();
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
+    activityEvents.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
+
+    return () => {
+      clearTimeout(timeoutId);
+      activityEvents.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [activeRestaurantId, isPinLocked]);
+
+  // Listen to manual lock requests from sub-views (e.g. Counter POS)
+  useEffect(() => {
+    const handleLockEvent = () => {
+      if (activeRestaurantId) {
+        sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
+        setIsPinLocked(true);
+      }
+    };
+
+    window.addEventListener('pos:lock', handleLockEvent);
+    return () => window.removeEventListener('pos:lock', handleLockEvent);
+  }, [activeRestaurantId]);
 
   // Fetch Live socket status
   const token = localStorage.getItem('accessToken');
@@ -689,20 +736,33 @@ export const ManagerLayout: React.FC = () => {
           </button>
         </nav>
 
-        {/* User Footnote */}
+        {/* User Footnote & Lock Button */}
         <div className="p-4 border-t border-slate-150 bg-slate-50/50 min-w-[16rem]">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 font-bold shrink-0 text-sm">
-              {user?.name?.charAt(0).toUpperCase()}
+          <div className="flex items-center gap-3 justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 font-bold shrink-0 text-sm">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-extrabold text-slate-900 truncate leading-tight">
+                  {user?.name}
+                </h4>
+                <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-bold tracking-wider mt-0.5">
+                  {user?.role}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-extrabold text-slate-900 truncate leading-tight">
-                {user?.name}
-              </h4>
-              <p className="text-[10px] text-slate-500 truncate font-mono uppercase font-bold tracking-wider mt-0.5">
-                {user?.role}
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
+                setIsPinLocked(true);
+              }}
+              className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition cursor-pointer shrink-0"
+              title="Lock Terminal with PIN"
+            >
+              <Lock className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>
@@ -978,6 +1038,20 @@ export const ManagerLayout: React.FC = () => {
         </>
       )}
       </div>
+
+      {/* ── GLOBAL PIN LOCK SCREEN (ON REFRESH / LONG IDLE) ─────────────────── */}
+      <PosLockScreenModal
+        isOpen={isPinLocked && !!activeRestaurantId}
+        restaurantId={activeRestaurantId || ''}
+        restaurantName={impersonatedOutlet?.name || (user as any)?.restaurants?.[0]?.name || 'Operations Panel'}
+        title="Restaurant Terminal Locked"
+        subtitle="Enter your 4-6 digit staff or manager PIN to access dashboard"
+        onUnlockSuccess={(unlockedUser) => {
+          sessionStorage.setItem(`manager_pin_unlocked_${activeRestaurantId}`, 'true');
+          sessionStorage.setItem(`pos_cashier_${activeRestaurantId}`, JSON.stringify(unlockedUser));
+          setIsPinLocked(false);
+        }}
+      />
     </div>
   );
 };

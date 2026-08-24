@@ -37,7 +37,6 @@ import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
 import { printOrderTicket, TicketPrintType } from '../utils/printReceipt';
 import { PrintOrderModal } from '../components/PrintOrderModal';
-import { PosLockScreenModal } from '../components/pos/PosLockScreenModal';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
 
 interface SelectedCounterItem {
@@ -112,42 +111,11 @@ export const ManagerCounter: React.FC = () => {
   // Item variant selection modal state
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<any | null>(null);
 
-  // POS PIN Cashier & Lock State (Prompts on page refresh/session start, or after 15m idle inactivity)
-  const [activeCashier, setActiveCashier] = useState<{ id: string; name: string; role: string } | null>(() => {
+  // Active Cashier state from session
+  const [activeCashier] = useState<{ id: string; name: string; role: string } | null>(() => {
     const saved = sessionStorage.getItem(`pos_cashier_${restaurantId}`);
     return saved ? JSON.parse(saved) : (user ? { id: user.id, name: user.name, role: user.role } : null);
   });
-
-  const [isPosLocked, setIsPosLocked] = useState<boolean>(() => {
-    const unlocked = sessionStorage.getItem(`pos_unlocked_${restaurantId}`);
-    return !unlocked;
-  });
-
-  // Long Inactivity Auto-Lock (15 Minutes of zero activity)
-  useEffect(() => {
-    if (!restaurantId || isPosLocked) return;
-
-    let timeoutId: any;
-    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
-
-    const resetTimer = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setIsPosLocked(true);
-        sessionStorage.removeItem(`pos_unlocked_${restaurantId}`);
-      }, INACTIVITY_TIMEOUT_MS);
-    };
-
-    resetTimer();
-
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
-    activityEvents.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
-
-    return () => {
-      clearTimeout(timeoutId);
-      activityEvents.forEach((evt) => window.removeEventListener(evt, resetTimer));
-    };
-  }, [restaurantId, isPosLocked]);
 
   // Input refs for automatic keyboard focus
   const customerNameInputRef = useRef<HTMLInputElement>(null);
@@ -541,7 +509,10 @@ export const ManagerCounter: React.FC = () => {
           {/* Active Cashier & PIN Fast Lock */}
           <button
             type="button"
-            onClick={() => setIsPosLocked(true)}
+            onClick={() => {
+              sessionStorage.removeItem(`manager_pin_unlocked_${restaurantId}`);
+              window.dispatchEvent(new Event('pos:lock'));
+            }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer active:scale-95 shadow-2xs"
             title="Switch cashier or lock terminal with PIN"
           >
@@ -1559,20 +1530,6 @@ export const ManagerCounter: React.FC = () => {
         </div>,
         document.body
       )}
-
-      {/* POS PIN Lock Screen Modal */}
-      <PosLockScreenModal
-        isOpen={isPosLocked}
-        restaurantId={restaurantId || ''}
-        restaurantName={impersonatedOutlet?.name || 'Counter POS'}
-        onUnlockSuccess={(unlockedUser) => {
-          setActiveCashier(unlockedUser);
-          sessionStorage.setItem(`pos_cashier_${restaurantId}`, JSON.stringify(unlockedUser));
-          sessionStorage.setItem(`pos_unlocked_${restaurantId}`, 'true');
-          setIsPosLocked(false);
-        }}
-        onClose={() => setIsPosLocked(false)}
-      />
     </div>
   );
 };
