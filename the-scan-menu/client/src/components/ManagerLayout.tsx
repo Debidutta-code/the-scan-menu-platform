@@ -89,12 +89,8 @@ export const ManagerLayout: React.FC = () => {
 
   const isStaff = user?.role === 'STAFF';
 
-  // Global Manager PIN Lock State (Prompts on page refresh/session start, or after 15m idle inactivity)
-  const [isPinLocked, setIsPinLocked] = useState<boolean>(() => {
-    if (!activeRestaurantId) return false;
-    const unlocked = sessionStorage.getItem(`manager_pin_unlocked_${activeRestaurantId}`);
-    return !unlocked;
-  });
+  // Global Manager PIN Lock State (Always prompts on window reload/initial load, or after 15m idle inactivity)
+  const [isPinLocked, setIsPinLocked] = useState<boolean>(true);
 
   // Long Inactivity Auto-Lock (15 Minutes of zero activity across manager dashboard)
   useEffect(() => {
@@ -107,7 +103,6 @@ export const ManagerLayout: React.FC = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         setIsPinLocked(true);
-        sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
       }, INACTIVITY_TIMEOUT_MS);
     };
 
@@ -125,15 +120,12 @@ export const ManagerLayout: React.FC = () => {
   // Listen to manual lock requests from sub-views (e.g. Counter POS)
   useEffect(() => {
     const handleLockEvent = () => {
-      if (activeRestaurantId) {
-        sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
-        setIsPinLocked(true);
-      }
+      setIsPinLocked(true);
     };
 
     window.addEventListener('pos:lock', handleLockEvent);
     return () => window.removeEventListener('pos:lock', handleLockEvent);
-  }, [activeRestaurantId]);
+  }, []);
 
   // Fetch Live socket status
   const token = localStorage.getItem('accessToken');
@@ -368,12 +360,7 @@ export const ManagerLayout: React.FC = () => {
         {/* Global Manager / Staff PIN Lock Chip */}
         <button
           type="button"
-          onClick={() => {
-            if (activeRestaurantId) {
-              sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
-              setIsPinLocked(true);
-            }
-          }}
+          onClick={() => setIsPinLocked(true)}
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer active:scale-95 shadow-2xs"
           title="Lock terminal with PIN or switch user"
         >
@@ -1073,7 +1060,6 @@ export const ManagerLayout: React.FC = () => {
         title="Restaurant Terminal Locked"
         subtitle="Enter your 4-6 digit staff or manager PIN to access dashboard"
         onUnlockSuccess={(unlockedUser) => {
-          sessionStorage.setItem(`manager_pin_unlocked_${activeRestaurantId}`, 'true');
           sessionStorage.setItem(`pos_cashier_${activeRestaurantId}`, JSON.stringify(unlockedUser));
           setIsPinLocked(false);
         }}
