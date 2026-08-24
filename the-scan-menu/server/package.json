@@ -8,6 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node-dev src/utils/seed.ts",
+    "seed:admin": "ts-node-dev --transpile-only src/utils/seedAdminOnly.ts",
+    "seed:admin:fresh": "ts-node-dev --transpile-only src/utils/seedAdminOnly.ts --fresh",
     "clean": "ts-node-dev --transpile-only src/utils/cleanDatabase.ts",
     "migrate:sessions": "ts-node-dev --transpile-only src/utils/migrateSessions.ts",
     "migrate:phase4": "ts-node-dev --transpile-only src/utils/migratePhase4.ts",
