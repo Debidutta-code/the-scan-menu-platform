@@ -78,7 +78,7 @@ export const ManagerSettings: React.FC = () => {
       {/* Main Tabbed Grid Layout */}
       <div className="flex flex-col md:flex-row gap-6 items-start">
         {/* ----------------- SIDEBAR SUB-NAVIGATION ----------------- */}
-        <aside className="w-full md:w-64 bg-white rounded-3xl border border-slate-150 p-2 shadow-sm shrink-0 overflow-x-auto">
+        <aside className="w-full md:w-64 bg-white rounded-3xl border border-slate-150 p-2 shadow-sm shrink-0 md:sticky md:top-0">
           <nav className="flex md:flex-col gap-1">
             {filteredTabs.map((tab) => {
               const isActive = activeTab === tab.id;

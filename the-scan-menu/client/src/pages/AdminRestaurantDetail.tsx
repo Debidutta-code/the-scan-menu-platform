@@ -272,16 +272,18 @@ export const AdminRestaurantDetail: React.FC = () => {
   const activeFlagsCount = flagsList.filter((f: any) => f.isEnabled).length;
 
   return (
-    <div className="w-full space-y-6 font-sans pb-16">
+    <div className="w-full h-full flex flex-col min-h-0 space-y-4 font-sans overflow-hidden">
       {/* Header */}
-      <AdminRestaurantHeader
-        restaurant={restaurant}
-        audit={audit}
-        setActiveTab={setActiveTab}
-      />
+      <div className="shrink-0">
+        <AdminRestaurantHeader
+          restaurant={restaurant}
+          audit={audit}
+          setActiveTab={setActiveTab}
+        />
+      </div>
 
       {/* Main Workstation Layout */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 overflow-hidden items-stretch">
         {/* Sidebar Nav */}
         <AdminRestaurantSidebar
           activeTab={activeTab}
@@ -297,7 +299,7 @@ export const AdminRestaurantDetail: React.FC = () => {
         />
 
         {/* Dynamic Tab Workspace */}
-        <div className="flex-1 w-full min-w-0">
+        <div className="flex-1 w-full min-w-0 h-full overflow-y-auto pr-1 pb-10 space-y-6">
           {activeTab === 'checklist' && (
             <ChecklistTab
               audit={audit}
