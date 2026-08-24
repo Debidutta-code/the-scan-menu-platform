@@ -55,11 +55,15 @@ export const ManagerOverrideModal: React.FC<ManagerOverrideModalProps> = ({
   const handleKeyPress = useCallback(
     (digit: string) => {
       if (verifyMutation.isPending) return;
-      if (pin.length < 6) {
-        setPin((prev) => prev + digit);
+      if (pin.length < 4) {
+        const nextPin = pin + digit;
+        setPin(nextPin);
+        if (nextPin.length === 4) {
+          verifyMutation.mutate(nextPin);
+        }
       }
     },
-    [pin, verifyMutation.isPending]
+    [pin, verifyMutation]
   );
 
   const handleBackspace = useCallback(() => {
@@ -74,7 +78,7 @@ export const ManagerOverrideModal: React.FC<ManagerOverrideModalProps> = ({
 
   const handleSubmit = useCallback(() => {
     if (pin.length < 4) {
-      toast('Manager PIN must be at least 4 digits', 'error');
+      toast('Manager PIN must be 4 digits', 'error');
       return;
     }
     verifyMutation.mutate(pin);
@@ -91,7 +95,7 @@ export const ManagerOverrideModal: React.FC<ManagerOverrideModalProps> = ({
       } else if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'Enter') {
-        if (pin.length >= 4) {
+        if (pin.length === 4) {
           verifyMutation.mutate(pin);
         }
       }
@@ -137,16 +141,16 @@ export const ManagerOverrideModal: React.FC<ManagerOverrideModalProps> = ({
           <p className="text-xs text-slate-500 mt-1 max-w-[260px] leading-relaxed">{actionDescription}</p>
         </div>
 
-        {/* PIN Indicators */}
-        <div className="flex items-center justify-center gap-3.5 mb-8">
-          {[0, 1, 2, 3, 4, 5].map((idx) => {
+        {/* PIN Indicators (4 Dots) */}
+        <div className="flex items-center justify-center gap-4 mb-8">
+          {[0, 1, 2, 3].map((idx) => {
             const hasDigit = pin.length > idx;
             return (
               <div
                 key={idx}
-                className={`w-4 h-4 rounded-full transition-all duration-150 border-2 ${
+                className={`w-5 h-5 rounded-full transition-all duration-150 border-2 ${
                   hasDigit
-                    ? 'bg-rose-500 border-rose-500 scale-110 shadow-xs'
+                    ? 'bg-rose-500 border-rose-500 scale-110 shadow-sm'
                     : 'bg-slate-100 border-slate-300'
                 }`}
               />

@@ -35,8 +35,8 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   restaurantId,
   restaurantName,
   onUnlockSuccess,
-  title = 'POS Terminal Locked',
-  subtitle = 'Enter your 4-6 digit staff or manager PIN to access register',
+  title = 'Restaurant Terminal Locked',
+  subtitle = 'Enter your 4-digit staff or manager PIN to access dashboard',
 }) => {
   const { toast } = useToast();
   const [pin, setPin] = useState('');
@@ -45,7 +45,7 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   const unlockMutation = useMutation({
     mutationFn: (enteredPin: string) => managerService.unlockPosByPin(restaurantId, enteredPin),
     onSuccess: (res) => {
-      toast(res.message || 'POS Unlocked', 'success');
+      toast(res.message || 'Terminal Unlocked', 'success');
       setPin('');
       onUnlockSuccess(res.data);
       if (onClose) onClose();
@@ -61,16 +61,15 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   const handleKeyPress = useCallback(
     (digit: string) => {
       if (unlockMutation.isPending) return;
-      if (pin.length < 6) {
+      if (pin.length < 4) {
         const nextPin = pin + digit;
         setPin(nextPin);
-        // If reached 4 digits, user can also auto-trigger or press unlock
-        if (nextPin.length >= 4 && nextPin.length <= 6) {
-          // Auto submit at 4 if wanted or on Enter
+        if (nextPin.length === 4) {
+          unlockMutation.mutate(nextPin);
         }
       }
     },
-    [pin, unlockMutation.isPending]
+    [pin, unlockMutation]
   );
 
   const handleBackspace = useCallback(() => {
@@ -85,7 +84,7 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
 
   const handleSubmit = useCallback(() => {
     if (pin.length < 4) {
-      toast('PIN must be at least 4 digits', 'error');
+      toast('PIN must be 4 digits', 'error');
       return;
     }
     unlockMutation.mutate(pin);
@@ -101,7 +100,7 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
       } else if (e.key === 'Backspace') {
         handleBackspace();
       } else if (e.key === 'Enter') {
-        if (pin.length >= 4) {
+        if (pin.length === 4) {
           unlockMutation.mutate(pin);
         }
       }
@@ -132,22 +131,22 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-wider mb-1">
             <Store className="w-3.5 h-3.5 text-amber-500" />
-            <span className="font-bold truncate max-w-[200px]">{restaurantName || 'Counter POS'}</span>
+            <span className="font-bold truncate max-w-[200px]">{restaurantName || 'Operations Panel'}</span>
           </div>
           <h3 className="font-display text-xl font-black text-slate-900 leading-tight">{title}</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-[260px] leading-relaxed">{subtitle}</p>
         </div>
 
-        {/* Masked PIN Indicators */}
-        <div className="flex items-center justify-center gap-3.5 mb-8">
-          {[0, 1, 2, 3, 4, 5].map((idx) => {
+        {/* Masked PIN Indicators (4 Dots) */}
+        <div className="flex items-center justify-center gap-4 mb-8">
+          {[0, 1, 2, 3].map((idx) => {
             const hasDigit = pin.length > idx;
             return (
               <div
                 key={idx}
-                className={`w-4 h-4 rounded-full transition-all duration-150 border-2 ${
+                className={`w-5 h-5 rounded-full transition-all duration-150 border-2 ${
                   hasDigit
-                    ? 'bg-amber-500 border-amber-500 scale-110 shadow-xs'
+                    ? 'bg-amber-500 border-amber-500 scale-110 shadow-sm'
                     : 'bg-slate-100 border-slate-300'
                 }`}
               />
