@@ -505,12 +505,18 @@ const CustomerDishPreview: React.FC<{
   );
 };
 
-export const ManagerMenu: React.FC = () => {
+export interface ManagerMenuProps {
+  restaurantId?: string;
+}
+
+export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
   const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const targetRestaurantId = restaurantId || activeRestaurantId;
 
   // Primary Tab: 'MENU' | 'CUSTOMIZATIONS'
   const [activeTab, setActiveTab] = useState<'MENU' | 'CUSTOMIZATIONS'>('MENU');
@@ -538,12 +544,12 @@ export const ManagerMenu: React.FC = () => {
 
   // Fetch Categories
   const { data: catResponse, isLoading: isLoadingCats } = useQuery({
-    queryKey: ['categories', activeRestaurantId],
+    queryKey: ['categories', targetRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/categories`);
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}/categories`);
       return res.data;
     },
-    enabled: !!activeRestaurantId,
+    enabled: !!targetRestaurantId,
   });
 
   const categories = useMemo(() => catResponse?.data || [], [catResponse]);
@@ -557,26 +563,26 @@ export const ManagerMenu: React.FC = () => {
 
   // Fetch Menu Items scoped inside selectedCategory
   const { data: itemsResponse, isLoading: isLoadingItems } = useQuery({
-    queryKey: ['menuItems', activeRestaurantId, selectedCatId],
+    queryKey: ['menuItems', targetRestaurantId, selectedCatId],
     queryFn: async () => {
       const res = await apiClient.get(
-        `/restaurants/${activeRestaurantId}/menu-items?categoryId=${selectedCatId}`
+        `/restaurants/${targetRestaurantId}/menu-items?categoryId=${selectedCatId}`
       );
       return res.data;
     },
-    enabled: !!activeRestaurantId && !!selectedCatId,
+    enabled: !!targetRestaurantId && !!selectedCatId,
   });
 
   const menuItems = itemsResponse?.data || [];
 
   // Fetch Customization Groups
   const { data: customGroupsResponse, isLoading: isLoadingGroups } = useQuery({
-    queryKey: ['customizationGroups', activeRestaurantId],
+    queryKey: ['customizationGroups', targetRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/customization-groups`);
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}/customization-groups`);
       return res.data;
     },
-    enabled: !!activeRestaurantId,
+    enabled: !!targetRestaurantId,
   });
 
   const customGroups = customGroupsResponse?.data || [];
@@ -586,9 +592,11 @@ export const ManagerMenu: React.FC = () => {
   // ==========================================
   const createCatMutation = useMutation({
     mutationFn: (data: CategoryFormValues) =>
-      apiClient.post(`/restaurants/${activeRestaurantId}/categories`, data),
+      apiClient.post(`/restaurants/${targetRestaurantId}/categories`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['categories', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminCategories', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setIsCatOpen(false);
       catForm.reset();
       toast('Category created successfully.', 'success');
@@ -600,9 +608,11 @@ export const ManagerMenu: React.FC = () => {
 
   const editCatMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: CategoryFormValues }) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/categories/${id}`, data),
+      apiClient.patch(`/restaurants/${targetRestaurantId}/categories/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['categories', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminCategories', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setIsCatOpen(false);
       setEditingCat(null);
       catForm.reset();
@@ -615,9 +625,11 @@ export const ManagerMenu: React.FC = () => {
 
   const deleteCatMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.delete(`/restaurants/${activeRestaurantId}/categories/${id}`),
+      apiClient.delete(`/restaurants/${targetRestaurantId}/categories/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['categories', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminCategories', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setSelectedCatId(null);
       toast('Category deleted successfully.', 'success');
     },
@@ -628,12 +640,12 @@ export const ManagerMenu: React.FC = () => {
 
   const reorderCatsMutation = useMutation({
     mutationFn: (categoryIds: string[]) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/categories-reorder`, { categoryIds }),
+      apiClient.patch(`/restaurants/${targetRestaurantId}/categories-reorder`, { categoryIds }),
     onMutate: async (categoryIds: string[]) => {
-      await queryClient.cancelQueries({ queryKey: ['categories', activeRestaurantId] });
-      const previous = queryClient.getQueryData(['categories', activeRestaurantId]);
+      await queryClient.cancelQueries({ queryKey: ['categories', targetRestaurantId] });
+      const previous = queryClient.getQueryData(['categories', targetRestaurantId]);
 
-      queryClient.setQueryData(['categories', activeRestaurantId], (old: any) => {
+      queryClient.setQueryData(['categories', targetRestaurantId], (old: any) => {
         if (!old) return old;
         const sorted = [...old.data].sort((a, b) => {
           return categoryIds.indexOf(a._id) - categoryIds.indexOf(b._id);
@@ -644,7 +656,7 @@ export const ManagerMenu: React.FC = () => {
       return { previous };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['categories', targetRestaurantId] });
     },
   });
 
@@ -663,9 +675,11 @@ export const ManagerMenu: React.FC = () => {
   // ==========================================
   const createItemMutation = useMutation({
     mutationFn: (data: any) =>
-      apiClient.post(`/restaurants/${activeRestaurantId}/menu-items`, data),
+      apiClient.post(`/restaurants/${targetRestaurantId}/menu-items`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setIsItemOpen(false);
       itemForm.reset();
       toast('Menu item created successfully.', 'success');
@@ -677,9 +691,11 @@ export const ManagerMenu: React.FC = () => {
 
   const editItemMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${id}`, data),
+      apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setIsItemOpen(false);
       setEditingItem(null);
       itemForm.reset();
@@ -692,9 +708,11 @@ export const ManagerMenu: React.FC = () => {
 
   const deleteItemMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.delete(`/restaurants/${activeRestaurantId}/menu-items/${id}`),
+      apiClient.delete(`/restaurants/${targetRestaurantId}/menu-items/${id}`),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       if (res.data?.data?.archived) {
         toast('Menu item has order history; successfully soft-archived and made unavailable.', 'info');
       } else {
@@ -705,15 +723,15 @@ export const ManagerMenu: React.FC = () => {
 
   const reorderItemsMutation = useMutation({
     mutationFn: (itemIds: string[]) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items-reorder`, {
+      apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items-reorder`, {
         itemIds,
         categoryId: selectedCatId,
       }),
     onMutate: async (itemIds: string[]) => {
-      await queryClient.cancelQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
-      const previous = queryClient.getQueryData(['menuItems', activeRestaurantId, selectedCatId]);
+      await queryClient.cancelQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      const previous = queryClient.getQueryData(['menuItems', targetRestaurantId, selectedCatId]);
 
-      queryClient.setQueryData(['menuItems', activeRestaurantId, selectedCatId], (old: any) => {
+      queryClient.setQueryData(['menuItems', targetRestaurantId, selectedCatId], (old: any) => {
         if (!old) return old;
         const sorted = [...old.data].sort((a, b) => {
           return itemIds.indexOf(a._id) - itemIds.indexOf(b._id);
@@ -724,7 +742,7 @@ export const ManagerMenu: React.FC = () => {
       return { previous };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
     },
   });
 
@@ -741,13 +759,13 @@ export const ManagerMenu: React.FC = () => {
   // Optimistic Toggle for availability
   const toggleAvailableMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${id}/availability`),
+      apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items/${id}/availability`),
     onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
-      const previousItems = queryClient.getQueryData(['menuItems', activeRestaurantId, selectedCatId]);
+      await queryClient.cancelQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      const previousItems = queryClient.getQueryData(['menuItems', targetRestaurantId, selectedCatId]);
 
       queryClient.setQueryData(
-        ['menuItems', activeRestaurantId, selectedCatId],
+        ['menuItems', targetRestaurantId, selectedCatId],
         (old: any) => {
           if (!old) return old;
           return {
@@ -764,27 +782,25 @@ export const ManagerMenu: React.FC = () => {
     onError: (_err, _id, context) => {
       if (context?.previousItems) {
         queryClient.setQueryData(
-          ['menuItems', activeRestaurantId, selectedCatId],
+          ['menuItems', targetRestaurantId, selectedCatId],
           context.previousItems
         );
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
     },
   });
-
-
 
   // Bulk availability update
   const bulkAvailableMutation = useMutation({
     mutationFn: ({ ids, isAvailable }: { ids: string[]; isAvailable: boolean }) =>
-      apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items-bulk-availability`, {
+      apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items-bulk-availability`, {
         itemIds: ids,
         isAvailable,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
       setSelectedItemIds([]);
       setBulkMode(false);
     },
@@ -795,9 +811,9 @@ export const ManagerMenu: React.FC = () => {
   // ==========================================
   const createGroupMutation = useMutation({
     mutationFn: (data: any) =>
-      apiClient.post(`/restaurants/${activeRestaurantId}/customization-groups`, data),
+      apiClient.post(`/restaurants/${targetRestaurantId}/customization-groups`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customizationGroups', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['customizationGroups', targetRestaurantId] });
       setIsGroupModalOpen(false);
       groupForm.reset();
       toast('Customization group created successfully.', 'success');
@@ -809,9 +825,9 @@ export const ManagerMenu: React.FC = () => {
 
   const deleteGroupMutation = useMutation({
     mutationFn: (id: string) =>
-      apiClient.delete(`/restaurants/${activeRestaurantId}/customization-groups/${id}`),
+      apiClient.delete(`/restaurants/${targetRestaurantId}/customization-groups/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customizationGroups', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['customizationGroups', targetRestaurantId] });
       toast('Customization group archived.', 'success');
     },
   });

@@ -38,10 +38,17 @@ const staffSchema = z.object({
 
 type StaffFormValues = z.infer<typeof staffSchema>;
 
-export const ManagerStaff: React.FC = () => {
+export interface ManagerStaffProps {
+  restaurantId?: string;
+}
+
+export const ManagerStaff: React.FC<ManagerStaffProps> = ({ restaurantId }) => {
   const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const targetRestaurantId = restaurantId || activeRestaurantId;
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [revealPinForId, setRevealPinForId] = useState<string | null>(null);
@@ -49,9 +56,9 @@ export const ManagerStaff: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
 
   const { data: staffData, isLoading } = useQuery({
-    queryKey: ['managerStaff', activeRestaurantId],
-    queryFn: () => managerService.listStaff(activeRestaurantId!),
-    enabled: !!activeRestaurantId,
+    queryKey: ['managerStaff', targetRestaurantId],
+    queryFn: () => managerService.listStaff(targetRestaurantId!),
+    enabled: !!targetRestaurantId,
   });
 
   const staffList: Staff[] = useMemo(() => staffData?.data || [], [staffData?.data]);
@@ -81,9 +88,11 @@ export const ManagerStaff: React.FC = () => {
   const managerCount = staffList.filter((s) => s.role === 'MANAGER').length;
 
   const createMutation = useMutation({
-    mutationFn: (data: StaffFormValues) => managerService.createStaff(activeRestaurantId!, data),
+    mutationFn: (data: StaffFormValues) => managerService.createStaff(targetRestaurantId!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerStaff', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerStaff', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminStaff', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       toast('Staff member created successfully', 'success');
       handleCloseForm();
     },
@@ -94,9 +103,11 @@ export const ManagerStaff: React.FC = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<StaffFormValues> }) =>
-      managerService.updateStaff(activeRestaurantId!, id, data),
+      managerService.updateStaff(targetRestaurantId!, id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerStaff', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerStaff', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminStaff', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       toast('Staff member updated successfully', 'success');
       handleCloseForm();
     },
@@ -106,9 +117,11 @@ export const ManagerStaff: React.FC = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => managerService.deleteStaff(activeRestaurantId!, id),
+    mutationFn: (id: string) => managerService.deleteStaff(targetRestaurantId!, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['managerStaff', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerStaff', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminStaff', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       toast('Staff member deleted successfully', 'success');
     },
     onError: (err: any) => {

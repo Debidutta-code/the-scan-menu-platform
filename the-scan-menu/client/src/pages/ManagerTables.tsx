@@ -69,10 +69,16 @@ function getTableStatus(table: Table): 'OCCUPIED' | 'RESERVED' | 'AVAILABLE' {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export const ManagerTables: React.FC = () => {
+export interface ManagerTablesProps {
+  restaurantId?: string;
+}
+
+export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { activeRestaurantId } = useAuth();
   const { toast } = useToast();
+
+  const targetRestaurantId = restaurantId || activeRestaurantId;
 
   const {
     tables,
@@ -89,7 +95,7 @@ export const ManagerTables: React.FC = () => {
     createZoneMutation,
     editZoneMutation,
     deleteZoneMutation,
-  } = useManagerTables(activeRestaurantId);
+  } = useManagerTables(targetRestaurantId);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED'>('ALL');
@@ -107,27 +113,27 @@ export const ManagerTables: React.FC = () => {
   const [printModalOrder, setPrintModalOrder] = useState<any | null>(null);
 
   const { data: qrData, isLoading: isLoadingQr } = useQuery({
-    queryKey: ['tableQr', activeRestaurantId, showQrModal?._id],
-    queryFn: () => managerService.getTableQr(activeRestaurantId!, showQrModal!._id),
-    enabled: !!activeRestaurantId && !!showQrModal?._id,
+    queryKey: ['tableQr', targetRestaurantId, showQrModal?._id],
+    queryFn: () => managerService.getTableQr(targetRestaurantId!, showQrModal!._id),
+    enabled: !!targetRestaurantId && !!showQrModal?._id,
   });
 
   const { data: restaurantData } = useQuery({
-    queryKey: ['restaurantProfilePrint', activeRestaurantId],
+    queryKey: ['restaurantProfilePrint', targetRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}`);
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}`);
       return res.data;
     },
-    enabled: !!activeRestaurantId,
+    enabled: !!targetRestaurantId,
   });
 
   const { data: activeOrdersResponse } = useQuery({
-    queryKey: ['activeOrdersForTables', activeRestaurantId],
+    queryKey: ['activeOrdersForTables', targetRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/orders/active`);
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}/orders/active`);
       return res.data;
     },
-    enabled: !!activeRestaurantId,
+    enabled: !!targetRestaurantId,
     refetchInterval: 10000,
   });
 
@@ -151,7 +157,7 @@ export const ManagerTables: React.FC = () => {
   ): Promise<PrintOrderData> => {
     let tableOrders: any[] = [];
     try {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/tables/${tableId}/orders`);
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}/tables/${tableId}/orders`);
       if (res.data?.success && Array.isArray(res.data?.data)) {
         tableOrders = res.data.data;
       }
