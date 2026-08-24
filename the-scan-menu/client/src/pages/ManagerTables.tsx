@@ -43,6 +43,7 @@ import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { QrCodeStudioModal } from '../components/QrCodeStudioModal';
 import { printOrderTicket, PrintOrderData } from '../utils/printReceipt';
+import { generateStandeeCardPng, printStandeeCard } from '../utils/generateStandeeCard';
 
 const tableSchema = z.object({
   tableNumber: z.string().optional(),
@@ -293,36 +294,63 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     setIsCreateOpen(true);
   };
 
-  const handleDownloadPng = () => {
-    if (qrData?.data?.pngDataUri && showQrModal) {
+  const handleDownloadPng = async () => {
+    if (!qrData?.data || !showQrModal) return;
+    try {
+      toast('Generating high-resolution standee card...', 'info');
+      const standeeDataUri = await generateStandeeCardPng({
+        tableNumber: showQrModal.tableNumber,
+        displayName: showQrModal.displayName || `Table ${showQrModal.tableNumber}`,
+        restaurantName: qrData.data.restaurantName || restaurantInfo.name || 'Restaurant',
+        url: qrData.data.url,
+        logoUrl: qrData.data.restaurantLogo || qrData.data.qrStyle?.logoUrl,
+        fgColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+        bgColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+        showLogo: qrData.data.qrStyle?.showLogo !== false,
+        cardFrameText: qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order',
+        templateTheme: qrData.data.qrStyle?.templateTheme || 'standee',
+        errorCorrectionLevel: 'H',
+      });
+
       const link = document.createElement('a');
-      link.href = qrData.data.pngDataUri;
-      link.download = `qr-table-${showQrModal.tableNumber}.png`;
+      link.href = standeeDataUri;
+      link.download = `standee-table-${showQrModal.tableNumber}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast('Standee card downloaded!', 'success');
+    } catch {
+      if (qrData?.data?.pngDataUri) {
+        const link = document.createElement('a');
+        link.href = qrData.data.pngDataUri;
+        link.download = `qr-table-${showQrModal.tableNumber}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     }
   };
 
-  const handlePrintQr = () => {
-    if (!qrData?.data?.svg || !showQrModal) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) { toast('Allow popups to print.', 'error'); return; }
-    printWindow.document.write(`<html><head><title>QR Table ${showQrModal.tableNumber}</title>
-      <style>body{margin:0;padding:40px;font-family:'Plus Jakarta Sans',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#fff;}
-      .container{border:3px solid #111827;padding:40px;border-radius:32px;max-width:320px;width:100%;}
-      .label{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:#64748b;font-weight:800;margin-bottom:6px;}
-      .title{font-size:28px;font-weight:800;color:#111827;margin:0 0 20px;font-family:'Instrument Serif',serif;}
-      .qr{width:220px;height:220px;margin:0 auto 20px;} .qr svg{width:100%;height:100%;}
-      .hint{font-size:12px;color:#111827;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0;}
-      @media print{body{padding:0;}.container{border:none;}}</style></head>
-      <body><div class="container"><div class="label">Scan & Order</div>
-      <div class="title">Table ${showQrModal.tableNumber}</div>
-      <div class="qr">${qrData.data.svg}</div>
-      <p class="hint">Place your orders instantly</p></div>
-      <script>window.onload=function(){window.print();setTimeout(function(){window.close();},500);};</script>
-      </body></html>`);
-    printWindow.document.close();
+  const handlePrintQr = async () => {
+    if (!qrData?.data || !showQrModal) return;
+    try {
+      const standeeDataUri = await generateStandeeCardPng({
+        tableNumber: showQrModal.tableNumber,
+        displayName: showQrModal.displayName || `Table ${showQrModal.tableNumber}`,
+        restaurantName: qrData.data.restaurantName || restaurantInfo.name || 'Restaurant',
+        url: qrData.data.url,
+        logoUrl: qrData.data.restaurantLogo || qrData.data.qrStyle?.logoUrl,
+        fgColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+        bgColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+        showLogo: qrData.data.qrStyle?.showLogo !== false,
+        cardFrameText: qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order',
+        templateTheme: qrData.data.qrStyle?.templateTheme || 'standee',
+        errorCorrectionLevel: 'H',
+      });
+      printStandeeCard(standeeDataUri, showQrModal.tableNumber);
+    } catch {
+      toast('Failed to prepare print document', 'error');
+    }
   };
 
   // ── Guards ──────────────────────────────────────────────────────────────────
