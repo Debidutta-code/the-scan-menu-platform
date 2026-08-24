@@ -61,28 +61,63 @@ export class AdminController {
 
   async provisionRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, slug, logoUrl, coverImageUrl, description, phone, email, address, currency, timezone, manager, settings } = req.body;
+      const body = req.body || {};
+      const restaurantData = body.restaurant || body;
+      const managerData = body.manager || {
+        name: body.managerName,
+        email: body.managerEmail,
+        password: body.managerPassword,
+      };
+      const settingsData = body.settings;
+      const planKey = restaurantData.planKey || body.planKey || 'ENTERPRISE';
 
-      if (!name) {
+      const name = restaurantData.name;
+      if (!name || (typeof name === 'string' && !name.trim())) {
         sendError(res, 'BAD_REQUEST', 'Restaurant name is required', null, 400);
         return;
       }
 
-      if (!manager || !manager.email || !manager.name || !manager.password) {
+      if (!managerData || !managerData.email || !managerData.name || !managerData.password) {
         sendError(res, 'BAD_REQUEST', 'Manager details (name, email, password) are required', null, 400);
         return;
       }
 
       const result = await restaurantProvisioningService.provisionRestaurant({
-        restaurant: { name, slug, logoUrl, coverImageUrl, description, phone, email, address, currency, timezone },
-        manager,
-        settings,
+        planKey,
+        restaurant: {
+          name: typeof restaurantData.name === 'string' ? restaurantData.name.trim() : restaurantData.name,
+          slug: restaurantData.slug ? String(restaurantData.slug).trim() : undefined,
+          logoUrl: restaurantData.logoUrl,
+          coverImageUrl: restaurantData.coverImageUrl,
+          description: restaurantData.description,
+          phone: restaurantData.phone,
+          email: restaurantData.email,
+          address: restaurantData.address,
+          currency: restaurantData.currency || 'INR',
+          timezone: restaurantData.timezone || 'Asia/Kolkata',
+          planKey,
+          gstNumber: restaurantData.gstNumber,
+          whatsapp: restaurantData.whatsapp,
+          googleReviewUrl: restaurantData.googleReviewUrl,
+          openTime: restaurantData.openTime,
+          closeTime: restaurantData.closeTime,
+        },
+        manager: {
+          name: typeof managerData.name === 'string' ? managerData.name.trim() : managerData.name,
+          email: typeof managerData.email === 'string' ? managerData.email.trim() : managerData.email,
+          password: managerData.password,
+        },
+        settings: settingsData,
       });
 
       sendSuccess(res, result, 'Restaurant provisioned successfully', 201);
     } catch (error: any) {
       if (error.message && error.message.startsWith('SLUG_CONFLICT')) {
         sendError(res, 'SLUG_CONFLICT', error.message, null, 400);
+        return;
+      }
+      if (error.message && (error.message.startsWith('VALIDATION:') || error.message.startsWith('DUPLICATE_EMAIL:'))) {
+        sendError(res, 'BAD_REQUEST', error.message, null, 400);
         return;
       }
       next(error);
