@@ -13,7 +13,14 @@ export const requireFeature = (featureKey: string) => {
       if (user?.role === 'SUPER_ADMIN') {
         return next();
       }
-      const restaurantId = req.params.restaurantId || req.body.restaurantId || (req as any).restaurant?.id;
+      let restaurantId = req.params.restaurantId || req.body.restaurantId || (req as any).restaurant?.id;
+
+      if (!restaurantId && req.originalUrl) {
+        const match = req.originalUrl.match(/\/restaurants\/([a-fA-F0-9]{24})/);
+        if (match) {
+          restaurantId = match[1];
+        }
+      }
 
       if (!restaurantId) {
         res.status(400).json({ success: false, message: 'Restaurant ID is required for feature flag check' });

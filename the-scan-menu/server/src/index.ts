@@ -111,7 +111,7 @@ app.use('/api/v1/restaurants/:restaurantId/analytics', analyticsRoutes);
 app.use('/api/v1/restaurants/:restaurantId/developer', developerRoutes);
 app.use('/api/v1/restaurants/:restaurantId/inventory', inventoryRoutes);
 app.use('/api/v1/restaurants/:restaurantId/payments', paymentRoutes);
-app.use('/api/v1/restaurants', shiftRoutes);
+app.use('/api/v1/restaurants/:restaurantId/shifts', shiftRoutes);
 app.use('/api/v1/restaurants', orderRoutes);
 app.use('/api/v1/restaurants', waiterCallRoutes);
 app.use('/api/v1/restaurants', restaurantSubscriptionRoutes);
