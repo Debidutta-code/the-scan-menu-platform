@@ -112,12 +112,42 @@ export const ManagerCounter: React.FC = () => {
   // Item variant selection modal state
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<any | null>(null);
 
-  // POS PIN Cashier & Lock State
+  // POS PIN Cashier & Lock State (Prompts on page refresh/session start, or after 15m idle inactivity)
   const [activeCashier, setActiveCashier] = useState<{ id: string; name: string; role: string } | null>(() => {
     const saved = sessionStorage.getItem(`pos_cashier_${restaurantId}`);
     return saved ? JSON.parse(saved) : (user ? { id: user.id, name: user.name, role: user.role } : null);
   });
-  const [isPosLocked, setIsPosLocked] = useState(false);
+
+  const [isPosLocked, setIsPosLocked] = useState<boolean>(() => {
+    const unlocked = sessionStorage.getItem(`pos_unlocked_${restaurantId}`);
+    return !unlocked;
+  });
+
+  // Long Inactivity Auto-Lock (15 Minutes of zero activity)
+  useEffect(() => {
+    if (!restaurantId || isPosLocked) return;
+
+    let timeoutId: any;
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsPosLocked(true);
+        sessionStorage.removeItem(`pos_unlocked_${restaurantId}`);
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    resetTimer();
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
+    activityEvents.forEach((evt) => window.addEventListener(evt, resetTimer, { passive: true }));
+
+    return () => {
+      clearTimeout(timeoutId);
+      activityEvents.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [restaurantId, isPosLocked]);
 
   // Input refs for automatic keyboard focus
   const customerNameInputRef = useRef<HTMLInputElement>(null);
@@ -1538,6 +1568,7 @@ export const ManagerCounter: React.FC = () => {
         onUnlockSuccess={(unlockedUser) => {
           setActiveCashier(unlockedUser);
           sessionStorage.setItem(`pos_cashier_${restaurantId}`, JSON.stringify(unlockedUser));
+          sessionStorage.setItem(`pos_unlocked_${restaurantId}`, 'true');
           setIsPosLocked(false);
         }}
         onClose={() => setIsPosLocked(false)}
