@@ -75,7 +75,7 @@ export interface ManagerTablesProps {
 
 export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { activeRestaurantId } = useAuth();
+  const { activeRestaurantId, user } = useAuth();
   const { toast } = useToast();
 
   const targetRestaurantId = restaurantId || activeRestaurantId;
@@ -337,7 +337,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     );
   }
 
-  if (!flagsLoading && !isEnabled('qr_menu')) return <Navigate to="/manager/orders" replace />;
+  if (!restaurantId && user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('qr_menu')) {
+    return <Navigate to="/manager/orders" replace />;
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (

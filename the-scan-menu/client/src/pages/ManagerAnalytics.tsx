@@ -59,7 +59,7 @@ const getRangeDates = (rangeType: string, customStart?: string, customEnd?: stri
 
 export const ManagerAnalytics: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { activeRestaurantId } = useAuth();
+  const { activeRestaurantId, user } = useAuth();
   const { toast } = useToast();
 
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'custom'>('today');
@@ -374,7 +374,7 @@ export const ManagerAnalytics: React.FC = () => {
     );
   }
 
-  if (!flagsLoading && !isEnabled('analytics')) {
+  if (user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('analytics')) {
     return <Navigate to="/manager/orders" replace />;
   }
 

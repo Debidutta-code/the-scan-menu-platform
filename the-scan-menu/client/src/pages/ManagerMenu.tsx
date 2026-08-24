@@ -512,7 +512,7 @@ export interface ManagerMenuProps {
 export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
-  const { activeRestaurantId } = useAuth();
+  const { activeRestaurantId, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1064,7 +1064,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     }
   };
 
-  if (!flagsLoading && !isEnabled('qr_menu')) {
+  if (!restaurantId && user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('qr_menu')) {
     return <Navigate to="/manager" replace />;
   }
 

@@ -79,7 +79,7 @@ const getRequestTypeDetails = (type: string) => {
 
 export const ManagerWaiterCalls: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
-  const { activeRestaurantId } = useAuth();
+  const { activeRestaurantId, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
@@ -153,7 +153,7 @@ export const ManagerWaiterCalls: React.FC = () => {
     );
   }
 
-  if (!flagsLoading && !isEnabled('waiter_call')) {
+  if (user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('waiter_call')) {
     return <Navigate to="/manager/orders" replace />;
   }
 
