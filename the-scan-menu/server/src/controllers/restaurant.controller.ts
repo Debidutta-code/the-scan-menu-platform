@@ -604,6 +604,10 @@ export class RestaurantController {
         };
       });
 
+      tablesWithSession.sort((a, b) =>
+        (a.tableNumber || '').localeCompare(b.tableNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+      );
+
       sendSuccess(res, tablesWithSession, 'Tables listed successfully');
     } catch (error) {
       next(error);

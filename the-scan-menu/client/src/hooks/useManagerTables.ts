@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { managerService, Table, TableZone } from '../services/restaurant.service';
 import { useToast } from './useToast';
@@ -30,7 +31,12 @@ export function useManagerTables(activeRestaurantId?: string | null) {
     refetchInterval: 15000,
   });
 
-  const tables: Table[] = tablesData?.data || [];
+  const tables: Table[] = useMemo(() => {
+    const list: Table[] = tablesData?.data || [];
+    return [...list].sort((a, b) =>
+      (a.tableNumber || '').localeCompare(b.tableNumber || '', undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }, [tablesData?.data]);
 
   // 2. Fetch zones list
   const { data: zonesData, isLoading: isLoadingZones } = useQuery({
