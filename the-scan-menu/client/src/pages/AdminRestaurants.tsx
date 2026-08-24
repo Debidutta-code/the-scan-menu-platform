@@ -24,6 +24,7 @@ import {
   LogIn,
   Settings,
 } from 'lucide-react';
+import { QuickOnboardModal } from '../components/admin/QuickOnboardModal';
 
 const restaurantSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -60,6 +61,7 @@ export const AdminRestaurants: React.FC = () => {
   const [deletingRest, setDeletingRest] = useState<Restaurant | null>(null);
   const [confirmSlugInput, setConfirmSlugInput] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showQuickOnboard, setShowQuickOnboard] = useState(false);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -295,11 +297,11 @@ export const AdminRestaurants: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => navigate('/admin/restaurants/provision')}
-                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-2 rounded-xl text-xs font-extrabold transition shadow-sm"
+                  onClick={() => setShowQuickOnboard(true)}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-2 rounded-xl text-xs font-extrabold transition shadow-sm cursor-pointer"
                 >
                   <Plus className="w-4 h-4" strokeWidth={2} />
-                  <span>Provision Wizard</span>
+                  <span>+ Onboard Outlet</span>
                 </button>
 
                 <button
@@ -741,6 +743,11 @@ export const AdminRestaurants: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Quick Onboard Modal */}
+      <QuickOnboardModal
+        isOpen={showQuickOnboard}
+        onClose={() => setShowQuickOnboard(false)}
+      />
     </div>
   );
 };

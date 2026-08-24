@@ -12,11 +12,13 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import apiClient from '../lib/api';
+import { QuickOnboardModal } from '../components/admin/QuickOnboardModal';
 
 export const AdminSetupHub: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'ACTION_REQUIRED' | 'READY'>('ALL');
+  const [showQuickOnboard, setShowQuickOnboard] = useState(false);
 
   // Fetch all restaurants
   const { data: restResponse, isLoading: isLoadingRests } = useQuery({
@@ -84,11 +86,11 @@ export const AdminSetupHub: React.FC = () => {
         </div>
 
         <button
-          onClick={() => navigate('/admin/restaurants/provision')}
-          className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-2xl transition flex items-center gap-2 shadow-sm shrink-0 self-start sm:self-auto"
+          onClick={() => setShowQuickOnboard(true)}
+          className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-2xl transition flex items-center gap-2 shadow-sm shrink-0 self-start sm:self-auto cursor-pointer"
         >
           <PlusCircle className="w-4 h-4" strokeWidth={2} />
-          <span>Provision New Outlet</span>
+          <span>+ Onboard New Outlet</span>
         </button>
       </div>
 
@@ -275,6 +277,12 @@ export const AdminSetupHub: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* Quick Onboard Modal */}
+      <QuickOnboardModal
+        isOpen={showQuickOnboard}
+        onClose={() => setShowQuickOnboard(false)}
+      />
     </div>
   );
 };

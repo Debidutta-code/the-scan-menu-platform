@@ -13,7 +13,6 @@ import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminRestaurants from './pages/AdminRestaurants';
 import AdminRestaurantDetail from './pages/AdminRestaurantDetail';
-import AdminProvision from './pages/AdminProvision';
 import AdminSetupHub from './pages/AdminSetupHub';
 import AdminSubscriptions from './pages/AdminSubscriptions';
 import AdminPOSIntegrations from './pages/AdminPOSIntegrations';
@@ -113,7 +112,7 @@ export const App = () => {
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
                   <Route path="/admin/setup-hub" element={<AdminSetupHub />} />
                   <Route path="/admin/restaurants" element={<AdminRestaurants />} />
-                  <Route path="/admin/restaurants/provision" element={<AdminProvision />} />
+                  <Route path="/admin/restaurants/provision" element={<Navigate to="/admin/setup-hub" replace />} />
                   <Route path="/admin/restaurants/:id" element={<AdminRestaurantDetail />} />
                   <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                   <Route path="/admin/pos-integrations" element={<AdminPOSIntegrations />} />

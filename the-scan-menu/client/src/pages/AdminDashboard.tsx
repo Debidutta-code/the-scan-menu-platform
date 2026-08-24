@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { adminService } from '../services/restaurant.service';
@@ -15,9 +15,11 @@ import {
   ArrowUpRight,
   DollarSign,
 } from 'lucide-react';
+import { QuickOnboardModal } from '../components/admin/QuickOnboardModal';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [showQuickOnboard, setShowQuickOnboard] = useState(false);
 
   // Fetch basic stats
   const { data: statsResponse, isLoading: isLoadingStats } = useQuery({
@@ -72,11 +74,11 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => navigate('/admin/restaurants/provision')}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition shadow-md shrink-0"
+          onClick={() => setShowQuickOnboard(true)}
+          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition shadow-md shrink-0 cursor-pointer"
         >
           <PlusCircle className="w-4 h-4" strokeWidth={2} />
-          <span>Provision New Tenant</span>
+          <span>+ Onboard New Outlet</span>
         </button>
       </div>
 
@@ -243,6 +245,11 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
       </div>
+      {/* Quick Onboard Modal */}
+      <QuickOnboardModal
+        isOpen={showQuickOnboard}
+        onClose={() => setShowQuickOnboard(false)}
+      />
     </div>
   );
 };

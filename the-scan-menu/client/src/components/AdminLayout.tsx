@@ -18,12 +18,14 @@ import {
   Clock,
   Settings,
 } from 'lucide-react';
+import { QuickOnboardModal } from './admin/QuickOnboardModal';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+  const [showQuickOnboard, setShowQuickOnboard] = useState(false);
 
   const currentPath = location.pathname;
 
@@ -31,8 +33,6 @@ export const AdminLayout: React.FC = () => {
     ? 'dashboard'
     : currentPath === '/admin/setup-hub'
     ? 'setup-hub'
-    : currentPath === '/admin/restaurants/provision'
-    ? 'provision'
     : currentPath.startsWith('/admin/restaurants')
     ? 'restaurants'
     : currentPath.startsWith('/admin/subscriptions')
@@ -58,8 +58,6 @@ export const AdminLayout: React.FC = () => {
       ? 'Outlet Onboarding & Setup Hub'
       : activeTab === 'restaurants'
       ? 'Tenants Directory'
-      : activeTab === 'provision'
-      ? 'Provision Outlet Wizard'
       : activeTab === 'subscriptions'
       ? 'Subscription Plans'
       : activeTab === 'pos-integrations'
@@ -139,19 +137,6 @@ export const AdminLayout: React.FC = () => {
           >
             <Store className="w-4 h-4" strokeWidth={1.75} />
             <span>Tenants Directory</span>
-          </button>
-
-          {/* Provision Tenant */}
-          <button
-            onClick={() => navigate('/admin/restaurants/provision')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
-              activeTab === 'provision'
-                ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <PlusCircle className="w-4 h-4 text-amber-600" strokeWidth={2} />
-            <span>Provision Wizard</span>
           </button>
 
           {/* Subscriptions */}
@@ -279,11 +264,11 @@ export const AdminLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/admin/restaurants/provision')}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition shadow-sm"
+              onClick={() => setShowQuickOnboard(true)}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition shadow-sm cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" strokeWidth={2} />
-              <span>Provision Outlet</span>
+              <span>+ Onboard Outlet</span>
             </button>
 
             <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg uppercase">
@@ -310,7 +295,7 @@ export const AdminLayout: React.FC = () => {
         {/* Scrollable Page Body */}
         <main
           className={`flex-1 min-h-0 flex flex-col p-4 md:p-6 ${
-            currentPath.startsWith('/admin/restaurants/') && currentPath !== '/admin/restaurants/provision'
+            currentPath.startsWith('/admin/restaurants/')
               ? 'overflow-hidden'
               : 'overflow-y-auto'
           }`}
@@ -336,7 +321,10 @@ export const AdminLayout: React.FC = () => {
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono">Audit</span>
               </button>
               <button onClick={() => { navigate('/admin/restaurants'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Tenants Directory</button>
-              <button onClick={() => { navigate('/admin/restaurants/provision'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl bg-amber-50 text-amber-900 font-extrabold">Provision Outlet</button>
+              <button onClick={() => { setShowQuickOnboard(true); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl bg-amber-50 text-amber-900 font-extrabold flex items-center gap-2">
+                <PlusCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>+ Onboard Outlet</span>
+              </button>
               <button onClick={() => { navigate('/admin/subscriptions'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Subscriptions</button>
               <button onClick={() => { navigate('/admin/pos-integrations'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">POS Integrations</button>
               <button onClick={() => { navigate('/admin/payments'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Payment Gateways</button>
@@ -349,6 +337,12 @@ export const AdminLayout: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Quick Onboard Modal */}
+      <QuickOnboardModal
+        isOpen={showQuickOnboard}
+        onClose={() => setShowQuickOnboard(false)}
+      />
     </div>
   );
 };
