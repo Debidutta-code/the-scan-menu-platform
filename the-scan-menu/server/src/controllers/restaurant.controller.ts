@@ -232,29 +232,20 @@ export class RestaurantController {
   async deleteStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, staffId } = req.params;
+      const staffObjId = new mongoose.Types.ObjectId(staffId);
+      const restObjId = new mongoose.Types.ObjectId(restaurantId);
 
-      // Soft-delete: deactivate the RestaurantStaff link so historical data is preserved.
-      // requireRestaurantAccess checks isActive: true, so this revokes access immediately.
-      const staffJoin = await RestaurantStaff.findOneAndUpdate(
-        {
-          userId: new mongoose.Types.ObjectId(staffId),
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          isActive: true,
-        },
-        { isActive: false },
-        { new: true }
+      // Deactivate RestaurantStaff link
+      await RestaurantStaff.updateMany(
+        { userId: staffObjId, restaurantId: restObjId },
+        { $set: { isActive: false } }
       );
 
-      if (!staffJoin) {
-        sendError(res, 'STAFF_NOT_FOUND', 'Staff association not found or already removed', null, 404);
-        return;
-      }
-
-      // Also deactivate the User account so they cannot log in to other tenants either
+      // Deactivate the User account
       await User.findByIdAndUpdate(staffId, { isActive: false });
       await restaurantStatsService.incrementStaff(restaurantId, -1);
 
-      sendSuccess(res, {}, 'Staff member removed from restaurant successfully');
+      sendSuccess(res, {}, 'Member deactivated / removed successfully');
     } catch (error) {
       next(error);
     }
