@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import QRCode from 'qrcode';
 import { useToast } from '../hooks/useToast';
 import apiClient from '../lib/api';
+import { ImageUploader } from './ImageUploader';
 import {
   QrCode,
   Palette,
@@ -11,6 +13,11 @@ import {
   X,
   Check,
   Eye,
+  UploadCloud,
+  Shield,
+  Layers,
+  Smartphone,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export interface QrCodeStudioModalProps {
@@ -30,7 +37,7 @@ const COLOR_PRESETS = [
   { label: 'Crimson Rose', fg: '#BE123C', bg: '#FFFFFF' },
   { label: 'Coffee Roast', fg: '#78350F', bg: '#FAF9F6' },
   { label: 'Midnight Blue', fg: '#1E3A8A', bg: '#FFFFFF' },
-  { label: 'Charcoal Dark', fg: '#18181B', bg: '#FAFAFA' },
+  { label: 'Deep Charcoal', fg: '#18181B', bg: '#FAFAFA' },
 ];
 
 export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
@@ -48,9 +55,12 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
   const [bgColor, setBgColor] = useState('#FFFFFF');
   const [showLogo, setShowLogo] = useState(true);
   const [logoUrl, setLogoUrl] = useState('');
-  const [cornerStyle, setCornerStyle] = useState<'square' | 'rounded' | 'dots'>('rounded');
+  const [showCustomUploader, setShowCustomUploader] = useState(false);
   const [cardFrameText, setCardFrameText] = useState('Scan to View Menu & Order');
-  const [templateTheme, setTemplateTheme] = useState<'minimal' | 'branded' | 'standee'>('branded');
+  const [templateTheme, setTemplateTheme] = useState<'standee' | 'branded' | 'minimal'>('standee');
+  const [errorCorrectionLevel, setErrorCorrectionLevel] = useState<'M' | 'Q' | 'H'>('H');
+  const [realQrSvg, setRealQrSvg] = useState<string>('');
+  const [isGeneratingQr, setIsGeneratingQr] = useState<boolean>(false);
 
   // Fetch current restaurant settings
   const { data: settingsResponse } = useQuery({
@@ -70,25 +80,47 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
       if (qr.bgColor) setBgColor(qr.bgColor);
       if (qr.showLogo !== undefined) setShowLogo(qr.showLogo);
       setLogoUrl(qr.logoUrl || s.branding?.logoUrl || s.logoUrl || restaurantLogo || '');
-      if (qr.cornerStyle) setCornerStyle(qr.cornerStyle);
       if (qr.cardFrameText) setCardFrameText(qr.cardFrameText);
       if (qr.templateTheme) setTemplateTheme(qr.templateTheme);
+      if (qr.errorCorrectionLevel) setErrorCorrectionLevel(qr.errorCorrectionLevel);
     }
   }, [settingsResponse, restaurantLogo]);
 
-  const { data: previewQrData, isLoading: isLoadingPreview } = useQuery({
-    queryKey: ['previewCustomQr', restaurantId, fgColor, bgColor],
-    queryFn: async () => {
-      // In manager preview, request with dynamic color query params
-      const res = await apiClient.get(
-        `/restaurants/${restaurantId}/tables/preview/qr?fgColor=${encodeURIComponent(
-          fgColor
-        )}&bgColor=${encodeURIComponent(bgColor)}`
-      ).catch(() => ({ data: { data: null } }));
-      return res.data;
-    },
-    enabled: isOpen && !!restaurantId,
-  });
+  // Real, Authentic QR Generation
+  const previewSampleUrl = useMemo(() => {
+    const slug = restaurantSlug || 'demo';
+    return `https://app.thescanmenu.com/r/${slug}/t/sample-table-01`;
+  }, [restaurantSlug]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setIsGeneratingQr(true);
+
+    QRCode.toString(
+      previewSampleUrl,
+      {
+        type: 'svg',
+        errorCorrectionLevel: errorCorrectionLevel,
+        margin: templateTheme === 'minimal' ? 0 : 1,
+        color: {
+          dark: fgColor || '#0F172A',
+          light: templateTheme === 'minimal' ? '#00000000' : bgColor || '#FFFFFF',
+        },
+      },
+      (err, svg) => {
+        if (!isCancelled) {
+          setIsGeneratingQr(false);
+          if (!err && svg) {
+            setRealQrSvg(svg);
+          }
+        }
+      }
+    );
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [previewSampleUrl, fgColor, bgColor, errorCorrectionLevel, templateTheme]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -98,19 +130,20 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
           bgColor,
           showLogo,
           logoUrl: logoUrl.trim() || undefined,
-          cornerStyle,
           cardFrameText,
           templateTheme,
+          errorCorrectionLevel,
         },
       };
       const res = await apiClient.patch(`/restaurants/${restaurantId}`, payload);
       return res.data;
     },
     onSuccess: () => {
-      toast('QR Code Style saved! All table QR codes now follow this branding.', 'success');
+      toast('QR Code Style & Standee Template saved successfully!', 'success');
       queryClient.invalidateQueries({ queryKey: ['tableQr'] });
       queryClient.invalidateQueries({ queryKey: ['restaurantProfileInfo', restaurantId] });
       queryClient.invalidateQueries({ queryKey: ['managerTables', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', restaurantId] });
       onClose();
     },
     onError: (err: any) => {
@@ -118,40 +151,104 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
     },
   });
 
+  const activeLogoSrc = logoUrl || restaurantLogo || '';
+
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
-        {/* Left: Customization Controls */}
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-sm">
-                <QrCode className="w-5 h-5" />
+    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[99999] overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-150 overflow-hidden flex flex-col lg:flex-row max-h-[92vh]">
+        {/* Left Pane: Controls & Customization */}
+        <div className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6 no-scrollbar">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-150">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-sm">
+                <QrCode className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-bold text-slate-900 leading-tight">
-                  QR Code Studio & Branding
+                <h3 className="font-display text-xl font-bold text-slate-900 leading-tight">
+                  Table QR Code & Standee Studio
                 </h3>
-                <p className="text-[11px] text-slate-500">
-                  Global visual style for all dining table standees
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Configure brand aesthetics, error complexity, center logo, and standee templates
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 transition md:hidden cursor-pointer"
+              className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              title="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Color Palettes */}
+          {/* 1. Standee Template Selector */}
           <div className="space-y-2.5">
-            <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-amber-500" />
-              <span>QR Foreground Brand Palette</span>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-amber-500" />
+              <span>1. Standee Visual Template</span>
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                {
+                  id: 'standee',
+                  name: 'Acrylic Standee',
+                  desc: '3D Table tent with wooden/acrylic base and CTA',
+                  badge: 'Popular',
+                },
+                {
+                  id: 'branded',
+                  name: 'Branded Card',
+                  desc: 'Hospitality placard with gold border & logo header',
+                  badge: 'Luxury',
+                },
+                {
+                  id: 'minimal',
+                  name: 'Minimalist Tag',
+                  desc: 'Stark modern focus on high-speed scannability',
+                  badge: 'Clean',
+                },
+              ].map((tpl) => {
+                const isSelected = templateTheme === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => setTemplateTheme(tpl.id as any)}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-amber-500 bg-amber-50/40 shadow-sm ring-2 ring-amber-500/20'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-display font-bold text-xs text-slate-900">{tpl.name}</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md font-bold bg-slate-150 text-slate-700">
+                          {tpl.badge}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-snug">{tpl.desc}</p>
+                    </div>
+                    {isSelected && (
+                      <div className="mt-2 flex items-center gap-1 text-amber-700 font-bold text-[10px]">
+                        <Check className="w-3 h-3" strokeWidth={3} />
+                        <span>Active Template</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Color Palettes */}
+          <div className="space-y-2.5">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Palette className="w-4 h-4 text-amber-500" />
+              <span>2. Brand Color Palette</span>
             </label>
             <div className="grid grid-cols-4 gap-2">
               {COLOR_PRESETS.map((preset) => {
@@ -166,15 +263,15 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
                     }}
                     className={`p-2.5 rounded-2xl border transition flex flex-col items-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-50/50 shadow-xs'
+                        ? 'border-amber-500 bg-amber-50/50 shadow-xs ring-1 ring-amber-500/30'
                         : 'border-slate-200 hover:bg-slate-50'
                     }`}
                   >
                     <span
-                      className="w-5 h-5 rounded-full shadow-inner border border-black/10 flex items-center justify-center"
+                      className="w-6 h-6 rounded-full shadow-inner border border-black/10 flex items-center justify-center"
                       style={{ backgroundColor: preset.fg }}
                     >
-                      {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
                     </span>
                     <span className="text-[9px] font-bold text-slate-700 text-center truncate w-full">
                       {preset.label}
@@ -184,121 +281,197 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
               })}
             </div>
 
-            <div className="flex items-center gap-3 pt-1">
-              <div className="flex-1">
-                <label className="block text-[10px] font-mono text-slate-400 mb-1">Custom HEX Color</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+            {/* Custom HEX Colors */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl">
+                <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">
+                  QR Pattern Color
+                </label>
+                <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={fgColor}
                     onChange={(e) => setFgColor(e.target.value)}
-                    className="w-6 h-6 rounded-md border-0 bg-transparent cursor-pointer"
+                    className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer"
                   />
                   <input
                     type="text"
                     value={fgColor}
                     onChange={(e) => setFgColor(e.target.value)}
-                    className="w-full bg-transparent text-xs font-mono font-bold uppercase focus:outline-none"
+                    className="w-full bg-transparent text-xs font-mono font-bold uppercase focus:outline-none text-slate-800"
                   />
                 </div>
               </div>
 
-              <div className="flex-1">
-                <label className="block text-[10px] font-mono text-slate-400 mb-1">Background</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl">
+                <label className="block text-[10px] font-mono text-slate-500 uppercase font-bold mb-1">
+                  Card Background Color
+                </label>
+                <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={bgColor}
                     onChange={(e) => setBgColor(e.target.value)}
-                    className="w-6 h-6 rounded-md border-0 bg-transparent cursor-pointer"
+                    className="w-7 h-7 rounded-lg border-0 bg-transparent cursor-pointer"
                   />
                   <input
                     type="text"
                     value={bgColor}
                     onChange={(e) => setBgColor(e.target.value)}
-                    className="w-full bg-transparent text-xs font-mono font-bold uppercase focus:outline-none"
+                    className="w-full bg-transparent text-xs font-mono font-bold uppercase focus:outline-none text-slate-800"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Center Logo Option */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
+          {/* 3. QR Matrix Complexity / Error Correction */}
+          <div className="space-y-2.5">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-amber-500" />
+              <span>3. QR Matrix Density & Error Correction</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                {
+                  id: 'M',
+                  name: 'Standard (15%)',
+                  detail: 'Medium density, fast scan',
+                },
+                {
+                  id: 'Q',
+                  name: 'High (25%)',
+                  detail: 'Crisp balanced density',
+                },
+                {
+                  id: 'H',
+                  name: 'Maximum (30%)',
+                  detail: 'Dense matrix with Logo Shield',
+                },
+              ].map((lvl) => (
+                <button
+                  key={lvl.id}
+                  type="button"
+                  onClick={() => setErrorCorrectionLevel(lvl.id as any)}
+                  className={`p-2.5 rounded-2xl border text-left transition cursor-pointer ${
+                    errorCorrectionLevel === lvl.id
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="block text-xs font-extrabold">{lvl.name}</span>
+                  <span className={`block text-[9px] mt-0.5 ${errorCorrectionLevel === lvl.id ? 'text-slate-300' : 'text-slate-400'}`}>
+                    {lvl.detail}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Center Logo Shield & Local Upload */}
+          <div className="space-y-3 pt-2 border-t border-slate-150">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-slate-800 block">Center Logo Badge</span>
-                <span className="text-[11px] text-slate-400">Embed restaurant logo at the center with high error correction</span>
+                <span className="text-xs font-bold text-slate-800 block">Center Logo Shield</span>
+                <span className="text-[11px] text-slate-500">
+                  Embed restaurant brand logo at the center of the QR matrix
+                </span>
               </div>
               <button
                 type="button"
                 onClick={() => setShowLogo(!showLogo)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                   showLogo ? 'bg-amber-500' : 'bg-slate-300'
                 }`}
               >
                 <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                    showLogo ? 'translate-x-4' : 'translate-x-1'
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-xs ${
+                    showLogo ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
             </div>
 
             {showLogo && (
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 mb-1">Logo URL Override</label>
-                <input
-                  type="url"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://... (defaults to restaurant logo)"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
-                />
+              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Selected Center Logo</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomUploader(!showCustomUploader)}
+                    className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>{showCustomUploader ? 'Hide Local Uploader' : 'Upload From Device / Cloudinary'}</span>
+                  </button>
+                </div>
+
+                {/* Live Logo Preview and URL input */}
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+                    {activeLogoSrc ? (
+                      <img
+                        src={activeLogoSrc}
+                        alt="Logo"
+                        className="w-full h-full object-contain rounded-lg"
+                        onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-300" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="url"
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      placeholder="https://... (or choose via uploader)"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {showCustomUploader && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <p className="text-[11px] font-bold text-slate-600 mb-2">Upload Logo File Directly</p>
+                    <ImageUploader
+                      restaurantId={restaurantId}
+                      value={logoUrl}
+                      onChange={(url) => {
+                        setLogoUrl(url);
+                        toast('Logo uploaded and attached to QR style!', 'success');
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Frame Label & Template */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">Card Header Text</label>
-              <input
-                type="text"
-                value={cardFrameText}
-                onChange={(e) => setCardFrameText(e.target.value)}
-                placeholder="e.g. Scan to View Menu & Order"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">Template Style</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['branded', 'standee', 'minimal'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTemplateTheme(t)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold capitalize transition cursor-pointer ${
-                      templateTheme === t
-                        ? 'bg-slate-950 text-white border-slate-950 shadow-xs'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* 5. Card Header Text */}
+          <div className="space-y-2 pt-2 border-t border-slate-150">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+              5. Standee Call-To-Action Header
+            </label>
+            <input
+              type="text"
+              value={cardFrameText}
+              onChange={(e) => setCardFrameText(e.target.value)}
+              placeholder="e.g. Scan to View Menu & Order"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500 shadow-xs"
+            />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-slate-100">
+          <div className="flex gap-3 pt-4 border-t border-slate-150">
             <button
               type="button"
               onClick={onClose}
-              className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 text-xs transition cursor-pointer"
+              className="w-1/3 py-3.5 border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 text-xs transition cursor-pointer"
             >
               Cancel
             </button>
@@ -306,92 +479,222 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
               type="button"
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
-              className="flex-1 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:bg-slate-400"
+              className="flex-1 py-3.5 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:bg-slate-400"
             >
               {saveMutation.isPending ? (
                 <Loader className="w-4 h-4 animate-spin" />
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              <span>Apply & Save QR Style</span>
+              <span>Apply & Save Global QR Style</span>
             </button>
           </div>
         </div>
 
-        {/* Right: Live Standee / Card Preview */}
-        <div className="w-full md:w-80 bg-slate-100/70 p-6 md:p-8 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-slate-150 shrink-0">
-          <span className="text-[10px] font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5 text-amber-500" />
-            <span>Live Table Standee Preview</span>
-          </span>
-
-          {/* Modern Standee Card Preview */}
-          <div
-            className="w-64 rounded-3xl p-5 shadow-xl flex flex-col items-center text-center transition-all duration-300 relative border"
-            style={{ backgroundColor: bgColor, borderColor: fgColor + '20' }}
-          >
-            {/* Header Badge */}
-            <div
-              className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-2"
-              style={{ backgroundColor: fgColor + '15', color: fgColor }}
-            >
-              Table #1
-            </div>
-
-            <h4 className="font-display text-sm font-black tracking-tight mb-0.5" style={{ color: fgColor }}>
-              {restaurantName || 'Restaurant Name'}
-            </h4>
-            <p className="text-[10px] text-slate-500 font-medium mb-3">{cardFrameText}</p>
-
-            {/* QR Wrapper with Center Logo */}
-            <div className="relative p-2.5 rounded-2xl bg-white border border-slate-150 shadow-xs mb-3">
-              <div className="w-36 h-36 flex items-center justify-center">
-                {isLoadingPreview ? (
-                  <Loader className="w-6 h-6 animate-spin text-amber-500" />
-                ) : previewQrData?.data?.svg ? (
-                  <div
-                    className="w-full h-full flex items-center justify-center"
-                    dangerouslySetInnerHTML={{ __html: previewQrData.data.svg }}
-                  />
-                ) : (
-                  <div
-                    className="w-36 h-36 rounded-xl flex items-center justify-center p-2"
-                    style={{ backgroundColor: bgColor }}
-                  >
-                    <QrCode className="w-28 h-28" style={{ color: fgColor }} />
-                  </div>
-                )}
-              </div>
-
-              {/* Center Logo Shield Overlay */}
-              {showLogo && (logoUrl || restaurantLogo) && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
-                    <img
-                      src={logoUrl || restaurantLogo}
-                      alt="Center Logo"
-                      className="w-full h-full object-cover rounded-lg"
-                      onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer Prompt */}
-            <span
-              className="text-[9px] font-mono font-bold tracking-wider uppercase px-2 py-0.5 rounded-md"
-              style={{ backgroundColor: fgColor, color: bgColor }}
-            >
-              Direct Dine-in Order
+        {/* Right Pane: Ultra-Realistic Live Standee 3D Mockup */}
+        <div className="w-full lg:w-[380px] bg-slate-100/90 p-6 md:p-8 flex flex-col items-center justify-center border-t lg:border-t-0 lg:border-l border-slate-200 shrink-0 overflow-y-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Eye className="w-4 h-4 text-amber-500" />
+            <span className="text-[11px] font-mono uppercase font-black text-slate-600 tracking-wider">
+              Realistic Tabletop Preview
             </span>
           </div>
 
-          <p className="text-[10px] text-slate-400 text-center mt-4">
-            Encodes <code className="text-amber-600 font-mono font-bold">/r/{restaurantSlug || 'outlet'}/t/...</code> for tables.
-          </p>
-          <p className="text-[10px] text-slate-400 text-center mt-1">
-            Changes apply to all generated & downloaded table QR standees.
+          {/* 3D Standee Container */}
+          <div className="relative flex flex-col items-center select-none w-full max-w-[280px]">
+            {/* TEMPLATE 1: ACRYLIC STANDEE */}
+            {templateTheme === 'standee' && (
+              <div className="w-full flex flex-col items-center">
+                {/* Acrylic Plaque */}
+                <div
+                  className="w-full rounded-3xl p-5 shadow-2xl flex flex-col items-center text-center relative border transition-all duration-300 backdrop-blur-sm"
+                  style={{
+                    backgroundColor: bgColor,
+                    borderColor: fgColor + '25',
+                    boxShadow: `0 20px 35px -10px ${fgColor}30, 0 1px 3px rgba(0,0,0,0.1)`,
+                  }}
+                >
+                  {/* Glossy Acrylic Sheen Overlay */}
+                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-white/30 via-transparent to-black/5 pointer-events-none" />
+
+                  {/* Header Pill */}
+                  <div
+                    className="px-3.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-2 shadow-xs"
+                    style={{ backgroundColor: fgColor, color: bgColor }}
+                  >
+                    TABLE #1
+                  </div>
+
+                  <h4 className="font-display text-sm font-black tracking-tight leading-tight" style={{ color: fgColor }}>
+                    {restaurantName || 'Restaurant Name'}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-bold mt-0.5 mb-3">{cardFrameText}</p>
+
+                  {/* High-Resolution Scannable QR */}
+                  <div className="relative p-2.5 rounded-2xl bg-white border border-slate-150 shadow-inner mb-3">
+                    <div className="w-40 h-40 flex items-center justify-center">
+                      {isGeneratingQr ? (
+                        <Loader className="w-6 h-6 animate-spin text-amber-500" />
+                      ) : realQrSvg ? (
+                        <div
+                          className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                          dangerouslySetInnerHTML={{ __html: realQrSvg }}
+                        />
+                      ) : (
+                        <QrCode className="w-32 h-32 text-slate-400" />
+                      )}
+                    </div>
+
+                    {/* Center Logo Shield */}
+                    {showLogo && activeLogoSrc && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-10 h-10 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                          <img
+                            src={activeLogoSrc}
+                            alt="Logo"
+                            className="w-full h-full object-contain rounded-lg"
+                            onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Standee Footer Note */}
+                  <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                    <Smartphone className="w-3 h-3 text-amber-600" />
+                    <span>Point Camera & Scan</span>
+                  </div>
+                </div>
+
+                {/* Standee Wooden Base */}
+                <div className="w-[85%] h-4 bg-amber-900/80 rounded-b-xl shadow-lg -mt-1 border-t border-amber-950/40 relative z-10" />
+                {/* Tabletop Shadow */}
+                <div className="w-[95%] h-3 bg-black/20 rounded-full blur-xs mt-0.5" />
+              </div>
+            )}
+
+            {/* TEMPLATE 2: BRANDED CARD */}
+            {templateTheme === 'branded' && (
+              <div className="w-full flex flex-col items-center">
+                <div
+                  className="w-full rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center relative border-2 transition-all duration-300"
+                  style={{
+                    backgroundColor: bgColor,
+                    borderColor: fgColor,
+                    boxShadow: `0 15px 30px -10px ${fgColor}25`,
+                  }}
+                >
+                  {/* Gold/Brand Top Accent */}
+                  <div className="w-12 h-1 rounded-full mb-3" style={{ backgroundColor: fgColor }} />
+
+                  {/* Logo or Restaurant Name */}
+                  {activeLogoSrc ? (
+                    <div className="w-8 h-8 rounded-lg overflow-hidden mb-1 flex items-center justify-center">
+                      <img src={activeLogoSrc} alt="Logo" className="w-full h-full object-contain" />
+                    </div>
+                  ) : null}
+
+                  <h4 className="font-serif text-base font-black tracking-tight" style={{ color: fgColor }}>
+                    {restaurantName || 'Restaurant Name'}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-semibold mb-3">{cardFrameText}</p>
+
+                  {/* QR Pattern */}
+                  <div className="relative p-2 rounded-xl bg-white border border-slate-200 mb-3">
+                    <div className="w-40 h-40 flex items-center justify-center">
+                      {isGeneratingQr ? (
+                        <Loader className="w-6 h-6 animate-spin text-amber-500" />
+                      ) : realQrSvg ? (
+                        <div
+                          className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                          dangerouslySetInnerHTML={{ __html: realQrSvg }}
+                        />
+                      ) : (
+                        <QrCode className="w-32 h-32 text-slate-400" />
+                      )}
+                    </div>
+
+                    {showLogo && activeLogoSrc && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                          <img
+                            src={activeLogoSrc}
+                            alt="Logo"
+                            className="w-full h-full object-contain rounded-lg"
+                            onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    className="px-3 py-1 rounded-md text-[9px] font-mono font-black uppercase tracking-wider"
+                    style={{ backgroundColor: fgColor + '15', color: fgColor }}
+                  >
+                    DINING TABLE #1
+                  </div>
+                </div>
+                <div className="w-[90%] h-3 bg-black/15 rounded-full blur-xs mt-1" />
+              </div>
+            )}
+
+            {/* TEMPLATE 3: MINIMAL */}
+            {templateTheme === 'minimal' && (
+              <div className="w-full flex flex-col items-center">
+                <div
+                  className="w-full rounded-2xl p-5 shadow-xl flex flex-col items-center text-center relative border border-slate-200 transition-all duration-300"
+                  style={{ backgroundColor: bgColor }}
+                >
+                  <div className="flex items-center justify-between w-full pb-2 mb-2 border-b border-slate-150">
+                    <span className="text-[10px] font-mono font-black uppercase" style={{ color: fgColor }}>
+                      {restaurantName || 'MENU'}
+                    </span>
+                    <span
+                      className="text-[9px] font-mono font-black px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: fgColor, color: bgColor }}
+                    >
+                      #01
+                    </span>
+                  </div>
+
+                  {/* Clean QR */}
+                  <div className="w-44 h-44 flex items-center justify-center relative my-1">
+                    {isGeneratingQr ? (
+                      <Loader className="w-6 h-6 animate-spin text-amber-500" />
+                    ) : realQrSvg ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                        dangerouslySetInnerHTML={{ __html: realQrSvg }}
+                      />
+                    ) : (
+                      <QrCode className="w-36 h-36 text-slate-400" />
+                    )}
+
+                    {showLogo && activeLogoSrc && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                          <img
+                            src={activeLogoSrc}
+                            alt="Logo"
+                            className="w-full h-full object-contain rounded-lg"
+                            onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] font-bold text-slate-600 mt-2">{cardFrameText}</p>
+                </div>
+                <div className="w-[90%] h-3 bg-black/15 rounded-full blur-xs mt-1" />
+              </div>
+            )}
+          </div>
+
+          <p className="text-[10px] text-slate-500 text-center mt-5 font-mono">
+            100% Real Scannable QR Matrix ({errorCorrectionLevel === 'H' ? 'Level H - 30%' : errorCorrectionLevel === 'Q' ? 'Level Q - 25%' : 'Level M - 15%'})
           </p>
         </div>
       </div>
@@ -399,3 +702,5 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
     document.body
   );
 };
+
+export default QrCodeStudioModal;
