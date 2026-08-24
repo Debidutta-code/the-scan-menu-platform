@@ -5,7 +5,7 @@ import { Restaurant } from '../models/Restaurant';
 import { sendSuccess, sendError } from '../utils/response';
 
 export class PrinterController {
-  async testPrinter(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  async testPrinter(req: AuthenticatedRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
       const { ip, port = 9100, paperWidth = '80mm' } = req.body;
@@ -25,7 +25,7 @@ export class PrinterController {
     }
   }
 
-  async printKOT(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  async printKOT(req: AuthenticatedRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { ip, port = 9100, order, paperWidth = '80mm' } = req.body;
 

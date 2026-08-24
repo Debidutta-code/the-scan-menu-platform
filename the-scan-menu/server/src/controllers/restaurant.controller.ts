@@ -1402,7 +1402,7 @@ export class RestaurantController {
     }
   }
 
-  async adjustLoyaltyPoints(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  async adjustLoyaltyPoints(req: AuthenticatedRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
       const { customerId, pointsDelta, reason } = req.body;

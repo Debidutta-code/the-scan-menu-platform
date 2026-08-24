@@ -16,6 +16,8 @@ import { Tax } from '../models/Tax';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { SubscriptionPlan } from '../models/SubscriptionPlan';
 import { Customer } from '../models/Customer';
+import { LoyaltyLedger } from '../models/LoyaltyLedger';
+import { Shift } from '../models/Shift';
 import { Order, OrderCounter } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
 import { GuestSession } from '../models/GuestSession';
@@ -247,6 +249,27 @@ export const seedDatabase = async () => {
         socialLinks: { facebook: 'https://fb.com/democafe', instagram: 'https://instagr.am/democafe', twitter: 'https://x.com/democafe' },
       },
       theme: { primaryColor: '#111827', secondaryColor: '#FFFFFF', accentColor: '#F59E0B', fontFamily: 'Plus Jakarta Sans' },
+      printerConfig: {
+        paperWidth: '80mm',
+        templateTheme: 'classic',
+        showLogo: true,
+        showGstNumber: true,
+        showFssai: true,
+        fssaiNumber: '12345678901234',
+        receiptHeader: 'Welcome to Demo Cafe!',
+        receiptFooter: 'Thank you for dining with us! Visit again.',
+        showCustomerInfo: true,
+        showPaymentMode: true,
+        showTaxBreakup: true,
+        showPaymentQr: true,
+        upiId: 'democafe@okhdfcbank',
+        defaultPrintTarget: 'BOTH',
+        silentPrintingEnabled: false,
+        kitchenPrinterIp: '192.168.1.105',
+        kitchenPrinterPort: 9100,
+        counterPrinterIp: '192.168.1.100',
+        counterPrinterPort: 9100,
+      },
     };
 
     if (!settings) {
@@ -473,9 +496,28 @@ export const seedDatabase = async () => {
     logger.info('Seeding Reusable Customization Templates...');
     const customGroupsData = [
       {
+        name: 'Choice of Crust',
+        type: 'VARIANT' as const,
+        description: 'Select your pizza crust base',
+        selectionType: 'SINGLE' as const,
+        minSelections: 1,
+        maxSelections: 1,
+        isRequired: true,
+        isGlobal: true,
+        options: [
+          { name: 'Classic Hand Tossed', priceDelta: 0 },
+          { name: 'Cheese Burst Crust', priceDelta: 8000 },
+          { name: 'Thin & Crispy Wheat', priceDelta: 3000 },
+        ],
+      },
+      {
         name: 'Extra Dips & Sauces',
         type: 'ADDON' as const,
         description: 'House-crafted dips and chutneys',
+        selectionType: 'MULTIPLE' as const,
+        minSelections: 0,
+        maxSelections: 3,
+        isRequired: false,
         isGlobal: true,
         options: [
           { name: 'Garlic Aioli Mayo', priceDelta: 2500 },
@@ -487,6 +529,10 @@ export const seedDatabase = async () => {
         name: 'Cheese & Gourmet Toppings',
         type: 'ADDON' as const,
         description: 'Premium artisanal cheese and toppings',
+        selectionType: 'MULTIPLE' as const,
+        minSelections: 0,
+        maxSelections: 5,
+        isRequired: false,
         isGlobal: true,
         options: [
           { name: 'Extra Mozzarella Melt', priceDelta: 6000 },
@@ -498,6 +544,10 @@ export const seedDatabase = async () => {
         name: 'Coffee & Beverage Additions',
         type: 'ADDON' as const,
         description: 'Milk substitutes and espresso shots',
+        selectionType: 'MULTIPLE' as const,
+        minSelections: 0,
+        maxSelections: 3,
+        isRequired: false,
         isGlobal: true,
         options: [
           { name: 'Oat Milk Substitute', priceDelta: 4000 },
@@ -956,7 +1006,6 @@ export const seedDatabase = async () => {
     // ------------------------------------------------------------------------
     // 7b. Seed Sample Customers for "Demo Cafe"
     // ------------------------------------------------------------------------
-    logger.info('Seeding sample customers for "Demo Cafe"...');
     const demoCustomersData = [
       {
         phone: '9876543210',
@@ -964,6 +1013,9 @@ export const seedDatabase = async () => {
         email: 'alice@example.com',
         totalOrdersCount: 2,
         totalSpent: 42000,
+        loyaltyPoints: 420,
+        lifetimePoints: 420,
+        tier: 'GOLD' as const,
         lastOrderAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
       },
       {
@@ -972,6 +1024,9 @@ export const seedDatabase = async () => {
         email: 'rahul@example.com',
         totalOrdersCount: 1,
         totalSpent: 28500,
+        loyaltyPoints: 280,
+        lifetimePoints: 280,
+        tier: 'SILVER' as const,
         lastOrderAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
       },
       {
@@ -980,6 +1035,9 @@ export const seedDatabase = async () => {
         email: 'priya@example.com',
         totalOrdersCount: 1,
         totalSpent: 16000,
+        loyaltyPoints: 150,
+        lifetimePoints: 150,
+        tier: 'BRONZE' as const,
         lastOrderAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
       },
     ];
@@ -994,8 +1052,39 @@ export const seedDatabase = async () => {
           lastSeenAt: new Date(),
         });
         logger.info(`Customer ${cust.name} (${cust.phone}) created.`);
+      } else {
+        Object.assign(cust, cData);
+        await cust.save();
       }
       seededCustomers.push(cust);
+
+      // Seed sample Loyalty Ledger transactions
+      const existingLedger = await LoyaltyLedger.findOne({ restaurantId: restaurant._id, customerId: cust._id });
+      if (!existingLedger) {
+        await LoyaltyLedger.create([
+          {
+            restaurantId: restaurant._id,
+            customerId: cust._id,
+            points: 100,
+            rupeeValuePaise: 5000,
+            balanceAfter: 100,
+            type: 'ADJUST',
+            reason: 'Welcome Signup Loyalty Bonus',
+            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
+          {
+            restaurantId: restaurant._id,
+            customerId: cust._id,
+            points: cData.loyaltyPoints - 100,
+            rupeeValuePaise: (cData.loyaltyPoints - 100) * 50,
+            balanceAfter: cData.loyaltyPoints,
+            type: 'EARN',
+            reason: 'Dine-in Order 10% Points Cashback',
+            createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        ]);
+        logger.info(`Loyalty Ledger seeded for ${cust.name}.`);
+      }
     }
 
     const sampleOrdersData = [
@@ -1262,6 +1351,85 @@ export const seedDatabase = async () => {
         },
       ]);
       logger.info('Sample Inventory Logs seeded.');
+    }
+
+    // ------------------------------------------------------------------------
+    // 10b. Seed POS Shifts (Active Shift & Historical Z-Report Shift)
+    // ------------------------------------------------------------------------
+    logger.info('Seeding sample POS Cash Drawer Shifts...');
+    const existingActiveShift = await Shift.findOne({ restaurantId: restaurant._id, status: 'OPEN' });
+    if (!existingActiveShift) {
+      await Shift.create({
+        restaurantId: restaurant._id,
+        staffId: manager._id,
+        shiftNumber: 102,
+        openedAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
+        openingFloat: 250000, // ₹2,500.00
+        cashIn: 50000, // ₹500.00
+        cashOut: 20000, // ₹200.00
+        pettyCashEntries: [
+          {
+            type: 'CASH_IN',
+            amount: 50000,
+            category: 'FLOAT_TOPUP',
+            reason: 'Counter Cash Refill from safe',
+            staffId: manager._id,
+            createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          },
+          {
+            type: 'CASH_OUT',
+            amount: 20000,
+            category: 'SUPPLIES',
+            reason: 'Emergency dairy milk purchase',
+            staffId: manager._id,
+            createdAt: new Date(Date.now() - 60 * 60 * 1000),
+          },
+        ],
+        cashSales: 50000, // ₹500.00
+        cardSales: 25200, // ₹252.00
+        upiSales: 16000, // ₹160.00
+        totalSales: 91200,
+        orderCount: 4,
+        expectedCashInDrawer: 250000 + 50000 + 50000 - 20000, // 330000 (₹3,300.00)
+        status: 'OPEN',
+      });
+      logger.info('Active POS Shift seeded for Demo Manager with ₹2,500 float.');
+    }
+
+    const existingClosedShift = await Shift.findOne({ restaurantId: restaurant._id, status: 'CLOSED' });
+    if (!existingClosedShift) {
+      await Shift.create({
+        restaurantId: restaurant._id,
+        staffId: manager._id,
+        shiftNumber: 101,
+        openedAt: new Date(Date.now() - 28 * 60 * 60 * 1000),
+        closedAt: new Date(Date.now() - 20 * 60 * 60 * 1000),
+        openingFloat: 200000,
+        cashIn: 0,
+        cashOut: 15000,
+        pettyCashEntries: [
+          {
+            type: 'CASH_OUT',
+            amount: 15000,
+            category: 'SUPPLIES',
+            reason: 'Kitchen cleaning supplies',
+            staffId: manager._id,
+            createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        ],
+        cashSales: 154000,
+        cardSales: 88000,
+        upiSales: 62000,
+        totalSales: 304000,
+        orderCount: 18,
+        expectedCashInDrawer: 339000,
+        actualCashCounted: 339000,
+        discrepancyAmount: 0,
+        closingNotes: 'Smooth evening shift. Perfect cash reconciliation.',
+        closedBy: manager._id,
+        status: 'CLOSED',
+      });
+      logger.info('Yesterday Closed POS Shift (Z-Report) seeded.');
     }
 
     // ------------------------------------------------------------------------

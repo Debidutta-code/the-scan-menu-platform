@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import {
@@ -12,8 +12,12 @@ import {
   Loader,
   X,
   Eye,
+  Award,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import apiClient from '../lib/api';
 
 const formatPrice = (amountInPaise: number, currency: string = 'INR') => {
@@ -26,11 +30,19 @@ const formatPrice = (amountInPaise: number, currency: string = 'INR') => {
 
 export const ManagerCustomers: React.FC = () => {
   const { activeRestaurantId } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
+  // Loyalty Points Adjustment Modal State
+  const [showAdjustPoints, setShowAdjustPoints] = useState(false);
+  const [adjustType, setAdjustType] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
+  const [adjustAmount, setAdjustAmount] = useState<number>(50);
+  const [adjustReason, setAdjustReason] = useState<string>('Manager Courtesy Bonus');
 
   // Debounce search
   React.useEffect(() => {
@@ -64,6 +76,36 @@ export const ManagerCustomers: React.FC = () => {
       return res.data;
     },
     enabled: !!activeRestaurantId && !!selectedCustomerId,
+  });
+
+  // Fetch Selected Customer Loyalty Ledger
+  const { data: loyaltyLedgerData, isLoading: isLedgerLoading } = useQuery({
+    queryKey: ['customerLoyaltyLedger', activeRestaurantId, selectedCustomerId],
+    queryFn: async () => {
+      const res = await apiClient.get(
+        `/restaurants/${activeRestaurantId}/customers/${selectedCustomerId}/loyalty-ledger`
+      );
+      return res.data;
+    },
+    enabled: !!activeRestaurantId && !!selectedCustomerId,
+  });
+
+  // Adjust Points Mutation
+  const adjustPointsMutation = useMutation({
+    mutationFn: async (payload: { customerId: string; pointsDelta: number; reason?: string }) => {
+      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/loyalty/adjust`, payload);
+      return res.data;
+    },
+    onSuccess: (res) => {
+      toast(res.message || 'Loyalty points adjusted successfully!', 'success');
+      queryClient.invalidateQueries({ queryKey: ['managerCustomers'] });
+      queryClient.invalidateQueries({ queryKey: ['managerCustomerDetails'] });
+      queryClient.invalidateQueries({ queryKey: ['customerLoyaltyLedger'] });
+      setShowAdjustPoints(false);
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.message || 'Failed to adjust points', 'error');
+    },
   });
 
   const customers = customersData?.success ? customersData.data.customers : [];
@@ -348,6 +390,107 @@ export const ManagerCustomers: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Loyalty Points & Reward Tier Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                        <Award className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-slate-900">
+                            {customerDetailsData?.data?.customer?.loyaltyPoints || 0} Loyalty Points
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                            {customerDetailsData?.data?.customer?.tier || 'BRONZE'} TIER
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Worth ₹{(((customerDetailsData?.data?.customer?.loyaltyPoints || 0) * 50) / 100).toFixed(2)} in direct redemption discounts
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAdjustPoints(!showAdjustPoints)}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Award className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{showAdjustPoints ? 'Cancel Adjustment' : 'Adjust Points'}</span>
+                    </button>
+                  </div>
+
+                  {/* Adjust Points Inline Form */}
+                  {showAdjustPoints && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                      <span className="text-xs font-bold text-slate-900 block">Manual Points Adjustment</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="flex bg-white rounded-xl border border-slate-200 p-1">
+                          <button
+                            type="button"
+                            onClick={() => setAdjustType('CREDIT')}
+                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                              adjustType === 'CREDIT' ? 'bg-emerald-600 text-white' : 'text-slate-600'
+                            }`}
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Credit (+)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdjustType('DEBIT')}
+                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                              adjustType === 'DEBIT' ? 'bg-rose-600 text-white' : 'text-slate-600'
+                            }`}
+                          >
+                            <Minus className="w-3 h-3" />
+                            <span>Debit (-)</span>
+                          </button>
+                        </div>
+
+                        <div>
+                          <input
+                            type="number"
+                            value={adjustAmount}
+                            onChange={(e) => setAdjustAmount(Math.max(1, Number(e.target.value) || 0))}
+                            placeholder="Points amount"
+                            className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <input
+                            type="text"
+                            value={adjustReason}
+                            onChange={(e) => setAdjustReason(e.target.value)}
+                            placeholder="Reason (e.g. Courtesy bonus)"
+                            className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (adjustAmount <= 0) return;
+                            const delta = adjustType === 'CREDIT' ? adjustAmount : -adjustAmount;
+                            adjustPointsMutation.mutate({
+                              customerId: selectedCustomerId!,
+                              pointsDelta: delta,
+                              reason: adjustReason.trim(),
+                            });
+                          }}
+                          disabled={adjustPointsMutation.isPending}
+                          className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+                        >
+                          {adjustPointsMutation.isPending ? 'Saving...' : 'Apply Points Adjustment'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                     Recent Orders
                   </h4>
@@ -394,6 +537,43 @@ export const ManagerCustomers: React.FC = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Points History Ledger */}
+                  <div className="pt-2">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                      Loyalty Points History
+                    </h4>
+                    {isLedgerLoading ? (
+                      <div className="py-4 text-center">
+                        <Loader className="w-4 h-4 animate-spin text-amber-500 mx-auto" />
+                      </div>
+                    ) : (!loyaltyLedgerData?.data || loyaltyLedgerData.data.length === 0) ? (
+                      <p className="text-xs text-slate-400 italic py-2 text-center">No points history transactions yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {loyaltyLedgerData.data.map((tx: any) => (
+                          <div key={tx._id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                            <div>
+                              <span className="font-bold text-slate-900 block">{tx.reason || tx.type}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {new Date(tx.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className={`font-mono font-extrabold ${
+                                (tx.points ?? tx.pointsChange ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                              }`}>
+                                {(tx.points ?? tx.pointsChange ?? 0) >= 0 ? `+${tx.points ?? tx.pointsChange}` : (tx.points ?? tx.pointsChange)} pts
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono block">
+                                Bal: {tx.balanceAfter}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </motion.div>

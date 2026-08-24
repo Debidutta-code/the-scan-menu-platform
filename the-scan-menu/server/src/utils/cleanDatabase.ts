@@ -35,6 +35,8 @@ import { Tax } from '../models/Tax';
 import { FeatureFlag } from '../models/FeatureFlag';
 import { SubscriptionPlan } from '../models/SubscriptionPlan';
 import { Counter } from '../models/Counter';
+import { Shift } from '../models/Shift';
+import { LoyaltyLedger } from '../models/LoyaltyLedger';
 import { logger } from './logger';
 import config from '../config';
 
@@ -77,6 +79,8 @@ const getCounts = async () => ({
   RefreshTokens: await RefreshToken.countDocuments(),
   DeviceTokens: await DeviceToken.countDocuments(),
   OtpSessions: await OtpSession.countDocuments(),
+  Shifts: await Shift.countDocuments(),
+  LoyaltyLedgers: await LoyaltyLedger.countDocuments(),
 });
 
 export const cleanDatabase = async (options: { operationalOnly?: boolean } = {}) => {
@@ -132,6 +136,8 @@ export const cleanDatabase = async (options: { operationalOnly?: boolean } = {})
         RefreshToken.deleteMany({}),
         DeviceToken.deleteMany({}),
         OtpSession.deleteMany({}),
+        Shift.deleteMany({}),
+        LoyaltyLedger.deleteMany({}),
       ]);
     } else {
       logger.info('Cleaning operational data only (Preserving Users & Restaurants)...');
@@ -166,6 +172,8 @@ export const cleanDatabase = async (options: { operationalOnly?: boolean } = {})
         Tax.deleteMany({}),
         Customer.deleteMany({}),
         FeatureFlag.deleteMany({}),
+        Shift.deleteMany({}),
+        LoyaltyLedger.deleteMany({}),
       ]);
 
       // Reset RestaurantStats to zero for preserved restaurants

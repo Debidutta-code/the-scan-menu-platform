@@ -1,7 +1,5 @@
 import net from 'net';
 import { EscPosBuilder } from '../utils/escposBuilder';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { Types } from 'mongoose';
 
 export class PrinterService {
   /**

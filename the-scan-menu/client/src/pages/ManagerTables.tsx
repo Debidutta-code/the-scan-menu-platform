@@ -38,6 +38,7 @@ import {
   Copy,
   ExternalLink,
   Palette,
+  ArrowRightLeft,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
@@ -110,6 +111,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED'>('ALL');
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
   const [activeTableAction, setActiveTableAction] = useState<Table | null>(null);
+  const [showTableOperationsModal, setShowTableOperationsModal] = useState<Table | null>(null);
   const [showZoneManager, setShowZoneManager] = useState(false);
 
   const [isFormOpen, setIsCreateOpen] = useState(false);
@@ -416,6 +418,19 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
             <Palette className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
             <span>Manage QR Code Style</span>
           </button>
+          {isEnabled('ordering') && (
+            <button
+              onClick={() => {
+                const firstOccupied = tables.find((t) => getTableStatus(t) === 'OCCUPIED') || tables[0] || null;
+                setShowTableOperationsModal(firstOccupied);
+              }}
+              className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-xs cursor-pointer"
+              title="Transfer guest sessions or merge multiple tables"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" strokeWidth={2} />
+              <span>Transfer / Merge</span>
+            </button>
+          )}
           <button
             onClick={() => {
               setEditingTable(null);
@@ -596,19 +611,33 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                     >
                       {/* 1-Click Print Bill button on Occupied Tables */}
                       {isOccupied && isEnabled('ordering') && (
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const tableOrder = await fetchTableConsolidatedOrder(table._id, table.tableNumber, table.displayName);
-                            printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
-                            toast(`Printed Customer Bill for ${table.displayName}`, 'success');
-                          }}
-                          className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
-                          title={`1-Click Print Customer Bill (${table.displayName})`}
-                        >
-                          <Receipt className="w-3 h-3" strokeWidth={2} />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTableOperationsModal(table);
+                            }}
+                            className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-200 transition shadow-2xs cursor-pointer z-10"
+                            title={`Transfer or Merge Table (${table.displayName})`}
+                          >
+                            <ArrowRightLeft className="w-3 h-3" strokeWidth={2} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const tableOrder = await fetchTableConsolidatedOrder(table._id, table.tableNumber, table.displayName);
+                              printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                              toast(`Printed Customer Bill for ${table.displayName}`, 'success');
+                            }}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
+                            title={`1-Click Print Customer Bill (${table.displayName})`}
+                          >
+                            <Receipt className="w-3 h-3" strokeWidth={2} />
+                          </button>
+                        </>
                       )}
 
                       {/* Table number circle */}
@@ -768,6 +797,19 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                           <span>Print Bill &amp; Free Table</span>
                         </>
                       )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = t;
+                        setActiveTableAction(null);
+                        setShowTableOperationsModal(target);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-white" strokeWidth={2} />
+                      <span>Transfer / Merge Table Session</span>
                     </button>
 
                     <button
@@ -1317,9 +1359,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
       {/* ── Table Action Modal (Overview, Transfer, Merge) ────────────────────── */}
       <TableActionModal
-        isOpen={!!activeTableAction}
-        onClose={() => setActiveTableAction(null)}
-        selectedTable={activeTableAction}
+        isOpen={!!showTableOperationsModal}
+        onClose={() => setShowTableOperationsModal(null)}
+        selectedTable={showTableOperationsModal}
         allTables={tables}
         zones={zones}
         onTransfer={async (sourceTableId, targetTableId, reason) => {

@@ -21,7 +21,7 @@ export class LoyaltyService {
     const rId = new Types.ObjectId(restaurantId);
     const cleanPhone = phone.trim();
 
-    let customer = await Customer.findOne({ restaurantId: rId, phone: cleanPhone });
+    const customer = await Customer.findOne({ restaurantId: rId, phone: cleanPhone });
 
     if (!customer) {
       return {

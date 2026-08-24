@@ -58,6 +58,14 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
   const [previewReceiptType, setPreviewReceiptType] = useState<'BILL' | 'COUNTER' | 'KOT'>('BILL');
   const [previewPaymentStatus, setPreviewPaymentStatus] = useState<'PENDING' | 'PAID'>('PENDING');
 
+  // Direct Network Thermal Printer States (ESC/POS over TCP)
+  const [silentPrintingEnabled, setSilentPrintingEnabled] = useState(false);
+  const [kitchenPrinterIp, setKitchenPrinterIp] = useState('');
+  const [kitchenPrinterPort, setKitchenPrinterPort] = useState(9100);
+  const [counterPrinterIp, setCounterPrinterIp] = useState('');
+  const [counterPrinterPort, setCounterPrinterPort] = useState(9100);
+  const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+
   // Test Print modal state
   const [testPrintData, setTestPrintData] = useState<PrintOrderData | null>(null);
 
@@ -99,6 +107,11 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
         setKotNotes(printerCfg.kotNotes || '');
         setKotShowServerName(printerCfg.kotShowServerName !== false);
         setDefaultPrintTarget(printerCfg.defaultPrintTarget || 'BOTH');
+        setSilentPrintingEnabled(!!printerCfg.silentPrintingEnabled);
+        setKitchenPrinterIp(printerCfg.kitchenPrinterIp || '');
+        setKitchenPrinterPort(printerCfg.kitchenPrinterPort || 9100);
+        setCounterPrinterIp(printerCfg.counterPrinterIp || '');
+        setCounterPrinterPort(printerCfg.counterPrinterPort || 9100);
       } else {
         const settingsObj = p.settings;
         if (settingsObj) {
@@ -108,6 +121,31 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
       }
     }
   }, [restaurantResponse]);
+
+  const handleTestNetworkPrinter = async (target: 'KITCHEN' | 'COUNTER') => {
+    const ip = target === 'KITCHEN' ? kitchenPrinterIp : counterPrinterIp;
+    const port = target === 'KITCHEN' ? kitchenPrinterPort : counterPrinterPort;
+    if (!ip) {
+      toast(`Please enter a valid IP address for the ${target.toLowerCase()} printer first.`, 'error');
+      return;
+    }
+    setIsTestingPrinter(true);
+    try {
+      const res = await apiClient.post(`/restaurants/${targetRestaurantId}/printers/test`, {
+        ipAddress: ip.trim(),
+        port: Number(port) || 9100,
+      });
+      if (res.data?.success) {
+        toast(`Test slip sent to ${target.toLowerCase()} printer (${ip}:${port})!`, 'success');
+      } else {
+        toast(res.data?.message || 'Printer did not respond', 'error');
+      }
+    } catch (err: any) {
+      toast(err.response?.data?.message || err.message || 'Failed to connect to printer on network', 'error');
+    } finally {
+      setIsTestingPrinter(false);
+    }
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -148,6 +186,11 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
         kotNotes: kotNotes.trim() || undefined,
         kotShowServerName,
         defaultPrintTarget,
+        silentPrintingEnabled,
+        kitchenPrinterIp: kitchenPrinterIp.trim() || undefined,
+        kitchenPrinterPort: Number(kitchenPrinterPort) || 9100,
+        counterPrinterIp: counterPrinterIp.trim() || undefined,
+        counterPrinterPort: Number(counterPrinterPort) || 9100,
       },
     });
   };
@@ -578,12 +621,128 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
           </div>
         </div>
 
-        {/* ── 5. INTERACTIVE LIVE THERMAL PREVIEW ───────────────────────────── */}
+        {/* ── 5. DIRECT NETWORK THERMAL PRINTERS (SILENT ESC/POS OVER TCP) ── */}
+        <div className="space-y-4 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center gap-2">
+              <Printer className="w-4 h-4 text-indigo-500" />
+              <span>5. Direct Network Thermal Printers (Silent ESC/POS)</span>
+            </label>
+            <span className="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-100">
+              Raw TCP Port 9100
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Configure LAN Ethernet / Wi-Fi thermal printers (Epson, TVS, Star, Citizen, Rongta) to print kitchen KOT slips and customer bills silently without opening browser print dialogues.
+          </p>
+
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={silentPrintingEnabled}
+                onChange={(e) => setSilentPrintingEnabled(e.target.checked)}
+                className="w-4 h-4 text-amber-500 rounded focus:ring-amber-400"
+              />
+              <div>
+                <span className="text-xs font-bold text-slate-900 block">Enable Silent Network Thermal Printing</span>
+                <span className="text-[11px] text-slate-500 block">
+                  Automatically dispatch raw binary ESC/POS data directly to printer IPs on order creation
+                </span>
+              </div>
+            </label>
+
+            {silentPrintingEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                {/* Kitchen Printer */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>🍳</span> Kitchen KOT Printer
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleTestNetworkPrinter('KITCHEN')}
+                      disabled={isTestingPrinter || !kitchenPrinterIp}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {isTestingPrinter ? 'Testing...' : 'Send Test Slip'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-semibold text-slate-500 block mb-1">IP Address</label>
+                      <input
+                        type="text"
+                        value={kitchenPrinterIp}
+                        onChange={(e) => setKitchenPrinterIp(e.target.value)}
+                        placeholder="192.168.1.105"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 block mb-1">Port</label>
+                      <input
+                        type="number"
+                        value={kitchenPrinterPort}
+                        onChange={(e) => setKitchenPrinterPort(Number(e.target.value) || 9100)}
+                        placeholder="9100"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Counter Printer */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>🧾</span> Counter Receipt Printer
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleTestNetworkPrinter('COUNTER')}
+                      disabled={isTestingPrinter || !counterPrinterIp}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {isTestingPrinter ? 'Testing...' : 'Send Test Slip'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-semibold text-slate-500 block mb-1">IP Address</label>
+                      <input
+                        type="text"
+                        value={counterPrinterIp}
+                        onChange={(e) => setCounterPrinterIp(e.target.value)}
+                        placeholder="192.168.1.100"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-500 block mb-1">Port</label>
+                      <input
+                        type="number"
+                        value={counterPrinterPort}
+                        onChange={(e) => setCounterPrinterPort(Number(e.target.value) || 9100)}
+                        placeholder="9100"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── 6. INTERACTIVE LIVE THERMAL PREVIEW ───────────────────────────── */}
         <div className="pt-4 border-t border-slate-100 space-y-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
               <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
-                5. Live Thermal Design Preview ({paperWidth})
+                6. Live Thermal Design Preview ({paperWidth})
               </label>
               <span className="text-[11px] text-slate-400">Click tabs below to test & preview each receipt design</span>
             </div>

@@ -36,6 +36,8 @@ import { Transaction } from '../models/Transaction';
 import { AuditLog } from '../models/AuditLog';
 import { Tax } from '../models/Tax';
 import { FeatureFlag } from '../models/FeatureFlag';
+import { Shift } from '../models/Shift';
+import { LoyaltyLedger } from '../models/LoyaltyLedger';
 import { logger } from './logger';
 import config from '../config';
 
@@ -91,6 +93,8 @@ export const seedAdminOnly = async (options: { cleanTenants?: boolean } = {}) =>
         RefreshToken.deleteMany({}),
         DeviceToken.deleteMany({}),
         OtpSession.deleteMany({}),
+        Shift.deleteMany({}),
+        LoyaltyLedger.deleteMany({}),
         // Delete all non-superadmin users
         User.deleteMany({ role: { $ne: 'SUPER_ADMIN' } }),
       ]);

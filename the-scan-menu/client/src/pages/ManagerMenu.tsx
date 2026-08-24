@@ -1919,6 +1919,84 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   ))}
                 </div>
 
+                {/* Reusable Modifier / Customization Groups */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">Reusable Modifier Groups</span>
+                      <span className="text-[10px] text-slate-400">Attach pre-configured modifier templates (e.g. Crusts, Dips, Sizes)</span>
+                    </div>
+                    {customGroups.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsItemOpen(false);
+                          setActiveTab('CUSTOMIZATIONS');
+                          setIsGroupModalOpen(true);
+                        }}
+                        className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Create Template</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {customGroups.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {customGroups.map((group: any) => {
+                        const currentAttached: string[] = itemForm.watch('attachedAddOnGroupIds') || [];
+                        const isAttached = currentAttached.includes(group._id);
+                        return (
+                          <button
+                            key={group._id}
+                            type="button"
+                            onClick={() => {
+                              if (isAttached) {
+                                itemForm.setValue('attachedAddOnGroupIds', currentAttached.filter((id) => id !== group._id));
+                              } else {
+                                itemForm.setValue('attachedAddOnGroupIds', [...currentAttached, group._id]);
+                              }
+                            }}
+                            className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
+                              isAttached
+                                ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20 text-amber-950'
+                                : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <span className="font-bold text-xs block truncate">{group.name}</span>
+                              <span className="text-[10px] text-slate-400 block truncate">
+                                {group.options?.length || 0} options • {group.selectionType === 'SINGLE' ? 'Single' : 'Multi'}
+                              </span>
+                            </div>
+                            <div className={`w-5 h-5 rounded-lg border flex items-center justify-center text-xs shrink-0 ${
+                              isAttached ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 bg-white'
+                            }`}>
+                              {isAttached && <Check className="w-3.5 h-3.5" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                      <p className="text-xs text-slate-500">No reusable modifier groups created yet.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsItemOpen(false);
+                          setActiveTab('CUSTOMIZATIONS');
+                          setIsGroupModalOpen(true);
+                        }}
+                        className="mt-1.5 text-xs font-bold text-amber-600 hover:underline"
+                      >
+                        + Create your first modifier template
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Form Action Buttons */}
                 <div className="flex gap-2.5 pt-4 border-t border-slate-100">
                   <button
