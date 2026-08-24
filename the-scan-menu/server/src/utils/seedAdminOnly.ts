@@ -41,7 +41,7 @@ import config from '../config';
 
 dotenv.config();
 
-const ADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'admin@pixora.dev';
+const ADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@gmail.com';
 const ADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || 'Test@1234';
 const DEFAULT_PIN = '1234';
 

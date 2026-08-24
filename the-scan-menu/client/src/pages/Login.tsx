@@ -123,7 +123,7 @@ export const Login: React.FC = () => {
                 </span>
                 <input
                   type="email"
-                  placeholder="admin@pixora.dev"
+                  placeholder="name@example.com"
                   {...register('email')}
                   className={`block w-full pl-10 pr-3 py-2.5 bg-slate-50/50 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:bg-white ${
                     errors.email
@@ -177,11 +177,6 @@ export const Login: React.FC = () => {
             </button>
           </form>
         </motion.div>
-
-        {/* Local Dev Disclaimer */}
-        <p className="text-center text-xs text-slate-400 mt-8">
-          Local Dev Only: <span className="font-mono">admin@pixora.dev</span> / <span className="font-mono">Test@1234</span>
-        </p>
       </div>
     </div>
   );

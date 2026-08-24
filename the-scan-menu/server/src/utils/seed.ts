@@ -33,7 +33,7 @@ import { restaurantStatsService } from '../services/restaurantStats.service';
 import { logger } from './logger';
 import config from '../config';
 
-const ADMIN_EMAIL = 'admin@pixora.dev';
+const ADMIN_EMAIL = 'superadmin@gmail.com';
 const ADMIN_PASSWORD = 'Test@1234';
 
 const MANAGER_EMAIL = 'manager@democafe.com';

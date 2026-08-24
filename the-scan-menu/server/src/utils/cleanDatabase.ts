@@ -79,9 +79,9 @@ const getCounts = async () => ({
   OtpSessions: await OtpSession.countDocuments(),
 });
 
-export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
+export const cleanDatabase = async (options: { operationalOnly?: boolean } = {}) => {
   const mongoURI = config.db.mongoUri;
-  const isFullWipe = options.wipeAll || process.argv.includes('--all') || process.argv.includes('--full');
+  const isOperationalOnly = options.operationalOnly || process.argv.includes('--operational');
 
   try {
     logger.info(`Connecting to database at ${mongoURI} for cleanup...`);
@@ -93,8 +93,8 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
     const countsBefore = await getCounts();
     console.table(countsBefore);
 
-    if (isFullWipe) {
-      logger.warn('Full wipe requested: Deleting all collections completely...');
+    if (!isOperationalOnly) {
+      logger.warn('Full database wipe: Deleting ALL collections completely...');
       await Promise.all([
         User.deleteMany({}),
         Restaurant.deleteMany({}),
@@ -134,7 +134,7 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
         OtpSession.deleteMany({}),
       ]);
     } else {
-      logger.info('Cleaning operational data (Orders, Sessions, Bills, Payments, Menus, Customizations, Tables, Logs, Keys, Taxes)...');
+      logger.info('Cleaning operational data only (Preserving Users & Restaurants)...');
 
       // Delete operational & transactional data
       await Promise.all([
@@ -192,9 +192,9 @@ export const cleanDatabase = async (options: { wipeAll?: boolean } = {}) => {
     console.table(countsAfter);
 
     logger.info(
-      isFullWipe
-        ? 'Full database wipe completed successfully! All collections are clean.'
-        : 'Operational cleanup completed successfully! Users, Restaurants, and Settings preserved.'
+      !isOperationalOnly
+        ? 'Full database wipe completed successfully! Entire database is empty.'
+        : 'Operational cleanup completed successfully! Users and Restaurants preserved.'
     );
   } catch (err) {
     logger.error(err, 'Error during database cleanup');

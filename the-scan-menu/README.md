@@ -22,16 +22,16 @@ From the root of the repository, the following workspace-delegated commands are 
 
 Phase 1 includes an idempotent seeding script to bootstrap development. The script creates one `SUPER_ADMIN` user and a complete "Demo Cafe" restaurant with five categories, twenty menu items, and predefined manager and staff logins:
 
-- **Super Admin:** `admin@pixora.dev` / `Test@1234`
+- **Super Admin:** `superadmin@gmail.com` / `Test@1234`
 - **Demo Cafe Manager:** `manager@democafe.com` / `Test@1234`
 - **Demo Cafe Staff One:** `staff1@democafe.com` / `Test@1234`
 - **Demo Cafe Staff Two:** `staff2@democafe.com` / `Test@1234`
 
-### Running the Seed Script
-To run the seed script locally, run this command from the root of the repository:
-```bash
-npm run --workspace=server seed
-```
+### Database Commands
+- **Wipe Entire Database:** `npm run clean --workspace=server`
+- **Seed SuperAdmin Only (Clean):** `npm run seed:admin:fresh`
+- **Seed SuperAdmin Only:** `npm run seed:admin`
+- **Seed Full Demo Suite:** `npm run seed`
 
 ---
 
