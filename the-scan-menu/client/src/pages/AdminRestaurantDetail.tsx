@@ -253,8 +253,6 @@ export const AdminRestaurantDetail: React.FC = () => {
     );
   }
 
-  const activeFlagsCount = flagsList.filter((f: any) => f.isEnabled).length;
-
   return (
     <div className="w-full h-full flex flex-col min-h-0 space-y-4 font-sans overflow-hidden">
       {/* Header */}
@@ -273,7 +271,7 @@ export const AdminRestaurantDetail: React.FC = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           audit={audit}
-          activeFlagsCount={activeFlagsCount}
+          flagsList={flagsList}
           tablesCount={tablesList.length}
           menuItemsCount={menuItemsList.length}
           staffCount={staffList.length}
