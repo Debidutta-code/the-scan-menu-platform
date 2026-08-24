@@ -5,6 +5,8 @@ export type AdminTab =
   | 'kitchen'
   | 'counter'
   | 'customer'
+  | 'taxes'
+  | 'payments'
   | 'billing'
   | 'tables'
   | 'menu'

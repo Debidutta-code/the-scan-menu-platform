@@ -22,7 +22,6 @@ import {
   PrinterStudioSection,
   TaxManagementSection,
   PaymentSettingsSection,
-  ThemeBrandingSection,
   WorkflowAutomationSection,
 } from '../components/settings';
 
@@ -316,10 +315,7 @@ export const AdminRestaurantDetail: React.FC = () => {
           )}
 
           {activeTab === 'identity' && (
-            <div className="space-y-6">
-              <StoreProfileSection restaurantId={id} isSuperAdminEdit={true} onSaved={invalidateAll} />
-              <ThemeBrandingSection restaurantId={id} onSaved={invalidateAll} />
-            </div>
+            <StoreProfileSection restaurantId={id} isSuperAdminEdit={true} onSaved={invalidateAll} />
           )}
 
           {activeTab === 'flags' && (
@@ -384,6 +380,14 @@ export const AdminRestaurantDetail: React.FC = () => {
             <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm">
               <ManagerMenu restaurantId={id} />
             </div>
+          )}
+
+          {activeTab === 'taxes' && (
+            <TaxManagementSection restaurantId={id} onSaved={invalidateAll} />
+          )}
+
+          {activeTab === 'payments' && (
+            <PaymentSettingsSection restaurantId={id} onSaved={invalidateAll} />
           )}
 
           {activeTab === 'billing' && (

@@ -1,32 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../lib/api';
 import {
   Store,
-  Lock,
-  ShieldAlert,
   Save,
   Loader,
-  Clock,
-  Phone,
-  Mail,
-  Globe,
-  ExternalLink,
   MapPin,
+  Palette,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
 } from 'lucide-react';
+import { ThemeBrandingSection } from './ThemeBrandingSection';
 
 export interface StoreProfileSectionProps {
   restaurantId?: string;
   isSuperAdminEdit?: boolean;
   onSaved?: () => void;
+  defaultSubTab?: 'identity' | 'contact' | 'theme';
 }
 
 export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
   restaurantId: propRestaurantId,
   isSuperAdminEdit,
   onSaved,
+  defaultSubTab = 'identity',
 }) => {
   const { user, activeRestaurantId } = useAuth();
   const { toast } = useToast();
@@ -35,7 +35,11 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
   const targetRestaurantId = propRestaurantId || activeRestaurantId;
   const isEditable = isSuperAdminEdit ?? (user?.role === 'SUPER_ADMIN');
 
+  const [activeSubTab, setActiveSubTab] = useState<'identity' | 'contact' | 'theme'>(defaultSubTab);
+
+  // Form State
   const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -47,8 +51,6 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
   const [closeTime, setCloseTime] = useState('23:00');
   const [logoUrl, setLogoUrl] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
-  const [receiptHeader, setReceiptHeader] = useState('');
-  const [receiptFooter, setReceiptFooter] = useState('');
 
   const { data: restaurantResponse, isLoading } = useQuery({
     queryKey: ['restaurantProfileInfo', targetRestaurantId],
@@ -63,6 +65,7 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
     if (restaurantResponse?.success && restaurantResponse?.data) {
       const p = restaurantResponse.data;
       setName(p.name || '');
+      setSlug(p.slug || '');
       setDescription(p.description || '');
       setPhone(p.phone || '');
       setEmail(p.email || '');
@@ -77,14 +80,32 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
         setOpenTime(p.timings.open || '09:00');
         setCloseTime(p.timings.close || '23:00');
       }
-
-      const settingsObj = p.settings;
-      if (settingsObj) {
-        setReceiptHeader(settingsObj.receiptHeader || '');
-        setReceiptFooter(settingsObj.receiptFooter || '');
-      }
     }
   }, [restaurantResponse]);
+
+  // Completion calculation for each sub-tab
+  const identityStatus = useMemo(() => {
+    const missing: string[] = [];
+    if (!name.trim()) missing.push('Name');
+    if (!description.trim()) missing.push('Description');
+    if (!logoUrl.trim()) missing.push('Logo');
+    return {
+      isComplete: missing.length === 0,
+      missing,
+    };
+  }, [name, description, logoUrl]);
+
+  const contactStatus = useMemo(() => {
+    const missing: string[] = [];
+    if (!address.trim()) missing.push('Address');
+    if (!phone.trim()) missing.push('Phone');
+    if (!email.trim()) missing.push('Email');
+    if (!gstNumber.trim()) missing.push('GST');
+    return {
+      isComplete: missing.length === 0,
+      missing,
+    };
+  }, [address, phone, email, gstNumber]);
 
   const updateMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -92,43 +113,44 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
       return res.data;
     },
     onSuccess: () => {
-      toast('Store Profile updated successfully!', 'success');
+      toast('Store settings updated successfully!', 'success');
       queryClient.invalidateQueries({ queryKey: ['restaurantProfileInfo', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       if (onSaved) onSaved();
     },
     onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error updating Store Profile', 'error');
+      toast(err.response?.data?.error?.message || 'Error updating settings', 'error');
     },
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSaveIdentity = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      toast('Restaurant Name is required', 'error');
-      return;
-    }
     updateMutation.mutate({
       name: name.trim(),
-      description: description.trim() || undefined,
-      phone: phone.trim() || undefined,
-      email: email.trim() || undefined,
-      address: address.trim() || undefined,
-      googleReviewUrl: googleReviewUrl.trim() || undefined,
-      gstNumber: gstNumber.trim() || undefined,
-      whatsapp: whatsapp.trim() || undefined,
-      timings: {
-        open: openTime,
-        close: closeTime,
-      },
+      slug: slug.trim() || undefined,
+      description: description.trim(),
+      logoUrl: logoUrl.trim() || undefined,
+      coverImageUrl: coverImageUrl.trim() || undefined,
       branding: {
         logoUrl: logoUrl.trim() || undefined,
         coverImageUrl: coverImageUrl.trim() || undefined,
       },
-      settings: {
-        receiptHeader: receiptHeader.trim() || undefined,
-        receiptFooter: receiptFooter.trim() || undefined,
+    });
+  };
+
+  const handleSaveContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate({
+      phone: phone.trim(),
+      email: email.trim(),
+      address: address.trim(),
+      googleReviewUrl: googleReviewUrl.trim() || undefined,
+      whatsapp: whatsapp.trim() || undefined,
+      gstNumber: gstNumber.trim() || undefined,
+      timings: {
+        open: openTime,
+        close: closeTime,
       },
     });
   };
@@ -142,287 +164,354 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-      <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Store className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-            <span>Store Profile & Physical Details</span>
-          </h4>
-          <p className="text-xs text-slate-500 mt-0.5">Core restaurant information displayed to customers and invoices.</p>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-full text-amber-800 text-[10px] font-bold tracking-wide uppercase font-mono shrink-0 self-start sm:self-auto">
-          <Lock className="w-3 h-3 text-amber-600" />
-          <span>Configured by SuperAdmin</span>
-        </div>
+    <div className="space-y-5 font-sans">
+      {/* Sub-Tab Navigation Header with Completion Badges */}
+      <div className="bg-white border border-slate-150 rounded-2xl p-2 shadow-sm flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('identity')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeSubTab === 'identity'
+              ? 'bg-slate-950 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>1. Store Identity & Overview</span>
+          {identityStatus.isComplete ? (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Completed" />
+          ) : (
+            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 font-mono font-bold">
+              {identityStatus.missing.length} pending
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('contact')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeSubTab === 'contact'
+              ? 'bg-slate-950 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>2. Location, Contacts & Timings</span>
+          {contactStatus.isComplete ? (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Completed" />
+          ) : (
+            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 font-mono font-bold">
+              {contactStatus.missing.length} pending
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('theme')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeSubTab === 'theme'
+              ? 'bg-slate-950 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <Palette className="w-3.5 h-3.5 text-amber-400" />
+          <span>3. Theme & Customer UI</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+        </button>
       </div>
 
-      {/* Central Governance Notice Banner */}
-      <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/60 flex items-start gap-3.5">
-        <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-xs">
-          <h5 className="font-bold text-amber-950">Centrally Governed Configuration</h5>
-          <p className="text-slate-600 text-[11px] mt-0.5 leading-relaxed">
-            Store identity, tax registration (GST), business contacts, and physical outlet details are managed centrally by platform SuperAdmin.
-            {isEditable ? ' As a SuperAdmin, you can modify these details below.' : ' To request updates to your store configuration, please reach out to platform support.'}
-          </p>
-        </div>
-      </div>
-
-      {isEditable ? (
-        /* SuperAdmin Editable Mode */
-        <form onSubmit={handleSave} className="space-y-6 pt-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* ========================================================= */}
+      {/* SUB-TAB 1: STORE IDENTITY & OVERVIEW                      */}
+      {/* ========================================================= */}
+      {activeSubTab === 'identity' && (
+        <form onSubmit={handleSaveIdentity} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Restaurant Name *</label>
+              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Store className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+                <span>Restaurant Identity & Brand Assets</span>
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">Outlet name, slug link, brand tagline, logo, and cover visual.</p>
+            </div>
+            {identityStatus.isComplete ? (
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Section Complete</span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Missing: {identityStatus.missing.join(', ')}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Restaurant Name <span className="text-amber-500">*</span>
+              </label>
               <input
                 type="text"
+                disabled={!isEditable}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="The Woodfired Bistro"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                placeholder="e.g. The Woodfired Bistro"
+                required
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 disabled:bg-slate-50 font-semibold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Contact Phone</label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 9876543210"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                URL Identifier Slug
+              </label>
+              <div className="flex rounded-xl shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-500 text-xs font-mono">
+                  /r/
+                </span>
+                <input
+                  type="text"
+                  disabled={!isEditable}
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="woodfired-bistro"
+                  className="flex-1 min-w-0 px-3.5 py-2.5 border border-slate-200 rounded-r-xl text-sm focus:outline-none focus:border-amber-500 disabled:bg-slate-50 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Restaurant Description & Story
+              </label>
+              <textarea
+                disabled={!isEditable}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Brief tagline or description displayed on customer digital menus..."
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 disabled:bg-slate-50 leading-relaxed"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Support Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="contact@woodfired.com"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Google Review URL</label>
-              <input
-                type="url"
-                value={googleReviewUrl}
-                onChange={(e) => setGoogleReviewUrl(e.target.value)}
-                placeholder="https://g.page/r/..."
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">GST Number</label>
-              <input
-                type="text"
-                value={gstNumber}
-                onChange={(e) => setGstNumber(e.target.value)}
-                placeholder="27AAAAA1111A1Z1"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono uppercase"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">WhatsApp Contact</label>
-              <input
-                type="text"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="+919876543210"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Opening Time</label>
-              <input
-                type="time"
-                value={openTime}
-                onChange={(e) => setOpenTime(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Closing Time</label>
-              <input
-                type="time"
-                value={closeTime}
-                onChange={(e) => setCloseTime(e.target.value)}
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Restaurant Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Serving genuine hand-tossed sourdough pizza in a rustic woodfired furnace..."
-              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Physical Address</label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="456 Gourmet Lane, Mumbai, Maharashtra"
-              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Logo URL</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Logo URL</label>
               <input
                 type="url"
+                disabled={!isEditable}
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                placeholder="https://..."
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Cover Image URL</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Cover Banner Image URL</label>
               <input
                 type="url"
+                disabled={!isEditable}
                 value={coverImageUrl}
                 onChange={(e) => setCoverImageUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono"
+                placeholder="https://..."
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
               />
             </div>
           </div>
 
-          <div className="pt-2 flex justify-end">
-            <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
-            >
-              {updateMutation.isPending ? (
-                <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-              ) : (
-                <Save className="w-4 h-4" strokeWidth={1.75} />
+          {/* Visual Preview Card */}
+          {(logoUrl || coverImageUrl) && (
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-4">
+              {logoUrl && (
+                <img
+                  src={logoUrl}
+                  alt="Logo preview"
+                  className="w-14 h-14 rounded-2xl object-cover border border-slate-200 bg-white shrink-0 shadow-2xs"
+                  onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                />
               )}
-              <span>Save General Profile</span>
-            </button>
-          </div>
-        </form>
-      ) : (
-        /* Manager View-Only Presentation Hub */
-        <div className="space-y-6 pt-2 text-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Restaurant Name</span>
-              <p className="font-bold text-slate-900 text-sm mt-1">{name || 'Not configured'}</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">GST Registration</span>
-              <p className="font-mono font-bold text-slate-900 text-sm mt-1">{gstNumber || 'Not specified'}</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-500" />
-                <span>Daily Operating Hours</span>
-              </span>
-              <p className="font-mono font-bold text-slate-900 text-sm mt-1">
-                {openTime || '09:00'} - {closeTime || '23:00'}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-50/60 border border-slate-150 space-y-3">
-            <h5 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] font-mono">
-              Communication & Support Channels
-            </h5>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="flex items-center gap-2.5 text-slate-700">
-                <Phone className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className="font-mono">{phone || 'No phone recorded'}</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Live Brand Preview</span>
+                <h5 className="text-sm font-bold text-slate-900">{name || 'Untitled Restaurant'}</h5>
+                <p className="text-xs text-slate-500 line-clamp-1">{description || 'No description provided yet.'}</p>
               </div>
-              <div className="flex items-center gap-2.5 text-slate-700">
-                <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className="font-mono truncate">{email || 'No email recorded'}</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-slate-700">
-                <span className="text-emerald-600 font-bold font-mono text-sm">WA</span>
-                <span className="font-mono">{whatsapp || 'No WhatsApp added'}</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-slate-700">
-                <Globe className="w-4 h-4 text-slate-400 shrink-0" />
-                {googleReviewUrl ? (
-                  <a
-                    href={googleReviewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-amber-600 hover:underline flex items-center gap-1 truncate font-mono text-[11px]"
-                  >
-                    <span>Google Reviews</span>
-                    <ExternalLink className="w-3 h-3 shrink-0" />
-                  </a>
-                ) : (
-                  <span className="text-slate-400">No review URL</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-150 flex items-start gap-3">
-            <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Physical Address</span>
-              <p className="text-slate-800 text-xs font-semibold mt-0.5 leading-relaxed">
-                {address || 'No physical address configured on platform.'}
-              </p>
-            </div>
-          </div>
-
-          {description && (
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-150">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">About the Restaurant</span>
-              <p className="text-slate-600 text-xs mt-1.5 leading-relaxed">{description}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150 space-y-2">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Brand Logo</span>
-              {logoUrl ? (
-                <div className="flex items-center gap-3">
-                  <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-white" />
-                  <span className="text-[11px] text-slate-500 font-mono truncate">{logoUrl}</span>
-                </div>
-              ) : (
-                <p className="text-slate-400 text-xs italic">No brand logo configured.</p>
-              )}
+          {isEditable && (
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+              >
+                {updateMutation.isPending ? (
+                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <Save className="w-4 h-4" strokeWidth={1.75} />
+                )}
+                <span>Save Store Identity</span>
+              </button>
+            </div>
+          )}
+        </form>
+      )}
+
+      {/* ========================================================= */}
+      {/* SUB-TAB 2: LOCATION, CONTACTS & OPERATING HOURS           */}
+      {/* ========================================================= */}
+      {activeSubTab === 'contact' && (
+        <form onSubmit={handleSaveContact} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-indigo-600" strokeWidth={1.75} />
+                <span>Location, Contacts & Operating Hours</span>
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">Physical address, support contacts, operating schedule, and tax registration.</p>
+            </div>
+            {contactStatus.isComplete ? (
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Section Complete</span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Missing: {contactStatus.missing.join(', ')}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            <div className="sm:col-span-2 md:col-span-3">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Physical Outlet Address <span className="text-amber-500">*</span>
+              </label>
+              <input
+                type="text"
+                disabled={!isEditable}
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. 123 Gourmet Boulevard, Indiranagar, Bengaluru, 560038"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 disabled:bg-slate-50"
+              />
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150 space-y-2">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Cover Banner</span>
-              {coverImageUrl ? (
-                <div className="flex items-center gap-3">
-                  <img src={coverImageUrl} alt="Cover" className="w-20 h-12 rounded-xl object-cover border border-slate-200 bg-white" />
-                  <span className="text-[11px] text-slate-500 font-mono truncate">{coverImageUrl}</span>
-                </div>
-              ) : (
-                <p className="text-slate-400 text-xs italic">No cover image banner configured.</p>
-              )}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Contact Phone <span className="text-amber-500">*</span>
+              </label>
+              <input
+                type="text"
+                disabled={!isEditable}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Support Email <span className="text-amber-500">*</span>
+              </label>
+              <input
+                type="email"
+                disabled={!isEditable}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="contact@woodfiredbistro.com"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">WhatsApp Orders Contact</label>
+              <input
+                type="text"
+                disabled={!isEditable}
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="+919876543210"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">GST Registration (GSTIN)</label>
+              <input
+                type="text"
+                disabled={!isEditable}
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                placeholder="29ABCDE1234F1Z5"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Daily Opening Time</label>
+              <input
+                type="time"
+                disabled={!isEditable}
+                value={openTime}
+                onChange={(e) => setOpenTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Daily Closing Time</label>
+              <input
+                type="time"
+                disabled={!isEditable}
+                value={closeTime}
+                onChange={(e) => setCloseTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+              />
+            </div>
+
+            <div className="sm:col-span-2 md:col-span-3">
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Google Review Page URL</label>
+              <input
+                type="url"
+                disabled={!isEditable}
+                value={googleReviewUrl}
+                onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                placeholder="https://g.page/r/woodfiredbistro-reviews"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+              />
             </div>
           </div>
-        </div>
+
+          {isEditable && (
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+              >
+                {updateMutation.isPending ? (
+                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <Save className="w-4 h-4" strokeWidth={1.75} />
+                )}
+                <span>Save Contact & Location</span>
+              </button>
+            </div>
+          )}
+        </form>
+      )}
+
+      {/* ========================================================= */}
+      {/* SUB-TAB 3: THEME & BRANDING                               */}
+      {/* ========================================================= */}
+      {activeSubTab === 'theme' && (
+        <ThemeBrandingSection restaurantId={targetRestaurantId} onSaved={onSaved} />
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import {
   Utensils,
   TableProperties,
   CreditCard,
+  Calculator,
   Printer,
   Users,
   Plug,
@@ -233,16 +234,30 @@ export const AdminRestaurantSidebar: React.FC<AdminRestaurantSidebarProps> = ({
             </span>
             <div className="mt-1 space-y-0.5">
               <button
-                onClick={() => setActiveTab('billing')}
+                onClick={() => setActiveTab('taxes')}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
-                  activeTab === 'billing'
+                  activeTab === 'taxes'
                     ? 'bg-slate-950 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <CreditCard className={`w-4 h-4 ${activeTab === 'billing' ? 'text-amber-400' : 'text-slate-400'}`} />
-                  <span>Taxes & Payments</span>
+                  <Calculator className={`w-4 h-4 ${activeTab === 'taxes' ? 'text-amber-400' : 'text-slate-400'}`} />
+                  <span>Tax Rates & GST</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('payments')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl font-bold transition text-left ${
+                  activeTab === 'payments'
+                    ? 'bg-slate-950 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <CreditCard className={`w-4 h-4 ${activeTab === 'payments' ? 'text-amber-400' : 'text-slate-400'}`} />
+                  <span>Payment Gateways</span>
                 </div>
               </button>
 
@@ -256,7 +271,7 @@ export const AdminRestaurantSidebar: React.FC<AdminRestaurantSidebarProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <Printer className={`w-4 h-4 ${activeTab === 'hardware' ? 'text-amber-400' : 'text-slate-400'}`} />
-                  <span>Thermal Printer Studio</span>
+                  <span>Thermal POS Printers</span>
                 </div>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold">
                   {hardwareForm.paperWidth}
