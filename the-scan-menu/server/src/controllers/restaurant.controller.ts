@@ -49,6 +49,10 @@ export class RestaurantController {
     this.listStaff = this.listStaff.bind(this);
     this.updateStaff = this.updateStaff.bind(this);
     this.deleteStaff = this.deleteStaff.bind(this);
+
+    // POS PIN Authentication
+    this.unlockPosByPin = this.unlockPosByPin.bind(this);
+    this.verifyManagerPin = this.verifyManagerPin.bind(this);
   }
 
   async createStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
@@ -246,6 +250,152 @@ export class RestaurantController {
       await restaurantStatsService.incrementStaff(restaurantId, -1);
 
       sendSuccess(res, {}, 'Member deactivated / removed successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async unlockPosByPin(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { pin } = req.body;
+
+      if (!pin || typeof pin !== 'string') {
+        sendError(res, 'BAD_REQUEST', 'PIN is required', null, 400);
+        return;
+      }
+
+      const cleanPin = pin.trim();
+      const restObjId = new mongoose.Types.ObjectId(restaurantId);
+
+      // 1. Check RestaurantStaff associations
+      const staffJoins = await RestaurantStaff.find({
+        restaurantId: restObjId,
+        isActive: true,
+      }).populate('userId');
+
+      let matchedUser: any = null;
+      let matchedRole: string = 'STAFF';
+
+      for (const join of staffJoins) {
+        const u = join.userId as any;
+        if (u && u.isActive && u.pin && u.pin.trim() === cleanPin) {
+          matchedUser = u;
+          matchedRole = join.role || u.role;
+          break;
+        }
+      }
+
+      // 2. Check direct Users with restaurantId
+      if (!matchedUser) {
+        const directUser = await User.findOne({
+          restaurantId: restObjId,
+          pin: cleanPin,
+          isActive: true,
+        });
+        if (directUser) {
+          matchedUser = directUser;
+          matchedRole = directUser.role;
+        }
+      }
+
+      // 3. Check SuperAdmin PIN override
+      if (!matchedUser && req.user?.role === 'SUPER_ADMIN') {
+        const superAdmin = await User.findById(req.user.id);
+        if (superAdmin && superAdmin.pin && superAdmin.pin.trim() === cleanPin) {
+          matchedUser = superAdmin;
+          matchedRole = 'SUPER_ADMIN';
+        }
+      }
+
+      if (!matchedUser) {
+        sendError(res, 'INVALID_PIN', 'Invalid POS PIN. Please try again or contact your manager.', null, 401);
+        return;
+      }
+
+      const responsePayload = {
+        id: matchedUser._id,
+        name: matchedUser.name,
+        email: matchedUser.email,
+        role: matchedRole,
+        unlockedAt: new Date().toISOString(),
+      };
+
+      sendSuccess(res, responsePayload, `POS unlocked successfully for ${matchedUser.name}`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyManagerPin(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const { pin, action = 'MANAGER_OVERRIDE' } = req.body;
+
+      if (!pin || typeof pin !== 'string') {
+        sendError(res, 'BAD_REQUEST', 'Manager PIN is required', null, 400);
+        return;
+      }
+
+      const cleanPin = pin.trim();
+      const restObjId = new mongoose.Types.ObjectId(restaurantId);
+
+      // Check manager associations
+      const managerJoins = await RestaurantStaff.find({
+        restaurantId: restObjId,
+        role: 'MANAGER',
+        isActive: true,
+      }).populate('userId');
+
+      let verifiedManager: any = null;
+
+      for (const join of managerJoins) {
+        const u = join.userId as any;
+        if (u && u.isActive && u.pin && u.pin.trim() === cleanPin) {
+          verifiedManager = u;
+          break;
+        }
+      }
+
+      if (!verifiedManager) {
+        const directManager = await User.findOne({
+          restaurantId: restObjId,
+          role: 'MANAGER',
+          pin: cleanPin,
+          isActive: true,
+        });
+        if (directManager) {
+          verifiedManager = directManager;
+        }
+      }
+
+      if (!verifiedManager) {
+        const superAdmin = await User.findOne({
+          role: 'SUPER_ADMIN',
+          pin: cleanPin,
+          isActive: true,
+        });
+        if (superAdmin) {
+          verifiedManager = superAdmin;
+        }
+      }
+
+      if (!verifiedManager) {
+        sendError(res, 'UNAUTHORIZED_MANAGER_PIN', 'Invalid Manager PIN. Manager authorization required.', null, 403);
+        return;
+      }
+
+      sendSuccess(
+        res,
+        {
+          verified: true,
+          managerId: verifiedManager._id,
+          managerName: verifiedManager.name,
+          action,
+          authorizedAt: new Date().toISOString(),
+        },
+        'Manager override authorized'
+      );
     } catch (error) {
       next(error);
     }

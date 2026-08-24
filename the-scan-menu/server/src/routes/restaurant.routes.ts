@@ -59,6 +59,10 @@ router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole(
 router.get('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listStaff);
 router.patch('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateStaff);
 router.delete('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteStaff);
+
+// POS PIN Fast Unlock & Manager Authorization Endpoints
+router.post('/:restaurantId/pos/unlock', requireAuth as any, requireRestaurantAccess as any, restaurantController.unlockPosByPin);
+router.post('/:restaurantId/pos/verify-manager-pin', requireAuth as any, requireRestaurantAccess as any, restaurantController.verifyManagerPin);
 // POS Integration Routes (Manager/Super Admin only)
 router.get('/:restaurantId/integrations/sync-logs', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.getSyncLogs);
 router.get('/:restaurantId/integrations/config', requireFeature('pos_integration') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, integrationController.getIntegrationConfig);

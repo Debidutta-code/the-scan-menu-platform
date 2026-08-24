@@ -29,6 +29,7 @@ import {
   ChefHat,
   FileText,
   Tv,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -36,6 +37,7 @@ import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
 import { printOrderTicket, TicketPrintType } from '../utils/printReceipt';
 import { PrintOrderModal } from '../components/PrintOrderModal';
+import { PosLockScreenModal } from '../components/pos/PosLockScreenModal';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
 
 interface SelectedCounterItem {
@@ -109,6 +111,13 @@ export const ManagerCounter: React.FC = () => {
 
   // Item variant selection modal state
   const [selectedItemForVariants, setSelectedItemForVariants] = useState<any | null>(null);
+
+  // POS PIN Cashier & Lock State
+  const [activeCashier, setActiveCashier] = useState<{ id: string; name: string; role: string } | null>(() => {
+    const saved = sessionStorage.getItem(`pos_cashier_${restaurantId}`);
+    return saved ? JSON.parse(saved) : (user ? { id: user.id, name: user.name, role: user.role } : null);
+  });
+  const [isPosLocked, setIsPosLocked] = useState(false);
 
   // Input refs for automatic keyboard focus
   const customerNameInputRef = useRef<HTMLInputElement>(null);
@@ -497,8 +506,29 @@ export const ManagerCounter: React.FC = () => {
           </div>
         </div>
 
-        {/* Header Right: Mode Toggle + Recent Orders */}
+        {/* Header Right: Mode Toggle + Recent Orders + Lock Screen */}
         <div className="flex items-center gap-2">
+          {/* Active Cashier & PIN Fast Lock */}
+          <button
+            type="button"
+            onClick={() => setIsPosLocked(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer active:scale-95 shadow-2xs"
+            title="Switch cashier or lock terminal with PIN"
+          >
+            <div className="w-5 h-5 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center text-[10px] font-black">
+              {activeCashier?.name?.[0]?.toUpperCase() || 'P'}
+            </div>
+            <div className="flex flex-col text-left leading-none">
+              <span className="text-[11px] font-bold text-slate-900 truncate max-w-[100px]">
+                {activeCashier?.name || user?.name || 'Cashier'}
+              </span>
+              <span className="text-[9px] text-amber-700 font-mono">
+                {activeCashier?.role === 'MANAGER' ? 'Manager' : 'Staff'} • Lock
+              </span>
+            </div>
+            <Lock className="w-3.5 h-3.5 text-amber-600 ml-0.5" />
+          </button>
+
           <a
             href={`/r/${(user?.role === 'SUPER_ADMIN' ? impersonatedOutlet?.slug : (user as any)?.restaurants?.[0]?.slug) || 'demo-cafe'}/display`}
             target="_blank"
@@ -1499,6 +1529,19 @@ export const ManagerCounter: React.FC = () => {
         </div>,
         document.body
       )}
+
+      {/* POS PIN Lock Screen Modal */}
+      <PosLockScreenModal
+        isOpen={isPosLocked}
+        restaurantId={restaurantId || ''}
+        restaurantName={impersonatedOutlet?.name || 'Counter POS'}
+        onUnlockSuccess={(unlockedUser) => {
+          setActiveCashier(unlockedUser);
+          sessionStorage.setItem(`pos_cashier_${restaurantId}`, JSON.stringify(unlockedUser));
+          setIsPosLocked(false);
+        }}
+        onClose={() => setIsPosLocked(false)}
+      />
     </div>
   );
 };

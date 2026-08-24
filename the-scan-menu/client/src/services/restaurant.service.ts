@@ -480,6 +480,17 @@ export const managerService = {
     const res = await apiClient.delete(`/restaurants/${restaurantId}/staff/${staffId}`);
     return res.data;
   },
+
+  // POS PIN Endpoints
+  async unlockPosByPin(restaurantId: string, pin: string) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/pos/unlock`, { pin });
+    return res.data;
+  },
+
+  async verifyManagerPin(restaurantId: string, pin: string, action?: string) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/pos/verify-manager-pin`, { pin, action });
+    return res.data;
+  },
 };
 
 export const publicService = {
