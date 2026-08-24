@@ -365,6 +365,32 @@ export const ManagerLayout: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Global Manager / Staff PIN Lock Chip */}
+        <button
+          type="button"
+          onClick={() => {
+            if (activeRestaurantId) {
+              sessionStorage.removeItem(`manager_pin_unlocked_${activeRestaurantId}`);
+              setIsPinLocked(true);
+            }
+          }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer active:scale-95 shadow-2xs"
+          title="Lock terminal with PIN or switch user"
+        >
+          <div className="w-5 h-5 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center text-[10px] font-black shrink-0">
+            {user?.name?.[0]?.toUpperCase() || 'M'}
+          </div>
+          <div className="flex flex-col text-left leading-none">
+            <span className="text-[11px] font-bold text-slate-900 truncate max-w-[120px]">
+              {user?.name || 'Manager'}
+            </span>
+            <span className="text-[9px] text-amber-700 font-mono">
+              {user?.role === 'SUPER_ADMIN' ? 'Admin' : user?.role === 'MANAGER' ? 'Manager' : 'Staff'} • Lock
+            </span>
+          </div>
+          <Lock className="w-3.5 h-3.5 text-amber-600 ml-0.5 shrink-0" />
+        </button>
+
         {/* Sound Chime Switcher */}
         <button
           onClick={() => {
