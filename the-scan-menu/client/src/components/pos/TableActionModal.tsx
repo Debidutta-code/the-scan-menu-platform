@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   X,
@@ -26,6 +26,12 @@ interface TableActionModalProps {
   onMerge: (primaryTableId: string, secondaryTableIds: string[]) => Promise<void>;
   isTransferring: boolean;
   isMerging: boolean;
+}
+
+interface ZoneTableGroup {
+  zoneId: string;
+  zoneName: string;
+  tables: Table[];
 }
 
 type ModalTab = 'OVERVIEW' | 'TRANSFER' | 'MERGE';
@@ -70,7 +76,6 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
     if (!table) return '';
     const raw = (table.displayName || '').trim();
     if (!raw) return `Table ${table.tableNumber}`;
-    // If raw name starts with "Table <num>" or is identical
     if (raw.toLowerCase() === `table ${table.tableNumber}`.toLowerCase() || raw === table.tableNumber) {
       return `Table ${table.tableNumber}`;
     }
@@ -85,6 +90,56 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
         (table.activeOrderCount && table.activeOrderCount > 0)
     );
   };
+
+  // Group an array of tables by Zone
+  const groupTablesByZone = useCallback(
+    (tableList: Table[], filterZoneId: string = 'ALL'): ZoneTableGroup[] => {
+      const groups: ZoneTableGroup[] = [];
+
+      // Filter list if specific zone is selected
+      const activeList =
+        filterZoneId === 'ALL'
+          ? tableList
+          : tableList.filter((t) => {
+              const tid = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
+              return tid === filterZoneId;
+            });
+
+      // 1. Group by defined zones
+      for (const z of zones) {
+        if (filterZoneId !== 'ALL' && filterZoneId !== z._id) continue;
+        const matching = activeList.filter((t) => {
+          const tid = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
+          return tid === z._id;
+        });
+        if (matching.length > 0) {
+          groups.push({
+            zoneId: z._id,
+            zoneName: z.name,
+            tables: matching,
+          });
+        }
+      }
+
+      // 2. Group unassigned or general tables
+      if (filterZoneId === 'ALL') {
+        const unassigned = activeList.filter((t) => {
+          const tid = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
+          return !tid || !zones.some((z) => z._id === tid);
+        });
+        if (unassigned.length > 0) {
+          groups.push({
+            zoneId: 'unassigned',
+            zoneName: 'Main Dining / Other',
+            tables: unassigned,
+          });
+        }
+      }
+
+      return groups;
+    },
+    [zones]
+  );
 
   // Synchronize initial state when modal opens or selectedTable changes
   useEffect(() => {
@@ -118,46 +173,40 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
     return allTables.find((t) => t._id === sourceTableId) || selectedTable || allTables[0];
   }, [allTables, sourceTableId, selectedTable]);
 
-  // Occupied tables for source selection
-  const occupiedTables = useMemo(() => {
-    return allTables.filter((t) => isTableOccupied(t));
-  }, [allTables]);
+  // Occupied tables for source selection (grouped by zone)
+  const occupiedTableGroups = useMemo(() => {
+    const occupied = allTables.filter((t) => isTableOccupied(t));
+    return groupTablesByZone(occupied, 'ALL');
+  }, [allTables, groupTablesByZone]);
 
-  // Available free tables for transfer target
-  const availableTargetTables = useMemo(() => {
-    return allTables.filter((t) => {
+  // Available free tables for transfer target (grouped by zone)
+  const availableTargetTableGroups = useMemo(() => {
+    const freeTables = allTables.filter((t) => {
       if (t._id === sourceTableId) return false;
-      const matchesZone =
-        zoneFilter === 'ALL' ||
-        (typeof t.zoneId === 'object' && t.zoneId?._id === zoneFilter) ||
-        t.zoneId === zoneFilter;
-      const isFree = !isTableOccupied(t);
-      return matchesZone && isFree;
+      return !isTableOccupied(t);
     });
-  }, [allTables, sourceTableId, zoneFilter]);
+    return groupTablesByZone(freeTables, zoneFilter);
+  }, [allTables, sourceTableId, zoneFilter, groupTablesByZone]);
 
-  // Merge candidate tables (filtered by zone)
-  const filteredMergeTables = useMemo(() => {
-    return allTables.filter((t) => {
-      const matchesZone =
-        zoneFilter === 'ALL' ||
-        (typeof t.zoneId === 'object' && t.zoneId?._id === zoneFilter) ||
-        t.zoneId === zoneFilter;
-      return matchesZone;
-    });
-  }, [allTables, zoneFilter]);
+  // Merge candidate tables (grouped by zone)
+  const mergeCandidateTableGroups = useMemo(() => {
+    return groupTablesByZone(allTables, zoneFilter);
+  }, [allTables, zoneFilter, groupTablesByZone]);
 
-  // Destination options for merge: Can be one of the selected tables OR any available free table
+  // Destination options for merge: Can be one of the selected tables OR free tables grouped by zone
   const mergeDestinationOptions = useMemo(() => {
     const selectedTablesList = allTables.filter((t) => mergeSelectedIds.includes(t._id));
     const freeTablesList = allTables.filter(
       (t) => !mergeSelectedIds.includes(t._id) && !isTableOccupied(t)
     );
+    const freeTableGroups = groupTablesByZone(freeTablesList, 'ALL');
+
     return {
       selectedTables: selectedTablesList,
-      freeTables: freeTablesList,
+      freeTableGroups,
+      totalFreeCount: freeTablesList.length,
     };
-  }, [allTables, mergeSelectedIds]);
+  }, [allTables, mergeSelectedIds, groupTablesByZone]);
 
   const toggleMergeSelection = (id: string) => {
     setMergeSelectedIds((prev) => {
@@ -390,68 +439,70 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                {/* 1. SOURCE SELECTION */}
+                {/* 1. SOURCE SELECTION (Grouped by Zone) */}
                 <div className="p-4 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center">1</span>
                       Moving From (Occupied Table)
                     </label>
-                    <span className="text-[11px] text-slate-400 font-bold">
-                      {occupiedTables.length} Active
-                    </span>
                   </div>
 
-                  {occupiedTables.length === 0 ? (
+                  {occupiedTableGroups.length === 0 ? (
                     <div className="p-4 text-xs text-slate-500 bg-white rounded-2xl border border-slate-200 text-center">
                       No active/occupied tables found.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto p-0.5">
-                      {occupiedTables.map((t) => {
-                        const isSelected = sourceTableId === t._id;
-                        const zName = getZoneName(t);
-                        return (
-                          <button
-                            key={t._id}
-                            type="button"
-                            onClick={() => setSourceTableId(t._id)}
-                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                              isSelected
-                                ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400/40 shadow-xs'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-sm text-slate-900">
-                                Table {t.tableNumber}
-                              </span>
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            </div>
-                            <div className="text-xs font-bold text-slate-700 truncate mt-1">
-                              {getCleanDisplayName(t)}
-                            </div>
-                            <div className="inline-flex items-center gap-1 text-[10px] text-amber-900 font-bold bg-amber-100/70 px-2 py-0.5 rounded-md mt-2 w-fit">
-                              <MapPin className="w-2.5 h-2.5 shrink-0 text-amber-700" />
-                              <span className="truncate">{zName}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                    <div className="space-y-3.5 max-h-72 overflow-y-auto p-0.5 pr-1">
+                      {occupiedTableGroups.map((group) => (
+                        <div key={group.zoneId} className="space-y-2">
+                          <div className="flex items-center gap-2 px-1">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span className="text-xs font-bold text-slate-800">{group.zoneName}</span>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.2 rounded-full">
+                              {group.tables.length}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {group.tables.map((t) => {
+                              const isSelected = sourceTableId === t._id;
+                              return (
+                                <button
+                                  key={t._id}
+                                  type="button"
+                                  onClick={() => setSourceTableId(t._id)}
+                                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                    isSelected
+                                      ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400/40 shadow-xs'
+                                      : 'border-slate-200 bg-white hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-black text-sm text-slate-900">
+                                      Table {t.tableNumber}
+                                    </span>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                  </div>
+                                  <div className="text-xs font-bold text-slate-700 truncate mt-1">
+                                    {getCleanDisplayName(t)}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
 
-                {/* 2. DESTINATION SELECTION */}
+                {/* 2. DESTINATION SELECTION (Grouped by Zone) */}
                 <div className="p-4 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] font-bold flex items-center justify-center">2</span>
                       Select Destination Table (Available)
                     </label>
-                    <span className="text-[11px] text-emerald-700 font-bold">
-                      {availableTargetTables.length} Free
-                    </span>
                   </div>
 
                   {/* Zone Filter Chips */}
@@ -485,44 +536,52 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
                     </div>
                   )}
 
-                  {availableTargetTables.length === 0 ? (
+                  {availableTargetTableGroups.length === 0 ? (
                     <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-xs bg-white">
                       No free tables found in this zone.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto p-0.5">
-                      {availableTargetTables.map((t) => {
-                        const isSelected = targetTableId === t._id;
-                        const zName = getZoneName(t);
-                        return (
-                          <button
-                            key={t._id}
-                            type="button"
-                            onClick={() => setTargetTableId(t._id)}
-                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                              isSelected
-                                ? 'border-emerald-600 bg-emerald-50/90 text-emerald-950 shadow-xs ring-2 ring-emerald-500/40'
-                                : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-sm text-slate-900">
-                                Table {t.tableNumber}
-                              </span>
-                              <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md uppercase">
-                                FREE
-                              </span>
-                            </div>
-                            <div className="text-xs font-bold text-slate-700 truncate mt-1">
-                              {getCleanDisplayName(t)}
-                            </div>
-                            <div className="inline-flex items-center gap-1 text-[10px] text-slate-600 font-bold bg-slate-100 px-2 py-0.5 rounded-md mt-2 w-fit">
-                              <MapPin className="w-2.5 h-2.5 shrink-0 text-slate-400" />
-                              <span className="truncate">{zName}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                    <div className="space-y-3.5 max-h-72 overflow-y-auto p-0.5 pr-1">
+                      {availableTargetTableGroups.map((group) => (
+                        <div key={group.zoneId} className="space-y-2">
+                          <div className="flex items-center gap-2 px-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-xs font-bold text-slate-800">{group.zoneName}</span>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.2 rounded-full">
+                              {group.tables.length} free
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {group.tables.map((t) => {
+                              const isSelected = targetTableId === t._id;
+                              return (
+                                <button
+                                  key={t._id}
+                                  type="button"
+                                  onClick={() => setTargetTableId(t._id)}
+                                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                    isSelected
+                                      ? 'border-emerald-600 bg-emerald-50/90 text-emerald-950 shadow-xs ring-2 ring-emerald-500/40'
+                                      : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-black text-sm text-slate-900">
+                                      Table {t.tableNumber}
+                                    </span>
+                                    <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md uppercase">
+                                      FREE
+                                    </span>
+                                  </div>
+                                  <div className="text-xs font-bold text-slate-700 truncate mt-1">
+                                    {getCleanDisplayName(t)}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -567,7 +626,7 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
             </form>
           )}
 
-          {/* TAB 3: MERGE & RELOCATE (2-COLUMN WIDE STUDIO) */}
+          {/* TAB 3: MERGE & RELOCATE (Divided and grouped by Zones) */}
           {activeTab === 'MERGE' && (
             <form onSubmit={handleMergeSubmit} className="space-y-4">
               <div className="p-3.5 bg-indigo-50/80 border border-indigo-200/80 rounded-2xl text-indigo-950 text-xs flex items-start gap-2.5">
@@ -584,7 +643,7 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
 
               {/* 2-COLUMN DESKTOP LAYOUT */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* LEFT COLUMN (7 cols): Step 1: Select Tables to Combine */}
+                {/* LEFT COLUMN (7 cols): Step 1: Select Tables to Combine (Divided by Zone) */}
                 <div className="lg:col-span-7 p-4 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -624,58 +683,69 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
                     </div>
                   )}
 
-                  {/* Table Selection Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[380px] overflow-y-auto p-0.5">
-                    {filteredMergeTables.map((t) => {
-                      const isChecked = mergeSelectedIds.includes(t._id);
-                      const isOccupied = isTableOccupied(t);
-                      const zName = getZoneName(t);
-                      return (
-                        <button
-                          key={t._id}
-                          type="button"
-                          onClick={() => toggleMergeSelection(t._id)}
-                          className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between relative cursor-pointer ${
-                            isChecked
-                              ? 'border-indigo-600 bg-indigo-50/90 text-indigo-950 shadow-xs ring-2 ring-indigo-500/40'
-                              : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                          }`}
-                        >
-                          {isChecked && (
-                            <CheckCircle2 className="w-4 h-4 text-indigo-600 absolute top-2.5 right-2.5" />
-                          )}
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-black text-sm text-slate-900">
-                                Table {t.tableNumber}
-                              </span>
-                              {isOccupied && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                              )}
-                            </div>
-                            <div className="text-xs font-bold text-slate-700 truncate mt-0.5">
-                              {getCleanDisplayName(t)}
-                            </div>
-                          </div>
+                  {/* Grouped Zone Sections */}
+                  <div className="space-y-4 max-h-[380px] overflow-y-auto p-0.5 pr-1">
+                    {mergeCandidateTableGroups.map((group) => (
+                      <div key={group.zoneId} className="space-y-2 bg-white/70 border border-slate-200/70 rounded-2xl p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                          <h4 className="font-bold text-slate-900 text-xs tracking-tight">
+                            {group.zoneName}
+                          </h4>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {group.tables.length} tables
+                          </span>
+                        </div>
 
-                          <div className="mt-2.5 flex items-center justify-between gap-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 font-bold bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-[90px]">
-                              <MapPin className="w-2.5 h-2.5 shrink-0 text-slate-400" />
-                              <span className="truncate">{zName}</span>
-                            </span>
-                            <span
-                              className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md shrink-0 ${
-                                isOccupied
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-emerald-100 text-emerald-800'
-                              }`}
-                            >
-                              {isOccupied ? 'Occupied' : 'Free'}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {group.tables.map((t) => {
+                            const isChecked = mergeSelectedIds.includes(t._id);
+                            const isOccupied = isTableOccupied(t);
+                            return (
+                              <button
+                                key={t._id}
+                                type="button"
+                                onClick={() => toggleMergeSelection(t._id)}
+                                className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col justify-between relative cursor-pointer ${
+                                  isChecked
+                                    ? 'border-indigo-600 bg-indigo-50/90 text-indigo-950 shadow-xs ring-2 ring-indigo-500/40'
+                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                }`}
+                              >
+                                {isChecked && (
+                                  <CheckCircle2 className="w-4 h-4 text-indigo-600 absolute top-2 right-2" />
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-black text-sm text-slate-900">
+                                      Table {t.tableNumber}
+                                    </span>
+                                    {isOccupied && (
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    )}
+                                  </div>
+                                  <div className="text-xs font-bold text-slate-700 truncate mt-0.5">
+                                    {getCleanDisplayName(t)}
+                                  </div>
+                                </div>
+
+                                <div className="mt-2 flex items-center justify-end">
+                                  <span
+                                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md ${
+                                      isOccupied
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {isOccupied ? 'Occupied' : 'Free'}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -692,7 +762,7 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
                         Please select tables on the left first.
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-[300px] overflow-y-auto p-0.5">
+                      <div className="space-y-3.5 max-h-[300px] overflow-y-auto p-0.5 pr-1">
                         {/* Option A: Keep at one of selected tables */}
                         <div>
                           <div className="text-[11px] font-bold text-indigo-900 flex items-center gap-1 mb-1.5">
@@ -726,38 +796,46 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Option B: Move to free table */}
-                        {mergeDestinationOptions.freeTables.length > 0 && (
-                          <div>
-                            <div className="text-[11px] font-bold text-emerald-900 flex items-center gap-1 mb-1.5 mt-2">
+                        {/* Option B: Move to free table grouped by zone */}
+                        {mergeDestinationOptions.totalFreeCount > 0 && (
+                          <div className="space-y-2 pt-1 border-t border-slate-200">
+                            <div className="text-[11px] font-bold text-emerald-900 flex items-center gap-1 mb-1">
                               <ChevronRight className="w-3 h-3 text-emerald-600" />
-                              Option B: Move to a larger free table
+                              Option B: Move to an available free table
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto">
-                              {mergeDestinationOptions.freeTables.map((t) => {
-                                const isDest = mergeDestinationId === t._id;
-                                const zName = getZoneName(t);
-                                return (
-                                  <button
-                                    key={t._id}
-                                    type="button"
-                                    onClick={() => setMergeDestinationId(t._id)}
-                                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                                      isDest
-                                        ? 'border-emerald-600 bg-emerald-600 text-white font-bold shadow-xs'
-                                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                                    }`}
-                                  >
-                                    <div className="text-xs font-black">
-                                      Table {t.tableNumber}
-                                    </div>
-                                    <div className={`text-[10px] truncate ${isDest ? 'text-emerald-100' : 'text-slate-500'}`}>
-                                      {getCleanDisplayName(t)} ({zName})
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
+
+                            {mergeDestinationOptions.freeTableGroups.map((group) => (
+                              <div key={group.zoneId} className="space-y-1.5 bg-white/60 p-2 rounded-xl border border-slate-200/60">
+                                <div className="flex items-center gap-1.5 px-1">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                  <span className="text-[11px] font-bold text-slate-700">{group.zoneName}</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                  {group.tables.map((t) => {
+                                    const isDest = mergeDestinationId === t._id;
+                                    return (
+                                      <button
+                                        key={t._id}
+                                        type="button"
+                                        onClick={() => setMergeDestinationId(t._id)}
+                                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                                          isDest
+                                            ? 'border-emerald-600 bg-emerald-600 text-white font-bold shadow-xs'
+                                            : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                        }`}
+                                      >
+                                        <div className="text-xs font-black">
+                                          Table {t.tableNumber}
+                                        </div>
+                                        <div className={`text-[10px] truncate ${isDest ? 'text-emerald-100' : 'text-slate-500'}`}>
+                                          {getCleanDisplayName(t)}
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
