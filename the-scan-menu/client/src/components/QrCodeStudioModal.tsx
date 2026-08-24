@@ -141,7 +141,9 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
     onSuccess: () => {
       toast('QR Code Style & Standee Template saved successfully!', 'success');
       queryClient.invalidateQueries({ queryKey: ['tableQr'] });
+      queryClient.invalidateQueries({ queryKey: ['restaurantQrSettings', restaurantId] });
       queryClient.invalidateQueries({ queryKey: ['restaurantProfileInfo', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['restaurantProfilePrint', restaurantId] });
       queryClient.invalidateQueries({ queryKey: ['managerTables', restaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', restaurantId] });
       onClose();

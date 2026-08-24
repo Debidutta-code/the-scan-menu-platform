@@ -1045,33 +1045,155 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 </div>
               ) : qrData?.data?.svg ? (
                 <>
-                  {/* Styled Standee Preview */}
-                  <div
-                    className="w-56 rounded-3xl p-4 shadow-sm border border-slate-150 flex flex-col items-center text-center relative"
-                    style={{ backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF' }}
-                  >
-                    <div className="relative w-44 h-44 flex items-center justify-center bg-white p-2 rounded-2xl shadow-inner border border-slate-100 mb-2">
+                  {/* Realistic Standee/Card Display */}
+                  <div className="w-full flex flex-col items-center">
+                    {qrData.data.qrStyle?.templateTheme === 'minimal' ? (
+                      /* Minimal Template */
                       <div
-                        className="w-full h-full flex items-center justify-center"
-                        dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
-                      />
-                      {/* Center Logo Shield Overlay */}
-                      {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-8 h-8 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
-                            <img
-                              src={qrData.data.restaurantLogo}
-                              alt="Logo"
-                              className="w-full h-full object-cover rounded-lg"
-                              onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
-                            />
-                          </div>
+                        className="w-56 rounded-2xl p-4 shadow-md flex flex-col items-center text-center relative border border-slate-200"
+                        style={{ backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF' }}
+                      >
+                        <div className="flex items-center justify-between w-full pb-1.5 mb-1.5 border-b border-slate-150">
+                          <span className="text-[10px] font-mono font-black uppercase text-slate-800">
+                            {qrData.data.restaurantName || 'DINE-IN'}
+                          </span>
+                          <span
+                            className="text-[9px] font-mono font-black px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+                              color: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                            }}
+                          >
+                            {showQrModal.displayName}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-800 truncate w-full">
-                      {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
-                    </span>
+                        <div className="relative w-44 h-44 flex items-center justify-center p-1">
+                          <div
+                            className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                            dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                          />
+                          {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                                <img
+                                  src={qrData.data.restaurantLogo}
+                                  alt="Logo"
+                                  className="w-full h-full object-contain rounded-lg"
+                                  onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-600 mt-1">
+                          {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                        </span>
+                      </div>
+                    ) : qrData.data.qrStyle?.templateTheme === 'branded' ? (
+                      /* Branded Template */
+                      <div
+                        className="w-56 rounded-2xl p-4 shadow-xl flex flex-col items-center text-center relative border-2"
+                        style={{
+                          backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                          borderColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+                        }}
+                      >
+                        <div
+                          className="w-8 h-1 rounded-full mb-2"
+                          style={{ backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A' }}
+                        />
+                        <h4
+                          className="font-serif text-sm font-black tracking-tight"
+                          style={{ color: qrData.data.qrStyle?.fgColor || '#0F172A' }}
+                        >
+                          {qrData.data.restaurantName || 'Restaurant'}
+                        </h4>
+                        <p className="text-[9px] text-slate-500 font-semibold mb-2">
+                          {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                        </p>
+                        <div className="relative w-40 h-40 flex items-center justify-center bg-white p-2 rounded-xl border border-slate-200 mb-2">
+                          <div
+                            className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                            dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                          />
+                          {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-8 h-8 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                                <img
+                                  src={qrData.data.restaurantLogo}
+                                  alt="Logo"
+                                  className="w-full h-full object-contain rounded-lg"
+                                  onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className="px-3 py-0.5 rounded-md text-[9px] font-mono font-black uppercase"
+                          style={{
+                            backgroundColor: (qrData.data.qrStyle?.fgColor || '#0F172A') + '15',
+                            color: qrData.data.qrStyle?.fgColor || '#0F172A',
+                          }}
+                        >
+                          {showQrModal.displayName}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Standee Acrylic Template */
+                      <div className="w-56 flex flex-col items-center">
+                        <div
+                          className="w-full rounded-3xl p-4 shadow-xl flex flex-col items-center text-center relative border backdrop-blur-sm"
+                          style={{
+                            backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                            borderColor: (qrData.data.qrStyle?.fgColor || '#0F172A') + '25',
+                          }}
+                        >
+                          <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-white/30 via-transparent to-black/5 pointer-events-none" />
+                          <div
+                            className="px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider mb-1.5 shadow-xs"
+                            style={{
+                              backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+                              color: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                            }}
+                          >
+                            {showQrModal.displayName}
+                          </div>
+                          <h4
+                            className="font-display text-xs font-black tracking-tight leading-tight"
+                            style={{ color: qrData.data.qrStyle?.fgColor || '#0F172A' }}
+                          >
+                            {qrData.data.restaurantName || 'Restaurant'}
+                          </h4>
+                          <p className="text-[9px] text-slate-500 font-bold mb-2">
+                            {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                          </p>
+                          <div className="relative w-40 h-40 flex items-center justify-center bg-white p-2 rounded-2xl shadow-inner border border-slate-150 mb-2">
+                            <div
+                              className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                              dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                            />
+                            {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                                  <img
+                                    src={qrData.data.restaurantLogo}
+                                    alt="Logo"
+                                    className="w-full h-full object-contain rounded-lg"
+                                    onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[8px] font-mono font-bold text-slate-500 uppercase">
+                            Point Camera & Scan
+                          </span>
+                        </div>
+                        <div className="w-[85%] h-3 bg-amber-900/80 rounded-b-xl shadow-md -mt-1 border-t border-amber-950/40 relative z-10" />
+                        <div className="w-[95%] h-2.5 bg-black/20 rounded-full blur-xs mt-0.5" />
+                      </div>
+                    )}
                   </div>
 
                   {/* URL Bar with Copy & Open In New Tab Buttons */}

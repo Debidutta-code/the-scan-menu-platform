@@ -196,6 +196,7 @@ export class AdminController {
       if (updateData.whatsapp !== undefined) settings.branding.whatsapp = updateData.whatsapp;
       if (updateData.socialLinks) settings.branding.socialLinks = { ...settings.branding.socialLinks, ...updateData.socialLinks };
       if (updateData.printerConfig) settings.printerConfig = { ...(settings.printerConfig || {}), ...updateData.printerConfig };
+      if (updateData.qrCodeStyle) settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
 
       await settings.save();
 
@@ -674,6 +675,8 @@ export class AdminController {
         timings: settings?.timings || { open: '09:00', close: '23:00' },
         googleReviewUrl: settings?.branding?.googleReviewUrl || '',
         whatsapp: settings?.branding?.whatsapp || '',
+        qrCodeStyle: settings?.qrCodeStyle,
+        settings: settings ? settings.toObject() : undefined,
       };
 
       sendSuccess(res, payload, 'Restaurant fetched successfully');
@@ -731,6 +734,9 @@ export class AdminController {
         if (!settings.branding) settings.branding = {} as any;
         settings.branding.coverImageUrl = updateData.coverImageUrl;
       }
+      if (updateData.qrCodeStyle !== undefined) {
+        settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
+      }
       await settings.save();
 
       const payload = {
@@ -739,6 +745,8 @@ export class AdminController {
         timings: settings?.timings || { open: '09:00', close: '23:00' },
         googleReviewUrl: settings?.branding?.googleReviewUrl || '',
         whatsapp: settings?.branding?.whatsapp || '',
+        qrCodeStyle: settings?.qrCodeStyle,
+        settings: settings ? settings.toObject() : undefined,
       };
 
       sendSuccess(res, payload, 'Restaurant updated successfully');
