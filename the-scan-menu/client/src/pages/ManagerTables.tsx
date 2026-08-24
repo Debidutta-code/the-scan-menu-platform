@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
@@ -43,7 +43,6 @@ import {
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { QrCodeStudioModal } from '../components/QrCodeStudioModal';
-import { TableActionModal } from '../components/pos/TableActionModal';
 import { printOrderTicket, PrintOrderData } from '../utils/printReceipt';
 import { generateStandeeCardPng, printStandeeCard } from '../utils/generateStandeeCard';
 
@@ -82,6 +81,7 @@ export interface ManagerTablesProps {
 }
 
 export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) => {
+  const navigate = useNavigate();
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { activeRestaurantId, user } = useAuth();
   const { toast } = useToast();
@@ -100,8 +100,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     regenerateQrMutation,
     clearTablesMutation,
     reserveTablesMutation,
-    transferTableMutation,
-    mergeTablesMutation,
     createZoneMutation,
     editZoneMutation,
     deleteZoneMutation,
@@ -111,7 +109,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED'>('ALL');
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
   const [activeTableAction, setActiveTableAction] = useState<Table | null>(null);
-  const [showTableOperationsModal, setShowTableOperationsModal] = useState<Table | null>(null);
   const [showZoneManager, setShowZoneManager] = useState(false);
 
   const [isFormOpen, setIsCreateOpen] = useState(false);
@@ -420,10 +417,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
           </button>
           {isEnabled('ordering') && (
             <button
-              onClick={() => {
-                const firstOccupied = tables.find((t) => getTableStatus(t) === 'OCCUPIED') || tables[0] || null;
-                setShowTableOperationsModal(firstOccupied);
-              }}
+              onClick={() => navigate('/manager/tables/operations')}
               className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-xs cursor-pointer"
               title="Transfer guest sessions or merge multiple tables"
             >
@@ -616,7 +610,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setShowTableOperationsModal(table);
+                              navigate(`/manager/tables/operations?sourceTableId=${table._id}`);
                             }}
                             className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-200 transition shadow-2xs cursor-pointer z-10"
                             title={`Transfer or Merge Table (${table.displayName})`}
@@ -802,9 +796,8 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                     <button
                       type="button"
                       onClick={() => {
-                        const target = t;
                         setActiveTableAction(null);
-                        setShowTableOperationsModal(target);
+                        navigate(`/manager/tables/operations?sourceTableId=${t._id}`);
                       }}
                       className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-[0.98] cursor-pointer"
                     >
@@ -1355,23 +1348,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         restaurantSlug={restaurantInfo.slug}
         restaurantName={restaurantInfo.name}
         restaurantLogo={restaurantInfo.logoUrl}
-      />
-
-      {/* ── Table Action Modal (Overview, Transfer, Merge) ────────────────────── */}
-      <TableActionModal
-        isOpen={!!showTableOperationsModal}
-        onClose={() => setShowTableOperationsModal(null)}
-        selectedTable={showTableOperationsModal}
-        allTables={tables}
-        zones={zones}
-        onTransfer={async (sourceTableId, targetTableId, reason) => {
-          await transferTableMutation.mutateAsync({ sourceTableId, targetTableId, reason });
-        }}
-        onMerge={async (primaryTableId, secondaryTableIds) => {
-          await mergeTablesMutation.mutateAsync({ primaryTableId, secondaryTableIds });
-        }}
-        isTransferring={transferTableMutation.isPending}
-        isMerging={mergeTablesMutation.isPending}
       />
     </div>
   );

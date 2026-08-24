@@ -41,6 +41,7 @@ import ManagerAnalytics from './pages/ManagerAnalytics';
 import ManagerDeveloper from './pages/ManagerDeveloper';
 import ManagerProfile from './pages/ManagerProfile';
 import ManagerTransactions from './pages/ManagerTransactions';
+import ManagerTableOperations from './pages/ManagerTableOperations';
 
 import PublicTable from './pages/PublicTable';
 import PublicOrderConfirmation from './pages/PublicOrderConfirmation';
@@ -167,6 +168,7 @@ export const App = () => {
 
                     <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Table Management" />}>
                       <Route path="/manager/tables" element={<ManagerTables />} />
+                      <Route path="/manager/tables/operations" element={<ManagerTableOperations />} />
                     </Route>
 
                     <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Digital Menu Management" />}>
