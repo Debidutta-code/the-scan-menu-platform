@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -34,9 +35,13 @@ import {
   Settings2,
   LayoutGrid,
   Zap,
+  Copy,
+  ExternalLink,
+  Palette,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
+import { QrCodeStudioModal } from '../components/QrCodeStudioModal';
 import { printOrderTicket, PrintOrderData } from '../utils/printReceipt';
 
 const tableSchema = z.object({
@@ -109,6 +114,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [isZoneFormOpen, setIsZoneFormOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
+  const [showQrStudio, setShowQrStudio] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [printModalOrder, setPrintModalOrder] = useState<any | null>(null);
 
@@ -139,10 +145,11 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
   const restaurantInfo = useMemo(() => ({
     name: restaurantData?.data?.name,
+    slug: restaurantData?.data?.slug,
     address: restaurantData?.data?.address,
     phone: restaurantData?.data?.phone,
     gstNumber: restaurantData?.data?.gstNumber,
-    logoUrl: restaurantData?.data?.branding?.logoUrl,
+    logoUrl: restaurantData?.data?.branding?.logoUrl || restaurantData?.data?.logoUrl,
     currency: restaurantData?.data?.currency || 'INR',
     settings: restaurantData?.data?.settings,
     printerConfig: restaurantData?.data?.printerConfig || restaurantData?.data?.settings?.printerConfig,
@@ -365,10 +372,18 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
           </button>
           <button
             onClick={() => setShowZoneManager(true)}
-            className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold transition shadow-sm"
+            className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold transition shadow-sm cursor-pointer"
           >
             <Settings2 className="w-3.5 h-3.5" strokeWidth={1.75} />
             Manage Zones
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowQrStudio(true)}
+            className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition shadow-xs cursor-pointer"
+          >
+            <Palette className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+            <span>Manage QR Code Style</span>
           </button>
           <button
             onClick={() => {
@@ -802,14 +817,15 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       })()}
 
       {/* ── Zone Manager Slide-over ────────────────────────────────────────────── */}
-      {showZoneManager && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
+      {showZoneManager && createPortal(
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 z-[99999] animate-in fade-in duration-200"
           onClick={(e) => { if (e.target === e.currentTarget) setShowZoneManager(false); }}
         >
           <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <h2 className="font-display text-xl font-bold text-slate-900">Manage Zones</h2>
-              <button onClick={() => setShowZoneManager(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition">
+              <button onClick={() => setShowZoneManager(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -832,14 +848,14 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => { setEditingZone(zone); zoneForm.reset({ name: zone.name }); setIsZoneFormOpen(true); setShowZoneManager(false); }}
-                      className="p-2 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-xl transition"
+                      className="p-2 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-xl transition cursor-pointer"
                       title="Edit zone"
                     >
                       <Edit2 className="w-4 h-4" strokeWidth={1.75} />
                     </button>
                     <button
                       onClick={() => { if (confirm(`Delete zone "${zone.name}"? ALL tables in this zone will be deleted.`)) deleteZoneMutation.mutate(zone._id); }}
-                      className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition"
+                      className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition cursor-pointer"
                       title="Delete zone"
                     >
                       <Trash2 className="w-4 h-4" strokeWidth={1.75} />
@@ -852,23 +868,24 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
             <div className="px-5 pb-5">
               <button
                 onClick={() => { setEditingZone(null); zoneForm.reset({ name: '' }); setIsZoneFormOpen(true); setShowZoneManager(false); }}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" strokeWidth={2} />
                 Create New Zone
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Bulk Create Modal ──────────────────────────────────────────────────── */}
-      {isBulkFormOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      {isBulkFormOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <h2 className="font-display text-xl font-bold text-slate-900">Bulk Create Tables</h2>
-              <button onClick={() => setIsBulkFormOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition">
+              <button onClick={() => setIsBulkFormOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -908,25 +925,26 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsBulkFormOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200">
+                <button type="button" onClick={() => setIsBulkFormOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200 cursor-pointer">
                   Cancel
                 </button>
-                <button type="submit" disabled={bulkCreateMutation.isPending} className="w-1/2 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition flex items-center justify-center gap-2">
+                <button type="submit" disabled={bulkCreateMutation.isPending} className="w-1/2 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition flex items-center justify-center gap-2 cursor-pointer">
                   {bulkCreateMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : 'Generate Tables'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Create / Edit Table Modal ──────────────────────────────────────────── */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      {isFormOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <h2 className="font-display text-xl font-bold text-slate-900">{editingTable ? 'Edit Table' : 'New Table'}</h2>
-              <button onClick={() => setIsCreateOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition">
+              <button onClick={() => setIsCreateOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -959,23 +977,24 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               )}
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200">Cancel</button>
-                <button type="submit" disabled={createTableMutation.isPending || editTableMutation.isPending} className="w-1/2 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl transition flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setIsCreateOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200 cursor-pointer">Cancel</button>
+                <button type="submit" disabled={createTableMutation.isPending || editTableMutation.isPending} className="w-1/2 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl transition flex items-center justify-center gap-2 cursor-pointer">
                   {createTableMutation.isPending || editTableMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : editingTable ? 'Save Changes' : 'Auto-Generate Table'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Zone Form Modal ────────────────────────────────────────────────────── */}
-      {isZoneFormOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      {isZoneFormOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <h2 className="font-display text-xl font-bold text-slate-900">{editingZone ? 'Edit Zone' : 'New Zone'}</h2>
-              <button onClick={() => setIsZoneFormOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition">
+              <button onClick={() => setIsZoneFormOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -986,26 +1005,35 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 {zoneForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{zoneForm.formState.errors.name.message}</p>}
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsZoneFormOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200">Cancel</button>
-                <button type="submit" disabled={createZoneMutation.isPending || editZoneMutation.isPending} className="w-1/2 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setIsZoneFormOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200 cursor-pointer">Cancel</button>
+                <button type="submit" disabled={createZoneMutation.isPending || editZoneMutation.isPending} className="w-1/2 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition flex items-center justify-center gap-2 cursor-pointer">
                   {createZoneMutation.isPending || editZoneMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : editingZone ? 'Save Zone' : 'Create Zone'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── QR Code Modal ─────────────────────────────────────────────────────── */}
-      {showQrModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      {showQrModal && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div>
-                <h3 className="font-display text-lg font-bold text-slate-900">{showQrModal.displayName}</h3>
-                <p className="text-[11px] text-slate-500">QR Code</p>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold text-xs">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-slate-900">{showQrModal.displayName}</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">Dine-in Table Standee QR</p>
+                </div>
               </div>
-              <button onClick={() => setShowQrModal(null)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition">
+              <button
+                onClick={() => setShowQrModal(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -1017,29 +1045,91 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 </div>
               ) : qrData?.data?.svg ? (
                 <>
+                  {/* Styled Standee Preview */}
                   <div
-                    className="w-52 h-52 border-2 border-slate-100 p-3 rounded-3xl flex items-center justify-center bg-white shadow-inner"
-                    dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
-                  />
-                  <p className="text-slate-400 text-[10px] text-center break-all font-mono select-all bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 w-full">
-                    {qrData.data.url}
-                  </p>
+                    className="w-56 rounded-3xl p-4 shadow-sm border border-slate-150 flex flex-col items-center text-center relative"
+                    style={{ backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF' }}
+                  >
+                    <div className="relative w-44 h-44 flex items-center justify-center bg-white p-2 rounded-2xl shadow-inner border border-slate-100 mb-2">
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                      />
+                      {/* Center Logo Shield Overlay */}
+                      {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-8 h-8 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                            <img
+                              src={qrData.data.restaurantLogo}
+                              alt="Logo"
+                              className="w-full h-full object-cover rounded-lg"
+                              onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-800 truncate w-full">
+                      {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                    </span>
+                  </div>
+
+                  {/* URL Bar with Copy & Open In New Tab Buttons */}
+                  <div className="w-full flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+                    <input
+                      type="text"
+                      readOnly
+                      value={qrData.data.url}
+                      className="flex-1 min-w-0 bg-transparent text-[11px] font-mono text-slate-600 px-2 focus:outline-none select-all truncate"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(qrData.data.url);
+                        toast('Table QR link copied to clipboard!', 'success');
+                      }}
+                      title="Copy link"
+                      className="p-2 hover:bg-white text-slate-600 hover:text-slate-950 rounded-xl transition shadow-2xs border border-transparent hover:border-slate-200 cursor-pointer shrink-0"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <a
+                      href={qrData.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open link in new tab"
+                      className="p-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition shadow-2xs cursor-pointer shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2.5 w-full">
-                    <button onClick={handleDownloadPng} className="flex items-center justify-center gap-1.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-2xl transition">
+                    <button
+                      type="button"
+                      onClick={handleDownloadPng}
+                      className="flex items-center justify-center gap-1.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-2xl transition cursor-pointer"
+                    >
                       <Download className="w-4 h-4" strokeWidth={1.75} /> Download PNG
                     </button>
-                    <button onClick={handlePrintQr} className="flex items-center justify-center gap-1.5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition">
+                    <button
+                      type="button"
+                      onClick={handlePrintQr}
+                      className="flex items-center justify-center gap-1.5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition cursor-pointer shadow-sm"
+                    >
                       <Printer className="w-4 h-4" strokeWidth={1.75} /> Print QR
                     </button>
                   </div>
+
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirm('Rotate QR token? The old printed QR link will stop working.')) {
                         regenerateQrMutation.mutate(showQrModal._id);
                       }
                     }}
                     disabled={regenerateQrMutation.isPending}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition border border-rose-100"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition border border-rose-100 cursor-pointer"
                   >
                     <RotateCw className={`w-3.5 h-3.5 ${regenerateQrMutation.isPending ? 'animate-spin' : ''}`} />
                     Rotate QR Token
@@ -1050,14 +1140,26 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
       {/* ── Print Order Modal ────────────────────────────────────────────────── */}
       <PrintOrderModal
         isOpen={!!printModalOrder}
         onClose={() => setPrintModalOrder(null)}
         order={printModalOrder}
         restaurantInfo={restaurantInfo}
+      />
+
+      {/* ── QR Code Studio & Style Customizer Modal ─────────────────────────── */}
+      <QrCodeStudioModal
+        isOpen={showQrStudio}
+        onClose={() => setShowQrStudio(false)}
+        restaurantId={targetRestaurantId!}
+        restaurantSlug={restaurantInfo.slug}
+        restaurantName={restaurantInfo.name}
+        restaurantLogo={restaurantInfo.logoUrl}
       />
     </div>
   );

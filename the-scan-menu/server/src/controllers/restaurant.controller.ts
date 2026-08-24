@@ -879,10 +879,36 @@ export class RestaurantController {
       const clientUrl = config.app.clientUrl;
       const tableUrl = `${clientUrl}/r/${restaurant.slug}/t/${table.token}`;
 
-      const svg = await tableService.generateQrCodeSvg(tableUrl);
-      const pngDataUri = await tableService.generateQrCodePngDataUri(tableUrl);
+      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant.id });
+      const qrStyle = settings?.qrCodeStyle;
+      const fgColor = (req.query.fgColor as string) || qrStyle?.fgColor || '#0F172A';
+      const bgColor = (req.query.bgColor as string) || qrStyle?.bgColor || '#FFFFFF';
 
-      sendSuccess(res, { svg, pngDataUri, url: tableUrl }, 'QR retrieved successfully');
+      const svg = await tableService.generateQrCodeSvg(tableUrl, { fgColor, bgColor });
+      const pngDataUri = await tableService.generateQrCodePngDataUri(tableUrl, { fgColor, bgColor });
+
+      sendSuccess(
+        res,
+        {
+          svg,
+          pngDataUri,
+          url: tableUrl,
+          tableNumber: table.tableNumber,
+          displayName: table.displayName,
+          restaurantName: restaurant.name,
+          restaurantLogo: qrStyle?.logoUrl || settings?.branding?.logoUrl || restaurant.logoUrl || '',
+          qrStyle: {
+            fgColor,
+            bgColor,
+            showLogo: qrStyle?.showLogo !== false,
+            logoUrl: qrStyle?.logoUrl || settings?.branding?.logoUrl || restaurant.logoUrl || '',
+            cornerStyle: qrStyle?.cornerStyle || 'rounded',
+            cardFrameText: qrStyle?.cardFrameText || 'Scan to View Menu & Order',
+            templateTheme: qrStyle?.templateTheme || 'branded',
+          },
+        },
+        'QR retrieved successfully'
+      );
     } catch (error) {
       next(error);
     }

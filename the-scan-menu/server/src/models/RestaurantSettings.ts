@@ -98,6 +98,16 @@ export interface IRestaurantSettingsPrinter {
   defaultPrintTarget: 'BOTH' | 'KITCHEN' | 'COUNTER' | 'NONE';
 }
 
+export interface IRestaurantSettingsQrStyle {
+  fgColor?: string;
+  bgColor?: string;
+  showLogo?: boolean;
+  logoUrl?: string;
+  cornerStyle?: 'square' | 'rounded' | 'dots';
+  cardFrameText?: string;
+  templateTheme?: 'minimal' | 'branded' | 'standee';
+}
+
 export interface IRestaurantSettings extends Document {
   restaurantId: Types.ObjectId;
   currency: string;
@@ -111,6 +121,7 @@ export interface IRestaurantSettings extends Document {
   inventoryConfig: IRestaurantSettingsInventory;
   uiSettings: IRestaurantSettingsUi;
   printerConfig: IRestaurantSettingsPrinter;
+  qrCodeStyle?: IRestaurantSettingsQrStyle;
   timings?: {
     open: string;
     close: string;
@@ -224,6 +235,15 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       kotNotes: { type: String, trim: true, default: '' },
       kotShowServerName: { type: Boolean, default: true },
       defaultPrintTarget: { type: String, enum: ['BOTH', 'KITCHEN', 'COUNTER', 'NONE'], default: 'BOTH' },
+    },
+    qrCodeStyle: {
+      fgColor: { type: String, default: '#0F172A' },
+      bgColor: { type: String, default: '#FFFFFF' },
+      showLogo: { type: Boolean, default: true },
+      logoUrl: { type: String, trim: true, default: '' },
+      cornerStyle: { type: String, enum: ['square', 'rounded', 'dots'], default: 'rounded' },
+      cardFrameText: { type: String, default: 'Scan to View Menu & Order' },
+      templateTheme: { type: String, enum: ['minimal', 'branded', 'standee'], default: 'branded' },
     },
     timings: {
       open: { type: String, default: '09:00' },
