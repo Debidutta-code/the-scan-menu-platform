@@ -58,6 +58,8 @@ router.get('/:restaurantId/customers', requireFeature('crm') as any, requireRest
 router.get('/:restaurantId/customers/:customerId', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
 router.get('/:restaurantId/loyalty/lookup', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyInfo);
 router.get('/:restaurantId/loyalty/leaderboard', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyLeaderboard);
+router.get('/:restaurantId/loyalty/config', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyConfig);
+router.patch('/:restaurantId/loyalty/config', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateLoyaltyConfig);
 router.post('/:restaurantId/loyalty/adjust', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.adjustLoyaltyPoints);
 router.get('/:restaurantId/customers/:customerId/loyalty-ledger', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerLoyaltyLedger);
 

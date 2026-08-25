@@ -8,8 +8,10 @@ export interface ILoyaltyLedger extends Document {
   orderId?: Types.ObjectId;
   type: LoyaltyTransactionType;
   points: number; // positive for EARN/ADJUST(+), negative for REDEEM/EXPIRE
+  remainingPoints?: number; // unredeemed points for FIFO tracking
   rupeeValuePaise?: number; // Equivalent cash value in paise
   balanceAfter: number;
+  expiresAt?: Date; // Point batch expiration timestamp
   reason?: string;
   actorStaffId?: Types.ObjectId;
   createdAt: Date;
@@ -27,8 +29,10 @@ const loyaltyLedgerSchema = new Schema<ILoyaltyLedger>(
       required: true,
     },
     points: { type: Number, required: true },
+    remainingPoints: { type: Number, default: 0 },
     rupeeValuePaise: { type: Number, default: 0 },
     balanceAfter: { type: Number, required: true },
+    expiresAt: { type: Date, index: true },
     reason: { type: String, trim: true },
     actorStaffId: { type: Schema.Types.ObjectId, ref: 'User' },
   },

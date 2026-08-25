@@ -113,6 +113,18 @@ export interface IRestaurantSettingsQrStyle {
   templateTheme?: 'minimal' | 'branded' | 'standee';
 }
 
+export interface IRestaurantSettingsLoyalty {
+  enabled: boolean;
+  earningMode: 'PERCENTAGE' | 'SPEND_RATIO' | 'FIXED_PER_ORDER';
+  earnPercentage: number; // e.g. 50 = 50% of order total earned as points
+  spendRatioPaise: number; // e.g. 1000 = 1 point per ₹10
+  fixedPointsPerOrder: number; // e.g. 50 flat points
+  validityDays: number; // e.g. 7 days validity (0 = no expiry)
+  pointValuePaise: number; // e.g. 50 = ₹0.50 per point
+  maxRedemptionPercentPerOrder: number; // e.g. 50 = max 50% of bill total
+  minPointsToRedeem: number; // e.g. 50 minimum points threshold
+}
+
 export interface IRestaurantSettings extends Document {
   restaurantId: Types.ObjectId;
   currency: string;
@@ -127,6 +139,7 @@ export interface IRestaurantSettings extends Document {
   uiSettings: IRestaurantSettingsUi;
   printerConfig: IRestaurantSettingsPrinter;
   qrCodeStyle?: IRestaurantSettingsQrStyle;
+  loyaltyConfig?: IRestaurantSettingsLoyalty;
   timings?: {
     open: string;
     close: string;
@@ -254,6 +267,17 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       cornerStyle: { type: String, enum: ['square', 'rounded', 'dots'], default: 'rounded' },
       cardFrameText: { type: String, default: 'Scan to View Menu & Order' },
       templateTheme: { type: String, enum: ['minimal', 'branded', 'standee'], default: 'branded' },
+    },
+    loyaltyConfig: {
+      enabled: { type: Boolean, default: true },
+      earningMode: { type: String, enum: ['PERCENTAGE', 'SPEND_RATIO', 'FIXED_PER_ORDER'], default: 'PERCENTAGE' },
+      earnPercentage: { type: Number, default: 50 }, // 50% points on spend
+      spendRatioPaise: { type: Number, default: 1000 }, // ₹10 = 1 pt
+      fixedPointsPerOrder: { type: Number, default: 50 },
+      validityDays: { type: Number, default: 7 }, // 7 Days validity
+      pointValuePaise: { type: Number, default: 50 }, // 1 pt = ₹0.50
+      maxRedemptionPercentPerOrder: { type: Number, default: 50 }, // Max 50% of bill
+      minPointsToRedeem: { type: Number, default: 50 }, // Min 50 pts required
     },
     timings: {
       open: { type: String, default: '09:00' },

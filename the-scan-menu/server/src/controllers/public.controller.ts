@@ -18,6 +18,7 @@ import { billService } from '../services/bill.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { cacheService } from '../utils/cacheService';
 import { featureFlagService } from '../services/featureFlag.service';
+import { loyaltyService } from '../services/loyalty.service';
 import {
   toCustomerSafeOrderDTO,
   toCustomerSafeDiningSessionDTO,
@@ -374,6 +375,19 @@ export class PublicController {
       });
 
       const safeOrderDTO = toCustomerSafeOrderDTO(order, true);
+
+      // Deduct loyalty points if redemption requested
+      const pointsToRedeem = req.body.pointsToRedeem ? Number(req.body.pointsToRedeem) : 0;
+      if (pointsToRedeem > 0 && effectiveCustomerId) {
+        loyaltyService
+          .validateAndCalculateRedemption(restaurant._id, effectiveCustomerId, pointsToRedeem, order.subtotal || order.total)
+          .then(async (redemption) => {
+            if (redemption.effectivePoints > 0) {
+              await loyaltyService.redeemPoints(restaurant._id, effectiveCustomerId, redemption.effectivePoints, order._id);
+            }
+          })
+          .catch((err) => console.error('Point redemption failed during order placement:', err));
+      }
 
       // Complete idempotency record
       if (lockAcquired) {

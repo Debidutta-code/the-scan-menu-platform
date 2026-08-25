@@ -264,6 +264,15 @@ export const PublicCustomerPortal: React.FC = () => {
             </div>
           </div>
 
+          {/* Expiry Notice Banner */}
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-[11px] text-amber-300 font-medium flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>Points carry a 7-day validity window from order date.</span>
+            </span>
+            <span className="font-mono font-bold text-[10px] text-amber-400 uppercase">7-Day Expiry</span>
+          </div>
+
           {/* Tier Progress Bar */}
           {(() => {
             const pts = customer.lifetimePointsEarned || customer.loyaltyPoints || 0;
@@ -514,28 +523,46 @@ export const PublicCustomerPortal: React.FC = () => {
             <div className="space-y-2">
               {loyaltyLedger.map((tx: any) => {
                 const pts = tx.points ?? tx.pointsChange ?? 0;
-                const isEarn = pts >= 0;
+                const isExpire = tx.type === 'EXPIRE' || (tx.reason || '').toLowerCase().includes('expired');
+                const isEarn = pts >= 0 && !isExpire;
+
                 return (
                   <div
                     key={tx._id}
-                    className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between text-xs shadow-xs"
+                    className={`border rounded-2xl p-4 flex items-center justify-between text-xs shadow-xs ${
+                      isExpire ? 'bg-amber-50/40 border-amber-200/80' : 'bg-white border-slate-200/80'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black ${
-                        isEarn ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'
+                        isExpire
+                          ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                          : isEarn
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          : 'bg-rose-50 text-rose-600 border border-rose-100'
                       }`}>
-                        {isEarn ? '+' : '-'}
+                        {isExpire ? '⌛' : isEarn ? '+' : '-'}
                       </div>
                       <div>
-                        <span className="font-bold text-slate-900 block">{tx.reason || (isEarn ? 'Points Earned' : 'Points Redeemed')}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 block">{tx.reason || (isEarn ? 'Points Earned' : 'Points Redeemed')}</span>
+                          {isExpire && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-200 text-amber-900 font-mono">
+                              Expired
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-400 font-mono">
                           {new Date(tx.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {tx.expiresAt && !isExpire ? ` • Valid until ${new Date(tx.expiresAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}
                         </span>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <span className={`font-mono font-black text-sm block ${isEarn ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <span className={`font-mono font-black text-sm block ${
+                        isExpire ? 'text-amber-700' : isEarn ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
                         {isEarn ? `+${pts}` : pts} pts
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono block">

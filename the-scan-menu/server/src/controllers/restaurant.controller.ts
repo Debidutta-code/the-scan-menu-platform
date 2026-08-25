@@ -53,6 +53,8 @@ export class RestaurantController {
     this.adjustLoyaltyPoints = this.adjustLoyaltyPoints.bind(this);
     this.getCustomerLoyaltyLedger = this.getCustomerLoyaltyLedger.bind(this);
     this.getLoyaltyLeaderboard = this.getLoyaltyLeaderboard.bind(this);
+    this.getLoyaltyConfig = this.getLoyaltyConfig.bind(this);
+    this.updateLoyaltyConfig = this.updateLoyaltyConfig.bind(this);
     this.listStaff = this.listStaff.bind(this);
     this.updateStaff = this.updateStaff.bind(this);
     this.deleteStaff = this.deleteStaff.bind(this);
@@ -1449,6 +1451,26 @@ export class RestaurantController {
 
       const leaderboard = await loyaltyService.getLeaderboard(restaurantId, sortBy, limit);
       sendSuccess(res, leaderboard, 'Loyalty leaderboard retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getLoyaltyConfig(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const config = await loyaltyService.getLoyaltyConfig(restaurantId);
+      sendSuccess(res, config, 'Loyalty configuration retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateLoyaltyConfig(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId } = req.params;
+      const updatedConfig = await loyaltyService.updateLoyaltyConfig(restaurantId, req.body);
+      sendSuccess(res, updatedConfig, 'Loyalty configuration updated successfully');
     } catch (error) {
       next(error);
     }

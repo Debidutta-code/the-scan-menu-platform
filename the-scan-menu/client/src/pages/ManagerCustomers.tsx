@@ -17,6 +17,9 @@ import {
   Minus,
   Trophy,
   Crown,
+  Sliders,
+  Check,
+  Save,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -41,8 +44,21 @@ export const ManagerCustomers: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Tab & Leaderboard State
-  const [activeTab, setActiveTab] = useState<'DIRECTORY' | 'LEADERBOARD'>('DIRECTORY');
+  const [activeTab, setActiveTab] = useState<'DIRECTORY' | 'LEADERBOARD' | 'LOYALTY_RULES'>('DIRECTORY');
   const [leaderboardSortBy, setLeaderboardSortBy] = useState<'points' | 'spend' | 'visits'>('points');
+
+  // Loyalty Config Form State
+  const [loyaltyForm, setLoyaltyForm] = useState({
+    enabled: true,
+    earningMode: 'PERCENTAGE' as 'PERCENTAGE' | 'SPEND_RATIO' | 'FIXED_PER_ORDER',
+    earnPercentage: 50,
+    spendRatioPaise: 1000,
+    fixedPointsPerOrder: 50,
+    validityDays: 7,
+    pointValuePaise: 50,
+    maxRedemptionPercentPerOrder: 50,
+    minPointsToRedeem: 50,
+  });
 
   // Loyalty Points Adjustment Modal State
   const [showAdjustPoints, setShowAdjustPoints] = useState(false);
@@ -82,6 +98,37 @@ export const ManagerCustomers: React.FC = () => {
       return res.data;
     },
     enabled: !!activeRestaurantId && activeTab === 'LEADERBOARD',
+  });
+
+  // Fetch Loyalty Config Query
+  const { data: loyaltyConfigData, isLoading: isConfigLoading } = useQuery({
+    queryKey: ['loyaltyConfig', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/loyalty/config`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId && activeTab === 'LOYALTY_RULES',
+  });
+
+  React.useEffect(() => {
+    if (loyaltyConfigData?.data) {
+      setLoyaltyForm(prev => ({ ...prev, ...loyaltyConfigData.data }));
+    }
+  }, [loyaltyConfigData]);
+
+  // Update Loyalty Config Mutation
+  const updateConfigMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/loyalty/config`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast('Loyalty settings updated successfully!', 'success');
+      queryClient.invalidateQueries({ queryKey: ['loyaltyConfig', activeRestaurantId] });
+    },
+    onError: (err: any) => {
+      toast(err?.response?.data?.message || 'Failed to update loyalty settings', 'error');
+    },
   });
 
   // Fetch Selected Customer Details Modal
@@ -177,6 +224,15 @@ export const ManagerCustomers: React.FC = () => {
             <Trophy className="w-4 h-4 text-amber-400" />
             <span>VIP Leaderboard</span>
           </button>
+          <button
+            onClick={() => setActiveTab('LOYALTY_RULES')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              activeTab === 'LOYALTY_RULES' ? 'bg-amber-500 text-slate-950 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Sliders className="w-4 h-4 text-slate-950" />
+            <span>Rules & Setup</span>
+          </button>
         </div>
       </div>
 
@@ -213,7 +269,7 @@ export const ManagerCustomers: React.FC = () => {
         </div>
       </div>
 
-      {activeTab === 'DIRECTORY' ? (
+      {activeTab === 'DIRECTORY' && (
         <>
           {/* Search Input */}
           <div className="bg-white rounded-3xl p-4 border border-slate-150 shadow-xs flex items-center gap-3">
@@ -378,7 +434,9 @@ export const ManagerCustomers: React.FC = () => {
             )}
           </div>
         </>
-      ) : (
+      )}
+
+      {activeTab === 'LEADERBOARD' && (
         /* LEADERBOARD VIEW */
         <div className="space-y-6">
           {/* Controls Bar */}
@@ -536,6 +594,177 @@ export const ManagerCustomers: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'LOYALTY_RULES' && (
+        /* LOYALTY RULES & SETUP VIEW */
+        <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-6">
+          {isConfigLoading ? (
+            <div className="py-16 flex items-center justify-center">
+              <Loader className="w-6 h-6 animate-spin text-amber-500" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between border-b border-slate-150 pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Sliders className="w-5 h-5 text-amber-500" />
+                    <span>Loyalty Points Earning & Validity Settings</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Configure how customers earn points, 7-day validity rules, and checkout redemption caps.</p>
+                </div>
+                <button
+                  onClick={() => updateConfigMutation.mutate(loyaltyForm)}
+                  disabled={updateConfigMutation.isPending}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-2xl shadow-sm transition flex items-center gap-2 active:scale-95 cursor-pointer"
+                >
+                  {updateConfigMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>Save Settings</span>
+                </button>
+              </div>
+
+              {/* Program Toggle */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div>
+                  <span className="font-bold text-sm text-slate-900 block">Enable Loyalty Points Program</span>
+                  <span className="text-xs text-slate-500">Allow customers to earn and redeem points on menu orders</span>
+                </div>
+                <button
+                  onClick={() => setLoyaltyForm(prev => ({ ...prev, enabled: !prev.enabled }))}
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${loyaltyForm.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                >
+                  <div className={`w-5 h-5 rounded-full bg-white transition-transform ${loyaltyForm.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Earning Mode Distribution */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block font-mono">1. Loyalty Points Earning Mode</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div
+                    onClick={() => setLoyaltyForm(prev => ({ ...prev, earningMode: 'PERCENTAGE' }))}
+                    className={`p-4 rounded-2xl border cursor-pointer transition ${loyaltyForm.earningMode === 'PERCENTAGE' ? 'border-amber-500 bg-amber-50/60 shadow-xs' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center justify-between font-bold text-sm text-slate-900">
+                      <span>Percentage of Spend</span>
+                      {loyaltyForm.earningMode === 'PERCENTAGE' && <Check className="w-4 h-4 text-amber-600" />}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Diners earn a % of order total as points (e.g. 50% points on ₹420 = 210 pts).</p>
+                  </div>
+
+                  <div
+                    onClick={() => setLoyaltyForm(prev => ({ ...prev, earningMode: 'SPEND_RATIO' }))}
+                    className={`p-4 rounded-2xl border cursor-pointer transition ${loyaltyForm.earningMode === 'SPEND_RATIO' ? 'border-amber-500 bg-amber-50/60 shadow-xs' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center justify-between font-bold text-sm text-slate-900">
+                      <span>Spend Ratio (₹ per Point)</span>
+                      {loyaltyForm.earningMode === 'SPEND_RATIO' && <Check className="w-4 h-4 text-amber-600" />}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Diners earn 1 point per ₹X spent on orders (e.g. 1 pt per ₹10).</p>
+                  </div>
+
+                  <div
+                    onClick={() => setLoyaltyForm(prev => ({ ...prev, earningMode: 'FIXED_PER_ORDER' }))}
+                    className={`p-4 rounded-2xl border cursor-pointer transition ${loyaltyForm.earningMode === 'FIXED_PER_ORDER' ? 'border-amber-500 bg-amber-50/60 shadow-xs' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                  >
+                    <div className="flex items-center justify-between font-bold text-sm text-slate-900">
+                      <span>Fixed Flat Points</span>
+                      {loyaltyForm.earningMode === 'FIXED_PER_ORDER' && <Check className="w-4 h-4 text-amber-600" />}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Diners earn a flat number of points per completed order.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic Earning Inputs */}
+              {loyaltyForm.earningMode === 'PERCENTAGE' && (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800">Earn Percentage (% of Order Total)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="200"
+                      value={loyaltyForm.earnPercentage}
+                      onChange={e => setLoyaltyForm(prev => ({ ...prev, earnPercentage: Number(e.target.value) }))}
+                      className="w-32 px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-bold bg-white"
+                    />
+                    <span className="text-xs text-slate-600">% (Example: spent ₹420 with 50% = 210 points earned)</span>
+                  </div>
+                </div>
+              )}
+
+              {loyaltyForm.earningMode === 'FIXED_PER_ORDER' && (
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800">Fixed Points per Order</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={loyaltyForm.fixedPointsPerOrder}
+                      onChange={e => setLoyaltyForm(prev => ({ ...prev, fixedPointsPerOrder: Number(e.target.value) }))}
+                      className="w-32 px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-bold bg-white"
+                    />
+                    <span className="text-xs text-slate-600">points awarded per completed order</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Validity & Expiry Days */}
+              <div className="space-y-3 pt-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block font-mono">2. Points Expiry & Validity Window</label>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-800">Validity Period (Days)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="365"
+                      value={loyaltyForm.validityDays}
+                      onChange={e => setLoyaltyForm(prev => ({ ...prev, validityDays: Number(e.target.value) }))}
+                      className="w-32 px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-bold bg-white"
+                    />
+                    <span className="text-xs text-slate-600">days (Set to 7 for 7-day expiry, or 0 for Never Expire)</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 font-medium mt-1">
+                    ⚠️ Points unredeemed past this validity window are automatically expired and deducted from customer balance.
+                  </p>
+                </div>
+              </div>
+
+              {/* Checkout Redemption Limits */}
+              <div className="space-y-3 pt-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block font-mono">3. Next Order Checkout Redemption Limits</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <label className="text-xs font-bold text-slate-800">Max Bill Discount Cap (%)</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="100"
+                      value={loyaltyForm.maxRedemptionPercentPerOrder}
+                      onChange={e => setLoyaltyForm(prev => ({ ...prev, maxRedemptionPercentPerOrder: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-bold bg-white"
+                    />
+                    <span className="text-[11px] text-slate-500 block">Max % of bill total payable via points (e.g. 50% max discount).</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                    <label className="text-xs font-bold text-slate-800">Point Cash Value (Paise per point)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={loyaltyForm.pointValuePaise}
+                      onChange={e => setLoyaltyForm(prev => ({ ...prev, pointValuePaise: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-bold bg-white"
+                    />
+                    <span className="text-[11px] text-slate-500 block">50 paise = ₹0.50 per point. 100 paise = ₹1.00 per point.</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
