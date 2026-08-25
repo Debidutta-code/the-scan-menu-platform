@@ -551,8 +551,11 @@ export class OrderService {
       throw new CustomError(validation.errorCode || 'INVALID_TRANSITION', validation.errorMessage || 'Invalid status transition', statusCode);
     }
 
-    order.status = nextStatus;
-    await order.save();
+    // Prepaid Mode Guard: Cannot move to ACCEPTED unless payment is PAID
+    const paymentMode = settings?.paymentConfig?.activeMode || 'POSTPAID';
+    if (paymentMode === 'PREPAID' && nextStatus === 'ACCEPTED' && order.paymentStatus !== 'PAID') {
+      throw new CustomError('PAYMENT_REQUIRED', 'Prepaid orders require payment before moving to kitchen preparation.', 400);
+    }
 
     order.status = nextStatus;
     await order.save();

@@ -45,6 +45,7 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
     const cached = localStorage.getItem(`pixora_workflow_mode_${targetRestaurantId}`);
     return (cached as any) || 'FIVE_STEP';
   });
+  const [orderingPaymentPolicy, setOrderingPaymentPolicy] = useState<'PREPAID' | 'POSTPAID'>('POSTPAID');
   const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
   const [autoAcceptDelay, setAutoAcceptDelay] = useState(10);
 
@@ -65,7 +66,9 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
       if (targetRestaurantId) {
         localStorage.setItem(`pixora_workflow_mode_${targetRestaurantId}`, serverWorkflow);
       }
-      setAutoAcceptEnabled(!!raw.autoAcceptConfig?.enabled);
+      const mode = raw.paymentConfig?.activeMode || raw.activeMode || 'POSTPAID';
+      setOrderingPaymentPolicy(mode);
+      setAutoAcceptEnabled(mode === 'PREPAID' ? false : !!raw.autoAcceptConfig?.enabled);
       setAutoAcceptDelay(raw.autoAcceptConfig?.delaySeconds ?? 10);
     }
   }, [restaurantResponse, targetRestaurantId]);
@@ -99,8 +102,9 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
 
     updateMutation.mutate({
       orderWorkflowMode,
+      activeMode: orderingPaymentPolicy,
       autoAcceptConfig: {
-        enabled: autoAcceptEnabled,
+        enabled: orderingPaymentPolicy === 'PREPAID' ? false : autoAcceptEnabled,
         delaySeconds: autoAcceptDelay,
       },
     });
@@ -211,21 +215,78 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
         })}
       </div>
 
-      {/* Auto-Accept Automation */}
-      <div className="pt-4 border-t border-slate-100 space-y-4">
+      {/* Ordering Payment Policy Selector */}
+      <div className="pt-4 border-t border-slate-100 space-y-3">
         <h5 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-          <Timer className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
-          <span>Auto-Accept Orders</span>
+          <GitBranch className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+          <span>Ordering Payment Policy</span>
         </h5>
+        <p className="text-xs text-slate-500">Choose when guest payment is verified for dine-in orders.</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={hasActiveOrders}
+            onClick={() => {
+              if (hasActiveOrders) return;
+              setOrderingPaymentPolicy('POSTPAID');
+            }}
+            className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+              orderingPaymentPolicy === 'POSTPAID'
+                ? 'border-amber-500 bg-amber-50/50 text-slate-900 shadow-sm'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            <span className="text-sm font-extrabold text-slate-900 block">POSTPAID Mode</span>
+            <span className="text-xs text-slate-500 block mt-0.5">
+              Guests pay after dining. Table cannot be freed after service until bill is marked Paid.
+            </span>
+          </button>
+
+          <button
+            type="button"
+            disabled={hasActiveOrders}
+            onClick={() => {
+              if (hasActiveOrders) return;
+              setOrderingPaymentPolicy('PREPAID');
+              setAutoAcceptEnabled(false);
+            }}
+            className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+              orderingPaymentPolicy === 'PREPAID'
+                ? 'border-amber-500 bg-amber-50/50 text-slate-900 shadow-sm'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            <span className="text-sm font-extrabold text-slate-900 block">PREPAID Mode</span>
+            <span className="text-xs text-slate-500 block mt-0.5">
+              Guests pay before cooking starts. Order cannot move to kitchen until payment is verified.
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-Accept Automation */}
+      <div className={`pt-4 border-t border-slate-100 space-y-4 transition-all ${orderingPaymentPolicy === 'PREPAID' ? 'opacity-40 filter blur-[0.5px] pointer-events-none' : ''}`}>
+        <div className="flex items-center justify-between">
+          <h5 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+            <Timer className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <span>Auto-Accept Orders</span>
+          </h5>
+          {orderingPaymentPolicy === 'PREPAID' && (
+            <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
+              Available only in Postpaid Mode
+            </span>
+          )}
+        </div>
 
         <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition">
           <div className="mt-0.5">
             <input
               type="checkbox"
-              disabled={hasActiveOrders}
-              checked={autoAcceptEnabled}
-              onChange={(e) => !hasActiveOrders && setAutoAcceptEnabled(e.target.checked)}
-              className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${hasActiveOrders ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={hasActiveOrders || orderingPaymentPolicy === 'PREPAID'}
+              checked={orderingPaymentPolicy !== 'PREPAID' && autoAcceptEnabled}
+              onChange={(e) => !hasActiveOrders && orderingPaymentPolicy !== 'PREPAID' && setAutoAcceptEnabled(e.target.checked)}
+              className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${hasActiveOrders || orderingPaymentPolicy === 'PREPAID' ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
           </div>
           <div>

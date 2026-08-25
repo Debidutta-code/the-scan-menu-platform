@@ -488,6 +488,35 @@ export class OrderController {
       }
     }
   }
+
+  async updateOrderPaymentStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, orderId } = req.params;
+      const { paymentStatus } = req.body;
+
+      if (!['PAID', 'PENDING'].includes(paymentStatus)) {
+        sendError(res, 'BAD_REQUEST', 'Invalid payment status', null, 400);
+        return;
+      }
+
+      const order = await Order.findOne({
+        _id: new mongoose.Types.ObjectId(orderId),
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      });
+
+      if (!order) {
+        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
+        return;
+      }
+
+      order.paymentStatus = paymentStatus;
+      await order.save();
+
+      sendSuccess(res, order, `Order payment marked as ${paymentStatus}`);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default OrderController;

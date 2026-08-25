@@ -31,9 +31,10 @@ import {
   Kanban as KanbanIcon,
   Printer
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
 import { PrintOrderModal } from '../components/PrintOrderModal';
+import { PaymentVerificationModal } from '../components/PaymentVerificationModal';
 import { printOrderTicket } from '../utils/printReceipt';
 import apiClient from '../lib/api';
 
@@ -241,6 +242,7 @@ const getOrderContextDetails = (order: Order) => {
 // â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const ManagerOrders: React.FC = () => {
+  const queryClient = useQueryClient();
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -262,6 +264,11 @@ export const ManagerOrders: React.FC = () => {
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [printModalOrder, setPrintModalOrder] = useState<Order | null>(null);
   const [freeTableOrder, setFreeTableOrder] = useState<Order | null>(null);
+  const [paymentVerificationModalOrder, setPaymentVerificationModalOrder] = useState<{
+    order: Order;
+    targetAction: 'ACCEPT' | 'FREE_TABLE';
+    nextStatus?: string;
+  } | null>(null);
 
   // Live clock
   const [now, setNow] = useState<Date>(new Date());
@@ -321,6 +328,58 @@ export const ManagerOrders: React.FC = () => {
     headerMessage: restaurantData?.data?.settings?.receiptHeader || 'Welcome!',
     footerMessage: restaurantData?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
   }), [restaurantData]);
+
+  const orderingPaymentPolicy = (restaurantData?.data?.paymentConfig?.activeMode || restaurantData?.data?.activeMode || 'POSTPAID') as 'PREPAID' | 'POSTPAID';
+
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ orderId, paymentStatus }: { orderId: string; paymentStatus: 'PAID' | 'PENDING' }) => {
+      const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/orders/${orderId}/payment-status`, { paymentStatus });
+      return res.data;
+    },
+    onSuccess: () => {
+      refetchActiveOrders();
+      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+    },
+  });
+
+  const handleAdvanceOrder = (order: Order, nextStatus: string) => {
+    if (orderingPaymentPolicy === 'PREPAID' && nextStatus === 'ACCEPTED' && order.paymentStatus !== 'PAID') {
+      setPaymentVerificationModalOrder({ order, targetAction: 'ACCEPT', nextStatus });
+      return;
+    }
+    updateStatusMutation.mutate({ orderId: order._id, nextStatus });
+  };
+
+  const handleFreeTableRequest = (order: Order) => {
+    if (order.paymentStatus !== 'PAID') {
+      setPaymentVerificationModalOrder({ order, targetAction: 'FREE_TABLE' });
+      return;
+    }
+    setFreeTableOrder(order);
+  };
+
+  const handlePaymentModalConfirm = (isPaid: boolean) => {
+    if (!paymentVerificationModalOrder) return;
+    const { order, targetAction, nextStatus } = paymentVerificationModalOrder;
+
+    if (isPaid) {
+      updatePaymentStatusMutation.mutate(
+        { orderId: order._id, paymentStatus: 'PAID' },
+        {
+          onSuccess: () => {
+            if (targetAction === 'ACCEPT' && nextStatus) {
+              updateStatusMutation.mutate({ orderId: order._id, nextStatus });
+            } else if (targetAction === 'FREE_TABLE') {
+              setFreeTableOrder(order);
+            }
+            setPaymentVerificationModalOrder(null);
+          },
+        }
+      );
+    } else {
+      setPaymentVerificationModalOrder(null);
+    }
+  };
 
   const workflowSteps = WORKFLOW_STEPS[workflowMode];
 
@@ -743,6 +802,25 @@ export const ManagerOrders: React.FC = () => {
                                     <ModeIcon className="w-2.5 h-2.5" strokeWidth={2} />
                                     <span>{modeInfo.label}</span>
                                   </span>
+                                  {order.paymentStatus === 'PAID' ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" strokeWidth={2} />
+                                      <span>PAID</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPaymentVerificationModalOrder({ order, targetAction: 'ACCEPT', nextStatus: getNextStatus(order.status, workflowMode) || undefined });
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200 transition cursor-pointer"
+                                      title="Click to verify or mark payment"
+                                    >
+                                      <CreditCard className="w-2.5 h-2.5 text-rose-600" strokeWidth={2} />
+                                      <span>PAYMENT PENDING</span>
+                                    </button>
+                                  )}
                                   {isPendingAction && (
                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
                                       <Loader className="w-3 h-3 animate-spin text-amber-600" strokeWidth={2} />
@@ -856,9 +934,9 @@ export const ManagerOrders: React.FC = () => {
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        updateStatusMutation.mutate({ orderId: order._id, nextStatus });
+                                        handleAdvanceOrder(order, nextStatus);
                                       }}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 flex items-center gap-1 shadow-sm transition active:scale-95 cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-950 hover:bg-slate-900 flex items-center gap-1 shadow-sm transition active:scale-95 cursor-pointer"
                                     >
                                       <span>Advance</span>
                                       <ArrowRight className="w-3 h-3" strokeWidth={2} />
@@ -871,7 +949,7 @@ export const ManagerOrders: React.FC = () => {
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setFreeTableOrder(order);
+                                        handleFreeTableRequest(order);
                                       }}
                                       className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
                                       title="Free Table & Print Bill"
@@ -1726,6 +1804,16 @@ export const ManagerOrders: React.FC = () => {
           </AnimatePresence>,
           document.body
         )}
+
+      {/* ── Payment Verification Modal ────────────────────────────────────── */}
+      <PaymentVerificationModal
+        isOpen={!!paymentVerificationModalOrder}
+        order={paymentVerificationModalOrder?.order}
+        currency={restaurantInfo.currency}
+        mode={orderingPaymentPolicy}
+        onConfirmPayment={handlePaymentModalConfirm}
+        onCancel={() => setPaymentVerificationModalOrder(null)}
+      />
 
       {/* ── Print Order Modal ────────────────────────────────────────────────── */}
       <PrintOrderModal
