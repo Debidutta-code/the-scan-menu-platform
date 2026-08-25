@@ -57,6 +57,7 @@ router.delete('/:restaurantId/taxes/:taxId', requireFeature('ordering') as any, 
 router.get('/:restaurantId/customers', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listCustomers);
 router.get('/:restaurantId/customers/:customerId', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
 router.get('/:restaurantId/loyalty/lookup', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyInfo);
+router.get('/:restaurantId/loyalty/leaderboard', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyLeaderboard);
 router.post('/:restaurantId/loyalty/adjust', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.adjustLoyaltyPoints);
 router.get('/:restaurantId/customers/:customerId/loyalty-ledger', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerLoyaltyLedger);
 

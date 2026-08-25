@@ -87,6 +87,10 @@ export interface CustomerSafeCustomerDTO {
   email?: string;
   totalOrdersCount: number;
   totalSpent: number;
+  loyaltyPoints: number;
+  lifetimePointsEarned: number;
+  tier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+  redeemableRupees: number;
   lastOrderAt?: Date | string;
   createdAt: Date | string;
 }
@@ -219,6 +223,7 @@ export function toCustomerSafeDiningSessionDTO(
 export function toCustomerSafeCustomerDTO(customer: any): CustomerSafeCustomerDTO {
   const raw = typeof customer.toObject === 'function' ? customer.toObject() : customer;
   const idStr = raw._id ? raw._id.toString() : (raw.id ? raw.id.toString() : '');
+  const pts = raw.loyaltyPoints || 0;
 
   return {
     id: idStr,
@@ -228,6 +233,10 @@ export function toCustomerSafeCustomerDTO(customer: any): CustomerSafeCustomerDT
     email: raw.email || undefined,
     totalOrdersCount: raw.totalOrdersCount || 0,
     totalSpent: raw.totalSpent || 0,
+    loyaltyPoints: pts,
+    lifetimePointsEarned: raw.lifetimePointsEarned || pts,
+    tier: raw.tier || 'BRONZE',
+    redeemableRupees: (pts * 50) / 100,
     lastOrderAt: raw.lastOrderAt,
     createdAt: raw.createdAt,
   };

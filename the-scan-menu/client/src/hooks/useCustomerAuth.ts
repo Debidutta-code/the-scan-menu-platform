@@ -9,6 +9,10 @@ export interface CustomerProfile {
   email?: string;
   totalOrdersCount: number;
   totalSpent: number;
+  loyaltyPoints: number;
+  lifetimePointsEarned: number;
+  tier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+  redeemableRupees: number;
   lastOrderAt?: string;
   createdAt?: string;
 }
@@ -52,6 +56,7 @@ export const useCustomerAuth = () => {
 
       if (res.data?.success && res.data.data?.customer) {
         const c = res.data.data.customer;
+        const pts = c.loyaltyPoints || 0;
         const prof: CustomerProfile = {
           id: c._id || c.id,
           name: c.name,
@@ -59,6 +64,10 @@ export const useCustomerAuth = () => {
           email: c.email,
           totalOrdersCount: c.totalOrdersCount || 0,
           totalSpent: c.totalSpent || 0,
+          loyaltyPoints: pts,
+          lifetimePointsEarned: c.lifetimePointsEarned || pts,
+          tier: c.tier || 'BRONZE',
+          redeemableRupees: c.redeemableRupees !== undefined ? c.redeemableRupees : (pts * 50) / 100,
           lastOrderAt: c.lastOrderAt,
           createdAt: c.createdAt,
         };
@@ -110,6 +119,7 @@ export const useCustomerAuth = () => {
     if (res.data?.success && res.data.data?.customerToken) {
       const token = res.data.data.customerToken;
       const c = res.data.data.customer;
+      const pts = c.loyaltyPoints || 0;
       const prof: CustomerProfile = {
         id: c._id || c.id,
         name: c.name,
@@ -117,6 +127,10 @@ export const useCustomerAuth = () => {
         email: c.email,
         totalOrdersCount: c.totalOrdersCount || 0,
         totalSpent: c.totalSpent || 0,
+        loyaltyPoints: pts,
+        lifetimePointsEarned: c.lifetimePointsEarned || pts,
+        tier: c.tier || 'BRONZE',
+        redeemableRupees: c.redeemableRupees !== undefined ? c.redeemableRupees : (pts * 50) / 100,
         lastOrderAt: c.lastOrderAt,
         createdAt: c.createdAt,
       };

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { CustomerAuthenticatedRequest } from '../middleware/customerAuth';
 import { Restaurant } from '../models/Restaurant';
 import { customerService } from '../services/customer.service';
+import { loyaltyService } from '../services/loyalty.service';
 import { otpService } from '../services/otp.service';
 import { TokenService } from '../services/token.service';
 import { sendSuccess, sendError } from '../utils/response';
@@ -157,11 +158,14 @@ export class CustomerAuthController {
         'name slug logoUrl currency theme'
       );
 
+      const loyaltyLedger = await loyaltyService.getCustomerLedger(customer.restaurantId, customer._id);
+
       sendSuccess(
         res,
         {
           customer: toCustomerSafeCustomerDTO(customer),
           restaurant,
+          loyaltyLedger,
         },
         'Customer profile retrieved successfully'
       );

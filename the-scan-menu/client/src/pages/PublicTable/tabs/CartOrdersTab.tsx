@@ -229,25 +229,51 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                   </div>
                 )}
 
-                {/* Ordering Identity Display for returning diners */}
+                {/* Psychological Points Earn Banner */}
+                {cartGrandTotal > 0 && (
+                  <div className="bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-amber-500/5 border border-amber-300/80 rounded-2xl p-3 flex items-center justify-between gap-3 text-amber-950 shadow-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                        ⭐
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-slate-900 block">
+                          Earn +{Math.max(1, Math.floor((cartGrandTotal / 100) / 10))} Loyalty Points on this order! 🎉
+                        </span>
+                        <span className="text-[10px] text-slate-600 font-medium block">
+                          Added automatically to your profile when your order is placed.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ordering Identity Display for returning diners with Loyalty Status */}
                 {isCustomerAuthenticated && customer ? (
-                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 animate-fade-in">
+                  <div className="bg-slate-900 text-white rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-sm">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
                         {customer.name?.charAt(0).toUpperCase() || 'D'}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">
-                          Ordering as <span className="text-amber-900 font-extrabold">{customer.name}</span>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-white truncate">
+                            {customer.name}
+                          </p>
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 uppercase tracking-wider">
+                            ⭐ {customer.tier || 'BRONZE'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-amber-300 font-mono font-bold mt-0.5">
+                          {customer.loyaltyPoints || 0} Pts (Worth ₹{(((customer.loyaltyPoints || 0) * 50) / 100).toFixed(0)} off)
                         </p>
-                        <p className="text-[10px] text-slate-500 font-mono">{customer.phone}</p>
                       </div>
                     </div>
                     <button
                       onClick={onSwitchCustomer}
-                      className="text-[11px] font-bold text-amber-800 hover:text-amber-950 bg-white border border-amber-300 px-2.5 py-1 rounded-xl shrink-0 transition hover:shadow-xs"
+                      className="text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-xl shrink-0 transition"
                     >
-                      Switch Diner
+                      Switch
                     </button>
                   </div>
                 ) : null}

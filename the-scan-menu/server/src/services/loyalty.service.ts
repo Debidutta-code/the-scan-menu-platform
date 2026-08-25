@@ -172,6 +172,38 @@ export class LoyaltyService {
     const cId = new Types.ObjectId(customerId);
     return await LoyaltyLedger.find({ restaurantId: rId, customerId: cId }).sort({ createdAt: -1 }).limit(50);
   }
+
+  /**
+   * Retrieves Customer Leaderboard / Ranking for a restaurant
+   */
+  async getLeaderboard(
+    restaurantId: string | Types.ObjectId,
+    sortBy: 'points' | 'spend' | 'visits' = 'points',
+    limit = 20
+  ): Promise<any[]> {
+    const rId = new Types.ObjectId(restaurantId);
+    let sortObj: any = { loyaltyPoints: -1 };
+    if (sortBy === 'spend') sortObj = { totalSpent: -1 };
+    if (sortBy === 'visits') sortObj = { totalOrdersCount: -1 };
+
+    const customers = await Customer.find({ restaurantId: rId })
+      .sort(sortObj)
+      .limit(limit)
+      .lean();
+
+    return customers.map((c: any, index: number) => ({
+      rank: index + 1,
+      customerId: c._id,
+      name: c.name,
+      phone: c.phone,
+      tier: c.tier || 'BRONZE',
+      loyaltyPoints: c.loyaltyPoints || 0,
+      lifetimePointsEarned: c.lifetimePointsEarned || 0,
+      totalOrdersCount: c.totalOrdersCount || 0,
+      totalSpent: c.totalSpent || 0,
+      redeemableRupees: ((c.loyaltyPoints || 0) * 50) / 100,
+    }));
+  }
 }
 
 export const loyaltyService = new LoyaltyService();
