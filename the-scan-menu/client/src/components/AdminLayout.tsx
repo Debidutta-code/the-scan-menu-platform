@@ -17,6 +17,7 @@ import {
   Plug,
   Clock,
   Settings,
+  Award,
 } from 'lucide-react';
 import { QuickOnboardModal } from './admin/QuickOnboardModal';
 
@@ -47,6 +48,8 @@ export const AdminLayout: React.FC = () => {
     ? 'analytics'
     : currentPath.startsWith('/admin/feature-flags')
     ? 'feature-flags'
+    : currentPath.startsWith('/admin/loyalty')
+    ? 'loyalty'
     : currentPath.startsWith('/admin/profile')
     ? 'profile'
     : '';
@@ -70,6 +73,8 @@ export const AdminLayout: React.FC = () => {
       ? 'Platform Analytics'
       : activeTab === 'feature-flags'
       ? 'Global Feature Flags'
+      : activeTab === 'loyalty'
+      ? 'Loyalty Program Control Console'
       : activeTab === 'profile'
       ? 'Admin Profile'
       : 'SuperAdmin Control Panel';
@@ -215,6 +220,24 @@ export const AdminLayout: React.FC = () => {
           >
             <ToggleRight className="w-4 h-4" strokeWidth={1.75} />
             <span>Feature Flags</span>
+          </button>
+
+          {/* Loyalty Program Manager */}
+          <button
+            onClick={() => navigate('/admin/loyalty')}
+            className={`flex items-center justify-between w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'loyalty'
+                ? 'bg-slate-950 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Award className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+              <span>Loyalty Program</span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-amber-400 text-slate-950">
+              Global
+            </span>
           </button>
 
           {/* Profile */}

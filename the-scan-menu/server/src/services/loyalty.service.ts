@@ -2,8 +2,10 @@ import { Types } from 'mongoose';
 import { Customer, ICustomer } from '../models/Customer';
 import { LoyaltyLedger, ILoyaltyLedger } from '../models/LoyaltyLedger';
 import { RestaurantSettings, IRestaurantSettingsLoyalty } from '../models/RestaurantSettings';
+import { PlatformSettings, IPlatformSettingsLoyalty } from '../models/PlatformSettings';
 
-export const DEFAULT_LOYALTY_CONFIG: IRestaurantSettingsLoyalty = {
+export const DEFAULT_LOYALTY_CONFIG: IRestaurantSettingsLoyalty & { mode?: 'GLOBAL' | 'OUTLET_WISE' } = {
+  mode: 'GLOBAL',
   enabled: true,
   earningMode: 'PERCENTAGE',
   earnPercentage: 50, // 50% points of spend total
@@ -24,19 +26,60 @@ export class LoyaltyService {
   }
 
   /**
-   * Retrieves restaurant loyalty configuration from RestaurantSettings
+   * Retrieves singleton PlatformSettings for SuperAdmin global loyalty policies
    */
-  async getLoyaltyConfig(restaurantId: string | Types.ObjectId): Promise<IRestaurantSettingsLoyalty> {
-    const rId = new Types.ObjectId(restaurantId);
-    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
-    if (!settings || !settings.loyaltyConfig) {
-      return { ...DEFAULT_LOYALTY_CONFIG };
+  async getPlatformSettings(): Promise<any> {
+    let settings = await PlatformSettings.findOne({});
+    if (!settings) {
+      settings = await PlatformSettings.create({
+        loyalty: {
+          mode: 'GLOBAL',
+          enabled: true,
+          earningMode: 'PERCENTAGE',
+          earnPercentage: 50,
+          spendRatioPaise: 1000,
+          fixedPointsPerOrder: 50,
+          validityDays: 7,
+          pointValuePaise: 50,
+          maxRedemptionPercentPerOrder: 50,
+          minPointsToRedeem: 50,
+        },
+      });
     }
-    return { ...DEFAULT_LOYALTY_CONFIG, ...settings.loyaltyConfig };
+    return settings;
   }
 
   /**
-   * Updates restaurant loyalty configuration
+   * Updates SuperAdmin platform loyalty configuration
+   */
+  async updateGlobalLoyaltyPolicy(configPartial: Partial<IPlatformSettingsLoyalty>): Promise<any> {
+    const settings = await this.getPlatformSettings();
+    const current = settings.loyalty || {};
+    settings.loyalty = { ...current, ...configPartial };
+    await settings.save();
+    return settings.loyalty;
+  }
+
+  /**
+   * Resolves active loyalty configuration (Global Policy vs Outlet-Wise Policy)
+   */
+  async getLoyaltyConfig(restaurantId: string | Types.ObjectId): Promise<IRestaurantSettingsLoyalty & { mode?: string }> {
+    const platform = await this.getPlatformSettings();
+    if (platform.loyalty && platform.loyalty.mode === 'GLOBAL') {
+      return { ...DEFAULT_LOYALTY_CONFIG, ...platform.loyalty, mode: 'GLOBAL' };
+    }
+
+    // Outlet-wise mode: fetch outlet specific settings
+    const rId = new Types.ObjectId(restaurantId);
+    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    if (!settings || !settings.loyaltyConfig) {
+      return { ...DEFAULT_LOYALTY_CONFIG, ...platform.loyalty, mode: 'OUTLET_WISE' };
+    }
+    return { ...DEFAULT_LOYALTY_CONFIG, ...settings.loyaltyConfig, mode: 'OUTLET_WISE' };
+  }
+
+  /**
+   * Updates restaurant outlet loyalty configuration (in Outlet-Wise mode)
    */
   async updateLoyaltyConfig(
     restaurantId: string | Types.ObjectId,

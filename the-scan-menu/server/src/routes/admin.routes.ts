@@ -39,5 +39,8 @@ router.patch('/payments/restaurants/:restaurantId/methods', adminController.upda
 // Global Audit Trail
 router.get('/audit-logs', adminController.getAuditLogs);
 
+// Global Platform Settings & Loyalty Policy
+router.get('/platform-settings', adminController.getPlatformSettings);
+router.patch('/platform-settings/loyalty', adminController.updateGlobalLoyaltyPolicy);
 
 export default router;

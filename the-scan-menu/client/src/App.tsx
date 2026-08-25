@@ -21,6 +21,7 @@ import AdminAuditLogs from './pages/AdminAuditLogs';
 
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminFeatureFlags from './pages/AdminFeatureFlags';
+import AdminLoyalty from './pages/AdminLoyalty';
 import AdminProfile from './pages/AdminProfile';
 
 // Manager & Staff Pages & Layout
@@ -122,6 +123,7 @@ export const App = () => {
 
                   <Route path="/admin/analytics" element={<AdminAnalytics />} />
                   <Route path="/admin/feature-flags" element={<AdminFeatureFlags />} />
+                  <Route path="/admin/loyalty" element={<AdminLoyalty />} />
                   <Route path="/admin/profile" element={<AdminProfile />} />
                 </Route>
               </Route>

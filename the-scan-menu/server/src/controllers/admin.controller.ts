@@ -15,6 +15,7 @@ import { EmailService } from '../services/email.service';
 import { restaurantProvisioningService } from '../services/restaurantProvisioning.service';
 import { outletSetupAuditService } from '../services/outletSetupAudit.service';
 import { counterService } from '../services/counter.service';
+import { loyaltyService } from '../services/loyalty.service';
 import { logger } from '../utils/logger';
 import config from '../config';
 import bcrypt from 'bcrypt';
@@ -38,6 +39,8 @@ export class AdminController {
     this.seedDemoMenu = this.seedDemoMenu.bind(this);
     this.applyTaxPreset = this.applyTaxPreset.bind(this);
     this.createRestaurant = this.createRestaurant.bind(this);
+    this.getPlatformSettings = this.getPlatformSettings.bind(this);
+    this.updateGlobalLoyaltyPolicy = this.updateGlobalLoyaltyPolicy.bind(this);
     this.listRestaurants = this.listRestaurants.bind(this);
     this.getRestaurant = this.getRestaurant.bind(this);
     this.editRestaurant = this.editRestaurant.bind(this);
@@ -1228,4 +1231,23 @@ export class AdminController {
     }
   }
 
+  // 9. Get Platform Settings (Global Loyalty Policy)
+  async getPlatformSettings(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const settings = await loyaltyService.getPlatformSettings();
+      sendSuccess(res, settings, 'Platform settings retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // 10. Update Global Loyalty Policy
+  async updateGlobalLoyaltyPolicy(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const updatedPolicy = await loyaltyService.updateGlobalLoyaltyPolicy(req.body);
+      sendSuccess(res, updatedPolicy, 'Global loyalty policy updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
