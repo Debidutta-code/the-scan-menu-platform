@@ -158,6 +158,14 @@ export class CustomerAuthController {
       // Auto-expire unredeemed points first
       await loyaltyService.processExpiredPoints(customer.restaurantId, customer._id);
 
+      // Auto-repair any uncredited completed orders for this customer
+      await loyaltyService.repairAndAccrueUncreditedOrders(
+        customer.restaurantId,
+        customer._id,
+        customer.phone,
+        customer.name
+      ).catch((err) => console.error('Failed to repair uncredited orders:', err));
+
       // Re-fetch fresh customer profile from database to get latest loyalty points balance
       const freshCustomer = (await Customer.findById(customer._id)) || customer;
 

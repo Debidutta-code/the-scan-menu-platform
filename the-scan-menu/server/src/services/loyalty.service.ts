@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { Customer, ICustomer } from '../models/Customer';
 import { LoyaltyLedger, ILoyaltyLedger } from '../models/LoyaltyLedger';
+import { Order } from '../models/Order';
 import { RestaurantSettings, IRestaurantSettingsLoyalty } from '../models/RestaurantSettings';
 import { PlatformSettings, IPlatformSettingsLoyalty } from '../models/PlatformSettings';
 
@@ -450,6 +451,67 @@ export class LoyaltyService {
       totalSpent: c.totalSpent || 0,
       redeemableRupees: ((c.loyaltyPoints || 0) * config.pointValuePaise) / 100,
     }));
+  }
+
+  /**
+   * Retroactively checks for uncredited completed orders for a customer (e.g. by customerId, phone, or name)
+   * and credits any missing loyalty points.
+   */
+  async repairAndAccrueUncreditedOrders(
+    restaurantId: string | Types.ObjectId,
+    customerId: string | Types.ObjectId,
+    phone?: string,
+    name?: string
+  ): Promise<{ creditedOrdersCount: number; pointsAdded: number }> {
+    const rId = new Types.ObjectId(restaurantId);
+    const cId = new Types.ObjectId(customerId);
+
+    // Build order match query for completed/served orders belonging to this customer
+    const matchConditions: any[] = [{ customerId: cId }];
+    if (phone && phone.trim()) {
+      matchConditions.push({ customerPhone: phone.trim() });
+    }
+    if (name && name.trim() && name.trim() !== 'Diner') {
+      matchConditions.push({ customerName: { $regex: new RegExp(`^${name.trim()}$`, 'i') } });
+    }
+
+    const completedOrders = await Order.find({
+      restaurantId: rId,
+      status: { $in: ['SERVED', 'COMPLETED', 'DELIVERED', 'READY', 'ACCEPTED'] },
+      $or: matchConditions,
+    });
+
+    let creditedOrdersCount = 0;
+    let pointsAdded = 0;
+
+    for (const order of completedOrders) {
+      // Check if LoyaltyLedger entry already exists for this order
+      const existingLedger = await LoyaltyLedger.findOne({
+        restaurantId: rId,
+        orderId: order._id,
+        type: 'EARN',
+      });
+
+      if (!existingLedger) {
+        // Link customer identity to order if missing
+        if (!order.customerId) {
+          order.customerId = cId;
+        }
+        if (!order.customerPhone && phone) {
+          order.customerPhone = phone.trim();
+        }
+        (order as any).hasEarnedLoyaltyPoints = true;
+        await order.save();
+
+        const res = await this.earnPoints(rId, cId, order.total || 0, order._id);
+        if (res.pointsEarned > 0) {
+          creditedOrdersCount++;
+          pointsAdded += res.pointsEarned;
+        }
+      }
+    }
+
+    return { creditedOrdersCount, pointsAdded };
   }
 }
 

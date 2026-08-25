@@ -1,5 +1,7 @@
 import { Types } from 'mongoose';
 import { Order, IOrder, OrderStatus, OrderMode } from '../models/Order';
+import { Customer } from '../models/Customer';
+import { LoyaltyLedger } from '../models/LoyaltyLedger';
 import { Table } from '../models/Table';
 import { DiningSession } from '../models/DiningSession';
 import { diningSessionService } from './diningSession.service';
@@ -552,8 +554,11 @@ export class OrderService {
     order.status = nextStatus;
     await order.save();
 
-    // Accrue loyalty points when order status transitions to ACCEPTED, PREPARING, READY, SERVED or COMPLETED
-    if (['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(nextStatus)) {
+    order.status = nextStatus;
+    await order.save();
+
+    // Accrue loyalty points when order status transitions to SERVED, COMPLETED, DELIVERED, READY or ACCEPTED
+    if (['SERVED', 'COMPLETED', 'DELIVERED', 'READY', 'ACCEPTED'].includes(nextStatus)) {
       accrueLoyaltyForOrder(restaurantId, order).catch((err) =>
         console.error('[LoyaltyAccrual] Error accruing loyalty points:', err)
       );
@@ -784,31 +789,68 @@ export default orderService;
 export async function accrueLoyaltyForOrder(
   restaurantId: Types.ObjectId | string,
   order: IOrder
-): Promise<void> {
-  if (!order || (order as any).hasEarnedLoyaltyPoints || order.status === 'CANCELLED') {
-    return;
+): Promise<boolean> {
+  if (!order || order.status === 'CANCELLED') {
+    return false;
   }
 
-  (order as any).hasEarnedLoyaltyPoints = true;
-  await order.save();
+  const rId = new Types.ObjectId(restaurantId);
 
-  const phone = order.customerPhone;
+  // Check if ledger entry already exists for this order
+  const existingLedger = await LoyaltyLedger.findOne({ orderId: order._id, type: 'EARN' });
+  if (existingLedger) {
+    if (!(order as any).hasEarnedLoyaltyPoints) {
+      (order as any).hasEarnedLoyaltyPoints = true;
+      await order.save().catch(() => {});
+    }
+    return true;
+  }
+
+  let customerId = order.customerId;
+  let phone = order.customerPhone;
   const name = order.customerName || 'Diner';
 
-  try {
-    if (order.customerId) {
-      await customerService.recordCustomerOrder(order.customerId, order.total || 0);
-      await loyaltyService.earnPoints(restaurantId, order.customerId, order.total || 0, order._id);
-    } else if (phone) {
-      const cust = await customerService.findOrCreateCustomer(restaurantId, phone, name);
-      if (cust) {
-        order.customerId = cust._id;
-        await order.save();
-        await customerService.recordCustomerOrder(cust._id, order.total || 0);
-        await loyaltyService.earnPoints(restaurantId, cust._id, order.total || 0, order._id);
-      }
+  // If customerId is missing but name exists (e.g. "Dev"), search for matching customer profile
+  if (!customerId && !phone && name && name !== 'Diner') {
+    const existingCust = await Customer.findOne({
+      restaurantId: rId,
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+    });
+    if (existingCust) {
+      customerId = existingCust._id;
+      phone = existingCust.phone;
     }
-  } catch (err) {
-    console.error(`[LoyaltyAccrual] Failed for order ${order._id}:`, err);
   }
+
+  // If phone exists but customerId is missing, find or create customer profile
+  if (!customerId && phone) {
+    try {
+      const cust = await customerService.findOrCreateCustomer(rId, phone, name);
+      if (cust) {
+        customerId = cust._id;
+        order.customerId = cust._id;
+      }
+    } catch (e) {
+      console.error('Failed findOrCreateCustomer during loyalty accrual:', e);
+    }
+  }
+
+  // Accrue points if customerId is resolved
+  if (customerId) {
+    try {
+      (order as any).hasEarnedLoyaltyPoints = true;
+      await order.save();
+
+      await customerService.recordCustomerOrder(customerId, order.total || 0);
+      await loyaltyService.earnPoints(rId, customerId, order.total || 0, order._id);
+      return true;
+    } catch (err) {
+      console.error(`[LoyaltyAccrual] Failed for order ${order._id}:`, err);
+      (order as any).hasEarnedLoyaltyPoints = false;
+      await order.save().catch(() => {});
+      return false;
+    }
+  }
+
+  return false;
 }
