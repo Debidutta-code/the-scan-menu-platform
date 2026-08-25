@@ -101,6 +101,7 @@ export interface IOrder extends Document {
   posSyncRetries: number;
   posSyncLastError?: string;
   integrationMetadata: Record<string, any>;
+  hasEarnedLoyaltyPoints?: boolean;
   isCleared: boolean;
   clearedAt?: Date;
   createdAt: Date;
@@ -221,6 +222,10 @@ const orderSchema = new Schema<IOrder>(
       type: Schema.Types.Mixed,
       required: true,
       default: {},
+    },
+    hasEarnedLoyaltyPoints: {
+      type: Boolean,
+      default: false,
     },
     isCleared: {
       type: Boolean,

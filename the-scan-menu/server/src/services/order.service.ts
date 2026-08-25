@@ -16,6 +16,7 @@ import { NotificationService } from './notification.service';
 import { posIntegrationService } from './posIntegration.service';
 import { restaurantStatsService } from './restaurantStats.service';
 import { customerService } from './customer.service';
+import { loyaltyService } from './loyalty.service';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
 import { AuditLog } from '../models/AuditLog';
 
@@ -114,7 +115,7 @@ export class OrderService {
       }
 
       let unitPriceSnapshot = menuItem.price;
-      let variantName: string | undefined = item.variantName;
+      const variantName: string | undefined = item.variantName;
 
       if (item.variantName && menuItem.pricingType === 'PORTION' && Array.isArray(menuItem.variants)) {
         const targetName = item.variantName.toLowerCase();
@@ -551,6 +552,13 @@ export class OrderService {
     order.status = nextStatus;
     await order.save();
 
+    // Accrue loyalty points when order status transitions to ACCEPTED, PREPARING, READY, SERVED or COMPLETED
+    if (['ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(nextStatus)) {
+      accrueLoyaltyForOrder(restaurantId, order).catch((err) =>
+        console.error('[LoyaltyAccrual] Error accruing loyalty points:', err)
+      );
+    }
+
     posIntegrationService.updateOrderStatusAsync(restaurantId.toString(), orderId.toString(), order.status);
 
     try {
@@ -772,3 +780,35 @@ export class OrderService {
 
 export const orderService = new OrderService();
 export default orderService;
+
+export async function accrueLoyaltyForOrder(
+  restaurantId: Types.ObjectId | string,
+  order: IOrder
+): Promise<void> {
+  if (!order || (order as any).hasEarnedLoyaltyPoints || order.status === 'CANCELLED') {
+    return;
+  }
+
+  (order as any).hasEarnedLoyaltyPoints = true;
+  await order.save();
+
+  const phone = order.customerPhone;
+  const name = order.customerName || 'Diner';
+
+  try {
+    if (order.customerId) {
+      await customerService.recordCustomerOrder(order.customerId, order.total || 0);
+      await loyaltyService.earnPoints(restaurantId, order.customerId, order.total || 0, order._id);
+    } else if (phone) {
+      const cust = await customerService.findOrCreateCustomer(restaurantId, phone, name);
+      if (cust) {
+        order.customerId = cust._id;
+        await order.save();
+        await customerService.recordCustomerOrder(cust._id, order.total || 0);
+        await loyaltyService.earnPoints(restaurantId, cust._id, order.total || 0, order._id);
+      }
+    }
+  } catch (err) {
+    console.error(`[LoyaltyAccrual] Failed for order ${order._id}:`, err);
+  }
+}

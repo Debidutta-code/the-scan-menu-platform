@@ -90,6 +90,18 @@ export const useCustomerAuth = () => {
 
   useEffect(() => {
     refreshProfile();
+
+    const handleFocus = () => {
+      refreshProfile();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, [refreshProfile]);
 
   const sendOtp = async (phone: string, restaurantSlug?: string, restaurantId?: string) => {

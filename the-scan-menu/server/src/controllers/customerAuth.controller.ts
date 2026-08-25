@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { CustomerAuthenticatedRequest } from '../middleware/customerAuth';
 import { Restaurant } from '../models/Restaurant';
+import { Customer } from '../models/Customer';
 import { customerService } from '../services/customer.service';
 import { loyaltyService } from '../services/loyalty.service';
 import { otpService } from '../services/otp.service';
@@ -154,6 +155,12 @@ export class CustomerAuthController {
         return;
       }
 
+      // Auto-expire unredeemed points first
+      await loyaltyService.processExpiredPoints(customer.restaurantId, customer._id);
+
+      // Re-fetch fresh customer profile from database to get latest loyalty points balance
+      const freshCustomer = (await Customer.findById(customer._id)) || customer;
+
       const restaurant = await Restaurant.findById(customer.restaurantId).select(
         'name slug logoUrl currency theme'
       );
@@ -163,7 +170,7 @@ export class CustomerAuthController {
       sendSuccess(
         res,
         {
-          customer: toCustomerSafeCustomerDTO(customer),
+          customer: toCustomerSafeCustomerDTO(freshCustomer),
           restaurant,
           loyaltyLedger,
         },

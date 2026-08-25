@@ -7,6 +7,7 @@ import { Order } from '../models/Order';
 import { Payment } from '../models/Payment';
 import { AuditLog } from '../models/AuditLog';
 import { NotificationService } from './notification.service';
+import { accrueLoyaltyForOrder } from './order.service';
 import crypto from 'crypto';
 
 class CustomError extends Error {
@@ -341,6 +342,17 @@ export class DiningSessionService {
       },
       { $set: { paymentStatus: 'PAID', isCleared: true, clearedAt: new Date() } }
     );
+
+    // Accrue loyalty points for all completed session orders
+    const sessionOrders = await Order.find({
+      $or: [{ diningSessionId: session._id }, { sessionId: session._id }],
+      status: { $ne: 'CANCELLED' },
+    });
+    for (const ord of sessionOrders) {
+      await accrueLoyaltyForOrder(session.restaurantId, ord).catch((err) =>
+        console.error('[LoyaltyAccrual] Error accruing points on session close:', err)
+      );
+    }
 
     if (session.tableId) {
       await Table.findByIdAndUpdate(session.tableId, { $set: { status: 'AVAILABLE' } });
