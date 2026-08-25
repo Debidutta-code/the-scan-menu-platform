@@ -29,6 +29,8 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
   isRecoveringOrder,
   failedOrderDetails,
   customerNote,
+  useLoyaltyPoints = false,
+  onToggleLoyaltyPoints,
   cartSubtotal,
   cartTaxBreakdown,
   cartGrandTotal,
@@ -45,6 +47,13 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
   onBrowseMenu,
   onSwitchCustomer,
 }) => {
+  const availablePoints = customer?.loyaltyPoints || 0;
+  const pointValueRupees = 0.50; // 50 paise = ₹0.50 per point
+  const maxRedeemableRupees = Math.min((cartSubtotal / 100) * 0.5, availablePoints * pointValueRupees);
+  const pointsToUse = Math.min(availablePoints, Math.ceil(maxRedeemableRupees / pointValueRupees));
+  const actualDiscountRupees = pointsToUse * pointValueRupees;
+  const discountPaise = Math.round(actualDiscountRupees * 100);
+  const finalPayableTotal = useLoyaltyPoints && availablePoints > 0 ? Math.max(0, cartGrandTotal - discountPaise) : cartGrandTotal;
   return (
     <motion.div
       key="cart-orders"
@@ -207,27 +216,89 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                 {sessionDetailsData?.data?.session ? (
                   <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 mt-1 text-xs">
                     <div className="flex justify-between text-slate-500 font-medium px-1">
-                      <span>Already Spent</span>
-                      <span className="font-mono text-slate-700">{formatPrice(sessionDetailsData.data.session.total, currency)}</span>
+                      <span>Subtotal</span>
+                      <span className="font-mono text-slate-700">{formatPrice(cartSubtotal, currency)}</span>
                     </div>
+                    {cartTaxBreakdown.map((tb: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-slate-500 font-medium px-1 text-[11px]">
+                        <span>{tb.name} ({tb.percentage}%)</span>
+                        <span className="font-mono text-slate-700">{formatPrice(tb.amount, currency)}</span>
+                      </div>
+                    ))}
+                    {useLoyaltyPoints && pointsToUse > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-bold px-1 py-1 bg-emerald-50 rounded-lg border border-emerald-200/70 text-xs">
+                        <span className="flex items-center gap-1">
+                          <span>Loyalty Points Discount</span>
+                          <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1 rounded font-mono">-{pointsToUse} pts</span>
+                        </span>
+                        <span className="font-mono text-emerald-700 font-extrabold">-₹{actualDiscountRupees.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-amber-950 font-bold bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80 shadow-xs">
                       <span className="flex items-center gap-1.5 font-sans">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                        <span>This Order</span>
+                        <span>This Order Payable</span>
                       </span>
-                      <span className="font-mono font-black text-sm">{formatPrice(cartGrandTotal, currency)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-900 font-bold text-sm mt-0.5 border-t border-slate-200 pt-2.5 px-1">
-                      <span>Total After This Order</span>
-                      <span className="text-lg font-black text-slate-900 font-mono">{formatPrice(sessionDetailsData.data.session.total + cartGrandTotal, currency)}</span>
+                      <span className="font-mono font-black text-sm">{formatPrice(finalPayableTotal, currency)}</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between border-t border-slate-200 pt-3 mt-1 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80">
-                    <span className="text-amber-950 font-bold text-sm">This Order</span>
-                    <span className="text-lg font-black text-amber-950 font-mono">{formatPrice(cartGrandTotal, currency)}</span>
+                  <div className="space-y-2 border-t border-slate-200 pt-3 mt-1">
+                    {useLoyaltyPoints && pointsToUse > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-bold px-2 py-1 bg-emerald-50 rounded-lg border border-emerald-200/70 text-xs">
+                        <span className="flex items-center gap-1">
+                          <span>Loyalty Points Discount</span>
+                          <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1 rounded font-mono">-{pointsToUse} pts</span>
+                        </span>
+                        <span className="font-mono text-emerald-700 font-extrabold">-₹{actualDiscountRupees.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80">
+                      <span className="text-amber-950 font-bold text-sm">This Order</span>
+                      <span className="text-lg font-black text-amber-950 font-mono">{formatPrice(finalPayableTotal, currency)}</span>
+                    </div>
                   </div>
                 )}
+
+                {/* Optional Loyalty Points Redemption Checkbox Box */}
+                {isCustomerAuthenticated && availablePoints > 0 && pointsToUse > 0 ? (
+                  <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-sm space-y-3 border border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!useLoyaltyPoints}
+                          onChange={onToggleLoyaltyPoints}
+                          className="w-5 h-5 rounded-lg accent-amber-500 cursor-pointer"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-white block">
+                            Redeem {pointsToUse} Loyalty Points
+                          </span>
+                          <span className="text-[11px] text-emerald-400 font-bold font-mono">
+                            Save ₹{actualDiscountRupees.toFixed(2)} on this order
+                          </span>
+                        </div>
+                      </label>
+                      <span className="text-xs font-mono font-bold text-amber-400">
+                        {availablePoints} Pts Available
+                      </span>
+                    </div>
+
+                    {useLoyaltyPoints && (
+                      <div className="bg-emerald-950/80 border border-emerald-500/50 p-3 rounded-xl space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs">
+                          <span className="text-base">🎉</span>
+                          <span>Boom! You saved ₹{actualDiscountRupees.toFixed(2)} using {pointsToUse} Loyalty Points on this order!</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400 font-mono font-medium flex justify-between border-t border-emerald-800/60 pt-1.5 mt-1.5">
+                          <span>Available Balance After:</span>
+                          <span className="font-bold text-white">{Math.max(0, availablePoints - pointsToUse)} Pts remaining</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
                 {/* Psychological Points Earn Banner */}
                 {cartGrandTotal > 0 && (
@@ -238,7 +309,7 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                       </div>
                       <div>
                         <span className="text-xs font-black text-slate-900 block">
-                          Earn +{Math.max(1, Math.floor((cartGrandTotal / 100) / 10))} Loyalty Points on this order! 🎉
+                          Earn +{Math.max(1, Math.floor((finalPayableTotal / 100) / 10))} Loyalty Points on this order! 🎉
                         </span>
                         <span className="text-[10px] text-slate-600 font-medium block">
                           Added automatically to your profile when your order is placed.
@@ -288,18 +359,20 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
 
                 <button
                   onClick={onCheckoutTrigger}
-                  disabled={cartItems.length === 0 || isPlacingOrder || isRecoveringOrder}
-                  className="w-full bg-slate-950 hover:bg-slate-900 disabled:bg-slate-300 text-white py-3.5 rounded-2xl font-bold text-xs tracking-wide transition-all shadow-md active:scale-[0.99] uppercase flex items-center justify-center gap-2"
+                  disabled={isPlacingOrder || isRecoveringOrder}
+                  className="w-full py-4 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
                 >
                   {isPlacingOrder ? (
                     <>
                       <Loader className="w-4 h-4 animate-spin text-amber-400" />
-                      <span>Placing your order...</span>
+                      <span>Submitting Order...</span>
                     </>
-                  ) : isCustomerAuthenticated && customer ? (
-                    <span>Place Order as {customer.name} • {formatPrice(cartGrandTotal, currency)}</span>
+                  ) : isCustomerAuthenticated && customer?.name ? (
+                    <span>
+                      PLACE ORDER AS {customer.name.toUpperCase()} • {formatPrice(finalPayableTotal, currency)}
+                    </span>
                   ) : (
-                    <span>Proceed to Checkout • {formatPrice(cartGrandTotal, currency)}</span>
+                    <span>CONTINUE TO CHECKOUT • {formatPrice(finalPayableTotal, currency)}</span>
                   )}
                 </button>
               </div>

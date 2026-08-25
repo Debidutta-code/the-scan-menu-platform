@@ -31,12 +31,14 @@ export const PublicTable: React.FC = () => {
   // Zustand Cart Store
   const {
     items: cartItems,
-    setTable,
+    customerNote,
+    useLoyaltyPoints,
+    toggleUseLoyaltyPoints,
     addItem,
     updateQuantity,
-    clearCart,
-    customerNote,
     setCustomerNote,
+    clearCart,
+    setTable,
     getOrCreateIdempotencyKey,
     resetIdempotencyKey,
   } = useCartStore();
@@ -712,6 +714,7 @@ export const PublicTable: React.FC = () => {
         customerName: name.trim(),
         customerPhone: phone.trim(),
         paymentStatus: 'PENDING',
+        useLoyaltyPoints: !!useLoyaltyPoints,
       };
 
       const activeCustomerToken = tokenOverride !== undefined ? tokenOverride : customerToken;
@@ -1074,6 +1077,8 @@ export const PublicTable: React.FC = () => {
           isRecoveringOrder={isRecoveringOrder}
           failedOrderDetails={failedOrderDetails}
           customerNote={customerNote}
+          useLoyaltyPoints={useLoyaltyPoints}
+          onToggleLoyaltyPoints={toggleUseLoyaltyPoints}
           cartSubtotal={cartSubtotal}
           cartTaxBreakdown={cartTaxBreakdown}
           cartGrandTotal={cartGrandTotal}

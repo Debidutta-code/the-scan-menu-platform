@@ -22,9 +22,12 @@ export interface CartState {
   tableToken: string | null;
   restaurantSlug: string | null;
   customerNote: string;
+  useLoyaltyPoints: boolean;
   idempotencyKey: string | null;
   setTable: (restaurantSlug: string, tableToken: string) => void;
   setCustomerNote: (note: string) => void;
+  toggleUseLoyaltyPoints: () => void;
+  setUseLoyaltyPoints: (val: boolean) => void;
   getOrCreateIdempotencyKey: () => string;
   resetIdempotencyKey: () => string;
   addItem: (item: Omit<CartItem, 'price'> & { basePrice: number }) => void;
@@ -93,13 +96,14 @@ export const useCartStore = create<CartState>()(
       tableToken: null,
       restaurantSlug: null,
       customerNote: '',
+      useLoyaltyPoints: false,
       idempotencyKey: null,
 
       setTable: (restaurantSlug, tableToken) => {
         const currentToken = get().tableToken;
         if (currentToken !== tableToken) {
           // Clears cart on table token mismatch/change
-          set({ items: [], restaurantSlug, tableToken, customerNote: '', idempotencyKey: null });
+          set({ items: [], restaurantSlug, tableToken, customerNote: '', useLoyaltyPoints: false, idempotencyKey: null });
         } else {
           set({ restaurantSlug, tableToken });
         }
@@ -107,6 +111,14 @@ export const useCartStore = create<CartState>()(
 
       setCustomerNote: (customerNote) => {
         set({ customerNote });
+      },
+
+      toggleUseLoyaltyPoints: () => {
+        set((state) => ({ useLoyaltyPoints: !state.useLoyaltyPoints }));
+      },
+
+      setUseLoyaltyPoints: (useLoyaltyPoints) => {
+        set({ useLoyaltyPoints });
       },
 
       getOrCreateIdempotencyKey: () => {
@@ -199,7 +211,7 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
-        set({ items: [], customerNote: '', idempotencyKey: null });
+        set({ items: [], customerNote: '', useLoyaltyPoints: false, idempotencyKey: null });
       },
     }),
     {

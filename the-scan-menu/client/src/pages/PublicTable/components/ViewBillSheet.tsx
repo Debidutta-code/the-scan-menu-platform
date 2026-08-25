@@ -116,6 +116,24 @@ export const ViewBillSheet: React.FC<ViewBillSheetProps> = ({
                     </AnimatePresence>
                   </div>
 
+                  {/* Loyalty Discount line item if points were redeemed on orders in this session */}
+                  {(() => {
+                    const totalLoyaltyDiscount = (sessionDetailsData.data.orders || []).reduce((sum: number, o: any) => sum + (o.loyaltyDiscount || 0), 0);
+                    const totalPointsRedeemed = (sessionDetailsData.data.orders || []).reduce((sum: number, o: any) => sum + (o.loyaltyPointsRedeemed || 0), 0);
+                    if (totalLoyaltyDiscount <= 0) return null;
+                    return (
+                      <div className="flex justify-between text-emerald-700 font-bold px-2 py-1.5 bg-emerald-50 rounded-xl border border-emerald-200/80 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <span>Loyalty Discount</span>
+                          <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full font-mono font-black">
+                            -{totalPointsRedeemed} pts
+                          </span>
+                        </span>
+                        <span className="font-mono text-emerald-700 font-black">-{formatPrice(totalLoyaltyDiscount, currency)}</span>
+                      </div>
+                    );
+                  })()}
+
                   {/* Total spent so far */}
                   <div className="flex justify-between items-center text-slate-900 font-black text-sm pt-2 border-t border-slate-200">
                     <span>Table Total So Far</span>

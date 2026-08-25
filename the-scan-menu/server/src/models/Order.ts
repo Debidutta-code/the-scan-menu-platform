@@ -102,6 +102,9 @@ export interface IOrder extends Document {
   posSyncLastError?: string;
   integrationMetadata: Record<string, any>;
   hasEarnedLoyaltyPoints?: boolean;
+  loyaltyPointsRedeemed?: number;
+  loyaltyDiscount?: number; // in paise
+  loyaltyPointsEarned?: number;
   isCleared: boolean;
   clearedAt?: Date;
   createdAt: Date;
@@ -226,6 +229,18 @@ const orderSchema = new Schema<IOrder>(
     hasEarnedLoyaltyPoints: {
       type: Boolean,
       default: false,
+    },
+    loyaltyPointsRedeemed: {
+      type: Number,
+      default: 0,
+    },
+    loyaltyDiscount: {
+      type: Number,
+      default: 0,
+    },
+    loyaltyPointsEarned: {
+      type: Number,
+      default: 0,
     },
     isCleared: {
       type: Boolean,

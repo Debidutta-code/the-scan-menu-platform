@@ -154,6 +154,8 @@ export interface CartOrdersTabProps {
   isRecoveringOrder: boolean;
   failedOrderDetails: { menuItemId: string; name: string; reason: 'unavailable' | 'category_inactive' }[];
   customerNote: string;
+  useLoyaltyPoints?: boolean;
+  onToggleLoyaltyPoints?: () => void;
   cartSubtotal: number;
   cartTaxBreakdown: any[];
   cartGrandTotal: number;

@@ -10,6 +10,7 @@ import { Order } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
 import { Bill } from '../models/Bill';
 import { Tax } from '../models/Tax';
+import { Customer } from '../models/Customer';
 import { IdempotencyRecord } from '../models/IdempotencyRecord';
 import { diningSessionService } from '../services/diningSession.service';
 import { orderService } from '../services/order.service';
@@ -374,20 +375,59 @@ export class PublicController {
         paymentStatus: paymentStatus || 'PENDING',
       });
 
-      const safeOrderDTO = toCustomerSafeOrderDTO(order, true);
-
       // Deduct loyalty points if redemption requested
-      const pointsToRedeem = req.body.pointsToRedeem ? Number(req.body.pointsToRedeem) : 0;
-      if (pointsToRedeem > 0 && effectiveCustomerId) {
-        loyaltyService
-          .validateAndCalculateRedemption(restaurant._id, effectiveCustomerId, pointsToRedeem, order.subtotal || order.total)
-          .then(async (redemption) => {
-            if (redemption.effectivePoints > 0) {
-              await loyaltyService.redeemPoints(restaurant._id, effectiveCustomerId, redemption.effectivePoints, order._id);
-            }
-          })
-          .catch((err) => console.error('Point redemption failed during order placement:', err));
+      let pointsToRedeem = req.body.pointsToRedeem ? Number(req.body.pointsToRedeem) : 0;
+      if (req.body.useLoyaltyPoints && effectiveCustomerId && pointsToRedeem === 0) {
+        const cust = await Customer.findById(effectiveCustomerId);
+        if (cust) pointsToRedeem = cust.loyaltyPoints || 0;
       }
+
+      if (pointsToRedeem > 0 && effectiveCustomerId) {
+        try {
+          const redemption = await loyaltyService.validateAndCalculateRedemption(
+            restaurant._id,
+            effectiveCustomerId,
+            pointsToRedeem,
+            order.subtotal || order.total
+          );
+
+          if (redemption.effectivePoints > 0) {
+            await loyaltyService.redeemPoints(
+              restaurant._id,
+              effectiveCustomerId,
+              redemption.effectivePoints,
+              order._id
+            );
+
+            order.loyaltyPointsRedeemed = redemption.effectivePoints;
+            order.loyaltyDiscount = redemption.discountPaise;
+            order.total = Math.max(0, order.total - redemption.discountPaise);
+            await order.save();
+          }
+        } catch (err) {
+          console.error('Point redemption error during order placement:', err);
+        }
+      }
+
+      // Calculate estimated loyalty points earned for display
+      try {
+        const loyaltyConfig = await loyaltyService.getLoyaltyConfig(restaurant._id);
+        if (loyaltyConfig.enabled) {
+          const mode = loyaltyConfig.earningMode || 'PERCENTAGE';
+          if (mode === 'PERCENTAGE') {
+            order.loyaltyPointsEarned = Math.floor((order.total / 100) * ((loyaltyConfig.earnPercentage || 50) / 100));
+          } else if (mode === 'FIXED_PER_ORDER') {
+            order.loyaltyPointsEarned = loyaltyConfig.fixedPointsPerOrder || 50;
+          } else if (mode === 'SPEND_RATIO') {
+            order.loyaltyPointsEarned = Math.floor(order.total / (loyaltyConfig.spendRatioPaise || 1000));
+          }
+          await order.save();
+        }
+      } catch (err) {
+        console.error('Failed to compute loyalty points earned on order creation:', err);
+      }
+
+      const safeOrderDTO = toCustomerSafeOrderDTO(order, true);
 
       // Complete idempotency record
       if (lockAcquired) {

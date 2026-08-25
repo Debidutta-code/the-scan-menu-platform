@@ -38,6 +38,9 @@ export interface CustomerSafeOrderDTO {
   tax: number;
   taxBreakdown: any[];
   total: number;
+  loyaltyPointsRedeemed?: number;
+  loyaltyDiscount?: number;
+  loyaltyPointsEarned?: number;
   customerNote: string;
   source?: string;
   sessionId?: string;
@@ -146,6 +149,9 @@ export function toCustomerSafeOrderDTO(
     tax: raw.tax || 0,
     taxBreakdown: raw.taxBreakdown || [],
     total: raw.total || 0,
+    loyaltyPointsRedeemed: raw.loyaltyPointsRedeemed || 0,
+    loyaltyDiscount: raw.loyaltyDiscount || 0,
+    loyaltyPointsEarned: raw.loyaltyPointsEarned || 0,
     customerNote: raw.customerNote || '',
     source: raw.source || 'QR',
     sessionId: sessId,

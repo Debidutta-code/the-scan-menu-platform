@@ -38,6 +38,10 @@ export interface Order {
   status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
   source: string;
   integrationMetadata?: Record<string, any>;
+  hasEarnedLoyaltyPoints?: boolean;
+  loyaltyPointsRedeemed?: number;
+  loyaltyDiscount?: number;
+  loyaltyPointsEarned?: number;
   createdAt: string;
 }
 

@@ -8,6 +8,7 @@ import { Tax } from '../models/Tax';
 import { FeatureFlag } from '../models/FeatureFlag';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { DEFAULT_FLAGS } from './featureFlag.service';
+import { loyaltyService } from './loyalty.service';
 
 export interface SetupStep {
   id: string;
@@ -359,6 +360,34 @@ export class OutletSetupAuditService {
       }
     } else {
       featureReadiness['inventory'] = { isEnabled: false, isReady: true };
+    }
+
+    // 8. Loyalty Program (Only audited if in OUTLET_WISE mode and tenant has loyalty feature enabled)
+    try {
+      const platform = await loyaltyService.getPlatformSettings();
+      const isOutletWise = platform.loyalty && platform.loyalty.mode === 'OUTLET_WISE';
+
+      if (enabledFlagsMap['loyalty'] && isOutletWise) {
+        const isReady = Boolean(settings?.loyaltyConfig?.enabled);
+        featureReadiness['loyalty'] = {
+          isEnabled: true,
+          isReady,
+          reason: isReady ? undefined : 'Outlet Loyalty configuration is required in Outlet-Wise mode',
+        };
+        if (!isReady) {
+          missingFeatureSetups.push({
+            featureKey: 'loyalty',
+            featureName: 'Loyalty Program',
+            missingRequirements: ['Outlet loyalty rules configuration required'],
+            actionTab: 'loyalty',
+            actionLabel: 'Configure Outlet Loyalty',
+          });
+        }
+      } else {
+        featureReadiness['loyalty'] = { isEnabled: false, isReady: true };
+      }
+    } catch {
+      featureReadiness['loyalty'] = { isEnabled: false, isReady: true };
     }
 
     // --- Calculate Overall Weighted Percentage ---

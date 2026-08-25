@@ -1418,6 +1418,17 @@ export const ManagerOrders: React.FC = () => {
                             </div>
                           )
                       }
+                      {Boolean(liveDetailOrder.loyaltyDiscount && liveDetailOrder.loyaltyDiscount > 0) && (
+                        <div className="flex justify-between text-xs text-emerald-700 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                          <span className="flex items-center gap-1">
+                            <span>Loyalty Points Discount</span>
+                            <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full font-mono font-black">
+                              -{liveDetailOrder.loyaltyPointsRedeemed || 0} pts
+                            </span>
+                          </span>
+                          <span className="font-mono text-emerald-700 font-black">-{formatAmount(liveDetailOrder.loyaltyDiscount || 0)}</span>
+                        </div>
+                      )}
                       <div className="pt-3 border-t border-dashed border-slate-200 flex items-end justify-between">
                         <div>
                           <p className="text-xs font-black text-slate-900 uppercase tracking-wide">Total</p>
