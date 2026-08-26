@@ -299,10 +299,10 @@ export const ManagerTransactions: React.FC = () => {
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display tracking-tight text-3xl sm:text-4xl font-bold text-slate-900">
+          <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900">
             Payment Transactions
           </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+          <p className="text-slate-500 text-xs mt-0.5">
             Audit-grade financial ledger, settlement verification, and payment mode analytics
           </p>
         </div>

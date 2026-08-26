@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
+import { useFontScale } from '../hooks/useFontScale';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
@@ -513,6 +514,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
   const { activeRestaurantId, user } = useAuth();
+  const { fontScale, setFontScale } = useFontScale();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1069,17 +1071,57 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   }
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-4 font-sans select-none pb-12">
       {/* Top Header & Tab Toggle */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3.5 sm:p-4 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
-          <h1 className="font-display text-2xl font-bold text-slate-900 tracking-tight">Menu & Catalog Manager</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
+          <h1 className="font-display text-lg md:text-xl font-bold text-slate-900 tracking-tight">Menu & Catalog Manager</h1>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             Portion-based multi pricing, combos builder, and reusable add-on templates
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Global UI Text Size / Font Scale Switcher */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+            <button
+              type="button"
+              onClick={() => setFontScale('SMALL')}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                fontScale === 'SMALL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Small Text (81.25% - 13px Base)"
+            >
+              A⁻
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('NORMAL')}
+              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                fontScale === 'NORMAL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Normal Text (87.5% - 14px Base)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('LARGE')}
+              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+                fontScale === 'LARGE'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Large Text (100% - 16px Base)"
+            >
+              A⁺
+            </button>
+          </div>
+
           <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
             <button
               type="button"

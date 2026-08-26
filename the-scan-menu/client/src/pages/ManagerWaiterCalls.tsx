@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
+import { useFontScale } from '../hooks/useFontScale';
 import {
   CheckCircle2,
   BellRing,
@@ -80,6 +81,7 @@ const getRequestTypeDetails = (type: string) => {
 export const ManagerWaiterCalls: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { activeRestaurantId, user } = useAuth();
+  const { fontScale, setFontScale } = useFontScale();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
@@ -158,11 +160,11 @@ export const ManagerWaiterCalls: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-6 font-sans">
+    <div className="w-full space-y-4 font-sans select-none pb-12">
       {/* Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
         <div>
-          <h3 className="font-display text-3xl font-bold text-slate-900 tracking-tight">
+          <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Floor Service Assistance
           </h3>
           <p className="text-xs text-slate-500 mt-0.5 font-medium">
@@ -170,39 +172,81 @@ export const ManagerWaiterCalls: React.FC = () => {
           </p>
         </div>
 
-        {/* View Switcher Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/70 shrink-0">
-          <button
-            onClick={() => setActiveTab('active')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'active'
-                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <BellRing className={`w-3.5 h-3.5 ${activeWaiterCalls.length > 0 ? 'text-amber-500 animate-bounce' : ''}`} />
-            <span>Active Queue</span>
-            {activeWaiterCalls.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
-                {activeWaiterCalls.length}
-              </span>
-            )}
-          </button>
+        {/* View Switcher Tabs & Font Controller */}
+        <div className="flex items-center gap-2">
+          {/* Global UI Text Size / Font Scale Switcher */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+            <button
+              type="button"
+              onClick={() => setFontScale('SMALL')}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                fontScale === 'SMALL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Small Text (81.25% - 13px Base)"
+            >
+              A⁻
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('NORMAL')}
+              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                fontScale === 'NORMAL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Normal Text (87.5% - 14px Base)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('LARGE')}
+              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+                fontScale === 'LARGE'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Large Text (100% - 16px Base)"
+            >
+              A⁺
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'history'
-                ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <History className="w-3.5 h-3.5 text-slate-600" />
-            <span>Call History</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700 text-[10px] font-black">
-              {historyWaiterCalls.length}
-            </span>
-          </button>
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/70 shrink-0">
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'active'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <BellRing className={`w-3.5 h-3.5 ${activeWaiterCalls.length > 0 ? 'text-amber-500 animate-bounce' : ''}`} />
+              <span>Active Queue</span>
+              {activeWaiterCalls.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
+                  {activeWaiterCalls.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeTab === 'history'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-slate-600" />
+              <span>Call History</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700 text-[10px] font-black">
+                {historyWaiterCalls.length}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 

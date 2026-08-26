@@ -385,10 +385,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       {/* ── Page Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="font-display tracking-tight text-3xl sm:text-4xl font-bold text-slate-900">
+          <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900">
             Table Management
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 text-xs mt-0.5">
             Tap a table to open quick actions — clear, reserve, view QR, or edit.
           </p>
         </div>

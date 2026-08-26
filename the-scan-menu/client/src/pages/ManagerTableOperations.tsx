@@ -325,7 +325,7 @@ export const ManagerTableOperations: React.FC = () => {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-display tracking-tight text-2xl sm:text-3xl font-bold text-slate-900">
+              <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900">
                 Table Move & Merge Studio
               </h1>
               <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-200">

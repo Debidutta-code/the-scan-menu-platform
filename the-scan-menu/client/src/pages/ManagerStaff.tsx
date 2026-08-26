@@ -225,13 +225,13 @@ export const ManagerStaff: React.FC<ManagerStaffProps> = ({ restaurantId }) => {
   return (
     <div className="space-y-6">
       {/* ── HEADER & KPI CARDS ────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-150 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-sm">
-            <Users className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-sm shrink-0">
+            <Users className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-display text-xl font-bold text-slate-900 leading-tight">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 leading-tight">
               Staff & Manager Accounts
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">

@@ -379,15 +379,15 @@ export const ManagerAnalytics: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-8 font-sans">
+    <div className="w-full space-y-4 font-sans select-none pb-12">
 
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-150 pb-5 shrink-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-150 pb-4 shrink-0">
         <div>
-          <h3 className="font-display text-3xl font-semibold text-slate-900 leading-none">
+          <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-900 leading-none">
             Business Analytics & Insights
           </h3>
-          <p className="text-xs text-slate-500 mt-1.5">
+          <p className="text-xs text-slate-500 mt-1">
             Summarize sales volume, menu preferences, table turnovers, and service metrics.
           </p>
         </div>

@@ -113,13 +113,13 @@ export const ManagerMenuAvailability: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-8 font-sans">
+    <div className="w-full space-y-4 font-sans select-none pb-12">
       {/* Page Header */}
-      <div className="px-6 py-5 border-b border-slate-150 bg-white shrink-0">
-        <h1 className="font-display tracking-tight text-3xl font-bold text-slate-900 leading-none">
-          Item Availability
+      <div className="px-4 py-3.5 sm:px-5 border-b border-slate-150 bg-white rounded-2xl shrink-0">
+        <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900 leading-none">
+          Item Availability (86'ing)
         </h1>
-        <p className="text-slate-500 text-sm mt-1">
+        <p className="text-slate-500 text-xs mt-0.5">
           Toggle items 86'd or available. Select a category below.
         </p>
       </div>

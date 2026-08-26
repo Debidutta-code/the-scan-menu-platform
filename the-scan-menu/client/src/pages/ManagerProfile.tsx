@@ -137,9 +137,9 @@ export const ManagerProfile: React.FC = () => {
   return (
     <div className="w-full space-y-6 font-sans select-none">
       {/* ── HEADER ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-slate-950 flex items-center justify-center text-amber-400 font-mono text-sm font-black shadow-2xs">
+          <div className="w-9 h-9 rounded-xl bg-slate-950 flex items-center justify-center text-amber-400 font-mono text-xs font-black shadow-2xs shrink-0">
             {initials}
           </div>
           <div>

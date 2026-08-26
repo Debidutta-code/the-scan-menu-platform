@@ -63,14 +63,14 @@ export const ManagerSettings: React.FC = () => {
   const filteredTabs = tabsNav.filter((t) => t.show !== false);
 
   return (
-    <div className="w-full space-y-6 font-sans">
+    <div className="w-full space-y-4 font-sans select-none pb-12">
       {/* Page Title Header */}
       <div>
-        <h3 className="font-display text-3xl font-semibold text-slate-900 flex items-center gap-2">
-          <Settings className="w-8 h-8 text-amber-500" strokeWidth={1.75} />
+        <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <Settings className="w-6 h-6 text-amber-500" strokeWidth={1.75} />
           <span>Restaurant Operations Settings</span>
         </h3>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 mt-0.5">
           Manage store information, payment channels, workflow automation, and visual theme variables.
         </p>
       </div>

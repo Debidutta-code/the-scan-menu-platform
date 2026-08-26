@@ -484,9 +484,9 @@ export const ManagerInventory: React.FC = () => {
   return (
     <div className="w-full space-y-5 font-sans select-none pb-16">
       {/* ── TOP HERO CARD ── */}
-      <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-7 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative overflow-hidden border border-slate-800">
+      <div className="bg-slate-950 text-white rounded-2xl p-4 md:p-5 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative overflow-hidden border border-slate-800">
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1.5">
             <span className="text-[10px] font-mono uppercase font-black text-amber-400 tracking-wider bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 rounded-full">
               Kitchen &amp; Floor Operations
             </span>
@@ -495,10 +495,10 @@ export const ManagerInventory: React.FC = () => {
               Live Socket Sync
             </span>
           </div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-white tracking-tight">
+          <h1 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight">
             Inventory &amp; Stock Hub
           </h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl leading-relaxed">
+          <p className="text-xs text-slate-400 mt-0.5 max-w-xl leading-relaxed">
             Real-time portion reserves, instant 1-tap 86ing, physical stocktake audits, and waste tracking synchronized across Counter POS, QR Menus, and KDS.
           </p>
         </div>

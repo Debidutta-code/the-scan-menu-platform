@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useFontScale } from '../hooks/useFontScale';
 import { ScanMenuLogo } from './ScanMenuLogo';
 import {
   Shield,
@@ -23,6 +24,7 @@ import { QuickOnboardModal } from './admin/QuickOnboardModal';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
+  const { fontScale, setFontScale } = useFontScale();
   const location = useLocation();
   const navigate = useNavigate();
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
@@ -280,12 +282,52 @@ export const AdminLayout: React.FC = () => {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
         {/* Desktop Top Header */}
-        <header className="hidden md:flex h-16 bg-white border-b border-slate-150 px-8 items-center justify-between shrink-0">
-          <h1 className="font-display tracking-tight text-xl font-bold text-slate-900">
+        <header className="hidden md:flex h-14 bg-white border-b border-slate-150 px-6 items-center justify-between shrink-0">
+          <h1 className="font-display tracking-tight text-lg font-bold text-slate-900">
             {pageTitle}
           </h1>
 
           <div className="flex items-center gap-3">
+            {/* Global UI Text Size / Font Scale Switcher */}
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+              <button
+                type="button"
+                onClick={() => setFontScale('SMALL')}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                  fontScale === 'SMALL'
+                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+                title="Small Text (81.25% - 13px Base)"
+              >
+                A⁻
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontScale('NORMAL')}
+                className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                  fontScale === 'NORMAL'
+                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+                title="Normal Text (87.5% - 14px Base)"
+              >
+                A
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontScale('LARGE')}
+                className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+                  fontScale === 'LARGE'
+                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+                title="Large Text (100% - 16px Base)"
+              >
+                A⁺
+              </button>
+            </div>
+
             <button
               onClick={() => setShowQuickOnboard(true)}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition shadow-sm cursor-pointer"
@@ -317,7 +359,7 @@ export const AdminLayout: React.FC = () => {
 
         {/* Scrollable Page Body */}
         <main
-          className={`flex-1 min-h-0 flex flex-col p-4 md:p-6 ${
+          className={`flex-1 min-h-0 flex flex-col p-3 sm:p-4 lg:p-6 ${
             currentPath.startsWith('/admin/restaurants/')
               ? 'overflow-hidden'
               : 'overflow-y-auto'

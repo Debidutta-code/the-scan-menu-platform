@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
 import apiClient from '../lib/api';
 import config from '../config';
+import { useFontScale } from '../hooks/useFontScale';
 import {
   Flame,
   CheckCircle2,
@@ -53,6 +54,7 @@ interface DisplayData {
 
 export const PublicLiveDisplay: React.FC = () => {
   const { restaurantSlug: paramSlug } = useParams<{ restaurantSlug?: string }>();
+  const { fontScale, setFontScale } = useFontScale();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -501,8 +503,50 @@ export const PublicLiveDisplay: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Space-Efficient Screen & Audio Controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Right: Header Right Controls */}
+        <div className="flex items-center gap-2">
+          {/* Global UI Text Size / Font Scale Switcher */}
+          <div className={`p-1 rounded-lg flex items-center gap-0.5 border ${
+            isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+          }`} title="TV Display Text Size">
+            <button
+              type="button"
+              onClick={() => setFontScale('SMALL')}
+              className={`px-2 py-0.5 rounded text-[10px] font-black transition ${
+                fontScale === 'SMALL'
+                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-2xs'
+                  : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Small Text (81.25% - Laptop)"
+            >
+              A⁻
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('NORMAL')}
+              className={`px-2 py-0.5 rounded text-xs font-black transition ${
+                fontScale === 'NORMAL'
+                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-2xs'
+                  : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Normal Text (87.5% - Standard)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('LARGE')}
+              className={`px-2 py-0.5 rounded text-sm font-black transition ${
+                fontScale === 'LARGE'
+                  ? 'bg-amber-500 text-slate-950 font-extrabold shadow-2xs'
+                  : isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Large Text (100% - TV Wall Display)"
+            >
+              A⁺
+            </button>
+          </div>
+
           <button
             onClick={() => refetch()}
             className={`p-2 rounded-lg border transition cursor-pointer active:scale-95 shadow-2xs ${

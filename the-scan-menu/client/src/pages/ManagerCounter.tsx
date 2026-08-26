@@ -32,6 +32,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useFontScale } from '../hooks/useFontScale';
 import { useToast } from '../hooks/useToast';
 import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
@@ -87,7 +88,8 @@ const orderModeOptions: { key: OrderMode; label: string; icon: React.ReactNode }
 ];
 
 export const ManagerCounter: React.FC = () => {
-  const { activeRestaurantId, user, impersonatedOutlet } = useAuth();
+  const { user, activeRestaurantId, impersonatedOutlet } = useAuth();
+  const { fontScale, setFontScale } = useFontScale();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -570,6 +572,45 @@ export const ManagerCounter: React.FC = () => {
 
         {/* Header Right: Shift Chip + Mode Toggle + Recent Orders */}
         <div className="flex items-center gap-2">
+          {/* Global UI Text Size / Font Scale Switcher */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+            <button
+              type="button"
+              onClick={() => setFontScale('SMALL')}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                fontScale === 'SMALL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Small Text (81.25% - 13px Base)"
+            >
+              A⁻
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('NORMAL')}
+              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                fontScale === 'NORMAL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Normal Text (87.5% - 14px Base)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('LARGE')}
+              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+                fontScale === 'LARGE'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Large Text (100% - 16px Base)"
+            >
+              A⁺
+            </button>
+          </div>
           {/* Offline Sync Status Chip */}
           {(!isOnline || queuedCount > 0) && (
             <button

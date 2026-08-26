@@ -191,7 +191,7 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
           </div>
 
           {/* Body Content */}
-          <div className="p-6 sm:p-8 space-y-6">
+          <div className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto custom-scrollbar">
             {/* Order Summary Ribbon */}
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex items-center justify-between gap-4">
               <div>

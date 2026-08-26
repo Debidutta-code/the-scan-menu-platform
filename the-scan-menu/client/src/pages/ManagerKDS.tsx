@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
 import { useSocket } from '../hooks/useSocket';
+import { useFontScale } from '../hooks/useFontScale';
 import {
   Loader,
   Clock,
@@ -107,6 +108,7 @@ const playKitchenBell = () => {
 
 export const ManagerKDS: React.FC = () => {
   const { activeRestaurantId = '' } = useAuth();
+  const { fontScale, setFontScale } = useFontScale();
   const { isEnabled } = useFeatureFlags();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -558,6 +560,46 @@ export const ManagerKDS: React.FC = () => {
               ))}
             </select>
           )}
+
+          {/* Global UI Text Size / Font Scale Switcher */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+            <button
+              type="button"
+              onClick={() => setFontScale('SMALL')}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                fontScale === 'SMALL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Small Text (81.25% - 13px Base)"
+            >
+              A⁻
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('NORMAL')}
+              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                fontScale === 'NORMAL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Normal Text (87.5% - 14px Base)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('LARGE')}
+              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+                fontScale === 'LARGE'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Large Text (100% - 16px Base)"
+            >
+              A⁺
+            </button>
+          </div>
 
           {/* Sound Toggle */}
           <button

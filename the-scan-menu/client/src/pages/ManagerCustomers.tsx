@@ -143,7 +143,7 @@ export const ManagerCustomers: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display tracking-tight text-3xl font-semibold text-slate-900 flex items-center gap-3">
+          <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-3">
             <span>Customer Directory & Loyalty</span>
             {activeTab === 'LEADERBOARD' && (
               <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">

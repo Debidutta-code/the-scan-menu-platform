@@ -130,7 +130,7 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
           </div>
 
           {/* Quick Order Highlights */}
-          <div className="px-6 py-3 bg-slate-100/60 border-b border-slate-200/60 flex items-center justify-between text-xs">
+          <div className="px-4 sm:px-5 py-2.5 bg-slate-100/60 border-b border-slate-200/60 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="text-slate-500 font-medium font-mono">
                 {order.items?.length || 0} items
@@ -152,7 +152,7 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
           </div>
 
           {/* Body: Action Buttons Grid */}
-          <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div className="p-4 sm:p-5 space-y-3.5 max-h-[78vh] overflow-y-auto custom-scrollbar flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Customer Bill (Primary) */}
               <button
