@@ -485,7 +485,7 @@ export class OrderController {
   async updateOrderPaymentStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, orderId } = req.params;
-      const { paymentStatus } = req.body;
+      const { paymentStatus, paymentMethod } = req.body;
 
       if (!['PAID', 'PENDING'].includes(paymentStatus)) {
         sendError(res, 'BAD_REQUEST', 'Invalid payment status', null, 400);
@@ -503,6 +503,9 @@ export class OrderController {
       }
 
       order.paymentStatus = paymentStatus;
+      if (paymentMethod && typeof paymentMethod === 'string') {
+        order.paymentMethod = paymentMethod.toUpperCase();
+      }
       await order.save();
 
       sendSuccess(res, order, `Order payment marked as ${paymentStatus}`);

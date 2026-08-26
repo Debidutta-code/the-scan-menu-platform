@@ -332,8 +332,8 @@ export const ManagerOrders: React.FC = () => {
   const orderingPaymentPolicy = (restaurantData?.data?.paymentConfig?.activeMode || restaurantData?.data?.activeMode || 'POSTPAID') as 'PREPAID' | 'POSTPAID';
 
   const updatePaymentStatusMutation = useMutation({
-    mutationFn: async ({ orderId, paymentStatus }: { orderId: string; paymentStatus: 'PAID' | 'PENDING' }) => {
-      const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/orders/${orderId}/payment-status`, { paymentStatus });
+    mutationFn: async ({ orderId, paymentStatus, paymentMethod }: { orderId: string; paymentStatus: 'PAID' | 'PENDING'; paymentMethod?: string }) => {
+      const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/orders/${orderId}/payment-status`, { paymentStatus, paymentMethod });
       return res.data;
     },
     onSuccess: () => {
@@ -342,29 +342,29 @@ export const ManagerOrders: React.FC = () => {
     },
   });
 
-  const handleAdvanceOrder = (order: Order, nextStatus: string) => {
-    if (orderingPaymentPolicy === 'PREPAID' && nextStatus === 'ACCEPTED' && order.paymentStatus !== 'PAID') {
+  const handleAdvanceOrder = React.useCallback((order: Order, nextStatus: string) => {
+    if (order.paymentStatus !== 'PAID' && (orderingPaymentPolicy === 'PREPAID' || order.status === 'PENDING')) {
       setPaymentVerificationModalOrder({ order, targetAction: 'ACCEPT', nextStatus });
       return;
     }
     updateStatusMutation.mutate({ orderId: order._id, nextStatus });
-  };
+  }, [orderingPaymentPolicy, updateStatusMutation]);
 
-  const handleFreeTableRequest = (order: Order) => {
+  const handleFreeTableRequest = React.useCallback((order: Order) => {
     if (order.paymentStatus !== 'PAID') {
       setPaymentVerificationModalOrder({ order, targetAction: 'FREE_TABLE' });
       return;
     }
     setFreeTableOrder(order);
-  };
+  }, []);
 
-  const handlePaymentModalConfirm = (isPaid: boolean) => {
+  const handlePaymentModalConfirm = (isPaid: boolean, paymentMethod?: string) => {
     if (!paymentVerificationModalOrder) return;
     const { order, targetAction, nextStatus } = paymentVerificationModalOrder;
 
     if (isPaid) {
       updatePaymentStatusMutation.mutate(
-        { orderId: order._id, paymentStatus: 'PAID' },
+        { orderId: order._id, paymentStatus: 'PAID', paymentMethod },
         {
           onSuccess: () => {
             if (targetAction === 'ACCEPT' && nextStatus) {
@@ -465,10 +465,10 @@ export const ManagerOrders: React.FC = () => {
           const nextStatus = getNextStatus(activeOrder.status, workflowMode);
           if (nextStatus) {
             e.preventDefault();
-            updateStatusMutation.mutate({ orderId: activeOrder._id, nextStatus });
+            handleAdvanceOrder(activeOrder, nextStatus);
           } else if (activeOrder.status === 'SERVED') {
             e.preventDefault();
-            setFreeTableOrder(activeOrder);
+            handleFreeTableRequest(activeOrder);
           }
         }
         return;
@@ -566,6 +566,8 @@ export const ManagerOrders: React.FC = () => {
   }, [
     freeTableOrder,
     handleConfirmFreeTable,
+    handleAdvanceOrder,
+    handleFreeTableRequest,
     detailModalOrder,
     selectedCardOrder,
     liveSelectedOrder,
@@ -1226,12 +1228,7 @@ export const ManagerOrders: React.FC = () => {
                   const ActionIcon = nextAction.icon;
                   return (
                     <button
-                      onClick={() =>
-                        updateStatusMutation.mutate({
-                          orderId: liveSelectedOrder._id,
-                          nextStatus,
-                        })
-                      }
+                      onClick={() => handleAdvanceOrder(liveSelectedOrder, nextStatus)}
                       className={`px-4 py-2 sm:py-2.5 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 ${nextAction.gradient}`}
                     >
                       <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
@@ -1529,7 +1526,7 @@ export const ManagerOrders: React.FC = () => {
                         const ActionIcon = nextAction.icon;
                         return (
                           <button
-                            onClick={() => updateStatusMutation.mutate({ orderId: liveDetailOrder._id, nextStatus })}
+                            onClick={() => handleAdvanceOrder(liveDetailOrder, nextStatus)}
                             className={`w-full py-3.5 text-white text-sm font-black rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-[0.98] ${nextAction.gradient}`}
                           >
                             <ActionIcon className="w-4 h-4" strokeWidth={2} />
