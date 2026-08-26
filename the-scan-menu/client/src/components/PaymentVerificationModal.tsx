@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CreditCard,
@@ -21,17 +21,23 @@ export interface PaymentVerificationModalProps {
   mode?: 'PREPAID' | 'POSTPAID';
   title?: string;
   subtitle?: string;
+  enabledPaymentMethods?: {
+    cash?: boolean;
+    card?: boolean;
+    upi?: boolean;
+    razorpay?: boolean;
+  };
   onConfirmPayment: (isPaid: boolean, paymentMethod?: string) => void;
   onCancel: () => void;
 }
 
 export type PaymentMethodType = 'CASH' | 'CARD' | 'UPI' | 'RAZORPAY';
 
-const PAYMENT_METHODS: { id: PaymentMethodType; name: string; icon: any; description: string }[] = [
-  { id: 'CASH', name: 'Cash', icon: Banknote, description: 'Physical cash collected' },
-  { id: 'CARD', name: 'Card / POS', icon: CreditCard, description: 'Card machine / EDC' },
-  { id: 'UPI', name: 'UPI / QR', icon: QrCode, description: 'Instant UPI transfer' },
-  { id: 'RAZORPAY', name: 'Digital Gateway', icon: Globe, description: 'Online gateway payment' },
+const ALL_PAYMENT_METHODS: { id: PaymentMethodType; key: 'cash' | 'card' | 'upi' | 'razorpay'; name: string; icon: any; description: string }[] = [
+  { id: 'CASH', key: 'cash', name: 'Cash', icon: Banknote, description: 'Physical cash collected' },
+  { id: 'CARD', key: 'card', name: 'Card / POS', icon: CreditCard, description: 'Card machine / EDC' },
+  { id: 'UPI', key: 'upi', name: 'UPI / QR', icon: QrCode, description: 'Instant UPI transfer' },
+  { id: 'RAZORPAY', key: 'razorpay', name: 'Razorpay Gateway', icon: Globe, description: 'Online gateway payment' },
 ];
 
 export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> = ({
@@ -41,6 +47,7 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
   mode = 'PREPAID',
   title,
   subtitle,
+  enabledPaymentMethods,
   onConfirmPayment,
   onCancel,
 }) => {
@@ -53,6 +60,13 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
   // Step 2 state: status option ('NOT_PAID' or 'PAID')
   // Index 0: NOT_PAID, Index 1: PAID
   const [selectedStatusIdx, setSelectedStatusIdx] = useState<number>(0);
+
+  // Filter payment methods based on manager configurations set in settings
+  const availableMethods = useMemo(() => {
+    if (!enabledPaymentMethods) return ALL_PAYMENT_METHODS;
+    const list = ALL_PAYMENT_METHODS.filter((m) => enabledPaymentMethods[m.key] !== false);
+    return list.length > 0 ? list : ALL_PAYMENT_METHODS;
+  }, [enabledPaymentMethods]);
 
   useEffect(() => {
     if (isOpen) {
@@ -71,10 +85,10 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
         // Step 1 Navigation: Choose Payment Method
         if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
           e.preventDefault();
-          setSelectedMethodIdx((prev) => (prev + 1) % PAYMENT_METHODS.length);
+          setSelectedMethodIdx((prev) => (prev + 1) % availableMethods.length);
         } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
           e.preventDefault();
-          setSelectedMethodIdx((prev) => (prev - 1 + PAYMENT_METHODS.length) % PAYMENT_METHODS.length);
+          setSelectedMethodIdx((prev) => (prev - 1 + availableMethods.length) % availableMethods.length);
         } else if (e.key === 'Enter') {
           e.preventDefault();
           setStep(2);
@@ -94,8 +108,8 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
         } else if (e.key === 'Enter') {
           e.preventDefault();
           const isPaid = selectedStatusIdx === 1;
-          const method = PAYMENT_METHODS[selectedMethodIdx].id;
-          onConfirmPayment(isPaid, method);
+          const activeM = availableMethods[selectedMethodIdx] || availableMethods[0];
+          onConfirmPayment(isPaid, activeM.id);
         } else if (e.key === 'Backspace') {
           e.preventDefault();
           setStep(1);
@@ -108,7 +122,7 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, step, selectedMethodIdx, selectedStatusIdx, onConfirmPayment, onCancel]);
+  }, [isOpen, step, selectedMethodIdx, selectedStatusIdx, availableMethods, onConfirmPayment, onCancel]);
 
   if (!isOpen || !order) return null;
 
@@ -117,7 +131,7 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
     currency: currency || 'INR',
   }).format((order.total || 0) / 100);
 
-  const activeMethod = PAYMENT_METHODS[selectedMethodIdx];
+  const activeMethod = availableMethods[selectedMethodIdx] || availableMethods[0];
   const isPaidSelected = selectedStatusIdx === 1;
 
   const displayTitle =
@@ -227,8 +241,8 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
                 <label className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block">
                   1. Choose Payment Method
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {PAYMENT_METHODS.map((m, idx) => {
+                <div className={`grid gap-3 ${availableMethods.length > 2 ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                  {availableMethods.map((m, idx) => {
                     const MethodIcon = m.icon;
                     const isSelected = selectedMethodIdx === idx;
                     return (

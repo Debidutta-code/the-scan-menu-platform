@@ -331,6 +331,11 @@ export const ManagerOrders: React.FC = () => {
 
   const orderingPaymentPolicy = (restaurantData?.data?.paymentConfig?.activeMode || restaurantData?.data?.activeMode || 'POSTPAID') as 'PREPAID' | 'POSTPAID';
 
+  const enabledPaymentMethods = React.useMemo(() => {
+    const pConfig = restaurantData?.data?.paymentConfig || restaurantData?.data?.settings?.paymentConfig;
+    return pConfig?.paymentMethods || { cash: true, card: true, upi: true, razorpay: false };
+  }, [restaurantData]);
+
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ orderId, paymentStatus, paymentMethod }: { orderId: string; paymentStatus: 'PAID' | 'PENDING'; paymentMethod?: string }) => {
       const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/orders/${orderId}/payment-status`, { paymentStatus, paymentMethod });
@@ -436,14 +441,16 @@ export const ManagerOrders: React.FC = () => {
           activeElement.tagName === 'TEXTAREA');
       if (isInputActive) return;
 
-      // Free Table confirmation modal is active
-      if (freeTableOrder) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleConfirmFreeTable(true);
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setFreeTableOrder(null);
+      // Active modals keydown guards
+      if (paymentVerificationModalOrder || freeTableOrder) {
+        if (freeTableOrder) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleConfirmFreeTable(true);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setFreeTableOrder(null);
+          }
         }
         return;
       }
@@ -564,6 +571,7 @@ export const ManagerOrders: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
+    paymentVerificationModalOrder,
     freeTableOrder,
     handleConfirmFreeTable,
     handleAdvanceOrder,
@@ -1107,7 +1115,7 @@ export const ManagerOrders: React.FC = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setPrintModalOrder(order);
+                                  setPrintModalOrder(order);
                           }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition cursor-pointer"
                           title="Print Options &amp; KOT"
@@ -1151,9 +1159,7 @@ export const ManagerOrders: React.FC = () => {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          PERSISTENT FLOATING QUICK ACTION DOCK
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ── PERSISTENT FLOATING QUICK ACTION DOCK ────────────────────────────── */}
       <AnimatePresence>
         {liveSelectedOrder && !detailModalOrder && (
           <motion.div
@@ -1161,36 +1167,46 @@ export const ManagerOrders: React.FC = () => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 60, opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[94vw] max-w-3xl bg-slate-950/95 backdrop-blur-xl border border-slate-800 text-white rounded-3xl p-3 sm:p-4 shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center justify-between gap-3 sm:gap-4 flex-wrap sm:flex-nowrap"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-4xl bg-white/95 backdrop-blur-xl border border-slate-200/90 text-slate-900 rounded-3xl p-3 sm:p-4 shadow-[0_20px_50px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3 sm:gap-4 flex-wrap md:flex-nowrap"
           >
             {/* Left: Selected Order Info */}
             <div className="flex items-center gap-3 min-w-0">
-              <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-slate-950 px-2.5 py-1 rounded-xl shadow-xs shrink-0">
+              <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-white px-3 py-1.5 rounded-2xl shadow-xs shrink-0 flex items-center justify-center">
                 #{liveSelectedOrder.orderNumber}
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-xs sm:text-sm text-white truncate">
+                  <span className="font-extrabold text-sm text-slate-900 truncate">
                     {liveSelectedOrder.tableId?.displayName || liveSelectedOrder.tableId?.tableNumber || 'Table'}
                   </span>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-amber-400 border border-slate-700 uppercase">
+                  <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-lg border uppercase tracking-wider ${
+                    liveSelectedOrder.status === 'PENDING'
+                      ? 'bg-amber-50 text-amber-900 border-amber-200'
+                      : liveSelectedOrder.status === 'ACCEPTED'
+                      ? 'bg-blue-50 text-blue-900 border-blue-200'
+                      : liveSelectedOrder.status === 'PREPARING'
+                      ? 'bg-purple-50 text-purple-900 border-purple-200'
+                      : liveSelectedOrder.status === 'READY'
+                      ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                      : 'bg-slate-100 text-slate-800 border-slate-200'
+                  }`}>
                     {liveSelectedOrder.status}
                   </span>
                   {pendingOrderIds.has(liveSelectedOrder._id) && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                      <Loader className="w-3 h-3 animate-spin text-amber-400" strokeWidth={2} />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 animate-pulse">
+                      <Loader className="w-3 h-3 animate-spin text-amber-600" strokeWidth={2} />
                       <span>Updating...</span>
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                <div className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-0.5">
                   <span>{liveSelectedOrder.items.length} items</span>
-                  <span>â€¢</span>
-                  <span className="text-white font-bold">{formatAmount(liveSelectedOrder.total)}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-900 font-mono font-black">{formatAmount(liveSelectedOrder.total)}</span>
                   {liveSelectedOrder.customerName && (
                     <>
-                      <span>â€¢</span>
-                      <span className="text-slate-300 truncate max-w-[100px]">{liveSelectedOrder.customerName}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-slate-700 font-semibold truncate max-w-[120px]">{liveSelectedOrder.customerName}</span>
                     </>
                   )}
                 </div>
@@ -1198,23 +1214,24 @@ export const ManagerOrders: React.FC = () => {
             </div>
 
             {/* Right: Quick Action Controls */}
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-slate-100">
               {/* Quick Revert Button */}
               {(() => {
                 const prevStatus = getPreviousStatus(liveSelectedOrder.status, workflowMode);
                 if (!prevStatus) return null;
                 return (
                   <button
+                    type="button"
                     onClick={() =>
                       updateStatusMutation.mutate({
                         orderId: liveSelectedOrder._id,
                         nextStatus: prevStatus,
                       })
                     }
-                    className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95"
+                    className="px-3 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 border border-slate-200 active:scale-95 cursor-pointer"
                     title={`Revert to ${prevStatus}`}
                   >
-                    <RotateCcw className="w-4 h-4 text-amber-400" strokeWidth={2} />
+                    <RotateCcw className="w-4 h-4 text-amber-600" strokeWidth={2} />
                     <span className="hidden sm:inline">Revert</span>
                   </button>
                 );
@@ -1228,11 +1245,13 @@ export const ManagerOrders: React.FC = () => {
                   const ActionIcon = nextAction.icon;
                   return (
                     <button
+                      type="button"
                       onClick={() => handleAdvanceOrder(liveSelectedOrder, nextStatus)}
-                      className={`px-4 py-2 sm:py-2.5 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 ${nextAction.gradient}`}
+                      className={`px-4 sm:px-5 py-2.5 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer ${nextAction.gradient}`}
                     >
                       <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
                       <span>{nextAction.label}</span>
+                      <span className="hidden lg:inline text-[10px] bg-black/20 px-1.5 py-0.5 rounded font-mono font-normal">↵</span>
                     </button>
                   );
                 }
@@ -1240,8 +1259,9 @@ export const ManagerOrders: React.FC = () => {
                 if (liveSelectedOrder.status === 'SERVED') {
                   return (
                     <button
+                      type="button"
                       onClick={() => setFreeTableOrder(liveSelectedOrder)}
-                      className="px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                      className="px-4 sm:px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer"
                     >
                       <Receipt className="w-4 h-4" strokeWidth={2} />
                       <span>Free Table (Enter ↵)</span>
@@ -1254,11 +1274,12 @@ export const ManagerOrders: React.FC = () => {
 
               {/* Quick Print Customer Bill Button */}
               <button
+                type="button"
                 onClick={() => printOrderTicket(liveSelectedOrder, restaurantInfo, 'CUSTOMER')}
-                className="px-3 py-2 sm:py-2.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-blue-500/40 active:scale-95 cursor-pointer"
+                className="px-3.5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-extrabold rounded-2xl transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
                 title="Quick Print Customer Bill"
               >
-                <Receipt className="w-4 h-4 text-blue-400" strokeWidth={2} />
+                <Receipt className="w-4 h-4 text-blue-600" strokeWidth={2} />
                 <span className="hidden sm:inline">Print Bill</span>
               </button>
 
@@ -1808,6 +1829,7 @@ export const ManagerOrders: React.FC = () => {
         order={paymentVerificationModalOrder?.order}
         currency={restaurantInfo.currency}
         mode={orderingPaymentPolicy}
+        enabledPaymentMethods={enabledPaymentMethods}
         onConfirmPayment={handlePaymentModalConfirm}
         onCancel={() => setPaymentVerificationModalOrder(null)}
       />
