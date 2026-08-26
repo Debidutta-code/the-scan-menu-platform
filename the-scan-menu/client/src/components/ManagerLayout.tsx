@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
+import { useFontScale } from '../hooks/useFontScale';
 import ConnectionIndicator from './ConnectionIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import { ScanMenuLogo } from './ScanMenuLogo';
@@ -47,6 +48,7 @@ export const ManagerLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isEnabled } = useFeatureFlags();
+  const { fontScale, setFontScale } = useFontScale();
 
   // Sidebar collapsible state with localStorage persistence
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
@@ -377,6 +379,46 @@ export const ManagerLayout: React.FC = () => {
           </div>
           <Lock className="w-3.5 h-3.5 text-amber-600 ml-0.5 shrink-0" />
         </button>
+
+        {/* Global UI Text Size / Font Scale Switcher */}
+        <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+          <button
+            type="button"
+            onClick={() => setFontScale('SMALL')}
+            className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+              fontScale === 'SMALL'
+                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+            title="Small Text (87.5% - Compact 14-inch Laptop)"
+          >
+            A⁻
+          </button>
+          <button
+            type="button"
+            onClick={() => setFontScale('NORMAL')}
+            className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+              fontScale === 'NORMAL'
+                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+            title="Normal Text (100% - Standard)"
+          >
+            A
+          </button>
+          <button
+            type="button"
+            onClick={() => setFontScale('LARGE')}
+            className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+              fontScale === 'LARGE'
+                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+            title="Large Text (112.5% - Kitchen TV / Large Display)"
+          >
+            A⁺
+          </button>
+        </div>
 
         {/* Sound Chime Switcher */}
         <button

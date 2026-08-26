@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  html.font-scale-small {
+    font-size: 87.5%; /* 14px base font size - compact for 14-inch laptops */
+  }
+  html.font-scale-normal {
+    font-size: 100%; /* 16px base font size - standard */
+  }
+  html.font-scale-large {
+    font-size: 112.5%; /* 18px base font size - large displays & kitchen TV */
+  }
+
   body {
     @apply font-sans bg-[#F9FAFB] text-slate-900 antialiased;
   }

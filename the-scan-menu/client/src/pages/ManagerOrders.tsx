@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
+import { useFontScale } from '../hooks/useFontScale';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { PaymentVerificationModal } from '../components/PaymentVerificationModal';
 import { printOrderTicket } from '../utils/printReceipt';
@@ -248,6 +249,7 @@ export const ManagerOrders: React.FC = () => {
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const { fontScale, setFontScale } = useFontScale();
 
   // Density view state for laptop/desktop screen optimization
   const [densityMode, setDensityMode] = useState<'COMPACT' | 'COMFORTABLE'>(() => {
@@ -694,6 +696,46 @@ export const ManagerOrders: React.FC = () => {
             >
               <Maximize2 className="w-3 h-3 text-slate-500" strokeWidth={2} />
               <span>Comfortable</span>
+            </button>
+          </div>
+
+          {/* Text Size / Font Scale Control (Order Screen Access) */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Order Screen Font Size">
+            <button
+              type="button"
+              onClick={() => setFontScale('SMALL')}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+                fontScale === 'SMALL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Small Text (87.5% - Laptop)"
+            >
+              A⁻
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('NORMAL')}
+              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+                fontScale === 'NORMAL'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Normal Text (100% - Default)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale('LARGE')}
+              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+                fontScale === 'LARGE'
+                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Large Text (112.5% - TV / KDS)"
+            >
+              A⁺
             </button>
           </div>
 
