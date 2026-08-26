@@ -1188,160 +1188,166 @@ export const ManagerOrders: React.FC = () => {
       )}
 
       {/* ── PERSISTENT FLOATING QUICK ACTION DOCK ────────────────────────────── */}
-      <AnimatePresence>
-        {liveSelectedOrder && !detailModalOrder && (
-          <motion.div
-            initial={{ y: 80, opacity: 0, scale: 0.96 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 80, opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-7 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 w-[94vw] max-w-4xl bg-slate-950/95 backdrop-blur-xl border border-slate-700/80 text-white rounded-3xl p-3 sm:px-5 sm:py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.38),0_0_0_1px_rgba(255,255,255,0.1)] flex items-center justify-between gap-3 flex-wrap md:flex-nowrap"
-          >
-            {/* Left: Selected Order Info */}
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-slate-950 px-3 py-1.5 rounded-2xl shadow-xs shrink-0 flex items-center justify-center">
-                #{liveSelectedOrder.orderNumber}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-extrabold text-sm text-white truncate">
-                    {liveSelectedOrder.tableId?.displayName || liveSelectedOrder.tableId?.tableNumber || 'Table'}
-                  </span>
-                  <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-lg border uppercase tracking-wider ${
-                    liveSelectedOrder.status === 'PENDING'
-                      ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
-                      : liveSelectedOrder.status === 'ACCEPTED'
-                      ? 'bg-emerald-400/20 text-emerald-300 border-emerald-400/40'
-                      : liveSelectedOrder.status === 'PREPARING'
-                      ? 'bg-indigo-400/20 text-indigo-300 border-indigo-400/40'
-                      : liveSelectedOrder.status === 'READY'
-                      ? 'bg-purple-400/20 text-purple-300 border-purple-400/40'
-                      : 'bg-blue-400/20 text-blue-300 border-blue-400/40'
-                  }`}>
-                    {liveSelectedOrder.status}
-                  </span>
-                  {pendingOrderIds.has(liveSelectedOrder._id) && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 animate-pulse">
-                      <Loader className="w-3 h-3 animate-spin text-amber-400" strokeWidth={2} />
-                      <span>Updating...</span>
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {liveSelectedOrder && !detailModalOrder && (
+              <div className="fixed bottom-6 left-0 right-0 z-[9999] flex justify-center pointer-events-none px-3 sm:px-4">
+                <motion.div
+                  initial={{ y: 60, opacity: 0, scale: 0.96 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: 60, opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="pointer-events-auto w-full max-w-4xl bg-slate-950/95 backdrop-blur-xl border border-slate-700/90 text-white rounded-3xl p-3 sm:px-5 sm:py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.12)] flex items-center justify-between gap-3 flex-wrap md:flex-nowrap"
+                >
+                  {/* Left: Selected Order Info */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-slate-950 px-3 py-1.5 rounded-2xl shadow-xs shrink-0 flex items-center justify-center">
+                      #{liveSelectedOrder.orderNumber}
                     </span>
-                  )}
-                </div>
-                <div className="text-xs text-slate-400 font-medium flex items-center gap-2 mt-0.5">
-                  <span>{liveSelectedOrder.items.length} items</span>
-                  <span className="text-slate-600">•</span>
-                  <span className="text-white font-mono font-black">{formatAmount(liveSelectedOrder.total)}</span>
-                  {liveSelectedOrder.customerName && (
-                    <>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-slate-300 font-semibold truncate max-w-[120px]">{liveSelectedOrder.customerName}</span>
-                    </>
-                  )}
-                </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-sm text-white truncate">
+                          {liveSelectedOrder.tableId?.displayName || liveSelectedOrder.tableId?.tableNumber || 'Table'}
+                        </span>
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-lg border uppercase tracking-wider ${
+                          liveSelectedOrder.status === 'PENDING'
+                            ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
+                            : liveSelectedOrder.status === 'ACCEPTED'
+                            ? 'bg-emerald-400/20 text-emerald-300 border-emerald-400/40'
+                            : liveSelectedOrder.status === 'PREPARING'
+                            ? 'bg-indigo-400/20 text-indigo-300 border-indigo-400/40'
+                            : liveSelectedOrder.status === 'READY'
+                            ? 'bg-purple-400/20 text-purple-300 border-purple-400/40'
+                            : 'bg-blue-400/20 text-blue-300 border-blue-400/40'
+                        }`}>
+                          {liveSelectedOrder.status}
+                        </span>
+                        {pendingOrderIds.has(liveSelectedOrder._id) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 animate-pulse">
+                            <Loader className="w-3 h-3 animate-spin text-amber-400" strokeWidth={2} />
+                            <span>Updating...</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+                        <span>{liveSelectedOrder.items.length} items</span>
+                        <span className="text-slate-600">•</span>
+                        <span className="text-white font-mono font-black">{formatAmount(liveSelectedOrder.total)}</span>
+                        {liveSelectedOrder.customerName && (
+                          <>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-slate-300 font-semibold truncate max-w-[120px]">{liveSelectedOrder.customerName}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Quick Action Controls */}
+                  <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
+                    {/* Quick Revert Button */}
+                    {(() => {
+                      const prevStatus = getPreviousStatus(liveSelectedOrder.status, workflowMode);
+                      if (!prevStatus) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateStatusMutation.mutate({
+                              orderId: liveSelectedOrder._id,
+                              nextStatus: prevStatus,
+                            })
+                          }
+                          className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
+                          title={`Revert to ${prevStatus}`}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
+                          <span className="hidden sm:inline">Revert</span>
+                        </button>
+                      );
+                    })()}
+
+                    {/* Quick Advance Button */}
+                    {(() => {
+                      const nextStatus = getNextStatus(liveSelectedOrder.status, workflowMode);
+                      if (nextStatus) {
+                        const nextAction = getNextActionLabel(liveSelectedOrder.status, workflowMode);
+                        const ActionIcon = nextAction.icon;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleAdvanceOrder(liveSelectedOrder, nextStatus)}
+                            className={`px-4 sm:px-5 py-2.5 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer ${nextAction.gradient}`}
+                          >
+                            <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
+                            <span>{nextAction.label}</span>
+                            <span className="hidden lg:inline text-[10px] bg-black/25 px-1.5 py-0.5 rounded font-mono font-normal">↵</span>
+                          </button>
+                        );
+                      }
+
+                      if (liveSelectedOrder.status === 'SERVED') {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setFreeTableOrder(liveSelectedOrder)}
+                            className="px-4 sm:px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer"
+                          >
+                            <Receipt className="w-4 h-4" strokeWidth={2} />
+                            <span>Free Table (Enter ↵)</span>
+                          </button>
+                        );
+                      }
+
+                      return null;
+                    })()}
+
+                    {/* Quick Print Customer Bill Button */}
+                    <button
+                      type="button"
+                      onClick={() => printOrderTicket(liveSelectedOrder, restaurantInfo, 'CUSTOMER')}
+                      className="px-3.5 py-2.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 text-xs font-extrabold rounded-2xl transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
+                      title="Quick Print Customer Bill"
+                    >
+                      <Receipt className="w-4 h-4 text-blue-400" strokeWidth={2} />
+                      <span className="hidden sm:inline">Print Bill</span>
+                    </button>
+
+                    {/* Print Modal Button */}
+                    <button
+                      onClick={() => setPrintModalOrder(liveSelectedOrder)}
+                      className="p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95 cursor-pointer"
+                      title="Print KOT & Options"
+                    >
+                      <Printer className="w-4 h-4 text-amber-400" strokeWidth={2} />
+                    </button>
+
+                    {/* View Full Details Button */}
+                    <button
+                      onClick={() => setDetailModalOrder(liveSelectedOrder)}
+                      className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-2xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
+                      title="View full order details and bill breakdown"
+                    >
+                      <FileText className="w-4 h-4 text-amber-400" strokeWidth={2} />
+                      <span className="hidden sm:inline">Details</span>
+                    </button>
+
+                    {/* Deselect / Close Button */}
+                    <button
+                      onClick={() => setSelectedCardOrder(null)}
+                      className="p-2.5 rounded-2xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                      title="Deselect order (Esc)"
+                    >
+                      <X className="w-4 h-4" strokeWidth={2.5} />
+                    </button>
+                  </div>
+                </motion.div>
               </div>
-            </div>
-
-            {/* Right: Quick Action Controls */}
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
-              {/* Quick Revert Button */}
-              {(() => {
-                const prevStatus = getPreviousStatus(liveSelectedOrder.status, workflowMode);
-                if (!prevStatus) return null;
-                return (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateStatusMutation.mutate({
-                        orderId: liveSelectedOrder._id,
-                        nextStatus: prevStatus,
-                      })
-                    }
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
-                    title={`Revert to ${prevStatus}`}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
-                    <span className="hidden sm:inline">Revert</span>
-                  </button>
-                );
-              })()}
-
-              {/* Quick Advance Button */}
-              {(() => {
-                const nextStatus = getNextStatus(liveSelectedOrder.status, workflowMode);
-                if (nextStatus) {
-                  const nextAction = getNextActionLabel(liveSelectedOrder.status, workflowMode);
-                  const ActionIcon = nextAction.icon;
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => handleAdvanceOrder(liveSelectedOrder, nextStatus)}
-                      className={`px-4 sm:px-5 py-2.5 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer ${nextAction.gradient}`}
-                    >
-                      <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
-                      <span>{nextAction.label}</span>
-                      <span className="hidden lg:inline text-[10px] bg-black/25 px-1.5 py-0.5 rounded font-mono font-normal">↵</span>
-                    </button>
-                  );
-                }
-
-                if (liveSelectedOrder.status === 'SERVED') {
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setFreeTableOrder(liveSelectedOrder)}
-                      className="px-4 sm:px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer"
-                    >
-                      <Receipt className="w-4 h-4" strokeWidth={2} />
-                      <span>Free Table (Enter ↵)</span>
-                    </button>
-                  );
-                }
-
-                return null;
-              })()}
-
-              {/* Quick Print Customer Bill Button */}
-              <button
-                type="button"
-                onClick={() => printOrderTicket(liveSelectedOrder, restaurantInfo, 'CUSTOMER')}
-                className="px-3.5 py-2.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 text-xs font-extrabold rounded-2xl transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
-                title="Quick Print Customer Bill"
-              >
-                <Receipt className="w-4 h-4 text-blue-400" strokeWidth={2} />
-                <span className="hidden sm:inline">Print Bill</span>
-              </button>
-
-              {/* Print Modal Button */}
-              <button
-                onClick={() => setPrintModalOrder(liveSelectedOrder)}
-                className="p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95 cursor-pointer"
-                title="Print KOT & Options"
-              >
-                <Printer className="w-4 h-4 text-amber-400" strokeWidth={2} />
-              </button>
-
-              {/* View Full Details Button */}
-              <button
-                onClick={() => setDetailModalOrder(liveSelectedOrder)}
-                className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-2xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
-                title="View full order details and bill breakdown"
-              >
-                <FileText className="w-4 h-4 text-amber-400" strokeWidth={2} />
-                <span className="hidden sm:inline">Details</span>
-              </button>
-
-              {/* Deselect / Close Button */}
-              <button
-                onClick={() => setSelectedCardOrder(null)}
-                className="p-2.5 rounded-2xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-                title="Deselect order (Esc)"
-              >
-                <X className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-            </div>
-          </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           ORDER DETAIL MODAL
