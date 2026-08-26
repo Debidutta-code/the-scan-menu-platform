@@ -3,6 +3,7 @@ export * from './PrinterStudioSection';
 export * from './TaxManagementSection';
 export * from './PaymentSettingsSection';
 export * from './ThemeBrandingSection';
+export * from './DisplayPreferencesSection';
 export * from './WorkflowAutomationSection';
 export * from './AppInstallSection';
 export * from './NotificationPreferencesSection';

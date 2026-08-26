@@ -20,8 +20,6 @@ import {
   CreditCard,
   Sparkles,
   Receipt,
-  Volume2,
-  VolumeX,
   Check,
   ChevronRight,
   RefreshCw,
@@ -30,8 +28,6 @@ import {
   History as HistoryIcon,
   Kanban as KanbanIcon,
   Printer,
-  Maximize2,
-  Minimize2,
   User,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -248,24 +244,27 @@ export const ManagerOrders: React.FC = () => {
   const queryClient = useQueryClient();
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
-  const [audioEnabled, setAudioEnabled] = useState(true);
 
-  // Density view state for laptop/desktop screen optimization
+  // Density view state (managed in Settings)
   const [densityMode, setDensityMode] = useState<'COMPACT' | 'COMFORTABLE'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('manager_orders_density');
       if (saved === 'COMPACT' || saved === 'COMFORTABLE') return saved;
       if (window.innerWidth <= 1440) return 'COMPACT';
     }
-    return 'COMFORTABLE';
+    return 'COMPACT';
   });
 
-  const toggleDensityMode = (mode: 'COMPACT' | 'COMFORTABLE') => {
-    setDensityMode(mode);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('manager_orders_density', mode);
-    }
-  };
+  useEffect(() => {
+    const handleDensityChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail === 'COMPACT' || detail === 'COMFORTABLE') {
+        setDensityMode(detail);
+      }
+    };
+    window.addEventListener('densityModeChanged', handleDensityChange);
+    return () => window.removeEventListener('densityModeChanged', handleDensityChange);
+  }, []);
 
   // Mobile tab state
   const [mobileStatusTab, setMobileStatusTab] = useState<string>('PENDING');
@@ -668,54 +667,14 @@ export const ManagerOrders: React.FC = () => {
           </div>
         </div>
 
-        {/* View Switcher, Density & Audio Controls */}
+        {/* View Switcher & Manual Refresh Controls */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap self-end sm:self-auto">
-          {/* Density Mode Switcher (Compact vs Comfortable) */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Board Display Density">
-            <button
-              onClick={() => toggleDensityMode('COMPACT')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
-                densityMode === 'COMPACT'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Compact Mode: Optimized for standard screens and laptops"
-            >
-              <Minimize2 className="w-3 h-3 text-amber-600" strokeWidth={2} />
-              <span>Compact</span>
-            </button>
-            <button
-              onClick={() => toggleDensityMode('COMFORTABLE')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
-                densityMode === 'COMFORTABLE'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Comfortable Mode: Larger cards with more breathing room"
-            >
-              <Maximize2 className="w-3 h-3 text-slate-500" strokeWidth={2} />
-              <span>Comfortable</span>
-            </button>
-          </div>
-
           <button
             onClick={() => refetchActiveOrders()}
-            className="p-1.5 sm:p-2 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5 active:scale-95"
-            title="Refresh Orders Manually"
+            className="p-2 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
+            title="Refresh Orders Queue"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoadingActive ? 'animate-spin text-amber-500' : ''}`} strokeWidth={2} />
-          </button>
-
-          <button
-            onClick={() => setAudioEnabled(!audioEnabled)}
-            className={`p-1.5 sm:p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
-              audioEnabled
-                ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                : 'bg-rose-50 border-rose-200 text-rose-700'
-            }`}
-            title={audioEnabled ? 'Sound notifications on' : 'Sound muted'}
-          >
-            {audioEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} /> : <VolumeX className="w-3.5 h-3.5 text-rose-500" strokeWidth={1.75} />}
           </button>
 
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
@@ -1232,50 +1191,50 @@ export const ManagerOrders: React.FC = () => {
       <AnimatePresence>
         {liveSelectedOrder && !detailModalOrder && (
           <motion.div
-            initial={{ y: 60, opacity: 0, scale: 0.96 }}
+            initial={{ y: 80, opacity: 0, scale: 0.96 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 60, opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-5xl bg-white/95 backdrop-blur-xl border border-slate-200/90 text-slate-900 rounded-2xl p-2.5 sm:p-3 shadow-[0_16px_40px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3 flex-wrap md:flex-nowrap"
+            exit={{ y: 80, opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-7 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 w-[94vw] max-w-4xl bg-slate-950/95 backdrop-blur-xl border border-slate-700/80 text-white rounded-3xl p-3 sm:px-5 sm:py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.38),0_0_0_1px_rgba(255,255,255,0.1)] flex items-center justify-between gap-3 flex-wrap md:flex-nowrap"
           >
             {/* Left: Selected Order Info */}
             <div className="flex items-center gap-3 min-w-0">
-              <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-white px-3 py-1.5 rounded-2xl shadow-xs shrink-0 flex items-center justify-center">
+              <span className="font-mono text-sm sm:text-base font-black bg-amber-500 text-slate-950 px-3 py-1.5 rounded-2xl shadow-xs shrink-0 flex items-center justify-center">
                 #{liveSelectedOrder.orderNumber}
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-extrabold text-sm text-slate-900 truncate">
+                  <span className="font-extrabold text-sm text-white truncate">
                     {liveSelectedOrder.tableId?.displayName || liveSelectedOrder.tableId?.tableNumber || 'Table'}
                   </span>
                   <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-lg border uppercase tracking-wider ${
                     liveSelectedOrder.status === 'PENDING'
-                      ? 'bg-amber-50 text-amber-900 border-amber-200'
+                      ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
                       : liveSelectedOrder.status === 'ACCEPTED'
-                      ? 'bg-blue-50 text-blue-900 border-blue-200'
+                      ? 'bg-emerald-400/20 text-emerald-300 border-emerald-400/40'
                       : liveSelectedOrder.status === 'PREPARING'
-                      ? 'bg-purple-50 text-purple-900 border-purple-200'
+                      ? 'bg-indigo-400/20 text-indigo-300 border-indigo-400/40'
                       : liveSelectedOrder.status === 'READY'
-                      ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                      : 'bg-slate-100 text-slate-800 border-slate-200'
+                      ? 'bg-purple-400/20 text-purple-300 border-purple-400/40'
+                      : 'bg-blue-400/20 text-blue-300 border-blue-400/40'
                   }`}>
                     {liveSelectedOrder.status}
                   </span>
                   {pendingOrderIds.has(liveSelectedOrder._id) && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 animate-pulse">
-                      <Loader className="w-3 h-3 animate-spin text-amber-600" strokeWidth={2} />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 animate-pulse">
+                      <Loader className="w-3 h-3 animate-spin text-amber-400" strokeWidth={2} />
                       <span>Updating...</span>
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-0.5">
+                <div className="text-xs text-slate-400 font-medium flex items-center gap-2 mt-0.5">
                   <span>{liveSelectedOrder.items.length} items</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-slate-900 font-mono font-black">{formatAmount(liveSelectedOrder.total)}</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-white font-mono font-black">{formatAmount(liveSelectedOrder.total)}</span>
                   {liveSelectedOrder.customerName && (
                     <>
-                      <span className="text-slate-300">•</span>
-                      <span className="text-slate-700 font-semibold truncate max-w-[120px]">{liveSelectedOrder.customerName}</span>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-300 font-semibold truncate max-w-[120px]">{liveSelectedOrder.customerName}</span>
                     </>
                   )}
                 </div>
@@ -1283,7 +1242,7 @@ export const ManagerOrders: React.FC = () => {
             </div>
 
             {/* Right: Quick Action Controls */}
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-slate-100">
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800">
               {/* Quick Revert Button */}
               {(() => {
                 const prevStatus = getPreviousStatus(liveSelectedOrder.status, workflowMode);
@@ -1297,10 +1256,10 @@ export const ManagerOrders: React.FC = () => {
                         nextStatus: prevStatus,
                       })
                     }
-                    className="px-3 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 border border-slate-200 active:scale-95 cursor-pointer"
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
                     title={`Revert to ${prevStatus}`}
                   >
-                    <RotateCcw className="w-4 h-4 text-amber-600" strokeWidth={2} />
+                    <RotateCcw className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
                     <span className="hidden sm:inline">Revert</span>
                   </button>
                 );
@@ -1320,7 +1279,7 @@ export const ManagerOrders: React.FC = () => {
                     >
                       <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
                       <span>{nextAction.label}</span>
-                      <span className="hidden lg:inline text-[10px] bg-black/20 px-1.5 py-0.5 rounded font-mono font-normal">↵</span>
+                      <span className="hidden lg:inline text-[10px] bg-black/25 px-1.5 py-0.5 rounded font-mono font-normal">↵</span>
                     </button>
                   );
                 }
@@ -1345,17 +1304,17 @@ export const ManagerOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => printOrderTicket(liveSelectedOrder, restaurantInfo, 'CUSTOMER')}
-                className="px-3.5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-extrabold rounded-2xl transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
+                className="px-3.5 py-2.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-400/30 text-xs font-extrabold rounded-2xl transition flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
                 title="Quick Print Customer Bill"
               >
-                <Receipt className="w-4 h-4 text-blue-600" strokeWidth={2} />
+                <Receipt className="w-4 h-4 text-blue-400" strokeWidth={2} />
                 <span className="hidden sm:inline">Print Bill</span>
               </button>
 
               {/* Print Modal Button */}
               <button
                 onClick={() => setPrintModalOrder(liveSelectedOrder)}
-                className="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95 cursor-pointer"
+                className="p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 active:scale-95 cursor-pointer"
                 title="Print KOT & Options"
               >
                 <Printer className="w-4 h-4 text-amber-400" strokeWidth={2} />
@@ -1364,17 +1323,17 @@ export const ManagerOrders: React.FC = () => {
               {/* View Full Details Button */}
               <button
                 onClick={() => setDetailModalOrder(liveSelectedOrder)}
-                className="px-3.5 py-2 sm:py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
+                className="px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-2xl transition flex items-center gap-1.5 border border-slate-700 active:scale-95 cursor-pointer"
                 title="View full order details and bill breakdown"
               >
                 <FileText className="w-4 h-4 text-amber-400" strokeWidth={2} />
-                <span>View Details</span>
+                <span className="hidden sm:inline">Details</span>
               </button>
 
               {/* Deselect / Close Button */}
               <button
                 onClick={() => setSelectedCardOrder(null)}
-                className="p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                className="p-2.5 rounded-2xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
                 title="Deselect order (Esc)"
               >
                 <X className="w-4 h-4" strokeWidth={2.5} />

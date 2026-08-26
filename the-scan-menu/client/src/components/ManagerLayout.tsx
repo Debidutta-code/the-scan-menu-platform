@@ -5,7 +5,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../hooks/useToast';
 import { useSocket, ConnectionStatus } from '../hooks/useSocket';
-import { useFontScale } from '../hooks/useFontScale';
 import ConnectionIndicator from './ConnectionIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import { ScanMenuLogo } from './ScanMenuLogo';
@@ -21,9 +20,6 @@ import {
   Settings,
   BarChart3,
   User,
-  Volume2,
-  VolumeX,
-  BellRing,
   Users,
   UserCheck,
   Calculator,
@@ -48,7 +44,6 @@ export const ManagerLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isEnabled } = useFeatureFlags();
-  const { fontScale, setFontScale } = useFontScale();
 
   // Sidebar collapsible state with localStorage persistence
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
@@ -70,10 +65,25 @@ export const ManagerLayout: React.FC = () => {
   }, []);
 
   // Sound/notification toggles
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('manager_sound_chime') !== 'false';
+    }
+    return true;
+  });
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
-  const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [isKioskMode, setIsKioskMode] = useState(false);
+
+  useEffect(() => {
+    const handleSoundChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'boolean') {
+        setSoundEnabled(detail);
+      }
+    };
+    window.addEventListener('managerSoundChanged', handleSoundChange);
+    return () => window.removeEventListener('managerSoundChanged', handleSoundChange);
+  }, []);
 
   const toggleKioskMode = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -228,34 +238,7 @@ export const ManagerLayout: React.FC = () => {
     }
   }, [soundEnabled]);
 
-  // Set alert permissions on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setAlertsEnabled(Notification.permission === 'granted');
-    }
-  }, []);
 
-  const handleToggleAlerts = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      toast('Your browser does not support desktop notifications.', 'error');
-      return;
-    }
-
-    if (Notification.permission === 'granted') {
-      setAlertsEnabled(true);
-      toast('Alerts are already enabled!', 'success');
-      return;
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      setAlertsEnabled(true);
-      toast('Desktop alerts successfully enabled!', 'success');
-    } else {
-      setAlertsEnabled(false);
-      toast('Permission denied for desktop alerts.', 'error');
-    }
-  };
 
   // Register live Socket.IO events for global notification/refresh
   useEffect(() => {
@@ -378,75 +361,6 @@ export const ManagerLayout: React.FC = () => {
             </span>
           </div>
           <Lock className="w-3.5 h-3.5 text-amber-600 ml-0.5 shrink-0" />
-        </button>
-
-        {/* Global UI Text Size / Font Scale Switcher */}
-        <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
-          <button
-            type="button"
-            onClick={() => setFontScale('SMALL')}
-            className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
-              fontScale === 'SMALL'
-                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-            title="Small Text (87.5% - Compact 14-inch Laptop)"
-          >
-            A⁻
-          </button>
-          <button
-            type="button"
-            onClick={() => setFontScale('NORMAL')}
-            className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
-              fontScale === 'NORMAL'
-                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-            title="Normal Text (100% - Standard)"
-          >
-            A
-          </button>
-          <button
-            type="button"
-            onClick={() => setFontScale('LARGE')}
-            className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
-              fontScale === 'LARGE'
-                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-            title="Large Text (112.5% - Kitchen TV / Large Display)"
-          >
-            A⁺
-          </button>
-        </div>
-
-        {/* Sound Chime Switcher */}
-        <button
-          onClick={() => {
-            setSoundEnabled(!soundEnabled);
-            toast(soundEnabled ? 'Sound notifications muted' : 'Sound notifications enabled', 'info');
-          }}
-          className={`p-2 rounded-xl border transition-all ${
-            soundEnabled
-              ? 'bg-amber-50 border-amber-200 text-amber-600'
-              : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'
-          }`}
-          title={soundEnabled ? 'Mute Chime' : 'Unmute Chime'}
-        >
-          {soundEnabled ? <Volume2 className="w-4 h-4" strokeWidth={1.75} /> : <VolumeX className="w-4 h-4" strokeWidth={1.75} />}
-        </button>
-
-        {/* Push notifications button */}
-        <button
-          onClick={handleToggleAlerts}
-          className={`p-2 rounded-xl border transition-all ${
-            alertsEnabled
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-              : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'
-          }`}
-          title={alertsEnabled ? 'Push Notifications Enabled' : 'Enable Push Notifications'}
-        >
-          <BellRing className="w-4 h-4" strokeWidth={1.75} />
         </button>
 
         {/* Kiosk Mode — fullscreen toggle, always visible */}

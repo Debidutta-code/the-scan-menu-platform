@@ -19,7 +19,7 @@ import {
   AppInstallSection,
   PrinterStudioSection,
   PaymentSettingsSection,
-  ThemeBrandingSection,
+  DisplayPreferencesSection,
   WorkflowAutomationSection,
   NotificationPreferencesSection,
   SocialChannelsSection,
@@ -27,12 +27,12 @@ import {
 
 type TabType =
   | 'general'
-  | 'app_install'
+  | 'display'
+  | 'notifications'
   | 'printers'
   | 'payments'
-  | 'theme'
   | 'workflow'
-  | 'notifications'
+  | 'app_install'
   | 'social';
 
 export const ManagerSettings: React.FC = () => {
@@ -51,12 +51,12 @@ export const ManagerSettings: React.FC = () => {
 
   const tabsNav: { id: TabType; label: string; icon: React.ReactNode; badge?: string; show?: boolean }[] = [
     { id: 'general', label: 'Store Profile', icon: <Store className="w-4 h-4" strokeWidth={1.75} /> },
-    { id: 'app_install', label: 'Desktop & Mobile App', icon: <Download className="w-4 h-4 text-amber-500" strokeWidth={1.75} />, badge: 'PWA' },
+    { id: 'display', label: 'Display & Interface', icon: <Palette className="w-4 h-4 text-amber-500" strokeWidth={1.75} /> },
+    { id: 'notifications', label: 'Notifications & Audio', icon: <Bell className="w-4 h-4 text-amber-500" strokeWidth={1.75} /> },
     { id: 'printers', label: 'Printer & Receipts', icon: <Printer className="w-4 h-4 text-amber-500" strokeWidth={1.75} />, show: isEnabled('ordering') || isEnabled('pos') },
     { id: 'payments', label: 'Payments & Channels', icon: <CreditCard className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('payments') },
-    { id: 'theme', label: 'Theme & Branding', icon: <Palette className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('white_label') },
     { id: 'workflow', label: 'Order Workflow', icon: <GitBranch className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('ordering') },
-    { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('ordering') || isEnabled('waiter_call') || isEnabled('kds') },
+    { id: 'app_install', label: 'Desktop & Mobile App', icon: <Download className="w-4 h-4 text-amber-500" strokeWidth={1.75} />, badge: 'PWA' },
     { id: 'social', label: 'Social Channels', icon: <Globe className="w-4 h-4" strokeWidth={1.75} />, show: isEnabled('marketing') || isEnabled('crm') },
   ];
 
@@ -71,7 +71,7 @@ export const ManagerSettings: React.FC = () => {
           <span>Restaurant Operations Settings</span>
         </h3>
         <p className="text-xs text-slate-500 mt-0.5">
-          Manage store information, payment channels, workflow automation, and visual theme variables.
+          Manage store information, font scaling, audio notifications, payment channels, and workflow automation.
         </p>
       </div>
 
@@ -121,12 +121,12 @@ export const ManagerSettings: React.FC = () => {
         {/* ----------------- TAB CONTENT AREA ----------------- */}
         <main className="flex-1 w-full min-w-0">
           {activeTab === 'general' && <StoreProfileSection restaurantId={activeRestaurantId} />}
-          {activeTab === 'app_install' && <AppInstallSection />}
+          {activeTab === 'display' && <DisplayPreferencesSection restaurantId={activeRestaurantId} />}
+          {activeTab === 'notifications' && <NotificationPreferencesSection restaurantId={activeRestaurantId} />}
           {activeTab === 'printers' && <PrinterStudioSection restaurantId={activeRestaurantId} />}
           {activeTab === 'payments' && <PaymentSettingsSection restaurantId={activeRestaurantId} />}
-          {activeTab === 'theme' && <ThemeBrandingSection restaurantId={activeRestaurantId} />}
           {activeTab === 'workflow' && <WorkflowAutomationSection restaurantId={activeRestaurantId} />}
-          {activeTab === 'notifications' && <NotificationPreferencesSection restaurantId={activeRestaurantId} />}
+          {activeTab === 'app_install' && <AppInstallSection />}
           {activeTab === 'social' && <SocialChannelsSection restaurantId={activeRestaurantId} />}
         </main>
       </div>
