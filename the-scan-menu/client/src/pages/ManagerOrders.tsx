@@ -1167,7 +1167,7 @@ export const ManagerOrders: React.FC = () => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 60, opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-4xl bg-white/95 backdrop-blur-xl border border-slate-200/90 text-slate-900 rounded-3xl p-3 sm:p-4 shadow-[0_20px_50px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3 sm:gap-4 flex-wrap md:flex-nowrap"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-5xl bg-white/95 backdrop-blur-xl border border-slate-200/90 text-slate-900 rounded-3xl p-3.5 sm:p-4.5 shadow-[0_20px_50px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3 sm:gap-4 flex-wrap md:flex-nowrap"
           >
             {/* Left: Selected Order Info */}
             <div className="flex items-center gap-3 min-w-0">
