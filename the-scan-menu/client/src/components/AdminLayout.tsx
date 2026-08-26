@@ -101,31 +101,31 @@ export const AdminLayout: React.FC = () => {
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto custom-scrollbar">
           {/* Dashboard */}
           <button
             onClick={() => navigate('/admin/dashboard')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'dashboard'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <LayoutGrid className="w-4 h-4" strokeWidth={1.75} />
+            <LayoutGrid className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Dashboard</span>
           </button>
 
           {/* Outlet Setup & Onboarding Hub */}
           <button
             onClick={() => navigate('/admin/setup-hub')}
-            className={`flex items-center justify-between w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center justify-between w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'setup-hub'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <Settings className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <div className="flex items-center gap-2.5">
+              <Settings className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
               <span>Setup Hub</span>
             </div>
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-amber-400 text-slate-950">
@@ -136,105 +136,105 @@ export const AdminLayout: React.FC = () => {
           {/* Tenants Directory */}
           <button
             onClick={() => navigate('/admin/restaurants')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'restaurants'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <Store className="w-4 h-4" strokeWidth={1.75} />
+            <Store className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Tenants Directory</span>
           </button>
 
           {/* Subscriptions */}
           <button
             onClick={() => navigate('/admin/subscriptions')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'subscriptions'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <CreditCard className="w-4 h-4" strokeWidth={1.75} />
+            <CreditCard className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Subscriptions</span>
           </button>
 
           {/* POS Integrations Hub */}
           <button
             onClick={() => navigate('/admin/pos-integrations')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'pos-integrations'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <Plug className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <Plug className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
             <span>POS Integrations</span>
           </button>
 
           {/* Payment Gateways Manager */}
           <button
             onClick={() => navigate('/admin/payments')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'payments'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <CreditCard className="w-4 h-4 text-emerald-500" strokeWidth={1.75} />
+            <CreditCard className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.75} />
             <span>Payment Gateways</span>
           </button>
 
           {/* Global System Audit Logs */}
           <button
             onClick={() => navigate('/admin/audit-logs')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'audit-logs'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <Clock className="w-4 h-4 text-indigo-400" strokeWidth={1.75} />
+            <Clock className="w-3.5 h-3.5 text-indigo-400" strokeWidth={1.75} />
             <span>System Audit Logs</span>
           </button>
 
           {/* Platform Analytics */}
           <button
             onClick={() => navigate('/admin/analytics')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'analytics'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <BarChart3 className="w-4 h-4" strokeWidth={1.75} />
+            <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Platform Analytics</span>
           </button>
 
           {/* Feature Flags Matrix */}
           <button
             onClick={() => navigate('/admin/feature-flags')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'feature-flags'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <ToggleRight className="w-4 h-4" strokeWidth={1.75} />
+            <ToggleRight className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Feature Flags</span>
           </button>
 
           {/* Loyalty Program Manager */}
           <button
             onClick={() => navigate('/admin/loyalty')}
-            className={`flex items-center justify-between w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center justify-between w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'loyalty'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <Award className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <div className="flex items-center gap-2.5">
+              <Award className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
               <span>Loyalty Program</span>
             </div>
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-amber-400 text-slate-950">
@@ -245,19 +245,19 @@ export const AdminLayout: React.FC = () => {
           {/* Profile */}
           <button
             onClick={() => navigate('/admin/profile')}
-            className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               activeTab === 'profile'
-                ? 'bg-slate-950 text-white shadow-sm'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <User className="w-4 h-4" strokeWidth={1.75} />
+            <User className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Admin Profile</span>
           </button>
         </nav>
 
         {/* User Footer */}
-        <div className="p-4 border-t border-slate-150 bg-slate-50/50">
+        <div className="p-2.5 px-3 border-t border-slate-150 bg-slate-50/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-slate-950 text-amber-400 font-bold text-xs flex items-center justify-center font-mono">
