@@ -9,6 +9,7 @@ import {
   Delete,
   Loader,
   Store,
+  WifiOff,
 } from 'lucide-react';
 
 export interface PosUnlockedUser {
@@ -29,6 +30,56 @@ export interface PosLockScreenModalProps {
   subtitle?: string;
 }
 
+interface CachedPinEntry {
+  pinHash: string;
+  user: PosUnlockedUser;
+  lastUsed: string;
+}
+
+// SHA-256 helper with Web Crypto
+async function computePinHash(restaurantId: string, pin: string): Promise<string> {
+  const clean = `${restaurantId}:${pin.trim()}`;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const msgBuffer = new TextEncoder().encode(clean);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      // fallback
+    }
+  }
+  // Fallback simple hash for older environments
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const char = clean.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return `fb_${Math.abs(hash)}`;
+}
+
+function getStoredPinCache(restaurantId: string): CachedPinEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(`offline_pos_pins_${restaurantId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePinCache(restaurantId: string, entry: CachedPinEntry) {
+  if (typeof window === 'undefined') return;
+  try {
+    const list = getStoredPinCache(restaurantId).filter((p) => p.pinHash !== entry.pinHash);
+    list.unshift(entry);
+    localStorage.setItem(`offline_pos_pins_${restaurantId}`, JSON.stringify(list.slice(0, 20)));
+  } catch (e) {
+    console.error('Error caching offline POS PIN:', e);
+  }
+}
+
 export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   isOpen,
   onClose,
@@ -41,20 +92,136 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   const { toast } = useToast();
   const [pin, setPin] = useState('');
   const [isShaking, setIsShaking] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const triggerShake = () => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 500);
+    setPin('');
+  };
+
+  // Offline PIN check
+  const attemptOfflineUnlock = useCallback(
+    async (enteredPin: string): Promise<boolean> => {
+      const pinHash = await computePinHash(restaurantId, enteredPin);
+      const cachedList = getStoredPinCache(restaurantId);
+      const matched = cachedList.find((p) => p.pinHash === pinHash);
+
+      if (matched) {
+        toast(`Terminal Unlocked (${matched.user.name} • Offline Mode)`, 'success');
+        setPin('');
+        const updatedUser = {
+          ...matched.user,
+          unlockedAt: new Date().toISOString(),
+        };
+        savePinCache(restaurantId, {
+          pinHash,
+          user: updatedUser,
+          lastUsed: new Date().toISOString(),
+        });
+        onUnlockSuccess(updatedUser);
+        if (onClose) onClose();
+        return true;
+      }
+
+      // Check if session has a known user to fall back on if cache empty
+      const rawSession = sessionStorage.getItem(`pos_cashier_${restaurantId}`);
+      if (rawSession) {
+        try {
+          const sessionUser = JSON.parse(rawSession);
+          if (sessionUser && sessionUser.name) {
+            // Save this pin for future offline unlocks
+            savePinCache(restaurantId, {
+              pinHash,
+              user: sessionUser,
+              lastUsed: new Date().toISOString(),
+            });
+            toast(`Terminal Unlocked (${sessionUser.name} • Offline Mode)`, 'success');
+            setPin('');
+            onUnlockSuccess(sessionUser);
+            if (onClose) onClose();
+            return true;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      return false;
+    },
+    [restaurantId, toast, onUnlockSuccess, onClose]
+  );
 
   const unlockMutation = useMutation({
-    mutationFn: (enteredPin: string) => managerService.unlockPosByPin(restaurantId, enteredPin),
-    onSuccess: (res) => {
+    mutationFn: async (enteredPin: string) => {
+      // If client is already offline, skip network request entirely
+      if (!navigator.onLine) {
+        const offlineSuccess = await attemptOfflineUnlock(enteredPin);
+        if (offlineSuccess) return { offline: true };
+        throw new Error('OFFLINE_INVALID_PIN');
+      }
+
+      try {
+        const res = await managerService.unlockPosByPin(restaurantId, enteredPin);
+        return res;
+      } catch (err: any) {
+        // If network failed (offline, timeout, connection lost), fall back to offline verification
+        const isNetworkErr =
+          !err.response ||
+          err.code === 'ERR_NETWORK' ||
+          err.code === 'ECONNABORTED' ||
+          err.message?.includes('Network Error');
+
+        if (isNetworkErr) {
+          const offlineSuccess = await attemptOfflineUnlock(enteredPin);
+          if (offlineSuccess) return { offline: true };
+          throw new Error('OFFLINE_INVALID_PIN');
+        }
+
+        throw err;
+      }
+    },
+    onSuccess: async (res, enteredPin) => {
+      if ((res as any)?.offline) return; // Handled in attemptOfflineUnlock
+
       toast(res.message || 'Terminal Unlocked', 'success');
       setPin('');
+
+      // Cache valid PIN hash locally for offline use
+      if (res.data) {
+        const pinHash = await computePinHash(restaurantId, enteredPin);
+        savePinCache(restaurantId, {
+          pinHash,
+          user: res.data,
+          lastUsed: new Date().toISOString(),
+        });
+      }
+
       onUnlockSuccess(res.data);
       if (onClose) onClose();
     },
     onError: (err: any) => {
-      setIsShaking(true);
-      setTimeout(() => setIsShaking(false), 500);
-      setPin('');
-      toast(err.response?.data?.error?.message || 'Invalid PIN. Access denied.', 'error');
+      triggerShake();
+      if (err.message === 'OFFLINE_INVALID_PIN') {
+        toast('Invalid PIN in Offline Mode. Please try again.', 'error');
+      } else {
+        toast(err.response?.data?.error?.message || 'Invalid PIN. Access denied.', 'error');
+      }
     },
   });
 
@@ -100,7 +267,7 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
       } else if (e.key === 'Backspace') {
         handleBackspace();
       } else if (e.key === 'Enter') {
-        if (pin.length === 4) {
+        if (pin.length >= 4) {
           unlockMutation.mutate(pin);
         }
       }
@@ -115,10 +282,18 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[999999] bg-slate-950/85 backdrop-blur-lg flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
       <div
-        className={`bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col items-center p-6 md:p-8 transition-transform duration-150 ${
+        className={`bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col items-center p-6 md:p-8 transition-transform duration-150 relative ${
           isShaking ? 'translate-x-2 animate-bounce' : ''
         }`}
       >
+        {/* Offline Badge Indicator */}
+        {!isOnline && (
+          <div className="absolute top-3.5 right-3.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs">
+            <WifiOff className="w-3 h-3 text-amber-600 shrink-0" />
+            <span>Offline Ready</span>
+          </div>
+        )}
+
         {/* Lock Icon & Branding */}
         <div className="w-16 h-16 rounded-3xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-lg mb-4">
           {unlockMutation.isPending ? (
