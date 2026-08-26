@@ -31,11 +31,11 @@ import {
   Kanban as KanbanIcon,
   Printer,
   Maximize2,
-  Minimize2
+  Minimize2,
+  User,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
-import { useFontScale } from '../hooks/useFontScale';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { PaymentVerificationModal } from '../components/PaymentVerificationModal';
 import { printOrderTicket } from '../utils/printReceipt';
@@ -249,7 +249,6 @@ export const ManagerOrders: React.FC = () => {
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const { fontScale, setFontScale } = useFontScale();
 
   // Density view state for laptop/desktop screen optimization
   const [densityMode, setDensityMode] = useState<'COMPACT' | 'COMFORTABLE'>(() => {
@@ -680,7 +679,7 @@ export const ManagerOrders: React.FC = () => {
                   ? 'bg-white text-slate-900 shadow-2xs'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
-              title="Compact Mode: Optimized for 14-inch laptops and standard monitor sizes"
+              title="Compact Mode: Optimized for standard screens and laptops"
             >
               <Minimize2 className="w-3 h-3 text-amber-600" strokeWidth={2} />
               <span>Compact</span>
@@ -692,50 +691,10 @@ export const ManagerOrders: React.FC = () => {
                   ? 'bg-white text-slate-900 shadow-2xs'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
-              title="Comfortable Mode: Larger cards for 4K / TV displays"
+              title="Comfortable Mode: Larger cards with more breathing room"
             >
               <Maximize2 className="w-3 h-3 text-slate-500" strokeWidth={2} />
               <span>Comfortable</span>
-            </button>
-          </div>
-
-          {/* Text Size / Font Scale Control (Order Screen Access) */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Order Screen Font Size">
-            <button
-              type="button"
-              onClick={() => setFontScale('SMALL')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
-                fontScale === 'SMALL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Small Text (87.5% - Laptop)"
-            >
-              A⁻
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('NORMAL')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
-                fontScale === 'NORMAL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Normal Text (100% - Default)"
-            >
-              A
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('LARGE')}
-              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
-                fontScale === 'LARGE'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Large Text (112.5% - TV / KDS)"
-            >
-              A⁺
             </button>
           </div>
 
@@ -887,115 +846,130 @@ export const ManagerOrders: React.FC = () => {
                                   setSelectedCardOrder(order);
                                 }
                               }}
-                              className={`rounded-xl shadow-xs hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col group relative overflow-hidden ${
-                                densityMode === 'COMPACT' ? 'p-2.5 gap-2' : 'p-4 gap-3'
+                              className={`rounded-2xl shadow-xs hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col group relative overflow-hidden ${
+                                densityMode === 'COMPACT' ? 'p-3 gap-2.5' : 'p-3.5 gap-3'
                               } ${
                                 isSelected
-                                  ? 'bg-amber-50/50 border-2 border-amber-500 ring-2 ring-amber-500/20 shadow-md scale-[1.01]'
+                                  ? 'bg-amber-50/40 border-2 border-amber-500 ring-2 ring-amber-500/20 shadow-md'
                                   : 'bg-white border border-slate-200/90 hover:border-amber-400/80'
                               }`}
                             >
-                              {/* Order Card Top Bar */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-mono text-xs font-black bg-slate-900 text-white px-2 py-0.5 rounded-lg shadow-sm">
+                              {/* Order Card Top Bar (Row 1: #Number + Mode | Elapsed Time + Eye) */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-mono text-xs font-black bg-slate-950 text-white px-2 py-0.5 rounded-lg shadow-2xs shrink-0">
                                     #{order.orderNumber}
                                   </span>
-                                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${modeInfo.color}`}>
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${modeInfo.color}`}>
                                     <ModeIcon className="w-2.5 h-2.5" strokeWidth={2} />
                                     <span>{modeInfo.label}</span>
                                   </span>
-                                  {order.paymentStatus === 'PAID' ? (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" strokeWidth={2} />
-                                      <span>PAID</span>
-                                    </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPaymentVerificationModalOrder({ order, targetAction: 'ACCEPT', nextStatus: getNextStatus(order.status, workflowMode) || undefined });
-                                      }}
-                                      className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-300 hover:bg-rose-200 transition cursor-pointer"
-                                      title="Click to verify or mark payment"
-                                    >
-                                      <CreditCard className="w-2.5 h-2.5 text-rose-600" strokeWidth={2} />
-                                      <span>PAYMENT PENDING</span>
-                                    </button>
-                                  )}
-                                  {isPendingAction && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
-                                      <Loader className="w-3 h-3 animate-spin text-amber-600" strokeWidth={2} />
-                                      <span>Updating...</span>
-                                    </span>
-                                  )}
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[10px] font-semibold text-slate-500 font-mono flex items-center gap-1 whitespace-nowrap bg-slate-100/80 px-1.5 py-0.5 rounded-md">
+                                    <Clock className="w-2.5 h-2.5 text-slate-400" strokeWidth={2} />
+                                    {getElapsedTimeLabel(order.createdAt, now)}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setDetailModalOrder(order);
                                     }}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition opacity-80 hover:opacity-100"
+                                    className="p-1 rounded-md text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition"
                                     title="View full order details"
                                   >
                                     <Eye className="w-3.5 h-3.5" strokeWidth={2} />
                                   </button>
-                                  <span className="text-[11px] font-bold text-slate-400 font-mono flex items-center gap-1">
-                                    <Clock className="w-3 h-3" strokeWidth={1.75} />
-                                    {getElapsedTimeLabel(order.createdAt, now)}
-                                  </span>
                                 </div>
                               </div>
 
+                              {/* Row 2: Payment Status & Pending Activity Tag */}
+                              <div className="flex items-center gap-1.5 flex-wrap -mt-0.5">
+                                {order.paymentStatus === 'PAID' ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" strokeWidth={2.5} />
+                                    <span>PAID</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPaymentVerificationModalOrder({ order, targetAction: 'ACCEPT', nextStatus: getNextStatus(order.status, workflowMode) || undefined });
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition cursor-pointer"
+                                    title="Click to verify or mark payment"
+                                  >
+                                    <CreditCard className="w-2.5 h-2.5 text-rose-500" strokeWidth={2} />
+                                    <span>PAYMENT PENDING</span>
+                                  </button>
+                                )}
+                                {isPendingAction && (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                    <Loader className="w-2.5 h-2.5 animate-spin text-amber-600" strokeWidth={2} />
+                                    <span>Updating...</span>
+                                  </span>
+                                )}
+                              </div>
+
                               {/* Table & Customer Row */}
-                              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                                <span className="flex items-center gap-1 text-slate-900">
-                                  <MapPin className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
-                                  {order.tableId?.displayName || order.tableId?.tableNumber || 'Table'}
+                              <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
+                                <span className="flex items-center gap-1 text-slate-900 truncate">
+                                  <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" strokeWidth={2} />
+                                  <span className="truncate">{order.tableId?.displayName || order.tableId?.tableNumber || 'Table'}</span>
                                 </span>
                                 {order.customerName && (
-                                  <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px]">
-                                    {order.customerName}
+                                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100/90 border border-slate-200/80 px-2 py-0.5 rounded-md truncate max-w-[130px] shrink-0">
+                                    <User className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                    <span className="truncate">{order.customerName}</span>
                                   </span>
                                 )}
                               </div>
 
                               {/* Order Items Preview */}
-                              <div className={`bg-slate-50 border border-slate-100 rounded-lg ${
-                                densityMode === 'COMPACT' ? 'p-2 space-y-1' : 'p-2.5 space-y-1.5'
-                              }`}>
+                              <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2 space-y-1.5">
                                 {order.items.map((item: any, idx: number) => (
                                   <div key={idx} className="space-y-0.5 text-xs">
                                     <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-1.5 truncate">
-                                        <span className="font-mono font-black text-slate-900 bg-white border border-slate-200 px-1.5 py-0.2 rounded text-[10px]">
+                                      <div className="flex items-center gap-1.5 truncate min-w-0">
+                                        <span className="font-mono font-bold text-slate-800 bg-white border border-slate-200/90 px-1.5 py-0.2 rounded text-[10px] shrink-0 shadow-2xs">
                                           {item.quantity}x
                                         </span>
-                                        <span className="truncate font-semibold text-slate-800">
+                                        <span className="truncate font-semibold text-slate-800 text-[11px] leading-tight">
                                           {item.nameSnapshot}
                                         </span>
+                                        {item.variantName && (
+                                          <span className="text-[10px] text-slate-400 font-normal">
+                                            ({item.variantName})
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
+                                    {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                                      <div className="pl-6 text-[10px] text-slate-500 truncate">
+                                        + {item.selectedAddOns.map((a: any) => a.name).join(', ')}
+                                      </div>
+                                    )}
                                     {item.specialInstructions && (
-                                      <div className="pl-6 text-[10px] font-bold text-amber-900 bg-amber-100/80 border border-amber-300/80 px-1.5 py-0.5 rounded italic truncate">
-                                        ⚠️ "{item.specialInstructions}"
+                                      <div className="pl-5 text-[10px] font-medium text-amber-900 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md italic truncate flex items-center gap-1">
+                                        <span className="text-[10px]">📝</span>
+                                        <span className="truncate">"{item.specialInstructions}"</span>
                                       </div>
                                     )}
                                   </div>
                                 ))}
 
                                 {order.customerNote && (
-                                  <div className="text-[10px] font-medium text-amber-900 bg-amber-100/70 border border-amber-200 px-2 py-1 rounded-lg italic line-clamp-1 mt-1">
-                                    <strong>Table Note:</strong> "{order.customerNote}"
+                                  <div className="text-[10px] font-semibold text-amber-900 bg-amber-100/90 border border-amber-300/90 px-2.5 py-1 rounded-lg italic line-clamp-2 mt-1 flex items-start gap-1">
+                                    <span className="text-[10px] shrink-0">📌</span>
+                                    <span><strong>Order Note:</strong> "{order.customerNote}"</span>
                                   </div>
                                 )}
                               </div>
 
                               {/* Card Footer with Fast Action Button */}
-                              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                              <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
                                 <span className="font-mono text-xs font-black text-slate-900">
                                   {formatAmount(order.total)}
                                 </span>
@@ -1041,7 +1015,7 @@ export const ManagerOrders: React.FC = () => {
                                         e.stopPropagation();
                                         handleAdvanceOrder(order, nextStatus);
                                       }}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-950 hover:bg-slate-900 flex items-center gap-1 shadow-sm transition active:scale-95 cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-slate-950 hover:bg-slate-900 flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
                                     >
                                       <span>Advance</span>
                                       <ArrowRight className="w-3 h-3" strokeWidth={2} />

@@ -245,6 +245,10 @@ export function generateCounterBillHtml(
       return `<div style="font-size:10px;color:#555;padding-left:6px;">+ ${a.name} (${formatPrintCurrency(p, currency)})</div>`;
     }).join('');
 
+    const itemNoteLine = item.specialInstructions
+      ? `<div style="font-size:10px;font-style:italic;color:#666;padding-left:6px;">* ${item.specialInstructions}</div>`
+      : '';
+
     const lineTotal = itemTotal + addOnsPrice;
 
     return `
@@ -253,6 +257,7 @@ export function generateCounterBillHtml(
         <td style="padding:4px 0;vertical-align:top;font-size:12px;">
           <div>${itemName}</div>
           ${addOnLines}
+          ${itemNoteLine}
         </td>
         <td style="padding:4px 0;vertical-align:top;font-size:12px;text-align:right;font-family:monospace;white-space:nowrap;">
           ${formatPrintCurrency(lineTotal, currency)}
@@ -260,6 +265,12 @@ export function generateCounterBillHtml(
       </tr>
     `;
   }).join('');
+
+  const customerNoteHtml = order.customerNote ? `
+    <div style="margin-top:6px;padding:4px 6px;background:#f8fafc;border-left:2px solid #64748b;font-size:10px;font-style:italic;">
+      <strong>Note:</strong> ${order.customerNote}
+    </div>
+  ` : '';
 
   const subtotal = order.subtotal ?? 0;
   const tax = order.tax ?? 0;
@@ -388,6 +399,8 @@ export function generateCounterBillHtml(
           ${itemsHtml}
         </tbody>
       </table>
+
+      ${customerNoteHtml}
 
       <!-- Totals & Taxes Section -->
       <div style="border-top:1.5px solid #000;margin-top:6px;padding-top:4px;font-size:12px;">
