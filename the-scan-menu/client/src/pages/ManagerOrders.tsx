@@ -1191,8 +1191,12 @@ export const ManagerOrders: React.FC = () => {
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
-            {liveSelectedOrder && !detailModalOrder && (
-              <div className="fixed bottom-6 left-0 right-0 z-[9999] flex justify-center pointer-events-none px-3 sm:px-4">
+            {liveSelectedOrder &&
+              !detailModalOrder &&
+              !paymentVerificationModalOrder &&
+              !freeTableOrder &&
+              !printModalOrder && (
+              <div className="fixed bottom-6 left-0 right-0 z-[9990] flex justify-center pointer-events-none px-3 sm:px-4">
                 <motion.div
                   initial={{ y: 60, opacity: 0, scale: 0.96 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
