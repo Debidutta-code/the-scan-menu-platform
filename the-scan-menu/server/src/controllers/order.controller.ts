@@ -3,7 +3,6 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { Order, OrderStatus } from '../models/Order';
 import { DiningSession } from '../models/DiningSession';
 import { Bill } from '../models/Bill';
-import { RestaurantSettings } from '../models/RestaurantSettings';
 import { orderService } from '../services/order.service';
 import { diningSessionService } from '../services/diningSession.service';
 import { billService } from '../services/bill.service';
@@ -115,12 +114,6 @@ export class OrderController {
         status: { $ne: 'CANCELLED' },
         isCleared: { $ne: true },
       };
-
-      // For PREPAID restaurants, filter out payment-pending orders (they haven't paid yet)
-      const settings = await RestaurantSettings.findOne({ restaurantId });
-      if (settings?.paymentConfig?.activeMode === 'PREPAID') {
-        query.paymentStatus = { $ne: 'PENDING' };
-      }
 
       const orders = await Order.find(query)
         .sort({ createdAt: 1 })

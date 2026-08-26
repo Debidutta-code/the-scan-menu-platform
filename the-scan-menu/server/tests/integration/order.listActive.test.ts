@@ -59,7 +59,7 @@ describe('GET /active - Active Orders Query Regression Test', () => {
     }));
   });
 
-  it('should exclude pending prepaid orders when restaurant is in PREPAID mode', async () => {
+  it('should list active orders including pending payment orders when restaurant is in PREPAID mode', async () => {
     const restaurantId = new mongoose.Types.ObjectId().toString();
 
     vi.spyOn(RestaurantSettings, 'findOne').mockResolvedValue({
@@ -70,7 +70,8 @@ describe('GET /active - Active Orders Query Regression Test', () => {
       return {
         sort: vi.fn().mockReturnThis(),
         populate: vi.fn().mockResolvedValue([
-          { _id: 'order1', status: 'PREPARING', paymentStatus: 'PAID' }
+          { _id: 'order1', status: 'PENDING', paymentStatus: 'PENDING' },
+          { _id: 'order2', status: 'PREPARING', paymentStatus: 'PAID' }
         ])
       } as any;
     });
@@ -78,11 +79,11 @@ describe('GET /active - Active Orders Query Regression Test', () => {
     const response = await request(app).get(`/api/v1/${restaurantId}/orders/active`);
 
     expect(response.status).toBe(200);
+    expect(response.body.data.length).toBe(2);
     expect(Order.find).toHaveBeenCalledWith(expect.objectContaining({
       restaurantId: new mongoose.Types.ObjectId(restaurantId),
       status: { $ne: 'CANCELLED' },
       isCleared: { $ne: true },
-      paymentStatus: { $ne: 'PENDING' }
     }));
   });
 });
