@@ -9,8 +9,9 @@ export function useFontScale() {
       if (saved === 'SMALL' || saved === 'NORMAL' || saved === 'LARGE') {
         return saved;
       }
+      if (window.innerWidth <= 1440) return 'SMALL';
     }
-    return 'NORMAL';
+    return 'SMALL';
   });
 
   const setFontScale = useCallback((scale: FontScale) => {
