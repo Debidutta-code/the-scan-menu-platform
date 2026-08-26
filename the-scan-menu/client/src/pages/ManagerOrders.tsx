@@ -29,7 +29,9 @@ import {
   Eye,
   History as HistoryIcon,
   Kanban as KanbanIcon,
-  Printer
+  Printer,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
@@ -246,6 +248,23 @@ export const ManagerOrders: React.FC = () => {
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
   const [audioEnabled, setAudioEnabled] = useState(true);
+
+  // Density view state for laptop/desktop screen optimization
+  const [densityMode, setDensityMode] = useState<'COMPACT' | 'COMFORTABLE'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('manager_orders_density');
+      if (saved === 'COMPACT' || saved === 'COMFORTABLE') return saved;
+      if (window.innerWidth <= 1440) return 'COMPACT';
+    }
+    return 'COMFORTABLE';
+  });
+
+  const toggleDensityMode = (mode: 'COMPACT' | 'COMFORTABLE') => {
+    setDensityMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('manager_orders_density', mode);
+    }
+  };
 
   // Mobile tab state
   const [mobileStatusTab, setMobileStatusTab] = useState<string>('PENDING');
@@ -610,7 +629,7 @@ export const ManagerOrders: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // â”€â”€â”€ Loading / Guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Loading / Guard ─────────────────────────────────────────────────────────────
 
   if (!activeRestaurantId) {
     return (
@@ -627,47 +646,75 @@ export const ManagerOrders: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-6 font-sans select-none pb-12">
-      {/* â”€â”€ Top Header Toolbar â”€â”€ */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/80 rounded-2xl p-4 md:px-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-sm">
-            <ChefHat className="w-5 h-5 text-amber-400" strokeWidth={1.75} />
+    <div className="w-full space-y-3.5 sm:space-y-4 font-sans select-none pb-12">
+      {/* ── Top Header Toolbar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-xs shrink-0">
+            <ChefHat className="w-4.5 h-4.5 text-amber-400" strokeWidth={1.75} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-display text-xl font-bold text-slate-900 tracking-tight">Kitchen Operations</h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 border border-emerald-200 text-emerald-700">
+              <h1 className="font-display text-lg md:text-xl font-bold text-slate-900 tracking-tight">Kitchen Operations</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 border border-emerald-200 text-emerald-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Live
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-500 font-medium">
               {activeOrders.length} active ticket{activeOrders.length === 1 ? '' : 's'} in preparation
             </p>
           </div>
         </div>
 
-        {/* View Switcher & Audio Controls */}
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        {/* View Switcher, Density & Audio Controls */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap self-end sm:self-auto">
+          {/* Density Mode Switcher (Compact vs Comfortable) */}
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Board Display Density">
+            <button
+              onClick={() => toggleDensityMode('COMPACT')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                densityMode === 'COMPACT'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Compact Mode: Optimized for 14-inch laptops and standard monitor sizes"
+            >
+              <Minimize2 className="w-3 h-3 text-amber-600" strokeWidth={2} />
+              <span>Compact</span>
+            </button>
+            <button
+              onClick={() => toggleDensityMode('COMFORTABLE')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                densityMode === 'COMFORTABLE'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="Comfortable Mode: Larger cards for 4K / TV displays"
+            >
+              <Maximize2 className="w-3 h-3 text-slate-500" strokeWidth={2} />
+              <span>Comfortable</span>
+            </button>
+          </div>
+
           <button
             onClick={() => refetchActiveOrders()}
-            className="p-2 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5 active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl border bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 transition flex items-center gap-1.5 active:scale-95"
             title="Refresh Orders Manually"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoadingActive ? 'animate-spin text-amber-500' : ''}`} strokeWidth={2} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingActive ? 'animate-spin text-amber-500' : ''}`} strokeWidth={2} />
           </button>
 
           <button
             onClick={() => setAudioEnabled(!audioEnabled)}
-            className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`p-1.5 sm:p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
               audioEnabled
                 ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 : 'bg-rose-50 border-rose-200 text-rose-700'
             }`}
             title={audioEnabled ? 'Sound notifications on' : 'Sound muted'}
           >
-            {audioEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" strokeWidth={1.75} /> : <VolumeX className="w-4 h-4 text-rose-500" strokeWidth={1.75} />}
+            {audioEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} /> : <VolumeX className="w-3.5 h-3.5 text-rose-500" strokeWidth={1.75} />}
           </button>
 
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
@@ -727,10 +774,10 @@ export const ManagerOrders: React.FC = () => {
       {viewMode === 'KANBAN' && (
         <div className="overflow-x-auto pb-4 custom-scrollbar">
           <div
-            className="grid grid-cols-1 gap-4.5"
+            className={`grid grid-cols-1 ${densityMode === 'COMPACT' ? 'gap-3' : 'gap-4.5'}`}
             style={{
-              gridTemplateColumns: `repeat(${workflowSteps.length}, minmax(280px, 1fr))`,
-              minWidth: `${workflowSteps.length * 290}px`,
+              gridTemplateColumns: `repeat(${workflowSteps.length}, minmax(${densityMode === 'COMPACT' ? '215px' : '280px'}, 1fr))`,
+              minWidth: `${workflowSteps.length * (densityMode === 'COMPACT' ? 220 : 290)}px`,
               minHeight: '75vh',
             }}
           >
@@ -742,27 +789,29 @@ export const ManagerOrders: React.FC = () => {
               return (
                 <div
                   key={step.status}
-                  className={`flex flex-col h-full bg-slate-100/70 border border-slate-200/90 rounded-3xl p-3 shadow-inner ${
+                  className={`flex flex-col h-full bg-slate-100/70 border border-slate-200/90 rounded-2xl ${
+                    densityMode === 'COMPACT' ? 'p-2 sm:p-2.5' : 'p-3'
+                  } shadow-inner ${
                     isMobileHidden ? 'hidden md:flex' : 'flex'
                   }`}
                 >
                   {/* Column Header */}
-                  <div className="flex items-center justify-between px-2 py-2 mb-3 bg-white border border-slate-200/70 rounded-2xl shadow-sm shrink-0">
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${step.badgeBg}`}>
+                  <div className="flex items-center justify-between px-2.5 py-1.5 mb-2.5 bg-white border border-slate-200/70 rounded-xl shadow-xs shrink-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className={`p-1 rounded-md ${step.badgeBg} shrink-0`}>
                         <StepIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
                       </div>
-                      <span className="font-bold text-xs text-slate-900 tracking-tight">
+                      <span className="font-bold text-xs text-slate-900 tracking-tight truncate">
                         {step.label}
                       </span>
                     </div>
-                    <span className="bg-slate-900 text-white font-mono text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-inner">
+                    <span className="bg-slate-900 text-white font-mono text-[10px] font-black px-2 py-0.2 rounded-full shadow-inner shrink-0">
                       {ordersInColumn.length}
                     </span>
                   </div>
 
                   {/* Column Orders List */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
+                  <div className={`flex-1 overflow-y-auto ${densityMode === 'COMPACT' ? 'space-y-2' : 'space-y-3'} pr-0.5`}>
                     {isLoadingActive ? (
                       <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                         <Loader className="w-6 h-6 animate-spin mb-2 text-slate-500" strokeWidth={1.75} />
@@ -796,7 +845,9 @@ export const ManagerOrders: React.FC = () => {
                                   setSelectedCardOrder(order);
                                 }
                               }}
-                              className={`rounded-2xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col gap-3 group relative overflow-hidden ${
+                              className={`rounded-xl shadow-xs hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col group relative overflow-hidden ${
+                                densityMode === 'COMPACT' ? 'p-2.5 gap-2' : 'p-4 gap-3'
+                              } ${
                                 isSelected
                                   ? 'bg-amber-50/50 border-2 border-amber-500 ring-2 ring-amber-500/20 shadow-md scale-[1.01]'
                                   : 'bg-white border border-slate-200/90 hover:border-amber-400/80'
@@ -871,7 +922,9 @@ export const ManagerOrders: React.FC = () => {
                               </div>
 
                               {/* Order Items Preview */}
-                              <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 space-y-1.5">
+                              <div className={`bg-slate-50 border border-slate-100 rounded-lg ${
+                                densityMode === 'COMPACT' ? 'p-2 space-y-1' : 'p-2.5 space-y-1.5'
+                              }`}>
                                 {order.items.map((item: any, idx: number) => (
                                   <div key={idx} className="space-y-0.5 text-xs">
                                     <div className="flex items-center justify-between gap-2">
@@ -1167,7 +1220,7 @@ export const ManagerOrders: React.FC = () => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 60, opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-5xl bg-white/95 backdrop-blur-xl border border-slate-200/90 text-slate-900 rounded-3xl p-3.5 sm:p-4.5 shadow-[0_20px_50px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3 sm:gap-4 flex-wrap md:flex-nowrap"
+            className="fixed bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-5xl bg-white/95 backdrop-blur-xl border border-slate-200/90 text-slate-900 rounded-2xl p-2.5 sm:p-3 shadow-[0_16px_40px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-3 flex-wrap md:flex-nowrap"
           >
             {/* Left: Selected Order Info */}
             <div className="flex items-center gap-3 min-w-0">

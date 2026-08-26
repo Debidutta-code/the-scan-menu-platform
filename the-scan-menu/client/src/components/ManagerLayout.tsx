@@ -331,7 +331,7 @@ export const ManagerLayout: React.FC = () => {
   }, [activeTab, isStaff, isEnabled, user?.role, navigate]);
 
   const renderHeader = () => (
-    <header className="bg-white border-b border-slate-150 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-xs shrink-0 z-10">
+    <header className="bg-white border-b border-slate-150 px-3.5 md:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-xs shrink-0 z-10">
       <div className="flex items-center gap-3">
         {/* Toggle / Expand Sidebar Button */}
         <button
@@ -785,7 +785,7 @@ export const ManagerLayout: React.FC = () => {
         {renderHeader()}
 
         {/* Active Content Panel */}
-        <main className="flex-1 h-0 overflow-y-auto relative p-6">
+        <main className="flex-1 h-0 overflow-y-auto relative p-3 sm:p-4 lg:p-6">
           <Outlet />
         </main>
       </div>
