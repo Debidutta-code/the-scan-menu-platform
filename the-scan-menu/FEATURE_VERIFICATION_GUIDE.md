@@ -1,7 +1,7 @@
 # 🚀 Feature UI Verification & Manual Testing Guide
 
 This guide gives you a step-by-step walkthrough of how to access, test, and verify every newly implemented feature through the Web UI and API.
-
+ 
 ---
 
 ## 🔐 Credentials & Quick Access
