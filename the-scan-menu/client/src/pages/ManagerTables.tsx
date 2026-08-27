@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -109,11 +110,11 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED'>('ALL');
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
   const [activeTableAction, setActiveTableAction] = useState<Table | null>(null);
+  const [sidePanelTab, setSidePanelTab] = useState<'ACTIONS' | 'QR'>('ACTIONS');
   const [showZoneManager, setShowZoneManager] = useState(false);
 
   const [isFormOpen, setIsCreateOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
-  const [showQrModal, setShowQrModal] = useState<Table | null>(null);
   const [isZoneFormOpen, setIsZoneFormOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
@@ -122,9 +123,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [printModalOrder, setPrintModalOrder] = useState<any | null>(null);
 
   const { data: qrData, isLoading: isLoadingQr } = useQuery({
-    queryKey: ['tableQr', targetRestaurantId, showQrModal?._id],
-    queryFn: () => managerService.getTableQr(targetRestaurantId!, showQrModal!._id),
-    enabled: !!targetRestaurantId && !!showQrModal?._id,
+    queryKey: ['tableQr', targetRestaurantId, activeTableAction?._id],
+    queryFn: () => managerService.getTableQr(targetRestaurantId!, activeTableAction!._id),
+    enabled: !!targetRestaurantId && !!activeTableAction?._id,
   });
 
   const { data: restaurantData } = useQuery({
@@ -297,12 +298,12 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   };
 
   const handleDownloadPng = async () => {
-    if (!qrData?.data || !showQrModal) return;
+    if (!qrData?.data || !activeTableAction) return;
     try {
       toast('Generating high-resolution standee card...', 'info');
       const standeeDataUri = await generateStandeeCardPng({
-        tableNumber: showQrModal.tableNumber,
-        displayName: showQrModal.displayName || `Table ${showQrModal.tableNumber}`,
+        tableNumber: activeTableAction.tableNumber,
+        displayName: activeTableAction.displayName || `Table ${activeTableAction.tableNumber}`,
         restaurantName: qrData.data.restaurantName || restaurantInfo.name || 'Restaurant',
         url: qrData.data.url,
         logoUrl: qrData.data.restaurantLogo || qrData.data.qrStyle?.logoUrl,
@@ -316,7 +317,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
       const link = document.createElement('a');
       link.href = standeeDataUri;
-      link.download = `standee-table-${showQrModal.tableNumber}.png`;
+      link.download = `standee-table-${activeTableAction.tableNumber}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -325,7 +326,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       if (qrData?.data?.pngDataUri) {
         const link = document.createElement('a');
         link.href = qrData.data.pngDataUri;
-        link.download = `qr-table-${showQrModal.tableNumber}.png`;
+        link.download = `qr-table-${activeTableAction.tableNumber}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -334,11 +335,11 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   };
 
   const handlePrintQr = async () => {
-    if (!qrData?.data || !showQrModal) return;
+    if (!qrData?.data || !activeTableAction) return;
     try {
       const standeeDataUri = await generateStandeeCardPng({
-        tableNumber: showQrModal.tableNumber,
-        displayName: showQrModal.displayName || `Table ${showQrModal.tableNumber}`,
+        tableNumber: activeTableAction.tableNumber,
+        displayName: activeTableAction.displayName || `Table ${activeTableAction.tableNumber}`,
         restaurantName: qrData.data.restaurantName || restaurantInfo.name || 'Restaurant',
         url: qrData.data.url,
         logoUrl: qrData.data.restaurantLogo || qrData.data.qrStyle?.logoUrl,
@@ -349,11 +350,39 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         templateTheme: qrData.data.qrStyle?.templateTheme || 'standee',
         errorCorrectionLevel: 'H',
       });
-      printStandeeCard(standeeDataUri, showQrModal.tableNumber);
+      printStandeeCard(standeeDataUri, activeTableAction.tableNumber);
     } catch {
       toast('Failed to prepare print document', 'error');
     }
   };
+
+  // Escape key closes side panel if open
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'Escape' &&
+        activeTableAction &&
+        !isFormOpen &&
+        !isZoneFormOpen &&
+        !isBulkFormOpen &&
+        !showZoneManager &&
+        !showQrStudio &&
+        !printModalOrder
+      ) {
+        setActiveTableAction(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    activeTableAction,
+    isFormOpen,
+    isZoneFormOpen,
+    isBulkFormOpen,
+    showZoneManager,
+    showQrStudio,
+    printModalOrder,
+  ]);
 
   // ── Guards ──────────────────────────────────────────────────────────────────
   if (!activeRestaurantId) {
@@ -380,45 +409,45 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full space-y-6 font-sans pb-16">
+    <div className="w-full h-full flex flex-col min-h-0 space-y-2.5 sm:space-y-3 font-sans select-none overflow-hidden">
 
       {/* ── Page Header ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs shrink-0">
         <div>
-          <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900">
+          <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">
             Table Management
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">
-            Tap a table to open quick actions — clear, reserve, view QR, or edit.
+          <p className="text-slate-500 text-[11px] font-medium mt-0.5">
+            Select any table for quick actions — view QR, print bill, reserve, or edit.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
             onClick={() => refetchTables()}
             title="Refresh"
-            className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition shadow-sm"
+            className="h-8.5 w-8.5 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 transition shadow-2xs cursor-pointer"
           >
-            <RefreshCw className="w-4 h-4" strokeWidth={1.75} />
+            <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
           <button
             onClick={() => setShowZoneManager(true)}
-            className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold transition shadow-sm cursor-pointer"
+            className="h-8.5 flex items-center gap-1.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold transition shadow-2xs cursor-pointer"
           >
             <Settings2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-            Manage Zones
+            <span className="hidden sm:inline">Manage</span> Zones
           </button>
           <button
             type="button"
             onClick={() => setShowQrStudio(true)}
-            className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition shadow-xs cursor-pointer"
+            className="h-8.5 flex items-center gap-1.5 px-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition shadow-2xs cursor-pointer"
           >
             <Palette className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-            <span>Manage QR Code Style</span>
+            <span className="hidden md:inline">Manage</span> QR Style
           </button>
           {isEnabled('ordering') && (
             <button
               onClick={() => navigate('/manager/tables/operations')}
-              className="h-9 flex items-center gap-1.5 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-xs cursor-pointer"
+              className="h-8.5 flex items-center gap-1.5 px-3 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-2xs cursor-pointer"
               title="Transfer guest sessions or merge multiple tables"
             >
               <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" strokeWidth={2} />
@@ -431,10 +460,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               tableForm.reset({ tableNumber: '', displayName: '', zoneId: activeZoneFilter || undefined });
               setIsCreateOpen(true);
             }}
-            className="h-9 flex items-center gap-1.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-sm"
+            className="h-8.5 flex items-center gap-1.5 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-2xs cursor-pointer"
           >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            Add Table
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+            <span>Add Table</span>
           </button>
           <button
             onClick={() => {
@@ -442,38 +471,38 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               bulkForm.reset({ count: 10, prefix: '', zoneId: activeZoneFilter || undefined });
               setIsBulkFormOpen(true);
             }}
-            className="h-9 flex items-center gap-1.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-sm"
+            className="h-8.5 flex items-center gap-1.5 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-2xs cursor-pointer"
           >
             <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2} />
-            Bulk Create
+            <span>Bulk Create</span>
           </button>
         </div>
       </div>
 
       {/* ── KPI Strip ─────────────────────────────────────────────────────────── */}
-      <div className={`grid gap-3 ${isEnabled('ordering') ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
+      <div className={`grid gap-2.5 sm:gap-3 shrink-0 ${isEnabled('ordering') ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
         {[
           { label: 'Total Tables', value: stats.total, icon: Layers, color: 'text-slate-700', bg: 'bg-slate-100', border: 'border-slate-200', show: true },
           { label: 'Available', value: stats.available, icon: CheckCircle2, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', show: isEnabled('ordering') },
           { label: 'Occupied', value: stats.occupied, icon: Utensils, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-100', show: isEnabled('ordering') },
           { label: 'Reserved', value: stats.reserved, icon: Bookmark, color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100', show: true },
         ].filter(kpi => kpi.show !== false).map(({ label, value, icon: Icon, color, bg, border }) => (
-          <div key={label} className={`rounded-2xl border ${border} bg-white shadow-sm p-4 flex items-center gap-3`}>
-            <div className={`${bg} ${color} p-2.5 rounded-xl`}>
-              <Icon className="w-4.5 h-4.5" strokeWidth={1.75} />
+          <div key={label} className={`rounded-2xl border ${border} bg-white shadow-2xs px-3.5 py-2.5 flex items-center gap-3`}>
+            <div className={`${bg} ${color} p-2 rounded-xl shrink-0`}>
+              <Icon className="w-4 h-4" strokeWidth={1.75} />
             </div>
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-              <p className={`text-2xl font-extrabold mt-0.5 ${color}`}>{value}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+              <p className={`text-xl font-extrabold leading-none mt-0.5 ${color}`}>{value}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* ── Controls Row ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 shrink-0">
         {/* Status filter pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl flex-wrap">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl flex-wrap shrink-0">
           {(
             [
               { id: 'ALL', label: 'All', count: stats.total, show: true },
@@ -485,14 +514,14 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === tab.id
                   ? 'bg-slate-900 text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              {tab.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
+              <span>{tab.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
                 {tab.count}
               </span>
             </button>
@@ -501,10 +530,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
         {/* Zone filter */}
         {zones.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none shrink-0">
             <button
               onClick={() => setActiveZoneFilter(null)}
-              className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+              className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                 activeZoneFilter === null
                   ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
                   : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-700'
@@ -516,7 +545,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               <button
                 key={z._id}
                 onClick={() => setActiveZoneFilter(activeZoneFilter === z._id ? null : z._id)}
-                className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                   activeZoneFilter === z._id
                     ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
                     : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-700'
@@ -536,7 +565,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
             placeholder="Search tables…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition shadow-sm"
+            className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition shadow-2xs"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -546,341 +575,628 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         </div>
       </div>
 
-      {/* ── Zone-wise Table Grid ───────────────────────────────────────────────── */}
-      {zoneGroupings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl text-center shadow-sm">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-            <QrCode className="w-7 h-7 text-slate-400" strokeWidth={1.5} />
-          </div>
-          <h3 className="font-bold text-slate-800 text-lg">No Tables Found</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-xs">
-            {searchQuery ? `No tables match "${searchQuery}"` : 'Click "Add Table" to create your first table.'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {zoneGroupings.map(({ zone, tables: zoneTables }) => (
-            <div key={zone._id} className="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden">
-              {/* Zone header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/60">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <h3 className="font-bold text-slate-900 text-sm tracking-tight">{zone.name}</h3>
-                  <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {zoneTables.length}
-                  </span>
-                </div>
-                {zone._id !== 'unassigned' && (
-                  <button
-                    onClick={() => handleAddTableToZone(zone._id)}
-                    className="flex items-center gap-1 text-[11px] font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1.5 rounded-lg transition"
-                  >
-                    <Plus className="w-3 h-3" strokeWidth={2.5} />
-                    Add table
-                  </button>
-                )}
+      {/* ── Main Tables Workspace (Split View when Table Selected) ─────────────── */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 overflow-hidden">
+        {/* Left Side: Tables Grid */}
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto scrollbar-none space-y-3.5 pr-0.5">
+          {zoneGroupings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl text-center shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                <QrCode className="w-7 h-7 text-slate-400" strokeWidth={1.5} />
               </div>
-
-              {/* Table cards grid */}
-              <div className="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-                {zoneTables.map((table) => {
-                  const status = getTableStatus(table);
-                  const isOccupied = status === 'OCCUPIED';
-                  const isReserved = status === 'RESERVED';
-
-                  return (
-                    <button
-                      key={table._id}
-                      onClick={() => setActiveTableAction(table)}
-                      className={`
-                        relative flex flex-col items-center text-center rounded-2xl border-2 p-3 gap-1.5
-                        transition-all duration-150 hover:-translate-y-0.5 group cursor-pointer select-none
-                        ${isOccupied && isEnabled('ordering')
-                          ? 'bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-400 hover:border-amber-500 hover:shadow-md hover:shadow-amber-100'
-                          : isReserved
-                          ? 'bg-gradient-to-b from-violet-50 to-violet-100/50 border-violet-400 hover:border-violet-500 hover:shadow-md hover:shadow-violet-100'
-                          : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md hover:shadow-slate-100'
-                        }
-                      `}
-                    >
-                      {/* 1-Click Print Bill button on Occupied Tables */}
-                      {isOccupied && isEnabled('ordering') && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/manager/tables/operations?sourceTableId=${table._id}`);
-                            }}
-                            className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-200 transition shadow-2xs cursor-pointer z-10"
-                            title={`Transfer or Merge Table (${table.displayName})`}
-                          >
-                            <ArrowRightLeft className="w-3 h-3" strokeWidth={2} />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const tableOrder = await fetchTableConsolidatedOrder(table._id, table.tableNumber, table.displayName);
-                              printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
-                              toast(`Printed Customer Bill for ${table.displayName}`, 'success');
-                            }}
-                            className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
-                            title={`1-Click Print Customer Bill (${table.displayName})`}
-                          >
-                            <Receipt className="w-3 h-3" strokeWidth={2} />
-                          </button>
-                        </>
-                      )}
-
-                      {/* Table number circle */}
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shadow-sm
-                          ${isOccupied && isEnabled('ordering') ? 'bg-amber-500 text-white' : isReserved ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-800'}`}
-                      >
-                        {table.tableNumber}
-                      </div>
-
-                      {/* Display name */}
-                      <span className="text-[11px] font-bold text-slate-800 truncate w-full leading-tight" title={table.displayName}>
-                        {table.displayName}
+              <h3 className="font-bold text-slate-800 text-lg">No Tables Found</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                {searchQuery ? `No tables match "${searchQuery}"` : 'Click "Add Table" to create your first table.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              {zoneGroupings.map(({ zone, tables: zoneTables }) => (
+                <div key={zone._id} className="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden">
+                  {/* Zone header */}
+                  <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      <h3 className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight">{zone.name}</h3>
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-mono">
+                        {zoneTables.length}
                       </span>
-
-                      {/* Status badge */}
-                      {isOccupied && isEnabled('ordering') ? (
-                        <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.5 rounded-md leading-none">
-                          <span className="w-1 h-1 rounded-full bg-amber-600 animate-ping inline-block mr-0.5" />
-                          {table.activeOrderCount ? `${table.activeOrderCount} ORDER${table.activeOrderCount > 1 ? 'S' : ''}` : 'OCCUPIED'}
-                        </span>
-                      ) : isReserved ? (
-                        <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-violet-900 bg-violet-200/60 px-1.5 py-0.5 rounded-md leading-none">
-                          <Bookmark className="w-2 h-2" strokeWidth={2.5} />
-                          RESERVED
-                        </span>
-                      ) : isEnabled('ordering') ? (
-                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md leading-none">
-                          FREE
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Quick Action Modal ─────────────────────────────────────────────────── */}
-      {activeTableAction && (() => {
-        const t = activeTableAction;
-        const status = getTableStatus(t);
-        const isOccupied = status === 'OCCUPIED';
-        const isReserved = status === 'RESERVED';
-
-        return (
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
-            onClick={(e) => { if (e.target === e.currentTarget) setActiveTableAction(null); }}
-          >
-            <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-              {/* Modal handle bar (mobile) */}
-              <div className="flex justify-center pt-3 pb-1 sm:hidden">
-                <div className="w-10 h-1 rounded-full bg-slate-200" />
-              </div>
-
-              {/* Header */}
-              <div
-                className={`px-5 pt-4 pb-4 border-b border-slate-100 ${
-                  isOccupied ? 'bg-amber-50' : isReserved ? 'bg-violet-50' : 'bg-white'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-11 h-11 rounded-2xl font-mono font-extrabold text-base flex items-center justify-center shadow-sm
-                        ${isOccupied ? 'bg-amber-500 text-white' : isReserved ? 'bg-violet-600 text-white' : 'bg-slate-900 text-white'}`}
-                    >
-                      {t.tableNumber}
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-base leading-tight">{t.displayName}</h3>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {isOccupied && isEnabled('ordering') && (
-                          <span className="flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                            Occupied
+                    {zone._id !== 'unassigned' && (
+                      <button
+                        onClick={() => handleAddTableToZone(zone._id)}
+                        className="flex items-center gap-1 text-[11px] font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" strokeWidth={2.5} />
+                        <span>Add table</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Table cards grid: Reflows dynamically when right panel is open */}
+                  <div className={`p-3.5 sm:p-4 grid gap-2.5 sm:gap-3 ${
+                    activeTableAction
+                      ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                      : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                  }`}>
+                    {zoneTables.map((table) => {
+                      const status = getTableStatus(table);
+                      const isOccupied = status === 'OCCUPIED';
+                      const isReserved = status === 'RESERVED';
+                      const isSelected = activeTableAction?._id === table._id;
+
+                      return (
+                        <button
+                          key={table._id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setActiveTableAction(null);
+                            } else {
+                              setActiveTableAction(table);
+                            }
+                          }}
+                          className={`
+                            relative flex flex-col items-center text-center rounded-2xl border-2 p-2.5 sm:p-3 gap-1.5
+                            transition-all duration-150 group cursor-pointer select-none active:scale-95
+                            ${
+                              isSelected
+                                ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/30 shadow-md scale-[1.02]'
+                                : isOccupied && isEnabled('ordering')
+                                ? 'bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-400 hover:border-amber-500 hover:shadow-md hover:shadow-amber-100'
+                                : isReserved
+                                ? 'bg-gradient-to-b from-violet-50 to-violet-100/50 border-violet-400 hover:border-violet-500 hover:shadow-md hover:shadow-violet-100'
+                                : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md hover:shadow-slate-100'
+                            }
+                          `}
+                        >
+                          {/* 1-Click Print Bill button on Occupied Tables */}
+                          {isOccupied && isEnabled('ordering') && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/manager/tables/operations?sourceTableId=${table._id}`);
+                                }}
+                                className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-200 transition shadow-2xs cursor-pointer z-10"
+                                title={`Transfer or Merge Table (${table.displayName})`}
+                              >
+                                <ArrowRightLeft className="w-3 h-3" strokeWidth={2} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const tableOrder = await fetchTableConsolidatedOrder(table._id, table.tableNumber, table.displayName);
+                                  printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                                  toast(`Printed Customer Bill for ${table.displayName}`, 'success');
+                                }}
+                                className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
+                                title={`1-Click Print Customer Bill (${table.displayName})`}
+                              >
+                                <Receipt className="w-3 h-3" strokeWidth={2} />
+                              </button>
+                            </>
+                          )}
+
+                          {/* Table number badge */}
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shadow-sm transition-colors
+                              ${
+                                isSelected
+                                  ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-500/20'
+                                  : isOccupied && isEnabled('ordering')
+                                  ? 'bg-amber-500 text-white'
+                                  : isReserved
+                                  ? 'bg-violet-600 text-white'
+                                  : 'bg-slate-100 text-slate-800'
+                              }`}
+                          >
+                            {table.tableNumber}
+                          </div>
+
+                          {/* Display name */}
+                          <span className="text-[11px] font-bold text-slate-800 truncate w-full leading-tight" title={table.displayName}>
+                            {table.displayName}
                           </span>
-                        )}
-                        {isReserved && (
-                          <span className="flex items-center gap-1 text-[10px] font-extrabold text-violet-900 bg-violet-100 border border-violet-200 px-2 py-0.5 rounded-full">
-                            <Bookmark className="w-2.5 h-2.5" />
-                            Reserved
+
+                          {/* Status badge */}
+                          {isOccupied && isEnabled('ordering') ? (
+                            <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.5 rounded-md leading-none">
+                              <span className="w-1 h-1 rounded-full bg-amber-600 animate-ping inline-block mr-0.5" />
+                              {table.activeOrderCount ? `${table.activeOrderCount} ORDER${table.activeOrderCount > 1 ? 'S' : ''}` : 'OCCUPIED'}
+                            </span>
+                          ) : isReserved ? (
+                            <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-violet-900 bg-violet-200/60 px-1.5 py-0.5 rounded-md leading-none">
+                              <Bookmark className="w-2 h-2" strokeWidth={2.5} />
+                              RESERVED
+                            </span>
+                          ) : isEnabled('ordering') ? (
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md leading-none">
+                              FREE
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right Side: Table Detail, Actions & QR Inspector Panel */}
+        <AnimatePresence>
+          {activeTableAction && (() => {
+            const t = activeTableAction;
+            const status = getTableStatus(t);
+            const isOccupied = status === 'OCCUPIED';
+            const isReserved = status === 'RESERVED';
+            const zoneName = zones.find(z => z._id === (typeof t.zoneId === 'object' ? (t.zoneId as any)?._id : t.zoneId))?.name || 'Unassigned Zone';
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, x: 50, width: 0 }}
+                animate={{ opacity: 1, x: 0, width: 'auto' }}
+                exit={{ opacity: 0, x: 50, width: 0 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full lg:w-96 shrink-0 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full min-h-0 overflow-hidden"
+              >
+                {/* Header */}
+                <div className={`p-4 border-b border-slate-100 shrink-0 ${
+                  isOccupied ? 'bg-amber-50/70' : isReserved ? 'bg-violet-50/70' : 'bg-slate-50/60'
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-11 h-11 rounded-2xl font-mono font-black text-base flex items-center justify-center shadow-xs shrink-0 ${
+                        isOccupied ? 'bg-amber-500 text-white' : isReserved ? 'bg-violet-600 text-white' : 'bg-slate-900 text-white'
+                      }`}>
+                        {t.tableNumber}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight truncate">{t.displayName}</h3>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="text-[10px] font-semibold text-slate-500 bg-white/80 border border-slate-200 px-2 py-0.5 rounded-md truncate">
+                            {zoneName}
                           </span>
-                        )}
-                        {!isOccupied && !isReserved && isEnabled('ordering') && (
-                          <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">
-                            Available
-                          </span>
-                        )}
+                          {isOccupied && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                              Occupied
+                            </span>
+                          )}
+                          {isReserved && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-900 bg-violet-200/80 px-2 py-0.5 rounded-md">
+                              <Bookmark className="w-2.5 h-2.5" />
+                              Reserved
+                            </span>
+                          )}
+                          {!isOccupied && !isReserved && isEnabled('ordering') && (
+                            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                              Available
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => setActiveTableAction(null)}
+                      className="p-1.5 hover:bg-slate-200/60 rounded-xl transition text-slate-400 hover:text-slate-700 cursor-pointer shrink-0"
+                      title="Close panel (Esc)"
+                    >
+                      <X className="w-5 h-5" strokeWidth={2} />
+                    </button>
                   </div>
-                  <button onClick={() => setActiveTableAction(null)} className="p-1.5 hover:bg-slate-100 rounded-xl transition text-slate-400 hover:text-slate-600">
-                    <X className="w-5 h-5" strokeWidth={1.75} />
-                  </button>
+
+                  {/* Active orders indicator */}
+                  {t.activeOrderCount !== undefined && t.activeOrderCount > 0 && (
+                    <div className="mt-3 flex items-center gap-2 bg-amber-100/90 border border-amber-300/80 text-amber-950 px-3 py-2 rounded-xl text-xs font-semibold">
+                      <Zap className="w-4 h-4 shrink-0 text-amber-600" strokeWidth={2.2} />
+                      <span><strong>{t.activeOrderCount}</strong> active ticket{t.activeOrderCount > 1 ? 's' : ''} on floor</span>
+                    </div>
+                  )}
+
+                  {/* Tabs: Actions vs QR Code */}
+                  <div className="grid grid-cols-2 gap-1.5 bg-slate-200/60 p-1 rounded-2xl mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setSidePanelTab('ACTIONS')}
+                      className={`py-1.5 text-xs font-extrabold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                        sidePanelTab === 'ACTIONS'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Utensils className="w-3.5 h-3.5" />
+                      <span>Quick Actions</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSidePanelTab('QR')}
+                      className={`py-1.5 text-xs font-extrabold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                        sidePanelTab === 'QR'
+                          ? 'bg-white text-amber-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-amber-600" />
+                      <span>QR Standee</span>
+                    </button>
+                  </div>
                 </div>
 
-                {/* Active orders banner inside header */}
-                {t.activeOrderCount !== undefined && t.activeOrderCount > 0 && (
-                  <div className="mt-3 flex items-center gap-2 bg-amber-100 border border-amber-200 text-amber-900 px-3 py-2 rounded-xl text-xs font-semibold">
-                    <Zap className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" strokeWidth={2} />
-                    <span><strong>{t.activeOrderCount}</strong> active order{t.activeOrderCount > 1 ? 's' : ''} in kitchen / service</span>
-                  </div>
-                )}
-              </div>
+                {/* Body Content */}
+                <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-3">
+                  {sidePanelTab === 'ACTIONS' ? (
+                    <div className="space-y-2.5">
+                      {/* Primary View QR Button */}
+                      <button
+                        type="button"
+                        onClick={() => setSidePanelTab('QR')}
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                      >
+                        <QrCode className="w-4 h-4" strokeWidth={2} />
+                        <span>View QR Code &amp; Standee</span>
+                      </button>
 
-              {/* Actions */}
-              <div className="p-5 space-y-2.5">
-                {/* View QR – primary amber */}
-                <button
-                  onClick={() => { setActiveTableAction(null); setShowQrModal(t); }}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-sm transition active:scale-[0.98]"
-                >
-                  <QrCode className="w-5 h-5" strokeWidth={1.75} />
-                  View QR Code
-                </button>
+                      {/* Occupied Actions */}
+                      {isOccupied && isEnabled('ordering') && (
+                        <div className="space-y-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
+                              printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                              toast(`Printing Customer Bill for ${t.displayName}`, 'success');
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                          >
+                            <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
+                            <span>Print Customer Bill</span>
+                          </button>
 
-                {/* Print Bill & Clear options for occupied table */}
-                {isOccupied && isEnabled('ordering') && (
-                  <div className="space-y-2 pb-1">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
-                        printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
-                        toast(`Printing Customer Bill for ${t.displayName}`, 'success');
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
-                      Print Customer Bill
-                    </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
+                              printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
+                              clearTablesMutation.mutate([t._id], {
+                                onSuccess: () => {
+                                  setActiveTableAction(null);
+                                  toast(`${t.displayName} bill printed and table cleared!`, 'success');
+                                },
+                              });
+                            }}
+                            disabled={clearTablesMutation.isPending}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                          >
+                            {clearTablesMutation.isPending ? (
+                              <Loader className="w-4 h-4 animate-spin text-white" />
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 text-white" strokeWidth={2} />
+                                <span>Print Bill &amp; Free Table</span>
+                              </>
+                            )}
+                          </button>
 
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
-                        printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
-                        clearTablesMutation.mutate([t._id], {
-                          onSuccess: () => {
-                            setActiveTableAction(null);
-                            toast(`${t.displayName} bill printed and table cleared!`, 'success');
-                          },
-                        });
-                      }}
-                      disabled={clearTablesMutation.isPending}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
-                    >
-                      {clearTablesMutation.isPending ? (
-                        <Loader className="w-4 h-4 animate-spin text-white" />
-                      ) : (
-                        <>
-                          <Printer className="w-4 h-4 text-white" strokeWidth={2} />
-                          <span>Print Bill &amp; Free Table</span>
-                        </>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigate(`/manager/tables/operations?sourceTableId=${t._id}`);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition active:scale-95 cursor-pointer"
+                          >
+                            <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" strokeWidth={2} />
+                            <span>Transfer / Merge Session</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
+                              setPrintModalOrder(tableOrder);
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition active:scale-95 cursor-pointer"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                            <span>More Print Options (KOT / Counter)</span>
+                          </button>
+                        </div>
                       )}
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTableAction(null);
-                        navigate(`/manager/tables/operations?sourceTableId=${t._id}`);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <ArrowRightLeft className="w-3.5 h-3.5 text-white" strokeWidth={2} />
-                      <span>Transfer / Merge Table Session</span>
-                    </button>
+                      {/* Row of Secondary Actions */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {isOccupied && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Clear Table ${t.tableNumber}? This will close the active session.`)) {
+                                clearTablesMutation.mutate([t._id]);
+                              }
+                            }}
+                            disabled={clearTablesMutation.isPending}
+                            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer"
+                          >
+                            {clearTablesMutation.isPending ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Quick Clear</>}
+                          </button>
+                        )}
 
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
-                        setPrintModalOrder(tableOrder);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition active:scale-[0.98] cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
-                      <span>More Print Options (KOT / Counter)</span>
-                    </button>
-                  </div>
-                )}
+                        {isReserved ? (
+                          <button
+                            onClick={() => reserveTablesMutation.mutate({ tableIds: [t._id], reserved: false })}
+                            disabled={reserveTablesMutation.isPending}
+                            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-900 text-xs font-bold transition cursor-pointer"
+                          >
+                            <Bookmark className="w-3.5 h-3.5" /> Unreserve
+                          </button>
+                        ) : !isOccupied ? (
+                          <button
+                            onClick={() => reserveTablesMutation.mutate({ tableIds: [t._id], reserved: true })}
+                            disabled={reserveTablesMutation.isPending}
+                            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer"
+                          >
+                            <Bookmark className="w-3.5 h-3.5" /> Reserve Table
+                          </button>
+                        ) : null}
 
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Clear table */}
-                  {isOccupied && (
-                    <button
-                      onClick={() => {
-                        if (confirm(`Clear Table ${t.tableNumber}? This will close the active session.`)) {
-                          clearTablesMutation.mutate([t._id], { onSuccess: () => setActiveTableAction(null) });
-                        }
-                      }}
-                      disabled={clearTablesMutation.isPending}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
-                    >
-                      {clearTablesMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Quick Clear</>}
-                    </button>
-                  )}
+                        <button
+                          onClick={() => handleEditClick(t)}
+                          className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} /> Edit Details
+                        </button>
 
-                  {/* Reserve / Unreserve */}
-                  {isReserved ? (
-                    <button
-                      onClick={() => reserveTablesMutation.mutate({ tableIds: [t._id], reserved: false }, { onSuccess: () => setActiveTableAction(null) })}
-                      disabled={reserveTablesMutation.isPending}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-900 text-xs font-bold transition"
-                    >
-                      <Bookmark className="w-4 h-4" /> Unreserve
-                    </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete Table "${t.displayName}"? Tables with order history will be soft-archived.`)) {
+                              const id = t._id;
+                              setActiveTableAction(null);
+                              deleteTableMutation.mutate(id);
+                            }
+                          }}
+                          className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition border border-rose-100 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} /> Delete Table
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <button
-                      onClick={() => reserveTablesMutation.mutate({ tableIds: [t._id], reserved: true }, { onSuccess: () => setActiveTableAction(null) })}
-                      disabled={reserveTablesMutation.isPending}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
-                    >
-                      <Bookmark className="w-4 h-4" /> Reserve
-                    </button>
+                    /* QR Code & Standee Tab */
+                    <div className="flex flex-col items-center gap-3">
+                      {isLoadingQr ? (
+                        <div className="h-48 flex items-center justify-center">
+                          <Loader className="w-7 h-7 animate-spin text-amber-500" strokeWidth={1.75} />
+                        </div>
+                      ) : qrData?.data?.svg ? (
+                        <>
+                          {/* Standee Preview Card */}
+                          <div className="w-full flex flex-col items-center">
+                            {qrData.data.qrStyle?.templateTheme === 'minimal' ? (
+                              <div
+                                className="w-52 rounded-2xl p-3.5 shadow-md flex flex-col items-center text-center relative border border-slate-200"
+                                style={{ backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF' }}
+                              >
+                                <div className="flex items-center justify-between w-full pb-1 mb-1 border-b border-slate-150">
+                                  <span className="text-[9px] font-mono font-black uppercase text-slate-800">
+                                    {qrData.data.restaurantName || 'DINE-IN'}
+                                  </span>
+                                  <span
+                                    className="text-[9px] font-mono font-black px-2 py-0.5 rounded-full"
+                                    style={{
+                                      backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+                                      color: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                                    }}
+                                  >
+                                    {t.displayName}
+                                  </span>
+                                </div>
+                                <div className="relative w-36 h-36 flex items-center justify-center p-1">
+                                  <div
+                                    className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                                    dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                                  />
+                                  {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                      <div className="w-8 h-8 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                                        <img
+                                          src={qrData.data.restaurantLogo}
+                                          alt="Logo"
+                                          className="w-full h-full object-contain rounded-lg"
+                                          onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-600 mt-1">
+                                  {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                                </span>
+                              </div>
+                            ) : qrData.data.qrStyle?.templateTheme === 'branded' ? (
+                              <div
+                                className="w-52 rounded-2xl p-3.5 shadow-xl flex flex-col items-center text-center relative border-2"
+                                style={{
+                                  backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                                  borderColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+                                }}
+                              >
+                                <div
+                                  className="w-7 h-1 rounded-full mb-1.5"
+                                  style={{ backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A' }}
+                                />
+                                <h4
+                                  className="font-serif text-xs font-black tracking-tight"
+                                  style={{ color: qrData.data.qrStyle?.fgColor || '#0F172A' }}
+                                >
+                                  {qrData.data.restaurantName || 'Restaurant'}
+                                </h4>
+                                <p className="text-[8px] text-slate-500 font-semibold mb-1.5">
+                                  {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                                </p>
+                                <div className="relative w-36 h-36 flex items-center justify-center bg-white p-1.5 rounded-xl border border-slate-200 mb-1.5">
+                                  <div
+                                    className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                                    dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                                  />
+                                  {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                      <div className="w-7 h-7 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                                        <img
+                                          src={qrData.data.restaurantLogo}
+                                          alt="Logo"
+                                          className="w-full h-full object-contain rounded-lg"
+                                          onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div
+                                  className="px-2.5 py-0.5 rounded-md text-[8px] font-mono font-black uppercase"
+                                  style={{
+                                    backgroundColor: (qrData.data.qrStyle?.fgColor || '#0F172A') + '15',
+                                    color: qrData.data.qrStyle?.fgColor || '#0F172A',
+                                  }}
+                                >
+                                  {t.displayName}
+                                </div>
+                              </div>
+                            ) : (
+                              /* Standee Acrylic Template */
+                              <div className="w-52 flex flex-col items-center">
+                                <div
+                                  className="w-full rounded-3xl p-3.5 shadow-xl flex flex-col items-center text-center relative border backdrop-blur-sm"
+                                  style={{
+                                    backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                                    borderColor: (qrData.data.qrStyle?.fgColor || '#0F172A') + '25',
+                                  }}
+                                >
+                                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-white/30 via-transparent to-black/5 pointer-events-none" />
+                                  <div
+                                    className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider mb-1 shadow-xs"
+                                    style={{
+                                      backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A',
+                                      color: qrData.data.qrStyle?.bgColor || '#FFFFFF',
+                                    }}
+                                  >
+                                    {t.displayName}
+                                  </div>
+                                  <h4
+                                    className="font-display text-xs font-black tracking-tight leading-tight"
+                                    style={{ color: qrData.data.qrStyle?.fgColor || '#0F172A' }}
+                                  >
+                                    {qrData.data.restaurantName || 'Restaurant'}
+                                  </h4>
+                                  <p className="text-[8px] text-slate-500 font-bold mb-1.5">
+                                    {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
+                                  </p>
+                                  <div className="relative w-36 h-36 flex items-center justify-center bg-white p-1.5 rounded-2xl shadow-inner border border-slate-150 mb-1.5">
+                                    <div
+                                      className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                                      dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
+                                    />
+                                    {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
+                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-8 h-8 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
+                                          <img
+                                            src={qrData.data.restaurantLogo}
+                                            alt="Logo"
+                                            className="w-full h-full object-contain rounded-lg"
+                                            onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="text-[8px] font-mono font-bold text-slate-500 uppercase">
+                                    Point Camera &amp; Scan
+                                  </span>
+                                </div>
+                                <div className="w-[85%] h-2.5 bg-amber-900/80 rounded-b-xl shadow-md -mt-1 border-t border-amber-950/40 relative z-10" />
+                                <div className="w-[95%] h-2 bg-black/20 rounded-full blur-xs mt-0.5" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* URL Bar */}
+                          <div className="w-full flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 mt-1">
+                            <input
+                              type="text"
+                              readOnly
+                              value={qrData.data.url}
+                              className="flex-1 min-w-0 bg-transparent text-[10px] font-mono text-slate-600 px-2 focus:outline-none select-all truncate"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(qrData.data.url);
+                                toast('Table QR link copied to clipboard!', 'success');
+                              }}
+                              title="Copy link"
+                              className="p-1.5 hover:bg-white text-slate-600 hover:text-slate-950 rounded-lg transition shadow-2xs cursor-pointer shrink-0"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <a
+                              href={qrData.data.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open link in new tab"
+                              className="p-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition shadow-2xs cursor-pointer shrink-0"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+
+                          {/* Download & Print Buttons */}
+                          <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                            <button
+                              type="button"
+                              onClick={handleDownloadPng}
+                              className="flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" strokeWidth={1.75} />
+                              <span>Download</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handlePrintQr}
+                              className="flex items-center justify-center gap-1.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                            >
+                              <Printer className="w-3.5 h-3.5" strokeWidth={1.75} />
+                              <span>Print Standee</span>
+                            </button>
+                          </div>
+
+                          {/* Rotate QR Token */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('Rotate QR token? The old printed QR link will stop working.')) {
+                                regenerateQrMutation.mutate(t._id);
+                              }
+                            }}
+                            disabled={regenerateQrMutation.isPending}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 text-rose-600 hover:bg-rose-50 text-[11px] font-bold rounded-xl transition border border-rose-100 cursor-pointer"
+                          >
+                            <RotateCw className={`w-3.5 h-3.5 ${regenerateQrMutation.isPending ? 'animate-spin' : ''}`} />
+                            <span>Rotate QR Token</span>
+                          </button>
+                        </>
+                      ) : (
+                        <p className="text-xs text-slate-400 py-8">Failed to load QR code.</p>
+                      )}
+                    </div>
                   )}
-
-                  {/* Edit */}
-                  <button
-                    onClick={() => { setActiveTableAction(null); handleEditClick(t); }}
-                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
-                  >
-                    <Edit2 className="w-4 h-4" strokeWidth={1.75} /> Edit Details
-                  </button>
-
-                  {/* Delete */}
-                  <button
-                    onClick={() => {
-                      if (confirm('Delete this table? Tables with order history will be soft-archived.')) {
-                        const id = t._id;
-                        setActiveTableAction(null);
-                        deleteTableMutation.mutate(id);
-                      }
-                    }}
-                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition border border-rose-100"
-                  >
-                    <Trash2 className="w-4 h-4" strokeWidth={1.75} /> Delete
-                  </button>
                 </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>
+      </div>
 
       {/* ── Zone Manager Slide-over ────────────────────────────────────────────── */}
       {showZoneManager && createPortal(
@@ -1077,256 +1393,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 </button>
               </div>
             </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ── QR Code Modal ─────────────────────────────────────────────────────── */}
-      {showQrModal && createPortal(
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold text-xs">
-                  <QrCode className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-display text-base font-bold text-slate-900">{showQrModal.displayName}</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">Dine-in Table Standee QR</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowQrModal(null)}
-                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" strokeWidth={1.75} />
-              </button>
-            </div>
-
-            <div className="p-6 flex flex-col items-center gap-4">
-              {isLoadingQr ? (
-                <div className="h-48 flex items-center justify-center">
-                  <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
-                </div>
-              ) : qrData?.data?.svg ? (
-                <>
-                  {/* Realistic Standee/Card Display */}
-                  <div className="w-full flex flex-col items-center">
-                    {qrData.data.qrStyle?.templateTheme === 'minimal' ? (
-                      /* Minimal Template */
-                      <div
-                        className="w-56 rounded-2xl p-4 shadow-md flex flex-col items-center text-center relative border border-slate-200"
-                        style={{ backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF' }}
-                      >
-                        <div className="flex items-center justify-between w-full pb-1.5 mb-1.5 border-b border-slate-150">
-                          <span className="text-[10px] font-mono font-black uppercase text-slate-800">
-                            {qrData.data.restaurantName || 'DINE-IN'}
-                          </span>
-                          <span
-                            className="text-[9px] font-mono font-black px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A',
-                              color: qrData.data.qrStyle?.bgColor || '#FFFFFF',
-                            }}
-                          >
-                            {showQrModal.displayName}
-                          </span>
-                        </div>
-                        <div className="relative w-44 h-44 flex items-center justify-center p-1">
-                          <div
-                            className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
-                            dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
-                          />
-                          {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
-                                <img
-                                  src={qrData.data.restaurantLogo}
-                                  alt="Logo"
-                                  className="w-full h-full object-contain rounded-lg"
-                                  onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-600 mt-1">
-                          {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
-                        </span>
-                      </div>
-                    ) : qrData.data.qrStyle?.templateTheme === 'branded' ? (
-                      /* Branded Template */
-                      <div
-                        className="w-56 rounded-2xl p-4 shadow-xl flex flex-col items-center text-center relative border-2"
-                        style={{
-                          backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
-                          borderColor: qrData.data.qrStyle?.fgColor || '#0F172A',
-                        }}
-                      >
-                        <div
-                          className="w-8 h-1 rounded-full mb-2"
-                          style={{ backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A' }}
-                        />
-                        <h4
-                          className="font-serif text-sm font-black tracking-tight"
-                          style={{ color: qrData.data.qrStyle?.fgColor || '#0F172A' }}
-                        >
-                          {qrData.data.restaurantName || 'Restaurant'}
-                        </h4>
-                        <p className="text-[9px] text-slate-500 font-semibold mb-2">
-                          {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
-                        </p>
-                        <div className="relative w-40 h-40 flex items-center justify-center bg-white p-2 rounded-xl border border-slate-200 mb-2">
-                          <div
-                            className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
-                            dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
-                          />
-                          {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="w-8 h-8 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
-                                <img
-                                  src={qrData.data.restaurantLogo}
-                                  alt="Logo"
-                                  className="w-full h-full object-contain rounded-lg"
-                                  onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div
-                          className="px-3 py-0.5 rounded-md text-[9px] font-mono font-black uppercase"
-                          style={{
-                            backgroundColor: (qrData.data.qrStyle?.fgColor || '#0F172A') + '15',
-                            color: qrData.data.qrStyle?.fgColor || '#0F172A',
-                          }}
-                        >
-                          {showQrModal.displayName}
-                        </div>
-                      </div>
-                    ) : (
-                      /* Standee Acrylic Template */
-                      <div className="w-56 flex flex-col items-center">
-                        <div
-                          className="w-full rounded-3xl p-4 shadow-xl flex flex-col items-center text-center relative border backdrop-blur-sm"
-                          style={{
-                            backgroundColor: qrData.data.qrStyle?.bgColor || '#FFFFFF',
-                            borderColor: (qrData.data.qrStyle?.fgColor || '#0F172A') + '25',
-                          }}
-                        >
-                          <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-white/30 via-transparent to-black/5 pointer-events-none" />
-                          <div
-                            className="px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider mb-1.5 shadow-xs"
-                            style={{
-                              backgroundColor: qrData.data.qrStyle?.fgColor || '#0F172A',
-                              color: qrData.data.qrStyle?.bgColor || '#FFFFFF',
-                            }}
-                          >
-                            {showQrModal.displayName}
-                          </div>
-                          <h4
-                            className="font-display text-xs font-black tracking-tight leading-tight"
-                            style={{ color: qrData.data.qrStyle?.fgColor || '#0F172A' }}
-                          >
-                            {qrData.data.restaurantName || 'Restaurant'}
-                          </h4>
-                          <p className="text-[9px] text-slate-500 font-bold mb-2">
-                            {qrData.data.qrStyle?.cardFrameText || 'Scan to View Menu & Order'}
-                          </p>
-                          <div className="relative w-40 h-40 flex items-center justify-center bg-white p-2 rounded-2xl shadow-inner border border-slate-150 mb-2">
-                            <div
-                              className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
-                              dangerouslySetInnerHTML={{ __html: qrData.data.svg }}
-                            />
-                            {qrData.data.qrStyle?.showLogo && qrData.data.restaurantLogo && (
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-9 h-9 rounded-xl bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden p-0.5">
-                                  <img
-                                    src={qrData.data.restaurantLogo}
-                                    alt="Logo"
-                                    className="w-full h-full object-contain rounded-lg"
-                                    onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-[8px] font-mono font-bold text-slate-500 uppercase">
-                            Point Camera & Scan
-                          </span>
-                        </div>
-                        <div className="w-[85%] h-3 bg-amber-900/80 rounded-b-xl shadow-md -mt-1 border-t border-amber-950/40 relative z-10" />
-                        <div className="w-[95%] h-2.5 bg-black/20 rounded-full blur-xs mt-0.5" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* URL Bar with Copy & Open In New Tab Buttons */}
-                  <div className="w-full flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
-                    <input
-                      type="text"
-                      readOnly
-                      value={qrData.data.url}
-                      className="flex-1 min-w-0 bg-transparent text-[11px] font-mono text-slate-600 px-2 focus:outline-none select-all truncate"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(qrData.data.url);
-                        toast('Table QR link copied to clipboard!', 'success');
-                      }}
-                      title="Copy link"
-                      className="p-2 hover:bg-white text-slate-600 hover:text-slate-950 rounded-xl transition shadow-2xs border border-transparent hover:border-slate-200 cursor-pointer shrink-0"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    <a
-                      href={qrData.data.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Open link in new tab"
-                      className="p-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition shadow-2xs cursor-pointer shrink-0"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5 w-full">
-                    <button
-                      type="button"
-                      onClick={handleDownloadPng}
-                      className="flex items-center justify-center gap-1.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-2xl transition cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" strokeWidth={1.75} /> Download PNG
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePrintQr}
-                      className="flex items-center justify-center gap-1.5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition cursor-pointer shadow-sm"
-                    >
-                      <Printer className="w-4 h-4" strokeWidth={1.75} /> Print QR
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm('Rotate QR token? The old printed QR link will stop working.')) {
-                        regenerateQrMutation.mutate(showQrModal._id);
-                      }
-                    }}
-                    disabled={regenerateQrMutation.isPending}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition border border-rose-100 cursor-pointer"
-                  >
-                    <RotateCw className={`w-3.5 h-3.5 ${regenerateQrMutation.isPending ? 'animate-spin' : ''}`} />
-                    Rotate QR Token
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-slate-400 py-8">Failed to load QR code.</p>
-              )}
-            </div>
           </div>
         </div>,
         document.body
