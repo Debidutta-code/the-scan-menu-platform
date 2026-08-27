@@ -48,6 +48,8 @@ export interface IRestaurantSettingsPayment {
     config: Record<string, any>;
   };
   gstNumber?: string;
+  fssaiNumber?: string;
+  upiId?: string;
 }
 
 export interface IRestaurantSettingsNotification {
@@ -210,6 +212,8 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
         config: { type: Schema.Types.Mixed, default: {} },
       },
       gstNumber: { type: String },
+      fssaiNumber: { type: String },
+      upiId: { type: String },
     },
     notificationPreferences: {
       emailNotifications: { type: Boolean, default: true },

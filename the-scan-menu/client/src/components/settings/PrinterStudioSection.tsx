@@ -29,29 +29,27 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
 
   const targetRestaurantId = propRestaurantId || activeRestaurantId;
 
-  // Store metadata
+  // Store metadata (from Store Profile & Payments)
   const [storeName, setStoreName] = useState('');
   const [storeAddress, setStoreAddress] = useState('');
   const [storePhone, setStorePhone] = useState('');
   const [storeLogoUrl, setStoreLogoUrl] = useState('');
   const [storeGstNumber, setStoreGstNumber] = useState('');
+  const [storeFssaiNumber, setStoreFssaiNumber] = useState('');
+  const [storeUpiId, setStoreUpiId] = useState('');
 
-  // Printer & Receipt Design Studio States
+  // Printer & Receipt Design Studio States (Pure Display & Formatting preferences)
   const [paperWidth, setPaperWidth] = useState<'80mm' | '58mm' | 'A4'>('80mm');
   const [templateTheme, setTemplateTheme] = useState<'classic' | 'modern' | 'compact'>('classic');
   const [showLogo, setShowLogo] = useState(true);
-  const [receiptLogoUrl, setReceiptLogoUrl] = useState('');
   const [showGstNumber, setShowGstNumber] = useState(true);
-  const [receiptGstNumber, setReceiptGstNumber] = useState('');
   const [showFssai, setShowFssai] = useState(true);
-  const [fssaiNumber, setFssaiNumber] = useState('');
   const [receiptHeader, setReceiptHeader] = useState('');
   const [receiptFooter, setReceiptFooter] = useState('');
   const [showCustomerInfo, setShowCustomerInfo] = useState(true);
   const [showPaymentMode, setShowPaymentMode] = useState(true);
   const [showTaxBreakup, setShowTaxBreakup] = useState(true);
   const [showPaymentQr, setShowPaymentQr] = useState(true);
-  const [upiId, setUpiId] = useState('');
   const [kotNotes, setKotNotes] = useState('');
   const [kotShowServerName, setKotShowServerName] = useState(true);
   const [defaultPrintTarget, setDefaultPrintTarget] = useState<'BOTH' | 'KITCHEN' | 'COUNTER' | 'NONE'>('BOTH');
@@ -85,25 +83,23 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
       setStoreAddress(p.address || '');
       setStorePhone(p.phone || '');
       setStoreLogoUrl(p.branding?.logoUrl || p.logoUrl || '');
-      setStoreGstNumber(p.gstNumber || '');
+      setStoreGstNumber(p.gstNumber || p.settings?.paymentConfig?.gstNumber || '');
+      setStoreFssaiNumber(p.fssaiNumber || p.settings?.paymentConfig?.fssaiNumber || p.printerConfig?.fssaiNumber || '');
+      setStoreUpiId(p.upiId || p.settings?.paymentConfig?.upiId || p.paymentMethods?.upiId || p.printerConfig?.upiId || '');
 
       const printerCfg = p.printerConfig || p.settings?.printerConfig;
       if (printerCfg) {
         setPaperWidth(printerCfg.paperWidth || '80mm');
         setTemplateTheme(printerCfg.templateTheme || 'classic');
         setShowLogo(printerCfg.showLogo !== false);
-        setReceiptLogoUrl(printerCfg.logoUrl || '');
         setShowGstNumber(printerCfg.showGstNumber !== false);
-        setReceiptGstNumber(printerCfg.gstNumber || p.gstNumber || '');
         setShowFssai(printerCfg.showFssai !== false);
-        setFssaiNumber(printerCfg.fssaiNumber || '');
         setReceiptHeader(printerCfg.receiptHeader || '');
         setReceiptFooter(printerCfg.receiptFooter || '');
         setShowCustomerInfo(printerCfg.showCustomerInfo !== false);
         setShowPaymentMode(printerCfg.showPaymentMode !== false);
         setShowTaxBreakup(printerCfg.showTaxBreakup !== false);
         setShowPaymentQr(printerCfg.showPaymentQr !== false);
-        setUpiId(printerCfg.upiId || p.settings?.paymentConfig?.upiId || '');
         setKotNotes(printerCfg.kotNotes || '');
         setKotShowServerName(printerCfg.kotShowServerName !== false);
         setDefaultPrintTarget(printerCfg.defaultPrintTarget || 'BOTH');
@@ -171,18 +167,14 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
         paperWidth,
         templateTheme,
         showLogo,
-        logoUrl: receiptLogoUrl.trim() || undefined,
         showGstNumber,
-        gstNumber: receiptGstNumber.trim() || undefined,
         showFssai,
-        fssaiNumber: fssaiNumber.trim() || undefined,
         receiptHeader: receiptHeader.trim() || undefined,
         receiptFooter: receiptFooter.trim() || undefined,
         showCustomerInfo,
         showPaymentMode,
         showTaxBreakup,
         showPaymentQr,
-        upiId: upiId.trim() || undefined,
         kotNotes: kotNotes.trim() || undefined,
         kotShowServerName,
         defaultPrintTarget,
@@ -198,23 +190,42 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
   const handleTriggerTestPrint = () => {
     setTestPrintData({
       orderNumber: 104,
-      tableName: 'Table 04',
+      orderMode: 'DINE_IN',
+      tableId: { displayName: 'Table 4 (Window Side)', tableNumber: '4' },
       createdAt: new Date().toISOString(),
-      customerName: 'Rahul Sharma',
+      customerName: 'Aarav Sharma',
+      customerPhone: '+91 98765 43210',
+      serverName: 'Vikram (Captain)',
+      paymentStatus: previewPaymentStatus,
+      paymentMethod: previewPaymentStatus === 'PAID' ? 'UPI / QR' : 'PENDING',
       items: [
-        { nameSnapshot: 'Margherita Pizza (Large)', quantity: 2, unitPriceSnapshot: 449, notes: 'Extra crispy crust' } as any,
-        { nameSnapshot: 'Filter Coffee', quantity: 1, unitPriceSnapshot: 120, notes: 'Less sugar' } as any,
+        {
+          name: 'Truffle Mushroom Pizza',
+          quantity: 1,
+          price: 45000,
+          specialInstructions: 'Extra crisp thin crust, light cheese',
+          selectedAddOns: [{ name: 'Extra Truffle Oil', price: 6000 }],
+        },
+        {
+          name: 'Classic Cold Brew Tonic',
+          quantity: 2,
+          price: 18000,
+          specialInstructions: 'Less ice',
+        },
       ],
-      subtotal: 1018,
-      tax: 50.90,
-      total: 1068.90,
-      paymentStatus: previewPaymentStatus === 'PAID' ? 'PAID' : 'PENDING',
+      subtotal: 87000,
+      tax: 4350,
+      taxBreakdown: [
+        { name: 'CGST (2.5%)', amount: 2175, percentage: 2.5 },
+        { name: 'SGST (2.5%)', amount: 2175, percentage: 2.5 },
+      ],
+      total: 91350,
     });
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-[30vh] flex items-center justify-center">
+      <div className="min-h-[40vh] flex items-center justify-center">
         <Loader className="w-6 h-6 animate-spin text-amber-500" />
       </div>
     );
@@ -222,19 +233,20 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
 
   return (
     <>
-      <form onSubmit={handleSavePrinterSettings} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-7">
-        <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <form onSubmit={handleSavePrinterSettings} className="space-y-6">
+        {/* Header Ribbon */}
+        <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Printer className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2.5">
+              <Printer className="w-5 h-5 text-amber-500" />
               <span>Thermal Printer & Receipt Design Studio</span>
-            </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
               Customize customer bills, counter receipts, kitchen KOT tickets, logo branding, and tax layouts.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleTriggerTestPrint}
@@ -255,7 +267,7 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
           </div>
         </div>
 
-        {/* ── 1. BRANDING, LOGO & TAX REGISTRATION ──────────────────────────── */}
+        {/* ── 1. RECEIPT BRANDING & TAX IDENTIFIERS ──────────────────────────── */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono flex items-center gap-2">
@@ -266,10 +278,13 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Logo Configuration */}
-            <div className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
+            {/* Logo Display Setting */}
+            <div className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700">Receipt Logo</label>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block">Receipt Logo</label>
+                  <p className="text-[11px] text-slate-500">Prints store logo at the top of customer bills</p>
+                </div>
                 <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                   <input
                     type="checkbox"
@@ -277,88 +292,85 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
                     onChange={(e) => setShowLogo(e.target.checked)}
                     className="rounded text-amber-500 focus:ring-amber-400"
                   />
-                  <span className="font-medium text-[11px]">Print Logo on Bills</span>
+                  <span className="font-bold text-[11px]">Print Logo on Bills</span>
                 </label>
               </div>
 
               {showLogo && (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={receiptLogoUrl}
-                      onChange={(e) => setReceiptLogoUrl(e.target.value)}
-                      placeholder={storeLogoUrl || 'https://example.com/logo.png'}
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono bg-white"
-                    />
-                    {storeLogoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setReceiptLogoUrl(storeLogoUrl)}
-                        className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold rounded-xl transition cursor-pointer whitespace-nowrap"
-                      >
-                        Use Store Logo
-                      </button>
-                    )}
-                  </div>
-                  {(receiptLogoUrl || storeLogoUrl) && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[10px] text-slate-400">Preview:</span>
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {storeLogoUrl ? (
                       <img
-                        src={receiptLogoUrl || storeLogoUrl}
-                        alt="Receipt Logo"
-                        className="h-8 max-w-[120px] object-contain bg-white p-1 rounded-lg border border-slate-200"
+                        src={storeLogoUrl}
+                        alt="Store Logo"
+                        className="h-10 max-w-[120px] object-contain bg-white p-1 rounded-xl border border-slate-200 shadow-2xs"
                       />
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">No logo uploaded</span>
+                    )}
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Store Logo</span>
+                      <span className="text-[10px] text-slate-400">Configured in Store Profile</span>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* GSTIN & FSSAI Identifiers */}
             <div className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
+              {/* GSTIN Toggle & Read-only Preview */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700">GSTIN Registration Number</label>
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={showGstNumber}
                       onChange={(e) => setShowGstNumber(e.target.checked)}
                       className="rounded text-amber-500 focus:ring-amber-400"
                     />
-                    <span>Show GSTIN</span>
+                    <span className="font-bold">Show GSTIN</span>
                   </label>
                 </div>
-                <input
-                  type="text"
-                  value={receiptGstNumber}
-                  onChange={(e) => setReceiptGstNumber(e.target.value)}
-                  placeholder="e.g. 27AAAAA1111A1Z1"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono bg-white uppercase"
-                />
+                {storeGstNumber ? (
+                  <div className="px-3 py-2 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-mono font-bold text-slate-900">{storeGstNumber}</span>
+                    <span className="text-[10px] text-slate-400">From Store Profile</span>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+                    <span>No GSTIN configured</span>
+                    <span className="text-[10px] font-bold">Configure in Store Profile</span>
+                  </div>
+                )}
               </div>
 
+              {/* FSSAI Toggle & Read-only Preview */}
               <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700">FSSAI License Number</label>
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={showFssai}
                       onChange={(e) => setShowFssai(e.target.checked)}
                       className="rounded text-amber-500 focus:ring-amber-400"
                     />
-                    <span>Show FSSAI</span>
+                    <span className="font-bold">Show FSSAI</span>
                   </label>
                 </div>
-                <input
-                  type="text"
-                  value={fssaiNumber}
-                  onChange={(e) => setFssaiNumber(e.target.value)}
-                  placeholder="e.g. 10019022009876"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono bg-white"
-                />
+                {storeFssaiNumber ? (
+                  <div className="px-3 py-2 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-mono font-bold text-slate-900">{storeFssaiNumber}</span>
+                    <span className="text-[10px] text-slate-400">From Store Profile</span>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+                    <span>No FSSAI configured</span>
+                    <span className="text-[10px] font-bold">Configure in Store Profile</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -371,7 +383,7 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
                     Automatically generates a scan-and-pay UPI QR code on postpaid & unpaid bills so guests can pay instantly via GPay, PhonePe, Paytm, or BHIM.
                   </p>
                 </div>
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer whitespace-nowrap font-medium">
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer whitespace-nowrap font-bold">
                   <input
                     type="checkbox"
                     checked={showPaymentQr}
@@ -383,18 +395,22 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
               </div>
 
               {showPaymentQr && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-200/60">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                       Merchant UPI ID (VPA)
                     </label>
-                    <input
-                      type="text"
-                      value={upiId}
-                      onChange={(e) => setUpiId(e.target.value)}
-                      placeholder="e.g. yourrestaurant@okhdfcbank or 9876543210@paytm"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono bg-white"
-                    />
+                    {storeUpiId ? (
+                      <div className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                        <span className="font-mono font-bold text-slate-900">{storeUpiId}</span>
+                        <span className="text-[10px] text-slate-400">From Payments & Channels</span>
+                      </div>
+                    ) : (
+                      <div className="px-3.5 py-2.5 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+                        <span>No Merchant UPI ID configured</span>
+                        <span className="text-[10px] font-bold">Configure in Payments & Channels</span>
+                      </div>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-1">Amount is automatically encoded in QR code.</p>
                   </div>
                   <div className="p-3 bg-amber-50/50 border border-amber-200/60 rounded-xl text-[11px] text-amber-800 flex items-start gap-2">
@@ -823,9 +839,9 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
               {(previewReceiptType === 'BILL' || previewReceiptType === 'COUNTER') && (
                 <>
                   <div className="text-center border-b border-dashed border-slate-300 pb-2">
-                    {showLogo && (receiptLogoUrl || storeLogoUrl) && (
+                    {showLogo && storeLogoUrl && (
                       <img
-                        src={receiptLogoUrl || storeLogoUrl}
+                        src={storeLogoUrl}
                         alt="Logo"
                         className="h-9 mx-auto mb-1.5 object-contain"
                       />
@@ -835,13 +851,13 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
                     </div>
                     <div className="text-[10px] text-slate-500 mt-0.5">{storeAddress || '456 Gourmet Lane, Mumbai'}</div>
                     <div className="text-[10px] text-slate-500 font-bold">{storePhone || 'Ph: +91 98765 43210'}</div>
-                    {showGstNumber && (receiptGstNumber || storeGstNumber) && (
+                    {showGstNumber && storeGstNumber && (
                       <div className="text-[10px] text-slate-700 font-bold mt-0.5">
-                        GSTIN: {receiptGstNumber || storeGstNumber || '27AAAAA1111A1Z1'}
+                        GSTIN: {storeGstNumber}
                       </div>
                     )}
-                    {showFssai && fssaiNumber && (
-                      <div className="text-[10px] text-slate-600">FSSAI: {fssaiNumber}</div>
+                    {showFssai && storeFssaiNumber && (
+                      <div className="text-[10px] text-slate-600 font-bold mt-0.5">FSSAI: {storeFssaiNumber}</div>
                     )}
                     {receiptHeader && <div className="text-[10px] italic text-amber-800 mt-1">{receiptHeader}</div>}
                     
@@ -927,13 +943,13 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
                       <div className="text-[10px] font-black tracking-wider text-slate-900">SCAN & PAY VIA UPI</div>
                       <img
                         src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&margin=0&data=${encodeURIComponent(
-                          `upi://pay?pa=${upiId || 'merchant@upi'}&pn=${storeName || 'Restaurant'}&am=1068.90&cu=INR&tn=Bill%20104`
+                          `upi://pay?pa=${storeUpiId || 'merchant@upi'}&pn=${storeName || 'Restaurant'}&am=1068.90&cu=INR&tn=Bill%20104`
                         )}`}
                         alt="UPI QR Code"
                         className="w-24 h-24 mx-auto border border-slate-200 p-1 bg-white rounded"
                       />
                       <div className="text-[9px] font-bold text-slate-700">GPay • PhonePe • Paytm • BHIM</div>
-                      <div className="text-[8px] font-mono text-slate-500">UPI ID: {upiId || 'merchant@upi'}</div>
+                      <div className="text-[8px] font-mono text-slate-500">UPI ID: {storeUpiId || 'merchant@upi'}</div>
                     </div>
                   )}
 
@@ -1010,20 +1026,20 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
             name: storeName || 'THE WOODFIRED BISTRO',
             address: storeAddress || '456 Gourmet Lane, Mumbai',
             phone: storePhone || '+91 98765 43210',
-            gstNumber: receiptGstNumber || storeGstNumber || '27AAAAA1111A1Z1',
-            logoUrl: receiptLogoUrl || storeLogoUrl,
+            gstNumber: storeGstNumber || '27AAAAA1111A1Z1',
+            logoUrl: storeLogoUrl,
             headerMessage: receiptHeader || 'Welcome to The Woodfired Bistro!',
             footerMessage: receiptFooter || 'Thank you for dining with us! Please visit again.',
             printerConfig: {
               paperWidth,
               templateTheme,
               showLogo,
-              logoUrl: receiptLogoUrl || storeLogoUrl,
+              logoUrl: storeLogoUrl,
               showGstNumber,
               showFssai,
-              fssaiNumber,
+              fssaiNumber: storeFssaiNumber,
               showPaymentQr,
-              upiId,
+              upiId: storeUpiId,
               showCustomerInfo,
               showPaymentMode,
               showTaxBreakup,

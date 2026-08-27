@@ -437,6 +437,8 @@ export class RestaurantController {
         razorpayConfig: settings.paymentConfig?.razorpayConfig || { keyId: '', keySecret: '' },
         integrationConfig: settings.paymentConfig?.integrationConfig || { provider: 'NONE', config: {} },
         gstNumber: settings.paymentConfig?.gstNumber || '',
+        fssaiNumber: settings.paymentConfig?.fssaiNumber || settings.printerConfig?.fssaiNumber || '',
+        upiId: settings.paymentConfig?.upiId || settings.printerConfig?.upiId || '',
         orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
         autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
         timings: settings.timings || { open: '09:00', close: '23:00' },
@@ -466,7 +468,7 @@ export class RestaurantController {
 
       // Prevent managers from editing store identity & physical details (SuperAdmin only)
       if (!isSuperAdmin) {
-        const attemptedStoreKeys = ['name', 'phone', 'email', 'address', 'description', 'gstNumber', 'timings', 'googleReviewUrl', 'whatsapp', 'logoUrl', 'coverImageUrl'];
+        const attemptedStoreKeys = ['name', 'phone', 'email', 'address', 'description', 'gstNumber', 'fssaiNumber', 'timings', 'googleReviewUrl', 'whatsapp', 'logoUrl', 'coverImageUrl'];
         const hasStoreFields = attemptedStoreKeys.some((k) => updateData[k] !== undefined);
         
         attemptedStoreKeys.forEach((k) => delete updateData[k]);
@@ -516,6 +518,8 @@ export class RestaurantController {
       if (updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
       if (updateData.integrationConfig) settings.paymentConfig.integrationConfig = updateData.integrationConfig;
       if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
+      if (updateData.fssaiNumber !== undefined) settings.paymentConfig.fssaiNumber = updateData.fssaiNumber;
+      if (updateData.upiId !== undefined) settings.paymentConfig.upiId = updateData.upiId;
       if (updateData.orderWorkflowMode) settings.workflow.orderWorkflowMode = updateData.orderWorkflowMode;
       if (updateData.autoAcceptConfig) settings.workflow.autoAcceptConfig = updateData.autoAcceptConfig;
       if (updateData.timings) settings.timings = updateData.timings;
@@ -537,6 +541,8 @@ export class RestaurantController {
         razorpayConfig: settings.paymentConfig?.razorpayConfig || { keyId: '', keySecret: '' },
         integrationConfig: settings.paymentConfig?.integrationConfig || { provider: 'NONE', config: {} },
         gstNumber: settings.paymentConfig?.gstNumber || '',
+        fssaiNumber: settings.paymentConfig?.fssaiNumber || settings.printerConfig?.fssaiNumber || '',
+        upiId: settings.paymentConfig?.upiId || settings.printerConfig?.upiId || '',
         orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
         autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
         timings: settings.timings || { open: '09:00', close: '23:00' },

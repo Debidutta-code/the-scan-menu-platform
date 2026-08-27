@@ -46,6 +46,7 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
   const [address, setAddress] = useState('');
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   const [gstNumber, setGstNumber] = useState('');
+  const [fssaiNumber, setFssaiNumber] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [openTime, setOpenTime] = useState('09:00');
   const [closeTime, setCloseTime] = useState('23:00');
@@ -72,6 +73,7 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
       setAddress(p.address || '');
       setGoogleReviewUrl(p.googleReviewUrl || '');
       setGstNumber(p.gstNumber || '');
+      setFssaiNumber(p.fssaiNumber || p.printerConfig?.fssaiNumber || '');
       setWhatsapp(p.whatsapp || '');
       setLogoUrl(p.branding?.logoUrl || p.logoUrl || '');
       setCoverImageUrl(p.branding?.coverImageUrl || p.coverImageUrl || '');
@@ -148,6 +150,7 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
       googleReviewUrl: googleReviewUrl.trim() || undefined,
       whatsapp: whatsapp.trim() || undefined,
       gstNumber: gstNumber.trim() || undefined,
+      fssaiNumber: fssaiNumber.trim() || undefined,
       timings: {
         open: openTime,
         close: closeTime,
@@ -449,6 +452,18 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
                 value={gstNumber}
                 onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
                 placeholder="29ABCDE1234F1Z5"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">FSSAI Food License Number</label>
+              <input
+                type="text"
+                disabled={!isEditable}
+                value={fssaiNumber}
+                onChange={(e) => setFssaiNumber(e.target.value)}
+                placeholder="e.g. 12345678901234"
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold disabled:bg-slate-50"
               />
             </div>

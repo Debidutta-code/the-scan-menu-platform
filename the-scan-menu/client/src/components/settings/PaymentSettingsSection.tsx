@@ -31,6 +31,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
   const [cashEnabled, setCashEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
   const [upiEnabled, setUpiEnabled] = useState(true);
+  const [upiId, setUpiId] = useState('');
   const [razorpayEnabled, setRazorpayEnabled] = useState(false);
   const [razorpayKeyId, setRazorpayKeyId] = useState('');
   const [razorpayKeySecret, setRazorpayKeySecret] = useState('');
@@ -56,6 +57,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         setUpiEnabled(!!p.paymentMethods.upi);
         setRazorpayEnabled(!!p.paymentMethods.razorpay);
       }
+      setUpiId(p.upiId || p.settings?.paymentConfig?.upiId || p.printerConfig?.upiId || '');
       if (p.razorpayConfig) {
         setRazorpayKeyId(p.razorpayConfig.keyId || '');
         setRazorpayKeySecret(p.razorpayConfig.keySecret || '');
@@ -64,6 +66,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
       if (paymentConfig) {
         setActivePaymentProvider(paymentConfig.activeProvider || 'CASH');
         setActivePaymentMode(paymentConfig.activeMode || 'POSTPAID');
+        if (paymentConfig.upiId) setUpiId(paymentConfig.upiId);
       }
     }
   }, [restaurantResponse]);
@@ -113,6 +116,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         upi: upiEnabled,
         razorpay: razorpayEnabled,
       },
+      upiId: upiEnabled && upiId.trim() ? upiId.trim() : undefined,
       razorpayConfig: razorpayEnabled
         ? {
             keyId: razorpayKeyId.trim() || undefined,
@@ -242,6 +246,28 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             <span className="text-xs font-bold text-slate-700">Razorpay Gateway</span>
           </label>
         </div>
+
+        {upiEnabled && (
+          <div className="pt-2">
+            <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4">
+              <label className="block text-xs font-bold text-slate-900 mb-1">
+                Merchant UPI ID (VPA) <span className="text-amber-600">*</span>
+              </label>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <input
+                  type="text"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="e.g. democafe@okhdfcbank"
+                  className="w-full sm:max-w-md px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold"
+                />
+                <span className="text-xs text-slate-500">
+                  Used for instant scan-and-pay UPI QR codes generated on customer tables and printed bills.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {razorpayEnabled && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
