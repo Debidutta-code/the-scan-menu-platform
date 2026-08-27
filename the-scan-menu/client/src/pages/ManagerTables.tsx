@@ -439,7 +439,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full h-full flex flex-col min-h-0 space-y-2.5 sm:space-y-3 font-sans select-none overflow-hidden">
+    <div className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-2.5 sm:space-y-3 font-sans select-none pb-8 pr-0.5">
 
       {/* ── Page Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs shrink-0">
@@ -627,8 +627,8 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         ))}
       </div>
 
-      {/* ── Controls Row ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 shrink-0">
+      {/* ── Controls Row (Sticky Bar) ──────────────────────────────────────── */}
+      <div className="sticky top-0 z-30 bg-[#FAF9F6]/95 backdrop-blur-md py-1.5 -my-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 transition-all">
         {/* Status filter pills */}
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl flex-wrap shrink-0">
           {(
@@ -705,10 +705,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
       {/* ── Selection Mode Active Banner ────────────────────────────────────── */}
       {tableSelectionMode && (
-        <div className={`flex items-center justify-between px-4 py-2.5 rounded-2xl border shrink-0 shadow-xs animate-in fade-in duration-150 ${
+        <div className={`sticky top-12 z-20 flex items-center justify-between px-4 py-2.5 rounded-2xl border shrink-0 shadow-xs animate-in fade-in duration-150 ${
           tableSelectionMode === 'DELETE'
-            ? 'bg-rose-50 border-rose-200 text-rose-950'
-            : 'bg-amber-50 border-amber-200 text-amber-950'
+            ? 'bg-rose-50/95 backdrop-blur-md border-rose-200 text-rose-950'
+            : 'bg-amber-50/95 backdrop-blur-md border-amber-200 text-amber-950'
         }`}>
           <div className="flex items-center gap-2 text-xs font-semibold">
             {tableSelectionMode === 'DELETE' ? (
@@ -738,9 +738,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       )}
 
       {/* ── Main Tables Workspace (Split View when Table Selected) ─────────────── */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 overflow-hidden">
+      <div className="flex flex-col lg:flex-row gap-3 items-start">
         {/* Left Side: Tables Grid */}
-        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto scrollbar-none space-y-3.5 pr-0.5">
+        <div className="flex-1 min-w-0 space-y-3.5">
           {zoneGroupings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl text-center shadow-sm">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
@@ -934,7 +934,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 animate={{ opacity: 1, x: 0, width: 'auto' }}
                 exit={{ opacity: 0, x: 50, width: 0 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full lg:w-96 shrink-0 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full min-h-0 overflow-hidden"
+                className="w-full lg:w-96 shrink-0 sticky top-14 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col max-h-[calc(100vh-5.5rem)] overflow-hidden"
               >
                 {/* Header */}
                 <div className={`p-4 border-b border-slate-100 shrink-0 ${
