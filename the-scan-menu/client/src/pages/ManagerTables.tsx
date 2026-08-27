@@ -452,24 +452,24 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           {/* Refresh button */}
           <button
             onClick={() => refetchTables()}
             title="Refresh tables"
-            className="h-8.5 w-8.5 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-2xs cursor-pointer"
+            className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-xs cursor-pointer active:scale-95"
           >
-            <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <RefreshCw className="w-4 h-4" strokeWidth={1.75} />
           </button>
 
           {/* Transfer / Merge Button (Operational) */}
           {isEnabled('ordering') && (
             <button
               onClick={() => navigate('/manager/tables/operations')}
-              className="h-8.5 flex items-center gap-1.5 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+              className="h-10 flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
               title="Transfer guest sessions or merge multiple tables"
             >
-              <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" strokeWidth={2} />
+              <ArrowRightLeft className="w-4 h-4 text-indigo-600" strokeWidth={2} />
               <span>Transfer / Merge</span>
             </button>
           )}
@@ -482,11 +482,11 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 setIsAddMenuOpen(!isAddMenuOpen);
                 setIsMoreMenuOpen(false);
               }}
-              className="h-8.5 flex items-center gap-1.5 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+              className="h-10 flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <Plus className="w-4 h-4" strokeWidth={2.5} />
               <span>Add Table</span>
-              <ChevronDown className={`w-3 h-3 transition-transform duration-150 ${isAddMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${isAddMenuOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isAddMenuOpen && (
@@ -545,7 +545,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 setIsAddMenuOpen(false);
               }}
               title="More options"
-              className="h-8.5 w-8.5 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-2xs cursor-pointer active:scale-95"
+              className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-xs cursor-pointer active:scale-95"
             >
               <MoreVertical className="w-4 h-4" strokeWidth={2} />
             </button>
