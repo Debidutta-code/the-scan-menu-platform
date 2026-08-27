@@ -646,9 +646,9 @@ export const ManagerOrders: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-3.5 sm:space-y-4 font-sans select-none pb-12">
+    <div className="w-full h-full flex flex-col min-h-0 space-y-2.5 sm:space-y-3 font-sans select-none overflow-hidden">
       {/* ── Top Header Toolbar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-xs shrink-0">
             <ChefHat className="w-4.5 h-4.5 text-amber-400" strokeWidth={1.75} />
@@ -704,9 +704,9 @@ export const ManagerOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* â”€â”€ Mobile Column Tab Bar â”€â”€ */}
+      {/* ── Mobile Column Tab Bar ── */}
       {viewMode === 'KANBAN' && (
-        <div className="md:hidden flex items-center gap-2 overflow-x-auto px-1 py-1 scrollbar-none">
+        <div className="md:hidden flex items-center gap-2 overflow-x-auto px-1 py-1 scrollbar-none shrink-0">
           {workflowSteps.map((step) => {
             const count = getOrdersByStatus(step.status).length;
             const isActive = mobileStatusTab === step.status;
@@ -730,15 +730,14 @@ export const ManagerOrders: React.FC = () => {
         </div>
       )}
 
-      {/* â”€â”€ KANBAN BOARD VIEW â”€â”€ */}
+      {/* ── KANBAN BOARD VIEW ── */}
       {viewMode === 'KANBAN' && (
-        <div className="overflow-x-auto pb-4 custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden scrollbar-none pb-0.5">
           <div
-            className={`grid grid-cols-1 ${densityMode === 'COMPACT' ? 'gap-3' : 'gap-4.5'}`}
+            className={`grid grid-cols-1 h-full ${densityMode === 'COMPACT' ? 'gap-2.5' : 'gap-3.5'}`}
             style={{
               gridTemplateColumns: `repeat(${workflowSteps.length}, minmax(${densityMode === 'COMPACT' ? '215px' : '280px'}, 1fr))`,
               minWidth: `${workflowSteps.length * (densityMode === 'COMPACT' ? 220 : 290)}px`,
-              minHeight: '75vh',
             }}
           >
             {workflowSteps.map((step) => {
@@ -751,7 +750,7 @@ export const ManagerOrders: React.FC = () => {
                   key={step.status}
                   className={`flex flex-col h-full bg-slate-100/70 border border-slate-200/90 rounded-2xl ${
                     densityMode === 'COMPACT' ? 'p-2 sm:p-2.5' : 'p-3'
-                  } shadow-inner ${
+                  } shadow-inner min-h-0 overflow-hidden ${
                     isMobileHidden ? 'hidden md:flex' : 'flex'
                   }`}
                 >
@@ -771,7 +770,7 @@ export const ManagerOrders: React.FC = () => {
                   </div>
 
                   {/* Column Orders List */}
-                  <div className={`flex-1 overflow-y-auto ${densityMode === 'COMPACT' ? 'space-y-2' : 'space-y-3'} pr-0.5`}>
+                  <div className={`flex-1 min-h-0 overflow-y-auto scrollbar-none ${densityMode === 'COMPACT' ? 'space-y-2' : 'space-y-3'} pr-0.5`}>
                     {isLoadingActive ? (
                       <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                         <Loader className="w-6 h-6 animate-spin mb-2 text-slate-500" strokeWidth={1.75} />
@@ -1011,18 +1010,18 @@ export const ManagerOrders: React.FC = () => {
         </div>
       )}
 
-      {/* â”€â”€ ALL ORDERS HISTORY VIEW â”€â”€ */}
+      {/* ── ALL ORDERS HISTORY VIEW ── */}
       {viewMode === 'HISTORY' && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex-1 min-h-0 bg-white rounded-3xl border border-slate-200/80 p-4 sm:p-5 shadow-sm flex flex-col overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pb-3 border-b border-slate-150">
             <div>
-              <h2 className="font-display text-xl font-bold text-slate-900">Order Logs & History</h2>
+              <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 leading-tight">Order Logs & History</h2>
               <p className="text-xs text-slate-500 font-medium">Search and review all historical orders and receipts</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center gap-2.5">
               {/* Search */}
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-60">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
                 <input
                   type="text"
@@ -1034,7 +1033,7 @@ export const ManagerOrders: React.FC = () => {
               </div>
 
               {/* Filter */}
-              <div className="relative w-full sm:w-44">
+              <div className="relative w-full sm:w-40">
                 <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" strokeWidth={2} />
                 <select
                   value={historyStatusFilter}
@@ -1055,18 +1054,18 @@ export const ManagerOrders: React.FC = () => {
 
           {/* History Table */}
           {isFetchingHistory && historyOrders.length === 0 ? (
-            <div className="py-16 flex flex-col items-center justify-center text-slate-400">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
               <Loader className="w-8 h-8 animate-spin text-slate-500 mb-2" strokeWidth={2} />
               <span className="text-xs font-semibold">Loading orders history...</span>
             </div>
           ) : historyOrders.length === 0 ? (
-            <div className="py-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 my-4">
               <Receipt className="w-8 h-8 text-slate-300 mb-2" strokeWidth={1.5} />
               <span className="text-sm font-bold text-slate-600">No orders found</span>
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              <div className="hidden md:grid grid-cols-[90px_1fr_1fr_120px_110px_100px_40px] gap-4 px-4 py-3 bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="flex-1 min-h-0 border border-slate-200 rounded-2xl overflow-y-auto scrollbar-none mt-3 flex flex-col">
+              <div className="sticky top-0 z-10 hidden md:grid grid-cols-[90px_1fr_1fr_120px_110px_100px_40px] gap-4 px-4 py-3 bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <span>Order #</span>
                 <span>Table / Mode</span>
                 <span>Customer</span>
@@ -1076,7 +1075,7 @@ export const ManagerOrders: React.FC = () => {
                 <span></span>
               </div>
 
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 flex-1">
                 {historyOrders.map((order) => {
                   const modeInfo = getOrderModeInfo(order.orderMode);
                   const isSelected = selectedCardOrder?._id === order._id;
@@ -1108,7 +1107,7 @@ export const ManagerOrders: React.FC = () => {
                         </span>
                       </div>
                       <div className="text-xs text-slate-600 font-medium">
-                        {order.customerName || 'â€”'}
+                        {order.customerName || '—'}
                       </div>
                       <div className="text-xs font-mono text-slate-500">
                         {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1143,10 +1142,10 @@ export const ManagerOrders: React.FC = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                                  setPrintModalOrder(order);
+                            setPrintModalOrder(order);
                           }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition cursor-pointer"
-                          title="Print Options &amp; KOT"
+                          title="Print Options & KOT"
                         >
                           <Printer className="w-4 h-4" strokeWidth={1.75} />
                         </button>
@@ -1170,11 +1169,11 @@ export const ManagerOrders: React.FC = () => {
           )}
 
           {hasMoreHistory && (
-            <div className="pt-2 flex justify-center">
+            <div className="pt-2.5 flex justify-center shrink-0">
               <button
                 onClick={() => setHistoryPage((p) => p + 1)}
                 disabled={isFetchingHistory}
-                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-sm"
+                className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-sm"
               >
                 {isFetchingHistory ? (
                   <Loader className="w-4 h-4 animate-spin text-slate-500" strokeWidth={2} />

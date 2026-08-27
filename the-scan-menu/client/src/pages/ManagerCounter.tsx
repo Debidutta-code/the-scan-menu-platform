@@ -550,9 +550,9 @@ export const ManagerCounter: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-4 font-sans select-none">
+    <div className="w-full h-full flex flex-col min-h-0 space-y-2.5 sm:space-y-3 font-sans select-none overflow-hidden">
       {/* ── TOP HEADER & MODE SELECTOR ────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex items-center justify-between gap-4 bg-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 shadow-xs shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs">
             <Receipt className="w-5 h-5" strokeWidth={2} />
@@ -688,11 +688,11 @@ export const ManagerCounter: React.FC = () => {
       </div>
 
       {/* ── MAIN WORKSPACE GRID ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4.5 flex-1 min-h-0 overflow-hidden items-stretch">
         {/* LEFT COLUMN: LARGE SEARCH BAR + CATEGORY PILLS + DISH CARDS */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col h-full min-h-0 space-y-2.5 sm:space-y-3">
           {/* FULL-WIDTH POS SEARCH BAR */}
-          <div className="relative group">
+          <div className="relative group shrink-0">
             <Search
               className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-amber-500 pointer-events-none"
               strokeWidth={2}
@@ -703,7 +703,7 @@ export const ManagerCounter: React.FC = () => {
               placeholder="Search dishes by name or code... (Press / to search)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white pl-12 pr-24 py-3.5 rounded-2xl border-2 border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 shadow-xs transition-all"
+              className="w-full bg-white pl-12 pr-24 py-3 rounded-2xl border-2 border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 shadow-xs transition-all"
             />
             <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {searchQuery ? (
@@ -728,11 +728,11 @@ export const ManagerCounter: React.FC = () => {
 
           {/* TALL HORIZONTAL CATEGORY CHIPS BAR */}
           {categories.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedCategoryFilter('ALL')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
                   selectedCategoryFilter === 'ALL'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
@@ -752,7 +752,7 @@ export const ManagerCounter: React.FC = () => {
                     key={cat._id}
                     type="button"
                     onClick={() => setSelectedCategoryFilter(cat._id)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 ${
                       selectedCategoryFilter === cat._id
                         ? 'bg-slate-900 text-white shadow-sm'
                         : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
@@ -775,7 +775,7 @@ export const ManagerCounter: React.FC = () => {
           )}
 
           {/* DISHES GRID */}
-          <div className="space-y-4 max-h-[calc(100vh-210px)] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="space-y-3.5 flex-1 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
             {allMenuItems.length === 0 ? (
               <div className="p-12 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 text-sm text-slate-500">
                 No menu items found. Add items under Menu Management.
@@ -973,8 +973,8 @@ export const ManagerCounter: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: ORDER DETAILS SUMMARY (NO CLUTTER) */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4 sticky top-4">
-          <div className="flex items-center justify-between border-b pb-3">
+        <div className="lg:col-span-5 xl:col-span-4 bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full min-h-0">
+          <div className="flex items-center justify-between border-b pb-2.5 shrink-0">
             <div>
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 font-mono uppercase tracking-wider">
                 <Receipt className="w-4 h-4 text-amber-500" strokeWidth={2} />
@@ -997,7 +997,7 @@ export const ManagerCounter: React.FC = () => {
           </div>
 
           {/* Selected Items List */}
-          <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar pr-0.5">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none space-y-2 pr-0.5 my-2.5">
             {cartItems.length === 0 ? (
               <div className="py-12 text-center text-xs text-slate-400 space-y-2">
                 <ShoppingBag className="w-8 h-8 mx-auto text-slate-300 stroke-1" />
@@ -1051,8 +1051,8 @@ export const ManagerCounter: React.FC = () => {
           </div>
 
           {/* Action Footer & Financials */}
-          <div className="border-t pt-3 space-y-3">
-            <div className="space-y-1.5 text-xs bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="border-t pt-2.5 space-y-2.5 shrink-0 mt-auto">
+            <div className="space-y-1 text-xs bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal ({totalItemCount} items)</span>
                 <span className="font-mono font-bold text-slate-800">₹{(cartSubtotal / 100).toFixed(2)}</span>
@@ -1063,7 +1063,7 @@ export const ManagerCounter: React.FC = () => {
                   <span className="font-mono font-bold text-slate-700">₹{(taxAmount / 100).toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center font-bold text-slate-900 border-t border-slate-200/80 pt-2">
+              <div className="flex justify-between items-center font-bold text-slate-900 border-t border-slate-200/80 pt-1.5">
                 <span className="text-sm">Payable Total</span>
                 <span className="font-mono text-xl text-emerald-600 font-black">
                   ₹{(grandTotal / 100).toFixed(2)}
@@ -1076,7 +1076,7 @@ export const ManagerCounter: React.FC = () => {
               type="button"
               onClick={handleOpenCheckoutModal}
               disabled={isSubmitting || cartItems.length === 0}
-              className="w-full py-4 bg-slate-950 hover:bg-slate-900 text-white font-bold text-sm rounded-2xl transition shadow-md disabled:opacity-40 flex items-center justify-between px-5 cursor-pointer active:scale-[0.99]"
+              className="w-full py-3.5 bg-slate-950 hover:bg-slate-900 text-white font-bold text-sm rounded-2xl transition shadow-md disabled:opacity-40 flex items-center justify-between px-5 cursor-pointer active:scale-[0.99]"
             >
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-amber-400" />

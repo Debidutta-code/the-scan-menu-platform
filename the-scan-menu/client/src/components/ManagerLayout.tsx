@@ -434,7 +434,7 @@ export const ManagerLayout: React.FC = () => {
           </button>
         </div>
 
-        <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto scrollbar-none">
           {/* Orders tab */}
           {isEnabled('ordering') && (
             <button
@@ -759,7 +759,13 @@ export const ManagerLayout: React.FC = () => {
         {renderHeader()}
 
         {/* Active Content Panel */}
-        <main className="flex-1 h-0 overflow-y-auto relative p-3 sm:p-4 lg:p-6">
+        <main
+          className={`flex-1 min-h-0 relative scrollbar-none ${
+            ['orders', 'counter', 'kds', 'tables'].includes(activeTab)
+              ? 'p-2.5 sm:p-3.5 lg:p-4 overflow-hidden flex flex-col'
+              : 'p-3 sm:p-4 lg:p-6 overflow-y-auto'
+          }`}
+        >
           <Outlet />
         </main>
       </div>
