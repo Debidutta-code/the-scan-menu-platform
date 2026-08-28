@@ -30,6 +30,8 @@ import {
   Package,
   Clock,
   AlertCircle,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 import {
@@ -484,6 +486,16 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'OVERVIEW' | 'VARIANTS' | 'ADDONS' | 'INVENTORY'>('OVERVIEW');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+
+  const handleItemsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    if (scrollTop > 35 && !isHeaderCollapsed) {
+      setIsHeaderCollapsed(true);
+    } else if (scrollTop <= 10 && isHeaderCollapsed) {
+      setIsHeaderCollapsed(false);
+    }
+  };
 
   // Fetch Categories
   const { data: catResponse, isLoading: isLoadingCats } = useQuery({
@@ -867,44 +879,59 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   return (
     <div
-      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-2.5 font-sans select-none pb-2 pr-0.5"
+      className="w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden pb-1"
       onClick={() => setOpenMenuId(null)}
     >
 
-      {/* ── Page Header (Scrolls naturally with page) ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs shrink-0 transition-all">
-        <div>
-          <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
-          <p className="text-slate-500 text-[11px] font-medium mt-0.5">Manage dishes, categories, pricing and modifier templates</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Tab switcher */}
-          <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+      {/* ── Page Header (Smoothly collapsible on scroll) ── */}
+      <div
+        className={`transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+          isHeaderCollapsed ? 'max-h-0 opacity-0 mb-0 pointer-events-none scale-y-95' : 'max-h-28 opacity-100 mb-2.5 scale-y-100'
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div>
+            <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
+            <p className="text-slate-500 text-[11px] font-medium mt-0.5">Manage dishes, categories, pricing and modifier templates</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Tab switcher */}
+            <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => setActiveTab('MENU')}
+                className={`h-9 flex items-center gap-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === 'MENU' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                Menu Dishes
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('CUSTOMIZATIONS')}
+                className={`h-9 flex items-center gap-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === 'CUSTOMIZATIONS' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                Add-on Templates{customGroups.length > 0 ? ` (${customGroups.length})` : ''}
+              </button>
+            </div>
+            {/* Manual Collapse Toggle */}
             <button
               type="button"
-              onClick={() => setActiveTab('MENU')}
-              className={`h-9 flex items-center gap-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === 'MENU' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              onClick={() => setIsHeaderCollapsed(true)}
+              title="Hide Header (Maximize Work Area)"
+              className="h-9 w-9 hidden sm:flex items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:text-slate-800 hover:bg-slate-50 transition cursor-pointer"
             >
-              <FolderOpen className="w-3.5 h-3.5" />
-              Menu Dishes
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('CUSTOMIZATIONS')}
-              className={`h-9 flex items-center gap-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === 'CUSTOMIZATIONS' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              Add-on Templates{customGroups.length > 0 ? ` (${customGroups.length})` : ''}
+              <ChevronUp className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
       {/* ══════════════════════════════════════════ */}
-      {/* TAB 1: MENU DISHES (Sticky 3-Column Area)  */}
+      {/* TAB 1: MENU DISHES (Full Height 3-Column)  */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="sticky top-0 z-10 flex gap-3 items-start h-full min-h-0">
+        <div className="flex-1 min-h-0 flex gap-3 items-stretch w-full overflow-hidden">
 
           {/* ── Column 1: Category Sidebar ── */}
           <div className="w-56 xl:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
@@ -976,8 +1003,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               )}
             </div>
 
-            {/* Sidebar Footer */}
-            <div className="p-3 border-t border-slate-100 shrink-0 space-y-2">
+            {/* Sidebar Sticky Bottom Footer (Always visible without scroll) */}
+            <div className="p-3 border-t border-slate-100 shrink-0 space-y-2 bg-white sticky bottom-0 z-10">
               <div className="grid grid-cols-2 gap-1.5 text-center">
                 <div className="bg-slate-50 rounded-xl p-2">
                   <div className="text-[10px] text-slate-400 font-medium">Categories</div>
@@ -1082,6 +1109,17 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
               {/* Action Buttons: Compact icon-only when 3rd column is open, full text when closed */}
               <div className="flex items-center gap-1.5 shrink-0">
+                {isHeaderCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsHeaderCollapsed(false)}
+                    title="Show Page Header"
+                    className="h-8 px-2 flex items-center gap-1 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 transition cursor-pointer shrink-0"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5 text-amber-600" />
+                    <span className="hidden xl:inline text-[11px]">Show Header</span>
+                  </button>
+                )}
                 {activeItemInspector ? (
                   <>
                     <button
@@ -1194,8 +1232,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               )}
             </div>
 
-            {/* Items Rows (Independently Scrollable Container) */}
-            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none divide-y divide-slate-100">
+            {/* Items Rows (Independently Scrollable Container with Auto-Collapsing Header) */}
+            <div
+              className="flex-1 min-h-0 overflow-y-auto scrollbar-none divide-y divide-slate-100"
+              onScroll={handleItemsScroll}
+            >
               {isLoadingItems ? (
                 <div className="flex justify-center py-16"><Loader className="w-7 h-7 animate-spin text-amber-500" /></div>
               ) : !selectedCatId && !isSearching ? (
@@ -1465,8 +1506,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               )}
             </div>
 
-            {/* Middle Panel Footer */}
-            <div className="px-4 py-2.5 border-t border-slate-100 text-[11px] text-slate-400 font-medium flex items-center justify-between shrink-0">
+            {/* Middle Panel Footer (Sticky Bottom) */}
+            <div className="px-4 py-2.5 border-t border-slate-100 text-[11px] text-slate-400 font-medium flex items-center justify-between shrink-0 bg-white sticky bottom-0 z-10">
               <span>
                 Showing {filteredMenuItems.length} of {allMenuItems.length} {allMenuItems.length === 1 ? 'item' : 'items'}
                 {isSearching && ' (Global Search)'}
@@ -1856,8 +1897,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   )}
                 </div>
 
-                {/* Inspector Footer */}
-                <div className="px-4 py-3 border-t border-slate-100 shrink-0 flex gap-2">
+                {/* Inspector Footer (Sticky Bottom) */}
+                <div className="px-4 py-3 border-t border-slate-100 shrink-0 flex gap-2 bg-white sticky bottom-0 z-10">
                   <button
                     onClick={() => {
                       setPreviewDish({
