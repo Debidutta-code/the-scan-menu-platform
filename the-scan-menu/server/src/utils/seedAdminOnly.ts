@@ -38,6 +38,7 @@ import { Tax } from '../models/Tax';
 import { FeatureFlag } from '../models/FeatureFlag';
 import { Shift } from '../models/Shift';
 import { LoyaltyLedger } from '../models/LoyaltyLedger';
+import { PlatformSettings } from '../models/PlatformSettings';
 import { logger } from './logger';
 import config from '../config';
 
@@ -64,6 +65,7 @@ export const seedAdminOnly = async (options: { cleanTenants?: boolean } = {}) =>
         RestaurantStaff.deleteMany({}),
         Customer.deleteMany({}),
         RestaurantSettings.deleteMany({}),
+        PlatformSettings.deleteMany({}),
         RestaurantStats.deleteMany({}),
         RestaurantOnboarding.deleteMany({}),
         Category.deleteMany({}),
@@ -215,6 +217,27 @@ export const seedAdminOnly = async (options: { cleanTenants?: boolean } = {}) =>
       superAdmin.pin = DEFAULT_PIN;
       await superAdmin.save();
       logger.info(`SUPER_ADMIN account updated & password refreshed.`);
+    }
+
+    // 3. Seed Default PlatformSettings (Global Loyalty & Controls)
+    let platformSettings = await PlatformSettings.findOne();
+    if (!platformSettings) {
+      platformSettings = new PlatformSettings({
+        loyalty: {
+          mode: 'GLOBAL',
+          enabled: true,
+          earningMode: 'PERCENTAGE',
+          earnPercentage: 50,
+          spendRatioPaise: 1000,
+          fixedPointsPerOrder: 50,
+          validityDays: 7,
+          pointValuePaise: 50,
+          maxRedemptionPercentPerOrder: 50,
+          minPointsToRedeem: 50,
+        },
+      });
+      await platformSettings.save();
+      logger.info('Global PlatformSettings initialized.');
     }
 
     console.log('\n' + '='.repeat(60));

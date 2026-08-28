@@ -37,6 +37,7 @@ import { SubscriptionPlan } from '../models/SubscriptionPlan';
 import { Counter } from '../models/Counter';
 import { Shift } from '../models/Shift';
 import { LoyaltyLedger } from '../models/LoyaltyLedger';
+import { PlatformSettings } from '../models/PlatformSettings';
 import { logger } from './logger';
 import config from '../config';
 
@@ -48,6 +49,7 @@ const getCounts = async () => ({
   RestaurantStaff: await RestaurantStaff.countDocuments(),
   Customers: await Customer.countDocuments(),
   RestaurantSettings: await RestaurantSettings.countDocuments(),
+  PlatformSettings: await PlatformSettings.countDocuments(),
   RestaurantStats: await RestaurantStats.countDocuments(),
   RestaurantOnboarding: await RestaurantOnboarding.countDocuments(),
   SubscriptionPlans: await SubscriptionPlan.countDocuments(),
@@ -105,6 +107,7 @@ export const cleanDatabase = async (options: { operationalOnly?: boolean } = {})
         RestaurantStaff.deleteMany({}),
         Customer.deleteMany({}),
         RestaurantSettings.deleteMany({}),
+        PlatformSettings.deleteMany({}),
         RestaurantStats.deleteMany({}),
         RestaurantOnboarding.deleteMany({}),
         SubscriptionPlan.deleteMany({}),

@@ -30,6 +30,7 @@ import { WebhookSubscription } from '../models/WebhookSubscription';
 import { InventoryLog } from '../models/InventoryLog';
 import { Transaction } from '../models/Transaction';
 import { AuditLog } from '../models/AuditLog';
+import { PlatformSettings } from '../models/PlatformSettings';
 import { subscriptionService } from '../services/subscription.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { logger } from './logger';
@@ -155,6 +156,27 @@ export const seedDatabase = async () => {
     if (!counter) {
       counter = new Counter({ name: 'restaurant_code', seq: 1 });
       await counter.save();
+    }
+
+    // Initialize Platform Settings if not exists
+    let platformSettings = await PlatformSettings.findOne();
+    if (!platformSettings) {
+      platformSettings = new PlatformSettings({
+        loyalty: {
+          mode: 'GLOBAL',
+          enabled: true,
+          earningMode: 'PERCENTAGE',
+          earnPercentage: 50,
+          spendRatioPaise: 1000,
+          fixedPointsPerOrder: 50,
+          validityDays: 7,
+          pointValuePaise: 50,
+          maxRedemptionPercentPerOrder: 50,
+          minPointsToRedeem: 50,
+        },
+      });
+      await platformSettings.save();
+      logger.info('Global PlatformSettings initialized.');
     }
 
     // ------------------------------------------------------------------------
@@ -945,6 +967,51 @@ export const seedDatabase = async () => {
         lowStock: 4,
         imageUrl: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Extra Dip Assortment', priceDelta: 4000 }],
+        isDraft: false,
+        completedStep: 5,
+        totalSteps: 5,
+      },
+
+      // 8. Sample Draft Items for Testing Wizard & Step Progression
+      {
+        cat: 'Gourmet Sliders',
+        name: 'Smoked Barbecue Jackfruit Slider (Draft)',
+        pricingType: 'SINGLE' as const,
+        price: 28000,
+        veg: true,
+        spicy: false,
+        prep: 12,
+        trackStock: true,
+        stock: 20,
+        lowStock: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=600&auto=format&fit=crop&q=80',
+        addOns: [{ name: 'Spicy Slaw', priceDelta: 2000 }],
+        isDraft: true,
+        completedStep: 3,
+        totalSteps: 5,
+      },
+      {
+        cat: 'Chef Combos & Value Packs',
+        name: 'Weekend Family Fiesta Feast (Draft)',
+        pricingType: 'SINGLE' as const,
+        price: 89900,
+        isCombo: true,
+        comboItems: [
+          { name: 'Classic Margherita Sourdough', quantity: 2, categoryName: 'House Baked Pizzas' },
+          { name: 'Crispy Veg Patty Brioche Slider', quantity: 4, categoryName: 'Gourmet Sliders' },
+          { name: 'Cold Pressed Orange Zest Mojito', quantity: 4, categoryName: 'Refreshing Tonics' },
+        ],
+        veg: true,
+        spicy: false,
+        prep: 20,
+        trackStock: true,
+        stock: 10,
+        lowStock: 2,
+        imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&auto=format&fit=crop&q=80',
+        addOns: [],
+        isDraft: true,
+        completedStep: 4,
+        totalSteps: 5,
       },
     ];
 
@@ -980,6 +1047,9 @@ export const seedDatabase = async () => {
         addOns: item.addOns || [],
         attachedAddOnGroupIds: seededGroups.map((g) => g._id),
         externalIds: { petpoojaItemId: `PP_ITEM_${idx + 1}` },
+        isDraft: !!item.isDraft,
+        completedStep: item.completedStep || (item.isDraft ? 1 : 5),
+        totalSteps: item.totalSteps || 5,
         isArchived: false,
       };
 
