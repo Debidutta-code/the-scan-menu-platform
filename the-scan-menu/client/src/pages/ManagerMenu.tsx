@@ -1135,7 +1135,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   return (
     <div
-      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-2.5 sm:space-y-3 font-sans select-none pb-8 pr-0.5"
+      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-2.5 font-sans select-none pb-2 pr-0.5"
       onClick={() => setOpenMenuId(null)}
     >
 
@@ -1172,7 +1172,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       {/* TAB 1: MENU DISHES (Sticky 3-Column Area)  */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="sticky top-0 z-10 flex gap-3 items-start h-[calc(100vh-4.75rem)]">
+        <div className="sticky top-0 z-10 flex gap-3 items-start h-[calc(100vh-5.25rem)]">
 
           {/* ── Column 1: Category Sidebar ── */}
           <div className="w-56 xl:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
@@ -1232,7 +1232,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                 }`}
                                 title="Edit category"
                               >
-                                <Edit2 className="w-3 h-3" />
+                                <Edit2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           )}
@@ -1365,9 +1365,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               </div>
             )}
 
-            {/* Column Header */}
+            {/* Column Header (Adapts when inspector is open) */}
             <div className={`grid items-center px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 gap-3 shrink-0 ${
-              bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
+              activeItemInspector
+                ? bulkMode ? 'grid-cols-[16px_16px_1fr_72px]' : 'grid-cols-[16px_1fr_72px]'
+                : bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
             }`}>
               {bulkMode && (
                 <input
@@ -1380,9 +1382,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               <div /> {/* drag handle col */}
               <div>Item</div>
               <div className="text-right">Price</div>
-              <div className="text-right">Stock</div>
-              <div className="text-center">Status</div>
-              <div />
+              {!activeItemInspector && (
+                <>
+                  <div className="text-right">Stock</div>
+                  <div className="text-center">Status</div>
+                  <div />
+                </>
+              )}
             </div>
 
             {/* Items Rows (Independently Scrollable Container) */}
@@ -1416,6 +1422,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                       const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
                       const isSelected = selectedItemIds.includes(item._id);
                       const isInspecting = activeItemInspector?._id === item._id;
+                      const isInspectorOpen = !!activeItemInspector;
                       const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
                       const isMenuOpen = openMenuId === item._id;
                       const isAvailable = item.isAvailable !== false;
@@ -1426,7 +1433,9 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                           {({ dragHandleProps }) => (
                             <div
                               className={`group grid items-center px-4 py-2.5 gap-3 transition cursor-pointer border-l-3 ${
-                                bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
+                                isInspectorOpen
+                                  ? bulkMode ? 'grid-cols-[16px_16px_1fr_72px]' : 'grid-cols-[16px_1fr_72px]'
+                                  : bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
                               } ${
                                 isInspecting
                                   ? 'bg-amber-50/70 border-amber-500'
@@ -1467,7 +1476,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                 <GripVertical className="w-4 h-4" />
                               </span>
 
-                              {/* Item info */}
+                              {/* Item info: name, description, time, veg/nonveg */}
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-100 relative">
                                   {item.imageUrl ? (
@@ -1533,106 +1542,111 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                 )}
                               </div>
 
-                              {/* Stock */}
-                              <div className="text-right">
-                                {item.trackStock ? (
-                                  <div>
-                                    <span className={`text-sm font-black font-mono ${
-                                      item.stockQuantity === 0 ? 'text-rose-600' :
-                                      item.stockQuantity <= (item.lowStockThreshold || 5) ? 'text-amber-600' :
-                                      'text-emerald-700'
-                                    }`}>{item.stockQuantity}</span>
-                                    {item.stockQuantity <= (item.lowStockThreshold || 5) && item.stockQuantity > 0 && (
-                                      <span className="text-[9px] font-bold text-amber-600 block leading-tight">Low</span>
-                                    )}
-                                    {item.stockQuantity === 0 && (
-                                      <span className="text-[9px] font-bold text-rose-600 block leading-tight">Out</span>
+                              {/* Stock, Toggle, 3-dot (Omitted when 3rd column is open) */}
+                              {!isInspectorOpen && (
+                                <>
+                                  {/* Stock */}
+                                  <div className="text-right">
+                                    {item.trackStock ? (
+                                      <div>
+                                        <span className={`text-sm font-black font-mono ${
+                                          item.stockQuantity === 0 ? 'text-rose-600' :
+                                          item.stockQuantity <= (item.lowStockThreshold || 5) ? 'text-amber-600' :
+                                          'text-emerald-700'
+                                        }`}>{item.stockQuantity}</span>
+                                        {item.stockQuantity <= (item.lowStockThreshold || 5) && item.stockQuantity > 0 && (
+                                          <span className="text-[9px] font-bold text-amber-600 block leading-tight">Low</span>
+                                        )}
+                                        {item.stockQuantity === 0 && (
+                                          <span className="text-[9px] font-bold text-rose-600 block leading-tight">Out</span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-slate-300 font-mono">—</span>
                                     )}
                                   </div>
-                                ) : (
-                                  <span className="text-xs text-slate-300 font-mono">—</span>
-                                )}
-                              </div>
 
-                              {/* Status Toggle Switch */}
-                              <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={isAvailable}
-                                  onClick={() => toggleAvailableMutation.mutate(item._id)}
-                                  title={isAvailable ? "Click to 86 / mark unavailable" : "Click to make available"}
-                                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
-                                    isAvailable ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 hover:bg-slate-400'
-                                  }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out ${
-                                      isAvailable ? 'translate-x-5' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                                <span className={`text-[11px] font-bold w-14 text-left select-none ${
-                                  isAvailable ? 'text-emerald-700' : 'text-slate-400'
-                                }`}>
-                                  {isAvailable ? 'Available' : '86\'d'}
-                                </span>
-                              </div>
-
-                              {/* ⋯ Overflow menu */}
-                              <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenMenuId(isMenuOpen ? null : item._id)}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-xl transition cursor-pointer ${
-                                    isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
-                                  }`}
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </button>
-
-                                {isMenuOpen && (
-                                  <div className="absolute right-0 top-9 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
+                                  {/* Status Toggle Switch */}
+                                  <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                                     <button
-                                      onClick={() => {
-                                        setOpenMenuId(null);
-                                        setPreviewDish({
-                                          ...item,
-                                          price: (item.price || 0) / 100,
-                                          variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
-                                          addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
-                                        });
-                                        setPreviewMode('LIST');
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={isAvailable}
+                                      onClick={() => toggleAvailableMutation.mutate(item._id)}
+                                      title={isAvailable ? "Click to 86 / mark unavailable" : "Click to make available"}
+                                      className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                                        isAvailable ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 hover:bg-slate-400'
+                                      }`}
                                     >
-                                      <Eye className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                      Customer Preview
+                                      <span
+                                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out ${
+                                          isAvailable ? 'translate-x-5' : 'translate-x-0'
+                                        }`}
+                                      />
                                     </button>
-                                    <button
-                                      onClick={() => { setOpenMenuId(null); handleEditItemClick(item); }}
-                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                      Edit Details
-                                    </button>
-                                    <div className="h-px bg-slate-100 my-0.5" />
-                                    <button
-                                      onClick={() => {
-                                        setOpenMenuId(null);
-                                        if (confirm(`Delete "${item.name}"?\n\nThis cannot be undone. Items with order history will be archived instead.`)) {
-                                          if (activeItemInspector?._id === item._id) setActiveItemInspector(null);
-                                          deleteItemMutation.mutate(item._id);
-                                        }
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                                      Delete Item
-                                    </button>
+                                    <span className={`text-[11px] font-bold w-14 text-left select-none ${
+                                      isAvailable ? 'text-emerald-700' : 'text-slate-400'
+                                    }`}>
+                                      {isAvailable ? 'Available' : '86\'d'}
+                                    </span>
                                   </div>
-                                )}
-                              </div>
+
+                                  {/* ⋯ Overflow menu */}
+                                  <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenMenuId(isMenuOpen ? null : item._id)}
+                                      className={`w-8 h-8 flex items-center justify-center rounded-xl transition cursor-pointer ${
+                                        isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                                      }`}
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </button>
+
+                                    {isMenuOpen && (
+                                      <div className="absolute right-0 top-9 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
+                                        <button
+                                          onClick={() => {
+                                            setOpenMenuId(null);
+                                            setPreviewDish({
+                                              ...item,
+                                              price: (item.price || 0) / 100,
+                                              variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                                              addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                                            });
+                                            setPreviewMode('LIST');
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
+                                        >
+                                          <Eye className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                          Customer Preview
+                                        </button>
+                                        <button
+                                          onClick={() => { setOpenMenuId(null); handleEditItemClick(item); }}
+                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                          Edit Details
+                                        </button>
+                                        <div className="h-px bg-slate-100 my-0.5" />
+                                        <button
+                                          onClick={() => {
+                                            setOpenMenuId(null);
+                                            if (confirm(`Delete "${item.name}"?\n\nThis cannot be undone. Items with order history will be archived instead.`)) {
+                                              if (activeItemInspector?._id === item._id) setActiveItemInspector(null);
+                                              deleteItemMutation.mutate(item._id);
+                                            }
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                          Delete Item
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </SortableItem>
