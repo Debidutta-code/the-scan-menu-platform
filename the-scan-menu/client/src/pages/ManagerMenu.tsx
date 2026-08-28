@@ -1135,14 +1135,14 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   return (
     <div
-      className="w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden space-y-2.5 pb-1 pr-0.5"
+      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-2.5 sm:space-y-3 font-sans select-none pb-8 pr-0.5"
       onClick={() => setOpenMenuId(null)}
     >
 
-      {/* ── Page Header ── */}
+      {/* ── Page Header (Scrolls naturally with page) ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs shrink-0 transition-all">
         <div>
-          <h1 className="font-display tracking-tight text-lg font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
+          <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
           <p className="text-slate-500 text-[11px] font-medium mt-0.5">Manage dishes, categories, pricing and modifier templates</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
@@ -1169,13 +1169,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       </div>
 
       {/* ══════════════════════════════════════════ */}
-      {/* TAB 1: MENU DISHES (3-Column Layout)       */}
+      {/* TAB 1: MENU DISHES (Sticky 3-Column Area)  */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="flex-1 min-h-0 flex gap-2.5 sm:gap-3 items-start overflow-hidden">
+        <div className="sticky top-0 z-10 flex gap-3 items-start h-[calc(100vh-4.75rem)]">
 
           {/* ── Column 1: Category Sidebar ── */}
-          <div className="w-48 xl:w-56 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
+          <div className="w-56 xl:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
             <div className="px-3.5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h2 className="font-bold text-sm text-slate-900">Categories</h2>
               <span className="text-[11px] font-mono font-black text-slate-400">{categories.length}</span>
@@ -1300,7 +1300,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   placeholder="Global search dishes..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-44 sm:w-52 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition placeholder:text-slate-400"
+                  className="pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-48 sm:w-56 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition placeholder:text-slate-400"
                 />
                 {searchQuery && (
                   <button
@@ -1366,8 +1366,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             )}
 
             {/* Column Header */}
-            <div className={`grid items-center px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 gap-2 shrink-0 ${
-              bulkMode ? 'grid-cols-[16px_16px_minmax(140px,1fr)_68px_50px_52px_28px]' : 'grid-cols-[16px_minmax(140px,1fr)_68px_50px_52px_28px]'
+            <div className={`grid items-center px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 gap-3 shrink-0 ${
+              bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
             }`}>
               {bulkMode && (
                 <input
@@ -1425,8 +1425,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                         <SortableItem key={item._id} id={item._id}>
                           {({ dragHandleProps }) => (
                             <div
-                              className={`group grid items-center px-4 py-2.5 gap-2 transition cursor-pointer border-l-3 ${
-                                bulkMode ? 'grid-cols-[16px_16px_minmax(140px,1fr)_68px_50px_52px_28px]' : 'grid-cols-[16px_minmax(140px,1fr)_68px_50px_52px_28px]'
+                              className={`group grid items-center px-4 py-2.5 gap-3 transition cursor-pointer border-l-3 ${
+                                bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
                               } ${
                                 isInspecting
                                   ? 'bg-amber-50/70 border-amber-500'
@@ -1468,8 +1468,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                               </span>
 
                               {/* Item info */}
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-100 relative">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-100 relative">
                                   {item.imageUrl ? (
                                     <img
                                       src={item.imageUrl}
@@ -1482,35 +1482,39 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                     </div>
                                   )}
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-1.5 flex-nowrap min-w-0">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                                    <span className={`text-xs font-bold truncate leading-tight ${!isAvailable ? 'text-slate-700' : 'text-slate-900'}`} title={item.name}>
+                                    <span className={`text-sm font-bold leading-tight ${!isAvailable ? 'text-slate-700' : 'text-slate-900'}`}>
                                       {item.name}
                                     </span>
                                     {!isAvailable && (
-                                      <span className="text-[8px] font-black uppercase text-rose-700 bg-rose-100 border border-rose-200 px-1 py-0.2 rounded shrink-0">
+                                      <span className="text-[9px] font-black uppercase text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.2 rounded-md">
                                         86&apos;d
                                       </span>
                                     )}
                                     {item.isSpicy && <MenuBadge variant="spicy" />}
                                     {item.isChefsSpecial && (
-                                      <span className="text-[8px] font-black uppercase text-amber-950 bg-amber-200 px-1 py-0.2 rounded shrink-0">Special</span>
+                                      <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.5 rounded-full">Special</span>
+                                    )}
+                                    {item.isCombo && (
+                                      <span className="text-[9px] font-black uppercase text-violet-900 bg-violet-100 px-1.5 py-0.5 rounded-full">Combo</span>
                                     )}
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     {isSearching && categoryName && (
-                                      <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 px-1 py-0.2 rounded flex items-center gap-0.5 shrink-0 truncate max-w-[90px]">
-                                        📁 {categoryName}
+                                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded flex items-center gap-1">
+                                        <FolderOpen className="w-2.5 h-2.5 text-slate-400" />
+                                        {categoryName}
                                       </span>
                                     )}
                                     {item.description && (
-                                      <p className="text-[10px] text-slate-400 truncate max-w-[150px] leading-tight">{item.description}</p>
+                                      <p className="text-[11px] text-slate-400 truncate max-w-[220px]">{item.description}</p>
                                     )}
                                     {item.prepTimeMinutes && (
-                                      <span className="text-[9px] text-slate-400 font-medium flex items-center gap-0.5 shrink-0">
-                                        <Clock className="w-2.5 h-2.5" />{item.prepTimeMinutes}m
+                                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
+                                        <Clock className="w-2.5 h-2.5" />{item.prepTimeMinutes} min
                                       </span>
                                     )}
                                   </div>
@@ -1521,11 +1525,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                               <div className="text-right">
                                 {isPortion ? (
                                   <div>
-                                    <span className="text-[9px] text-slate-400 block leading-none">From</span>
-                                    <span className="text-xs font-black text-slate-900 font-mono">₹{(minPrice / 100).toFixed(0)}</span>
+                                    <span className="text-[10px] text-slate-400 block leading-tight">From</span>
+                                    <span className="text-sm font-black text-slate-900 font-mono">₹{(minPrice / 100).toFixed(0)}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-xs font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
+                                  <span className="text-sm font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
                                 )}
                               </div>
 
@@ -1533,16 +1537,16 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                               <div className="text-right">
                                 {item.trackStock ? (
                                   <div>
-                                    <span className={`text-xs font-black font-mono ${
+                                    <span className={`text-sm font-black font-mono ${
                                       item.stockQuantity === 0 ? 'text-rose-600' :
                                       item.stockQuantity <= (item.lowStockThreshold || 5) ? 'text-amber-600' :
                                       'text-emerald-700'
                                     }`}>{item.stockQuantity}</span>
                                     {item.stockQuantity <= (item.lowStockThreshold || 5) && item.stockQuantity > 0 && (
-                                      <span className="text-[8px] font-bold text-amber-600 block leading-none">Low</span>
+                                      <span className="text-[9px] font-bold text-amber-600 block leading-tight">Low</span>
                                     )}
                                     {item.stockQuantity === 0 && (
-                                      <span className="text-[8px] font-bold text-rose-600 block leading-none">Out</span>
+                                      <span className="text-[9px] font-bold text-rose-600 block leading-tight">Out</span>
                                     )}
                                   </div>
                                 ) : (
@@ -1550,24 +1554,29 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                 )}
                               </div>
 
-                              {/* Status Toggle Switch (Space-efficient, color-coded) */}
-                              <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                              {/* Status Toggle Switch */}
+                              <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                                 <button
                                   type="button"
                                   role="switch"
                                   aria-checked={isAvailable}
                                   onClick={() => toggleAvailableMutation.mutate(item._id)}
-                                  title={isAvailable ? "Available (Click to 86)" : "86'd (Click to make available)"}
-                                  className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                                  title={isAvailable ? "Click to 86 / mark unavailable" : "Click to make available"}
+                                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                                     isAvailable ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 hover:bg-slate-400'
                                   }`}
                                 >
                                   <span
-                                    className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out ${
-                                      isAvailable ? 'translate-x-3.5' : 'translate-x-0'
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out ${
+                                      isAvailable ? 'translate-x-5' : 'translate-x-0'
                                     }`}
                                   />
                                 </button>
+                                <span className={`text-[11px] font-bold w-14 text-left select-none ${
+                                  isAvailable ? 'text-emerald-700' : 'text-slate-400'
+                                }`}>
+                                  {isAvailable ? 'Available' : '86\'d'}
+                                </span>
                               </div>
 
                               {/* ⋯ Overflow menu */}
@@ -1575,15 +1584,15 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                 <button
                                   type="button"
                                   onClick={() => setOpenMenuId(isMenuOpen ? null : item._id)}
-                                  className={`w-7 h-7 flex items-center justify-center rounded-xl transition cursor-pointer ${
+                                  className={`w-8 h-8 flex items-center justify-center rounded-xl transition cursor-pointer ${
                                     isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
                                   }`}
                                 >
-                                  <MoreVertical className="w-3.5 h-3.5" />
+                                  <MoreVertical className="w-4 h-4" />
                                 </button>
 
                                 {isMenuOpen && (
-                                  <div className="absolute right-0 top-8 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
+                                  <div className="absolute right-0 top-9 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
                                     <button
                                       onClick={() => {
                                         setOpenMenuId(null);
@@ -1595,14 +1604,14 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                         });
                                         setPreviewMode('LIST');
                                       }}
-                                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
                                     >
                                       <Eye className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                                       Customer Preview
                                     </button>
                                     <button
                                       onClick={() => { setOpenMenuId(null); handleEditItemClick(item); }}
-                                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                                     >
                                       <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                       Edit Details
@@ -1616,7 +1625,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                           deleteItemMutation.mutate(item._id);
                                         }
                                       }}
-                                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                                     >
                                       <Trash2 className="w-3.5 h-3.5 shrink-0" />
                                       Delete Item
@@ -1655,27 +1664,27 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             const isAvailable = item.isAvailable !== false;
 
             return (
-              <div className="w-76 xl:w-84 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full overflow-hidden">
+              <div className="w-80 xl:w-96 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full overflow-hidden">
                 {/* Inspector Header */}
-                <div className="px-3.5 py-3 border-b border-slate-100 shrink-0 bg-slate-50/60">
-                  <div className="flex items-start justify-between gap-2 mb-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
+                <div className="px-4 py-3.5 border-b border-slate-100 shrink-0 bg-slate-50/60">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-300">
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles className="w-5 h-5" />
                           </div>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-bold text-xs text-slate-900 leading-tight truncate" title={item.name}>{item.name}</h3>
-                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">ID: {item._id?.slice(-8)}</p>
-                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <h3 className="font-bold text-sm text-slate-900 leading-tight truncate">{item.name}</h3>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {item._id?.slice(-8)}</p>
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
                           <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
                           {item.isSpicy && <MenuBadge variant="spicy" />}
-                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                           }`}>{isAvailable ? 'Active' : "86'd"}</span>
                         </div>
@@ -1683,7 +1692,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     </div>
                     <button
                       onClick={() => setActiveItemInspector(null)}
-                      className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition shrink-0 cursor-pointer"
+                      className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition shrink-0 cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1691,10 +1700,10 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[9px] text-slate-400 font-medium block leading-none">
-                        {isPortion ? `From · ${item.variants.length} sizes` : 'Price'}
+                      <span className="text-[10px] text-slate-400 font-medium block leading-tight">
+                        {isPortion ? `From · ${item.variants.length} portions` : 'Price'}
                       </span>
-                      <span className="text-lg font-black text-slate-900 font-mono">
+                      <span className="text-xl font-black text-slate-900 font-mono">
                         {isPortion ? `₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
                       </span>
                     </div>
@@ -1702,37 +1711,36 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     <button
                       type="button"
                       onClick={() => toggleAvailableMutation.mutate(item._id)}
-                      className={`h-7 px-3 rounded-xl text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                      className={`h-8 px-3.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
                         isAvailable
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                           : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                       {isAvailable ? 'Available' : "86'd"}
                     </button>
                   </div>
                 </div>
 
-                {/* Inspector Tabs (Grid layout to fit all 4 comfortably) */}
-                <div className="grid grid-cols-4 border-b border-slate-100 shrink-0 text-center bg-slate-50/40">
+                {/* Inspector Tabs */}
+                <div className="flex border-b border-slate-100 shrink-0 overflow-x-auto scrollbar-none">
                   {(['OVERVIEW', 'VARIANTS', 'ADDONS', 'INVENTORY'] as const).map((tab) => {
                     const label =
                       tab === 'OVERVIEW' ? 'Overview' :
-                      tab === 'VARIANTS' ? (isPortion ? `Sizes (${item.variants.length})` : 'Sizes') :
+                      tab === 'VARIANTS' ? `Portions${isPortion ? ` (${item.variants.length})` : ''}` :
                       tab === 'ADDONS' ? `Add-Ons${(item.addOns?.length || 0) + attachedGroups.length > 0 ? ` (${(item.addOns?.length || 0) + attachedGroups.length})` : ''}` :
-                      'Stock';
+                      'Inventory';
                     return (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setInspectorTab(tab)}
-                        className={`py-2 px-1 text-[11px] font-bold border-b-2 transition cursor-pointer text-center truncate ${
+                        className={`flex-shrink-0 px-3.5 py-2.5 text-[11px] font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
                           inspectorTab === tab
-                            ? 'border-amber-500 text-amber-700 bg-amber-50/60'
+                            ? 'border-amber-500 text-amber-700 bg-amber-50/40'
                             : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                         }`}
-                        title={label}
                       >
                         {label}
                       </button>
@@ -1741,7 +1749,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 </div>
 
                 {/* Inspector Tab Content (Independently Scrollable Container) */}
-                <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-3.5 space-y-3.5">
+                <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-4">
 
                   {/* ── OVERVIEW TAB ── */}
                   {inspectorTab === 'OVERVIEW' && (
