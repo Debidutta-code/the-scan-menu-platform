@@ -647,12 +647,12 @@ export const ManagerMenuItemEditor: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans pb-16">
+    <div className="flex-1 w-full bg-[#F8FAFC] flex flex-col font-sans pb-12">
       {/* ───────────────────────────────────────────────────────────── */}
       {/* TOP STICKY HEADER & BREADCRUMB                                */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs">
+        <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4">
           {/* Left: Back & Title */}
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -664,7 +664,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-slate-900 truncate">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                   {isEditMode ? 'Edit Menu Item' : 'Create New Menu Item'}
                 </h1>
                 {isEditMode && hasChanges && (
@@ -692,7 +692,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/manager/menu')}
-              className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             >
               Cancel
             </button>
@@ -700,7 +700,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
               type="button"
               onClick={handleSaveAsDraft}
               disabled={saveMutation.isPending}
-              className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5 text-slate-500" />
               <span className="hidden sm:inline">Save as Draft</span>
@@ -709,7 +709,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
               type="button"
               onClick={handleSaveAndPublish}
               disabled={saveMutation.isPending}
-              className="px-4 py-2 text-xs font-bold text-white bg-slate-950 hover:bg-slate-900 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-bold text-white bg-slate-950 hover:bg-slate-900 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
             >
               {saveMutation.isPending ? (
                 <Loader className="w-3.5 h-3.5 animate-spin" />
@@ -725,7 +725,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
       {/* Crash / Recovery Banner */}
       {showRecoveryBanner && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 text-xs">
+          <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 text-xs">
             <div className="flex items-center gap-2 text-amber-900 font-medium">
               <RefreshCw className="w-4 h-4 text-amber-600 animate-spin" />
               <span>We restored unsaved changes from your previous session.</span>
@@ -751,13 +751,13 @@ export const ManagerMenuItemEditor: React.FC = () => {
       {/* ───────────────────────────────────────────────────────────── */}
       {/* MAIN 3-COLUMN WORKSPACE                                       */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
           {/* ═════════════════════════════════════════════════════════ */}
           {/* COLUMN 1: STEP NAVIGATION (3 cols)                        */}
           {/* ═════════════════════════════════════════════════════════ */}
           <div className="lg:col-span-3 space-y-3">
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-2">
+            <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/90 shadow-2xs space-y-2">
               <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 px-2 pb-1">
                 Steps Progress
               </div>
@@ -832,8 +832,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
           {/* ═════════════════════════════════════════════════════════ */}
           {/* COLUMN 2: ACTIVE STEP FORM (5 cols)                       */}
           {/* ═════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-6">
+          <div className="lg:col-span-5 space-y-4">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-2xs space-y-5">
               {/* ────────────────────────────────────────── */}
               {/* STEP 1: BASIC DETAILS                      */}
               {/* ────────────────────────────────────────── */}
@@ -1725,8 +1725,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
           {/* ═════════════════════════════════════════════════════════ */}
           {/* COLUMN 3: LIVE PREVIEW (4 cols)                           */}
           {/* ═════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-4 space-y-3 sticky top-24">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-4">
+          <div className="lg:col-span-4 space-y-3 sticky top-18 sm:top-20">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-4">
               {/* Header & Switcher */}
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">

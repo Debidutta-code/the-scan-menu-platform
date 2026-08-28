@@ -145,6 +145,7 @@ export const ManagerLayout: React.FC = () => {
 
   // Active tab tracking by pathname
   const currentPath = location.pathname;
+  const isMenuEditorRoute = currentPath.startsWith('/manager/menu/new') || currentPath.includes('/edit');
   const activeTab = currentPath.startsWith('/manager/orders')
     ? 'orders'
     : currentPath.startsWith('/manager/counter')
@@ -760,10 +761,12 @@ export const ManagerLayout: React.FC = () => {
 
         {/* Active Content Panel */}
         <main
-          className={`flex-1 min-h-0 relative scrollbar-none ${
-            ['orders', 'counter', 'kds', 'tables', 'menu'].includes(activeTab)
-              ? 'p-2.5 sm:p-3.5 lg:p-4 overflow-hidden flex flex-col'
-              : 'p-3 sm:p-4 lg:p-6 overflow-y-auto'
+          className={`flex-1 min-h-0 relative ${
+            isMenuEditorRoute
+              ? 'p-0 overflow-y-auto flex flex-col'
+              : ['orders', 'counter', 'kds', 'tables', 'menu'].includes(activeTab)
+              ? 'p-2.5 sm:p-3.5 lg:p-4 overflow-hidden flex flex-col scrollbar-none'
+              : 'p-3 sm:p-4 lg:p-6 overflow-y-auto scrollbar-none'
           }`}
         >
           <Outlet />
