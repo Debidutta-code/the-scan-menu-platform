@@ -32,6 +32,7 @@ import ManagerKDS from './pages/ManagerKDS';
 import ManagerWaiterCalls from './pages/ManagerWaiterCalls';
 import ManagerTables from './pages/ManagerTables';
 import ManagerMenu from './pages/ManagerMenu';
+import ManagerMenuItemEditor from './pages/ManagerMenuItemEditor';
 import ManagerMenuAvailability from './pages/ManagerMenuAvailability';
 import ManagerInventory from './pages/ManagerInventory';
 
@@ -175,6 +176,8 @@ export const App = () => {
 
                     <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Digital Menu Management" />}>
                       <Route path="/manager/menu" element={<ManagerMenu />} />
+                      <Route path="/manager/menu/new" element={<ManagerMenuItemEditor />} />
+                      <Route path="/manager/menu/:itemId/edit" element={<ManagerMenuItemEditor />} />
                     </Route>
 
                     <Route element={<FeatureProtectedRoute requiredAnyFeatures={['crm', 'pos']} featureName="Staff Management" />}>

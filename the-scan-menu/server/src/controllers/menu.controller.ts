@@ -21,6 +21,7 @@ export class MenuController {
     this.reorderCategories = this.reorderCategories.bind(this);
 
     this.listMenuItems = this.listMenuItems.bind(this);
+    this.getMenuItem = this.getMenuItem.bind(this);
     this.createMenuItem = this.createMenuItem.bind(this);
     this.editMenuItem = this.editMenuItem.bind(this);
     this.deleteMenuItem = this.deleteMenuItem.bind(this);
@@ -189,7 +190,7 @@ export class MenuController {
   async listMenuItems(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const { categoryId } = req.query;
+      const { categoryId, isDraft } = req.query;
 
       const query: Record<string, any> = {
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
@@ -199,10 +200,33 @@ export class MenuController {
         query.categoryId = new mongoose.Types.ObjectId(categoryId as string);
       }
 
+      if (isDraft !== undefined) {
+        query.isDraft = isDraft === 'true';
+      }
+
       const items = await MenuItem.find(query)
         .populate('categoryId', 'name sortOrder')
         .sort({ sortOrder: 1 });
       sendSuccess(res, items, 'Menu items retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getMenuItem(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, itemId } = req.params;
+      const item = await MenuItem.findOne({
+        _id: itemId,
+        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      }).populate('categoryId', 'name sortOrder');
+
+      if (!item) {
+        sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
+        return;
+      }
+
+      sendSuccess(res, item, 'Menu item retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -221,6 +245,7 @@ export class MenuController {
         imageUrl,
         isVegetarian,
         isSpicy,
+        isChefsSpecial,
         prepTimeMinutes,
         sortOrder,
         addOns,
@@ -231,6 +256,9 @@ export class MenuController {
         stockQuantity,
         lowStockThreshold,
         isAvailable,
+        isDraft,
+        completedStep,
+        totalSteps,
       } = req.body;
 
       if (!categoryId || !name) {
@@ -244,7 +272,7 @@ export class MenuController {
       if (isPortion) {
         const defaultVar = variants.find((v: any) => v.isDefault) || variants[0];
         finalPrice = defaultVar ? defaultVar.price : (price || 0);
-      } else if (finalPrice === undefined || !Number.isInteger(finalPrice) || finalPrice < 0) {
+      } else if (!isDraft && (finalPrice === undefined || !Number.isInteger(finalPrice) || finalPrice < 0)) {
         sendError(res, 'BAD_REQUEST', 'Price must be a non-negative integer (paise/cents)', null, 400);
         return;
       }
@@ -282,7 +310,7 @@ export class MenuController {
         name: name.trim(),
         description: description?.trim(),
         pricingType: isPortion ? 'PORTION' : 'SINGLE',
-        price: finalPrice,
+        price: finalPrice || 0,
         variants: isPortion ? variants : undefined,
         imageUrl: imageUrl?.trim(),
         isAvailable: isAvailable !== undefined ? !!isAvailable : true,
@@ -291,6 +319,7 @@ export class MenuController {
         lowStockThreshold: lowStockThreshold !== undefined ? lowStockThreshold : 5,
         isVegetarian: !!isVegetarian,
         isSpicy: !!isSpicy,
+        isChefsSpecial: !!isChefsSpecial,
         prepTimeMinutes: prepTimeMinutes ? parseInt(prepTimeMinutes) : undefined,
         sortOrder: finalSortOrder,
         addOns,
@@ -299,6 +328,9 @@ export class MenuController {
           : undefined,
         isCombo: !!isCombo,
         comboItems: Array.isArray(comboItems) ? comboItems : undefined,
+        isDraft: !!isDraft,
+        completedStep: completedStep !== undefined ? Number(completedStep) : 5,
+        totalSteps: totalSteps !== undefined ? Number(totalSteps) : 5,
       });
 
       await menuItem.save();
@@ -362,7 +394,7 @@ export class MenuController {
 
       // Check price positive integer
       if (updateData.price !== undefined && item.pricingType !== 'PORTION') {
-        if (!Number.isInteger(updateData.price) || updateData.price < 0) {
+        if (!updateData.isDraft && (!Number.isInteger(updateData.price) || updateData.price < 0)) {
           sendError(res, 'BAD_REQUEST', 'Price must be a non-negative integer (paise/cents)', null, 400);
           return;
         }
@@ -378,6 +410,7 @@ export class MenuController {
       if (updateData.lowStockThreshold !== undefined) item.lowStockThreshold = updateData.lowStockThreshold;
       if (updateData.isVegetarian !== undefined) item.isVegetarian = !!updateData.isVegetarian;
       if (updateData.isSpicy !== undefined) item.isSpicy = !!updateData.isSpicy;
+      if (updateData.isChefsSpecial !== undefined) item.isChefsSpecial = !!updateData.isChefsSpecial;
       if (updateData.prepTimeMinutes !== undefined) item.prepTimeMinutes = updateData.prepTimeMinutes ? parseInt(updateData.prepTimeMinutes) : undefined;
       if (updateData.sortOrder !== undefined) item.sortOrder = updateData.sortOrder;
       if (updateData.addOns !== undefined) item.addOns = updateData.addOns;
@@ -388,12 +421,9 @@ export class MenuController {
       }
       if (updateData.isCombo !== undefined) item.isCombo = !!updateData.isCombo;
       if (updateData.comboItems !== undefined) item.comboItems = updateData.comboItems;
-      if (updateData.isSpicy !== undefined) item.isSpicy = !!updateData.isSpicy;
-      if (updateData.prepTimeMinutes !== undefined) {
-        item.prepTimeMinutes = updateData.prepTimeMinutes ? parseInt(updateData.prepTimeMinutes) : undefined;
-      }
-      if (updateData.sortOrder !== undefined) item.sortOrder = updateData.sortOrder;
-      if (updateData.addOns !== undefined) item.addOns = updateData.addOns;
+      if (updateData.isDraft !== undefined) item.isDraft = !!updateData.isDraft;
+      if (updateData.completedStep !== undefined) item.completedStep = Number(updateData.completedStep);
+      if (updateData.totalSteps !== undefined) item.totalSteps = Number(updateData.totalSteps);
 
       await item.save();
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);

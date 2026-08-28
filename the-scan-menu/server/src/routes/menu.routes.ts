@@ -40,6 +40,7 @@ router.patch('/:restaurantId/categories-reorder', requireFeature('qr_menu') as a
 
 // Menu Items
 router.get('/:restaurantId/menu-items', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, menuController.listMenuItems);
+router.get('/:restaurantId/menu-items/:itemId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, menuController.getMenuItem);
 router.post(
   '/:restaurantId/menu-items',
   requireRestaurantAccess as any,

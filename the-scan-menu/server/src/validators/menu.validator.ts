@@ -13,7 +13,7 @@ export const createMenuItemSchema = z.object({
   name: z.string().trim().min(1, 'Menu item name is required'),
   description: z.string().trim().optional(),
   pricingType: z.enum(['SINGLE', 'PORTION']).default('SINGLE'),
-  price: z.number().int().nonnegative('Price must be a non-negative integer (paise/cents)'),
+  price: z.number().int().nonnegative('Price must be a non-negative integer (paise/cents)').optional().default(0),
   variants: z
     .array(
       z.object({
@@ -53,6 +53,9 @@ export const createMenuItemSchema = z.object({
       })
     )
     .optional(),
+  isDraft: z.boolean().optional().default(false),
+  completedStep: z.number().int().min(1).max(5).optional().default(5),
+  totalSteps: z.number().int().min(1).max(5).optional().default(5),
 });
 
 export const updateMenuItemSchema = createMenuItemSchema.partial();

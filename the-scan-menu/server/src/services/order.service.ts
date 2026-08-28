@@ -106,7 +106,7 @@ export class OrderService {
       }
 
       const category = categoryMap.get(menuItem.categoryId.toString());
-      if (!menuItem.isAvailable) {
+      if (!menuItem.isAvailable || menuItem.isDraft || menuItem.isArchived) {
         failedItems.push({ itemId: item.itemId, menuItemId: item.itemId, name: menuItem.name, reason: 'unavailable' });
         continue;
       }

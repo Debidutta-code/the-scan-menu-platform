@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
@@ -18,7 +18,6 @@ import {
   X,
   Loader,
   FolderOpen,
-  Flame,
   GripVertical,
   Sliders,
   Eye,
@@ -53,72 +52,6 @@ const categorySchema = z.object({
   name: z.string().trim().min(1, 'Category name is required'),
   description: z.string().optional(),
   imageUrl: z.string().optional(),
-});
-
-const menuItemSchema = z.object({
-  name: z.string().trim().min(1, 'Dish name is required'),
-  description: z.string().optional(),
-  pricingType: z.enum(['SINGLE', 'PORTION']).default('SINGLE'),
-  price: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
-    z.number().min(0, 'Price must be non-negative').default(0)
-  ),
-  variants: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1, 'Size name is required'),
-        price: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
-          z.number().min(0, 'Price must be non-negative')
-        ),
-        isDefault: z.boolean().default(false),
-      })
-    )
-    .default([]),
-  imageUrl: z.string().optional(),
-  isVegetarian: z.boolean().default(false),
-  isSpicy: z.boolean().default(false),
-  isChefsSpecial: z.boolean().default(false),
-  prepTimeMinutes: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined || Number(val) === 0 ? undefined : Number(val)),
-    z.number().int().positive('Prep time must be a positive number').optional()
-  ),
-  trackStock: z.boolean().default(false),
-  stockQuantity: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
-    z.number().int().min(0).default(0)
-  ),
-  lowStockThreshold: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 5 : Number(val)),
-    z.number().int().min(0).default(5)
-  ),
-  isCombo: z.boolean().default(false),
-  comboItems: z
-    .array(
-      z.object({
-        menuItemId: z.string().optional(),
-        name: z.string().trim().min(1, 'Combo item name is required'),
-        categoryName: z.string().optional(),
-        quantity: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? 1 : Number(val)),
-          z.number().int().min(1).default(1)
-        ),
-        imageUrl: z.string().optional(),
-      })
-    )
-    .default([]),
-  addOns: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1, 'Add-on name is required'),
-        priceDelta: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
-          z.number().min(0, 'Price delta must be non-negative')
-        ),
-      })
-    )
-    .default([]),
-  attachedAddOnGroupIds: z.array(z.string()).default([]),
 });
 
 const customGroupSchema = z.object({
@@ -518,6 +451,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
   const { activeRestaurantId, user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -525,18 +459,16 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   // Primary Tab: 'MENU' | 'CUSTOMIZATIONS'
   const [activeTab, setActiveTab] = useState<'MENU' | 'CUSTOMIZATIONS'>('MENU');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFTS'>('ALL');
 
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<any | null>(null);
-  const [isItemOpen, setIsItemOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Preview states
   const [previewDish, setPreviewDish] = useState<any | null>(null);
   const [previewMode, setPreviewMode] = useState<'LIST' | 'FULL'>('LIST');
-  const [itemModalTab, setItemModalTab] = useState<'FORM' | 'PREVIEW'>('FORM');
 
   // Customization group modal states
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -667,38 +599,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   // ==========================================
   // MUTATIONS (Menu Items)
   // ==========================================
-  const createItemMutation = useMutation({
-    mutationFn: (data: any) =>
-      apiClient.post(`/restaurants/${targetRestaurantId}/menu-items`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
-      setIsItemOpen(false);
-      itemForm.reset();
-      toast('Menu item created successfully.', 'success');
-    },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.error?.message || 'Error creating menu item');
-    },
-  });
 
-  const editItemMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
-      apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
-      setIsItemOpen(false);
-      setEditingItem(null);
-      itemForm.reset();
-      toast('Menu item updated successfully.', 'success');
-    },
-    onError: (err: any) => {
-      setErrorMsg(err.response?.data?.error?.message || 'Error editing menu item');
-    },
-  });
 
   const deleteItemMutation = useMutation({
     mutationFn: (id: string) =>
@@ -879,146 +780,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     resolver: zodResolver(categorySchema),
   });
 
-  const itemForm = useForm<any>({
-    resolver: zodResolver(menuItemSchema),
-    defaultValues: {
-      pricingType: 'SINGLE',
-      price: 0,
-      variants: [],
-      addOns: [],
-      isVegetarian: false,
-      isSpicy: false,
-      isChefsSpecial: false,
-      isCombo: false,
-      comboItems: [],
-      attachedAddOnGroupIds: [],
-    },
-  });
-
-  const { fields: addOnFields, append: appendAddOn, remove: removeAddOn } = useFieldArray({
-    control: itemForm.control,
-    name: 'addOns',
-  });
-
-  const {
-    fields: variantFields,
-    append: appendVariant,
-    remove: removeVariant,
-    replace: replaceVariants,
-  } = useFieldArray({
-    control: itemForm.control,
-    name: 'variants',
-  });
-
-  const {
-    fields: comboFields,
-    append: appendComboItem,
-    remove: removeComboItem,
-  } = useFieldArray({
-    control: itemForm.control,
-    name: 'comboItems',
-  });
-
-  const [comboDishSearch, setComboDishSearch] = useState('');
-  const [comboCategoryFilter, setComboCategoryFilter] = useState<string | null>(null);
-
-  const availableDishesForCombo = useMemo(() => {
-    return allMenuItems.filter((dish: any) => {
-      if (editingItem && dish._id === editingItem._id) return false;
-      if (comboDishSearch.trim()) {
-        const q = comboDishSearch.toLowerCase();
-        const catName = typeof dish.categoryId === 'object' ? dish.categoryId?.name : categories.find((c: any) => c._id === dish.categoryId)?.name || '';
-        if (!dish.name.toLowerCase().includes(q) && !catName.toLowerCase().includes(q)) {
-          return false;
-        }
-      }
-      if (comboCategoryFilter) {
-        const cId = typeof dish.categoryId === 'object' ? dish.categoryId?._id : dish.categoryId;
-        if (cId !== comboCategoryFilter) return false;
-      }
-      return true;
-    });
-  }, [allMenuItems, editingItem, comboDishSearch, comboCategoryFilter, categories]);
-
-  const watchedComboItems = itemForm.watch('comboItems');
-
-  const bundledRegularTotal = useMemo(() => {
-    const currentCombo = watchedComboItems || [];
-    return currentCombo.reduce((acc: number, cItem: any) => {
-      const originalDish = allMenuItems.find((d: any) => d._id === cItem.menuItemId || d.name === cItem.name);
-      const itemPrice = originalDish ? (originalDish.price || 0) / 100 : 0;
-      return acc + (itemPrice * (cItem.quantity || 1));
-    }, 0);
-  }, [watchedComboItems, allMenuItems]);
-
-  const handleAddDishToCombo = (dish: any) => {
-    const currentComboItems = itemForm.getValues('comboItems') || [];
-    const existingIndex = currentComboItems.findIndex((c: any) => c.menuItemId === dish._id || c.name === dish.name);
-    if (existingIndex >= 0) {
-      const currentQty = Number(currentComboItems[existingIndex].quantity || 1);
-      itemForm.setValue(`comboItems.${existingIndex}.quantity`, currentQty + 1);
-    } else {
-      const catName = typeof dish.categoryId === 'object' ? dish.categoryId?.name : categories.find((c: any) => c._id === dish.categoryId)?.name || '';
-      appendComboItem({
-        menuItemId: dish._id,
-        name: dish.name,
-        categoryName: catName,
-        quantity: 1,
-        imageUrl: dish.imageUrl || '',
-      });
-    }
-    // Auto suggest combo name if empty
-    if (currentComboItems.length === 0 && !itemForm.getValues('name')) {
-      itemForm.setValue('name', `${dish.name} Combo`);
-    }
-    // Auto update suggested price if price is 0
-    const newItems = itemForm.getValues('comboItems') || [];
-    const newTotal = newItems.reduce((acc: number, cItem: any) => {
-      const originalDish = allMenuItems.find((d: any) => d._id === cItem.menuItemId || d.name === cItem.name);
-      const itemPrice = originalDish ? (originalDish.price || 0) / 100 : 0;
-      return acc + (itemPrice * (cItem.quantity || 1));
-    }, 0);
-    if (itemForm.getValues('price') === 0 || !itemForm.getValues('price')) {
-      itemForm.setValue('price', Math.round(newTotal * 0.9));
-    }
-  };
-
   const handleCreateComboFromSelected = () => {
-    const selectedItems = allMenuItems.filter((i: any) => selectedItemIds.includes(i._id));
-    if (selectedItems.length === 0) return;
-    const totalBasePrice = selectedItems.reduce((acc: number, i: any) => acc + (i.price || 0), 0) / 100;
-    const comboItems = selectedItems.map((i: any) => ({
-      menuItemId: i._id,
-      name: i.name,
-      categoryName: typeof i.categoryId === 'object' ? i.categoryId?.name : categories.find((c: any) => c._id === i.categoryId)?.name || '',
-      quantity: 1,
-      imageUrl: i.imageUrl || '',
-    }));
-
-    setEditingItem(null);
-    setItemModalTab('FORM');
-    itemForm.reset({
-      name: selectedItems.map((i: any) => i.name).join(' + ') + ' Combo',
-      description: `Includes ${selectedItems.map((i: any) => `1x ${i.name}`).join(', ')}.`,
-      pricingType: 'SINGLE',
-      price: Math.round(totalBasePrice * 0.9),
-      variants: [],
-      imageUrl: selectedItems[0]?.imageUrl || '',
-      isVegetarian: selectedItems.every((i: any) => i.isVegetarian),
-      isSpicy: selectedItems.some((i: any) => i.isSpicy),
-      isChefsSpecial: false,
-      prepTimeMinutes: Math.max(...selectedItems.map((i: any) => i.prepTimeMinutes || 10)),
-      trackStock: false,
-      stockQuantity: 0,
-      lowStockThreshold: 5,
-      isCombo: true,
-      comboItems,
-      addOns: [],
-      attachedAddOnGroupIds: [],
-    });
-    setBulkMode(false);
-    setSelectedItemIds([]);
-    setIsItemOpen(true);
+    navigate('/manager/menu/new?type=bundle' + (selectedCatId ? `&categoryId=${selectedCatId}` : ''));
   };
 
   const groupForm = useForm<any>({
@@ -1046,73 +809,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     }
   };
 
-  const onItemSubmit = (values: any) => {
-    setErrorMsg(null);
-    if (!selectedCatId) {
-      toast('Please select or create a category before saving the dish.', 'error');
-      return;
-    }
-
-    const isPortion = values.pricingType === 'PORTION';
-
-    if (isPortion) {
-      if (!values.variants || values.variants.length === 0) {
-        toast('Please add at least one portion size option (e.g. Half / Full).', 'error');
-        return;
-      }
-      const invalidVariant = values.variants.find((v: any) => !v.name?.trim() || Number(v.price) < 0 || isNaN(Number(v.price)));
-      if (invalidVariant) {
-        toast('Please enter valid names and non-negative prices for all portion sizes.', 'error');
-        return;
-      }
-    } else {
-      if (Number(values.price) < 0 || isNaN(Number(values.price))) {
-        toast('Please enter a valid non-negative dish price.', 'error');
-        return;
-      }
-    }
-
-    let priceInPaise = Math.round(Number(values.price || 0) * 100);
-    const variantsInPaise = isPortion
-      ? values.variants.map((v: any) => ({
-          name: v.name.trim(),
-          price: Math.round(Number(v.price || 0) * 100),
-          isDefault: !!v.isDefault,
-        }))
-      : undefined;
-
-    if (isPortion && variantsInPaise && variantsInPaise.length > 0) {
-      const def = variantsInPaise.find((v: any) => v.isDefault) || variantsInPaise[0];
-      priceInPaise = def.price;
-    }
-
-    const addOnsInPaise = values.addOns
-      ?.filter((addon: any) => addon.name?.trim())
-      .map((addon: any) => ({
-        name: addon.name.trim(),
-        priceDelta: Math.round(Number(addon.priceDelta || 0) * 100),
-      }));
-
-    const payload = {
-      ...values,
-      name: values.name.trim(),
-      categoryId: selectedCatId,
-      pricingType: isPortion ? 'PORTION' : 'SINGLE',
-      price: priceInPaise,
-      variants: variantsInPaise,
-      addOns: addOnsInPaise,
-      prepTimeMinutes: values.prepTimeMinutes ? Number(values.prepTimeMinutes) : undefined,
-      isCombo: !!values.isCombo,
-      comboItems: values.isCombo ? values.comboItems?.filter((c: any) => c.name?.trim()) : undefined,
-    };
-
-    if (editingItem) {
-      editItemMutation.mutate({ id: editingItem._id, data: payload });
-    } else {
-      createItemMutation.mutate(payload);
-    }
-  };
-
   const handleEditCatClick = (cat: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingCat(cat);
@@ -1125,97 +821,22 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   };
 
   const handleEditItemClick = (item: any) => {
-    setEditingItem(item);
-    setItemModalTab('FORM');
-    itemForm.reset({
-      name: item.name,
-      description: item.description || '',
-      pricingType: item.pricingType || 'SINGLE',
-      price: (item.price || 0) / 100,
-      variants: item.variants?.map((v: any) => ({
-        name: v.name,
-        price: (v.price || 0) / 100,
-        isDefault: !!v.isDefault,
-      })) || [],
-      imageUrl: item.imageUrl || '',
-      isVegetarian: !!item.isVegetarian,
-      isSpicy: !!item.isSpicy,
-      isChefsSpecial: !!item.isChefsSpecial,
-      prepTimeMinutes: item.prepTimeMinutes || '',
-      trackStock: !!item.trackStock,
-      stockQuantity: item.stockQuantity !== undefined ? item.stockQuantity : 0,
-      lowStockThreshold: item.lowStockThreshold !== undefined ? item.lowStockThreshold : 5,
-      isCombo: !!item.isCombo,
-      comboItems: item.comboItems?.map((c: any) => ({
-        menuItemId: c.menuItemId,
-        name: c.name,
-        categoryName: c.categoryName,
-        quantity: c.quantity || 1,
-        imageUrl: c.imageUrl,
-      })) || [],
-      addOns: item.addOns?.map((addon: any) => ({
-        name: addon.name,
-        priceDelta: (addon.priceDelta || 0) / 100,
-      })) || [],
-      attachedAddOnGroupIds: item.attachedAddOnGroupIds || [],
-    });
-    setIsItemOpen(true);
+    navigate(`/manager/menu/${item._id}/edit`);
   };
 
   const handleNewItemClick = () => {
-    setEditingItem(null);
-    setItemModalTab('FORM');
-    itemForm.reset({
-      name: '',
-      description: '',
-      pricingType: 'SINGLE',
-      price: 0,
-      variants: [],
-      imageUrl: '',
-      isVegetarian: false,
-      isSpicy: false,
-      isChefsSpecial: false,
-      prepTimeMinutes: '',
-      trackStock: false,
-      stockQuantity: 0,
-      lowStockThreshold: 5,
-      isCombo: false,
-      comboItems: [],
-      addOns: [],
-      attachedAddOnGroupIds: [],
-    });
-    setIsItemOpen(true);
-  };
-
-  const handleApplyVariantPreset = (preset: 'HALF_FULL' | 'SML' | 'REG_LARGE') => {
-    itemForm.setValue('pricingType', 'PORTION');
-    if (preset === 'HALF_FULL') {
-      replaceVariants([
-        { name: 'Half', price: 150, isDefault: true },
-        { name: 'Full', price: 280, isDefault: false },
-      ]);
-    } else if (preset === 'SML') {
-      replaceVariants([
-        { name: 'Small', price: 120, isDefault: false },
-        { name: 'Medium', price: 180, isDefault: true },
-        { name: 'Large', price: 240, isDefault: false },
-      ]);
-    } else if (preset === 'REG_LARGE') {
-      replaceVariants([
-        { name: 'Regular', price: 140, isDefault: true },
-        { name: 'Large', price: 220, isDefault: false },
-      ]);
-    }
+    navigate('/manager/menu/new' + (selectedCatId ? `?categoryId=${selectedCatId}` : ''));
   };
 
   // ── Global & Category Filtering ──────────────────────────────────────────
   const isSearching = searchQuery.trim().length > 0;
 
   const filteredMenuItems = useMemo(() => {
+    let list: any[] = [];
     if (isSearching) {
       const q = searchQuery.toLowerCase().trim();
-      return allMenuItems.filter((item: any) => {
-        const catName = typeof item.categoryId === 'object' ? item.categoryId?.name : '';
+      list = allMenuItems.filter((item: any) => {
+        const catName = typeof item.categoryId === 'object' ? item.categoryId?.name : categories.find((c: any) => c._id === item.categoryId)?.name || '';
         return (
           item.name?.toLowerCase().includes(q) ||
           item.description?.toLowerCase().includes(q) ||
@@ -1223,13 +844,22 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           item.variants?.some((v: any) => v.name?.toLowerCase().includes(q))
         );
       });
+    } else if (selectedCatId) {
+      list = allMenuItems.filter((item: any) => {
+        const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+        return cId === selectedCatId;
+      });
+    } else {
+      list = [];
     }
-    if (!selectedCatId) return [];
-    return allMenuItems.filter((item: any) => {
-      const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
-      return cId === selectedCatId;
-    });
-  }, [allMenuItems, selectedCatId, isSearching, searchQuery]);
+
+    if (statusFilter === 'PUBLISHED') {
+      return list.filter((item: any) => !item.isDraft);
+    } else if (statusFilter === 'DRAFTS') {
+      return list.filter((item: any) => !!item.isDraft);
+    }
+    return list;
+  }, [allMenuItems, selectedCatId, isSearching, searchQuery, statusFilter, categories]);
 
   if (!restaurantId && user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('qr_menu')) {
     return <Navigate to="/manager" replace />;
@@ -1388,11 +1018,44 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 </h2>
                 <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium font-mono truncate">
                   {filteredMenuItems.length} {filteredMenuItems.length === 1 ? 'item' : 'items'}
-                  {filteredMenuItems.filter((i: any) => !i.isAvailable).length > 0 && (
-                    <span className="text-rose-500 ml-1">· {filteredMenuItems.filter((i: any) => !i.isAvailable).length} off</span>
+                  {filteredMenuItems.filter((i: any) => !i.isAvailable && !i.isDraft).length > 0 && (
+                    <span className="text-rose-500 ml-1">· {filteredMenuItems.filter((i: any) => !i.isAvailable && !i.isDraft).length} off</span>
                   )}
                 </p>
               </div>
+
+              {/* Status Filter Tabs */}
+              {!activeItemInspector && (
+                <div className="hidden md:flex bg-slate-100 p-0.5 rounded-xl text-[10px] font-bold shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('ALL')}
+                    className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                      statusFilter === 'ALL' ? 'bg-white text-slate-900 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('PUBLISHED')}
+                    className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                      statusFilter === 'PUBLISHED' ? 'bg-white text-slate-900 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Published
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('DRAFTS')}
+                    className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                      statusFilter === 'DRAFTS' ? 'bg-white text-amber-900 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Drafts {allMenuItems.filter((i: any) => !!i.isDraft).length > 0 && `(${allMenuItems.filter((i: any) => !!i.isDraft).length})`}
+                  </button>
+                </div>
+              )}
 
               {/* Global Search Input */}
               <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1637,7 +1300,12 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                     <span className={`text-sm font-bold leading-tight ${!isAvailable ? 'text-slate-700' : 'text-slate-900'}`}>
                                       {item.name}
                                     </span>
-                                    {!isAvailable && (
+                                    {item.isDraft && (
+                                      <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-200 border border-amber-300 px-1.5 py-0.2 rounded-md">
+                                        Draft ({item.completedStep || 1}/5)
+                                      </span>
+                                    )}
+                                    {!isAvailable && !item.isDraft && (
                                       <span className="text-[9px] font-black uppercase text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.2 rounded-md">
                                         86&apos;d
                                       </span>
@@ -2207,10 +1875,14 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   </button>
                   <button
                     onClick={() => handleEditItemClick(item)}
-                    className="flex-1 h-10 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm active:scale-95"
+                    className={`flex-1 h-10 flex items-center justify-center gap-2 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm active:scale-95 ${
+                      item.isDraft
+                        ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                    }`}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
-                    Edit Details
+                    {item.isDraft ? `Resume Draft (Step ${item.completedStep || 1}/5)` : 'Edit Details'}
                   </button>
                 </div>
               </div>
@@ -2334,469 +2006,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         document.body
       )}
 
-      {/* Menu Item Modal */}
-      {isItemOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-5 my-auto">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div>
-                <h2 className="font-display text-xl font-bold text-slate-900">{editingItem ? 'Edit Menu Item' : 'New Menu Item'}</h2>
-                <span className="text-xs text-slate-400">Configure dish details, pricing, inventory, and modifier templates</span>
-              </div>
-              <button onClick={() => setIsItemOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X className="w-5 h-5" strokeWidth={1.75} />
-              </button>
-            </div>
-
-            {/* Modal Mode Selector */}
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
-              <button type="button" onClick={() => setItemModalTab('FORM')} className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${itemModalTab === 'FORM' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
-                Dish Configuration
-              </button>
-              <button type="button" onClick={() => setItemModalTab('PREVIEW')} className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${itemModalTab === 'PREVIEW' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
-                <Smartphone className="w-3.5 h-3.5" />Live Customer Preview
-              </button>
-            </div>
-
-            {errorMsg && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">{errorMsg}</div>}
-
-            {itemModalTab === 'PREVIEW' ? (
-              <div className="space-y-4">
-                <CustomerDishPreview item={itemForm.watch()} previewMode={previewMode} setPreviewMode={setPreviewMode} />
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setItemModalTab('FORM')} className="w-1/2 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition cursor-pointer">Back to Edit</button>
-                  <button type="button" onClick={itemForm.handleSubmit(onItemSubmit, (errors) => { const k = Object.keys(errors)[0]; const e: any = errors[k]; toast(e?.message || e?.name?.message || 'Check required fields.', 'error'); setItemModalTab('FORM'); })} className="w-1/2 py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition shadow-xs cursor-pointer">
-                    {editingItem ? 'Save Changes' : 'Create Dish'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={itemForm.handleSubmit(onItemSubmit, (errors) => { const k = Object.keys(errors)[0]; const e: any = errors[k]; toast(e?.message || e?.name?.message || e?.price?.message || 'Check required fields.', 'error'); })} className="space-y-5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Name</label>
-                  <input type="text" placeholder="Paneer Butter Masala" {...itemForm.register('name')} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-bold" />
-                </div>
-
-                <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-black uppercase tracking-wider text-amber-950">Pricing Model</label>
-                    <div className="flex gap-1 p-0.5 bg-amber-100/80 rounded-xl border border-amber-300/80 text-xs">
-                      <button type="button" onClick={() => itemForm.setValue('pricingType', 'SINGLE')} className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'}`}>Single Price</button>
-                      <button type="button" onClick={() => { itemForm.setValue('pricingType', 'PORTION'); if (variantFields.length === 0) handleApplyVariantPreset('HALF_FULL'); }} className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'}`}>Portion Sizes</button>
-                    </div>
-                  </div>
-                  {itemForm.watch('pricingType') === 'SINGLE' ? (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Dish Price (INR)</label>
-                      <input type="number" step="0.01" placeholder="280.00" {...itemForm.register('price')} className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold" />
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[11px] font-bold text-amber-900">Quick Presets:</span>
-                        {(['HALF_FULL', 'SML', 'REG_LARGE'] as const).map((preset) => (
-                          <button key={preset} type="button" onClick={() => handleApplyVariantPreset(preset)} className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer">
-                            {preset === 'HALF_FULL' ? '+ Half/Full' : preset === 'SML' ? '+ S/M/L' : '+ Reg/Large'}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="space-y-2">
-                        {variantFields.map((field, vIdx) => (
-                          <div key={field.id} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-amber-200/80">
-                            <input type="text" placeholder="Size (e.g. Half)" {...itemForm.register(`variants.${vIdx}.name` as const)} className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold" />
-                            <input type="number" step="0.01" placeholder="Price (INR)" {...itemForm.register(`variants.${vIdx}.price` as const)} className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold" />
-                            <button type="button" onClick={() => removeVariant(vIdx)} className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded cursor-pointer"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        ))}
-                        <button type="button" onClick={() => appendVariant({ name: '', price: 0, isDefault: false })} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Custom Size</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Stock & Inventory Card */}
-                <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label htmlFor="trackStockToggle" className="text-xs font-bold text-slate-900 cursor-pointer block">
-                        Inventory &amp; Stock Tracking
-                      </label>
-                      <span className="text-[10px] text-slate-400">Track current quantity and receive low-stock alerts</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      id="trackStockToggle"
-                      {...itemForm.register('trackStock')}
-                      className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                    />
-                  </div>
-                  {itemForm.watch('trackStock') && (
-                    <div className="grid grid-cols-2 gap-3 pt-1">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Current Stock Quantity</label>
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="e.g. 50"
-                          {...itemForm.register('stockQuantity')}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Low Stock Alert Level</label>
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="e.g. 5"
-                          {...itemForm.register('lowStockThreshold')}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── COMBO BUNDLE BUILDER SECTION ── */}
-                <div className={`border-2 rounded-2xl transition ${
-                  itemForm.watch('isCombo') ? 'border-violet-300 bg-violet-50/40 p-4 space-y-4 shadow-xs' : 'border-slate-200 bg-slate-50/60 p-3.5'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        id="isComboToggle"
-                        {...itemForm.register('isCombo')}
-                        className="w-4 h-4 accent-violet-600 rounded cursor-pointer"
-                      />
-                      <div>
-                        <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer flex items-center gap-2">
-                          <span>Bundle as Multi-Dish Combo</span>
-                          <span className="text-[10px] bg-violet-100 text-violet-800 font-bold px-2 py-0.5 rounded-full border border-violet-200">
-                            Combo Deal
-                          </span>
-                        </label>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Combine multiple menu items into a single meal bundle with special pricing.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {itemForm.watch('isCombo') && (
-                    <div className="space-y-3 pt-2 border-t border-violet-200/60">
-                      
-                      {/* Live Price Calculation Bar */}
-                      <div className="flex items-center justify-between bg-white rounded-xl p-3 border border-violet-200 text-xs shadow-2xs">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-medium block leading-none">Bundled Dishes</span>
-                            <span className="text-sm font-black text-slate-900 font-mono">{comboFields.length}</span>
-                          </div>
-                          <div className="h-6 w-px bg-slate-200" />
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-medium block leading-none">Separate Total</span>
-                            <span className="text-sm font-black text-slate-700 font-mono line-through">₹{bundledRegularTotal.toFixed(0)}</span>
-                          </div>
-                          <div className="h-6 w-px bg-slate-200" />
-                          <div>
-                            <span className="text-[10px] text-violet-600 font-bold block leading-none">Customer Saves</span>
-                            <span className="text-sm font-black text-emerald-600 font-mono">
-                              ₹{Math.max(0, bundledRegularTotal - (Number(itemForm.watch('price')) || 0)).toFixed(0)}
-                            </span>
-                          </div>
-                        </div>
-                        {bundledRegularTotal > 0 && (!itemForm.watch('price') || Number(itemForm.watch('price')) === 0) && (
-                          <button
-                            type="button"
-                            onClick={() => itemForm.setValue('price', Math.round(bundledRegularTotal * 0.9))}
-                            className="px-2.5 py-1 bg-violet-100 hover:bg-violet-200 text-violet-800 rounded-lg text-[11px] font-bold transition cursor-pointer"
-                          >
-                            Apply 10% Off (₹{Math.round(bundledRegularTotal * 0.9)})
-                          </button>
-                        )}
-                      </div>
-
-                      {/* List of currently bundled items */}
-                      <div className="space-y-1.5">
-                        <span className="text-xs font-bold text-slate-800">Selected Bundle Items:</span>
-                        {comboFields.length === 0 ? (
-                          <div className="text-center py-4 bg-white/80 rounded-xl border border-dashed border-violet-300 text-xs text-slate-400 space-y-1">
-                            <Package className="w-6 h-6 mx-auto text-violet-300" />
-                            <p>No dishes in this combo yet. Click on dishes below to add them!</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-none pr-0.5">
-                            {comboFields.map((cField: any, cIdx: number) => {
-                              const originalDish = allMenuItems.find((d: any) => d._id === cField.menuItemId || d.name === cField.name);
-                              const currentQty = Number(itemForm.watch(`comboItems.${cIdx}.quantity`) || 1);
-
-                              return (
-                                <div key={cField.id} className="flex items-center justify-between gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                    {cField.imageUrl ? (
-                                      <img src={cField.imageUrl} alt={cField.name} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-100" />
-                                    ) : (
-                                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-slate-400">
-                                        <Package className="w-4 h-4" />
-                                      </div>
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-xs font-bold text-slate-900 truncate leading-tight">{cField.name}</div>
-                                      <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                        {cField.categoryName && <span className="bg-slate-100 px-1.5 py-0.2 rounded font-medium">{cField.categoryName}</span>}
-                                        {originalDish && <span className="font-mono">₹{(originalDish.price / 100).toFixed(0)} each</span>}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Quantity Stepper */}
-                                  <div className="flex items-center gap-1 shrink-0 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (currentQty > 1) {
-                                          itemForm.setValue(`comboItems.${cIdx}.quantity`, currentQty - 1);
-                                        } else {
-                                          removeComboItem(cIdx);
-                                        }
-                                      }}
-                                      className="w-5 h-5 flex items-center justify-center rounded bg-white hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition shadow-2xs"
-                                    >
-                                      -
-                                    </button>
-                                    <span className="w-6 text-center text-xs font-mono font-bold text-slate-900">
-                                      {currentQty}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => itemForm.setValue(`comboItems.${cIdx}.quantity`, currentQty + 1)}
-                                      className="w-5 h-5 flex items-center justify-center rounded bg-white hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition shadow-2xs"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => removeComboItem(cIdx)}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                    title="Remove from combo"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Quick Dish Picker / Selector */}
-                      <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                            <Plus className="w-3.5 h-3.5 text-violet-600" />
-                            Add Menu Dishes to Bundle:
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-mono font-bold">
-                            {availableDishesForCombo.length} available
-                          </span>
-                        </div>
-
-                        {/* Search & Category Filter */}
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                            <input
-                              type="text"
-                              placeholder="Search dishes to add..."
-                              value={comboDishSearch}
-                              onChange={(e) => setComboDishSearch(e.target.value)}
-                              className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-violet-500 placeholder:text-slate-400"
-                            />
-                            {comboDishSearch && (
-                              <button
-                                type="button"
-                                onClick={() => setComboDishSearch('')}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                          {categories.length > 0 && (
-                            <select
-                              value={comboCategoryFilter || ''}
-                              onChange={(e) => setComboCategoryFilter(e.target.value || null)}
-                              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-violet-500 text-slate-700 font-medium"
-                            >
-                              <option value="">All Categories</option>
-                              {categories.map((cat: any) => (
-                                <option key={cat._id} value={cat._id}>{cat.name}</option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-
-                        {/* Dishes Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto scrollbar-none pt-1">
-                          {availableDishesForCombo.length === 0 ? (
-                            <div className="col-span-full text-center py-3 text-xs text-slate-400">
-                              No dishes found matching filter.
-                            </div>
-                          ) : (
-                            availableDishesForCombo.map((dish: any) => {
-                              const isAlreadyAdded = comboFields.some((c: any) => c.menuItemId === dish._id || c.name === dish.name);
-                              const catName = typeof dish.categoryId === 'object' ? dish.categoryId?.name : categories.find((c: any) => c._id === dish.categoryId)?.name;
-
-                              return (
-                                <button
-                                  key={dish._id}
-                                  type="button"
-                                  onClick={() => handleAddDishToCombo(dish)}
-                                  className={`flex items-center justify-between p-2 rounded-xl border text-left transition cursor-pointer text-xs ${
-                                    isAlreadyAdded
-                                      ? 'bg-violet-50/70 border-violet-300 text-violet-950'
-                                      : 'bg-slate-50/50 hover:bg-slate-100/80 border-slate-200/80 text-slate-800'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    {dish.imageUrl ? (
-                                      <img src={dish.imageUrl} alt={dish.name} className="w-7 h-7 rounded-lg object-cover shrink-0" />
-                                    ) : (
-                                      <div className="w-7 h-7 rounded-lg bg-slate-200/80 flex items-center justify-center shrink-0 text-slate-400">
-                                        <Package className="w-3.5 h-3.5" />
-                                      </div>
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                      <div className="font-bold truncate leading-tight">{dish.name}</div>
-                                      <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
-                                        <span>₹{((dish.price || 0) / 100).toFixed(0)}</span>
-                                        {catName && <span>· {catName}</span>}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className={`p-1 rounded-lg shrink-0 ml-1 font-bold text-[11px] ${
-                                    isAlreadyAdded ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-violet-500 hover:text-white'
-                                  }`}>
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </div>
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        {/* Optional Custom Item Adder */}
-                        <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: 'Custom' })}
-                            className="text-[11px] font-bold text-violet-600 hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Add custom non-menu item (e.g. Complimentary Drink)
-                          </button>
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                  <textarea placeholder="Spiced cottage cheese simmered in rich tomato butter gravy..." {...itemForm.register('description')} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-16 resize-none" />
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${itemForm.watch('isVegetarian') ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold' : 'border-slate-200 bg-white text-slate-700'}`}>
-                    <input type="checkbox" {...itemForm.register('isVegetarian')} className="hidden" />
-                    <MenuBadge variant="veg" /><span className="text-xs">Vegetarian</span>
-                  </label>
-                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${itemForm.watch('isSpicy') ? 'bg-rose-50 border-rose-500 text-rose-950 font-bold' : 'border-slate-200 bg-white text-slate-700'}`}>
-                    <input type="checkbox" {...itemForm.register('isSpicy')} className="hidden" />
-                    <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} /><span className="text-xs">Spicy</span>
-                  </label>
-                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${itemForm.watch('isChefsSpecial') ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold' : 'border-slate-200 bg-white text-slate-700'}`}>
-                    <input type="checkbox" {...itemForm.register('isChefsSpecial')} className="hidden" />
-                    <span className="text-xs">Chef&apos;s Special</span>
-                  </label>
-                  {isEnabled('ordering') && (
-                    <input type="number" placeholder="15 mins prep" {...itemForm.register('prepTimeMinutes')} className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium" />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Image</label>
-                  <ImageUploader restaurantId={activeRestaurantId!} value={itemForm.watch('imageUrl')} onChange={(url: string) => itemForm.setValue('imageUrl', url)} />
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                    <span className="text-xs font-bold text-slate-900">Custom Add-Ons (This dish only)</span>
-                    <button type="button" onClick={() => appendAddOn({ name: '', priceDelta: 0 })} className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Add-on</button>
-                  </div>
-                  {addOnFields.map((field, index) => (
-                    <div key={field.id} className="flex gap-2 items-center">
-                      <input type="text" placeholder="e.g. Extra Butter" {...itemForm.register(`addOns.${index}.name` as const)} className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold" />
-                      <input type="number" step="0.01" placeholder="Extra Price" {...itemForm.register(`addOns.${index}.priceDelta` as const)} className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold" />
-                      <button type="button" onClick={() => removeAddOn(index)} className="text-rose-500 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                    <div>
-                      <span className="text-xs font-bold text-slate-900 block">Reusable Modifier Groups</span>
-                      <span className="text-[10px] text-slate-400">Attach pre-configured modifier templates</span>
-                    </div>
-                    {customGroups.length === 0 && (
-                      <button type="button" onClick={() => { setIsItemOpen(false); setActiveTab('CUSTOMIZATIONS'); setIsGroupModalOpen(true); }} className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Create Template</button>
-                    )}
-                  </div>
-                  {customGroups.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {customGroups.map((group: any) => {
-                        const currentAttached: string[] = itemForm.watch('attachedAddOnGroupIds') || [];
-                        const isAttached = currentAttached.includes(group._id);
-                        return (
-                          <button key={group._id} type="button" onClick={() => { if (isAttached) itemForm.setValue('attachedAddOnGroupIds', currentAttached.filter(id => id !== group._id)); else itemForm.setValue('attachedAddOnGroupIds', [...currentAttached, group._id]); }} className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${isAttached ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20 text-amber-950' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
-                            <div className="min-w-0 pr-2">
-                              <span className="font-bold text-xs block truncate">{group.name}</span>
-                              <span className="text-[10px] text-slate-400 block">{group.options?.length || 0} options</span>
-                            </div>
-                            <div className={`w-5 h-5 rounded-lg border flex items-center justify-center text-xs shrink-0 ${isAttached ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 bg-white'}`}>
-                              {isAttached && <Check className="w-3.5 h-3.5" />}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
-                      <p className="text-xs text-slate-500">No modifier groups yet.</p>
-                      <button type="button" onClick={() => { setIsItemOpen(false); setActiveTab('CUSTOMIZATIONS'); setIsGroupModalOpen(true); }} className="mt-1.5 text-xs font-bold text-amber-600 hover:underline cursor-pointer">+ Create your first modifier template</button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2.5 pt-4 border-t border-slate-100">
-                  <button type="button" onClick={() => setIsItemOpen(false)} className="w-1/4 py-3 border border-slate-200 text-slate-600 text-xs font-semibold rounded-2xl hover:bg-slate-50 transition cursor-pointer">Cancel</button>
-                  <button type="button" onClick={() => setItemModalTab('PREVIEW')} className="w-1/3 py-3 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-bold rounded-2xl transition cursor-pointer flex items-center justify-center gap-1">
-                    <Smartphone className="w-3.5 h-3.5" />Preview
-                  </button>
-                  <button type="submit" className="flex-1 py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl transition shadow-md cursor-pointer">
-                    {editingItem ? 'Save Changes' : 'Create Dish'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* Standalone Customer Preview Modal */}
       {previewDish && createPortal(

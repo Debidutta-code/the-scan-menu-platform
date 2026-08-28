@@ -206,6 +206,8 @@ export class PublicController {
 
       const menuItems = await MenuItem.find({
         restaurantId: restaurant._id,
+        isDraft: { $ne: true },
+        isArchived: { $ne: true },
       }).sort({ sortOrder: 1 });
 
       const categoriesWithItems = categories.map((category) => {
@@ -779,6 +781,8 @@ export class PublicController {
 
       const menuItems = await MenuItem.find({
         restaurantId: restaurant._id,
+        isDraft: { $ne: true },
+        isArchived: { $ne: true },
       }).sort({ sortOrder: 1 });
 
       const categoriesWithItems = categories.map((category) => {

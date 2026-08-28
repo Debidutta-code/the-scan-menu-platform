@@ -43,6 +43,9 @@ export interface IMenuItem extends Document {
   comboItems?: IComboItem[];
   externalIds?: Record<string, any>;
   isArchived: boolean;
+  isDraft: boolean;
+  completedStep: number;
+  totalSteps: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -82,7 +85,7 @@ const menuItemSchema = new Schema<IMenuItem>(
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     pricingType: { type: String, enum: ['SINGLE', 'PORTION'], default: 'SINGLE' },
-    price: { type: Number, required: true }, // positive integer validated via Zod
+    price: { type: Number, required: true, default: 0 }, // positive integer validated via Zod
     variants: [variantSchema],
     imageUrl: { type: String, trim: true },
     isAvailable: { type: Boolean, required: true, default: true },
@@ -100,6 +103,9 @@ const menuItemSchema = new Schema<IMenuItem>(
     comboItems: [comboItemSchema],
     externalIds: { type: Schema.Types.Mixed, default: {} },
     isArchived: { type: Boolean, required: true, default: false },
+    isDraft: { type: Boolean, required: true, default: false },
+    completedStep: { type: Number, required: true, default: 5 },
+    totalSteps: { type: Number, required: true, default: 5 },
   },
   {
     timestamps: true,
@@ -110,8 +116,8 @@ const menuItemSchema = new Schema<IMenuItem>(
 // Indexes:
 // 1. Optimize querying items by category inside a restaurant (Manager menu rendering)
 menuItemSchema.index({ restaurantId: 1, categoryId: 1 });
-// 2. Critical for public customer menu filtration (always searches active, available items)
-menuItemSchema.index({ restaurantId: 1, isAvailable: 1 });
+// 2. Critical for public customer menu filtration (always searches active, available published items)
+menuItemSchema.index({ restaurantId: 1, isAvailable: 1, isDraft: 1, isArchived: 1 });
 // 3. Stock tracking index for fast availability & stock queries
 menuItemSchema.index({ restaurantId: 1, isAvailable: 1, trackStock: 1 });
 
