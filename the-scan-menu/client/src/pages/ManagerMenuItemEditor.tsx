@@ -103,15 +103,16 @@ const menuItemEditorSchema = z.object({
   attachedAddOnGroupIds: z.array(z.string()).default([]),
   isDraft: z.boolean().default(false),
   completedStep: z.number().default(1),
-  totalSteps: z.number().default(5),
+  totalSteps: z.number().default(6),
 });
 
 const STEPS = [
-  { id: 1, title: 'Basic Details', subtitle: 'Dish information & imagery', icon: Layers },
-  { id: 2, title: 'Pricing & Inventory', subtitle: 'Price, variants & stock', icon: DollarSign },
-  { id: 3, title: 'Bundling (Optional)', subtitle: 'Bundle multiple items', icon: Package },
-  { id: 4, title: 'Add-ons & Modifiers', subtitle: 'Custom & template options', icon: Sliders },
-  { id: 5, title: 'Review & Publish', subtitle: 'Review & save item', icon: Eye },
+  { id: 1, title: 'Basic Details', subtitle: 'Name, category & tags', icon: Layers },
+  { id: 2, title: 'Dish Imagery', subtitle: 'Photo & presentation', icon: Sparkles },
+  { id: 3, title: 'Pricing & Stock', subtitle: 'Price, variants & stock', icon: DollarSign },
+  { id: 4, title: 'Bundling (Optional)', subtitle: 'Bundle combo builder', icon: Package },
+  { id: 5, title: 'Add-ons & Modifiers', subtitle: 'Custom & template options', icon: Sliders },
+  { id: 6, title: 'Review & Publish', subtitle: 'Review & save item', icon: Eye },
 ];
 
 export const ManagerMenuItemEditor: React.FC = () => {
@@ -181,7 +182,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
       attachedAddOnGroupIds: [],
       isDraft: false,
       completedStep: 1,
-      totalSteps: 5,
+      totalSteps: 6,
     },
   });
 
@@ -297,13 +298,13 @@ export const ManagerMenuItemEditor: React.FC = () => {
           typeof g === 'object' ? g._id : g
         ),
         isDraft: !!baselineItem.isDraft,
-        completedStep: baselineItem.completedStep || (baselineItem.isDraft ? 1 : 5),
-        totalSteps: 5,
+        completedStep: baselineItem.completedStep || (baselineItem.isDraft ? 1 : 6),
+        totalSteps: 6,
       };
 
       reset(initialVals);
       setCompletedStepLevel(initialVals.completedStep);
-      if (initialVals.isDraft && initialVals.completedStep > 1 && initialVals.completedStep <= 5) {
+      if (initialVals.isDraft && initialVals.completedStep > 1 && initialVals.completedStep <= 6) {
         setCurrentStep(initialVals.completedStep);
       }
     } else if (!isEditMode && categories.length > 0 && !getValues('categoryId')) {
@@ -517,7 +518,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
       }
     }
 
-    const nextStep = Math.min(5, currentStep + 1);
+    const nextStep = Math.min(6, currentStep + 1);
     setCurrentStep(nextStep);
     setCompletedStepLevel((prev) => Math.max(prev, nextStep));
   };
@@ -532,8 +533,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
       const finalPayload = {
         ...payload,
         isDraft,
-        completedStep: isDraft ? currentStep : 5,
-        totalSteps: 5,
+        completedStep: isDraft ? currentStep : 6,
+        totalSteps: 6,
       };
 
       if (isEditMode) {
@@ -548,7 +549,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
       localStorage.removeItem(localStorageKey);
 
       if (variables.isDraft) {
-        toast(`Draft saved at Step ${currentStep} of 5. It will not show on public menu.`, 'info');
+        toast(`Draft saved at Step ${currentStep} of 6. It will not show on public menu.`, 'info');
       } else {
         toast(isEditMode ? 'Menu item updated and published!' : 'Menu item published to live menu!', 'success');
       }
@@ -604,8 +605,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
       attachedAddOnGroupIds: values.attachedAddOnGroupIds || [],
       isAvailable: true,
       isDraft,
-      completedStep: isDraft ? currentStep : 5,
-      totalSteps: 5,
+      completedStep: isDraft ? currentStep : 6,
+      totalSteps: 6,
     };
   };
 
@@ -647,43 +648,38 @@ export const ManagerMenuItemEditor: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 w-full bg-[#F8FAFC] flex flex-col font-sans pb-12">
+    <div className="h-full w-full bg-[#F8FAFC] flex flex-col font-sans overflow-hidden">
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* TOP STICKY HEADER & BREADCRUMB                                */}
+      {/* TOP COMPACT HEADER                                            */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-2xs">
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4">
+      <header className="shrink-0 bg-white border-b border-slate-200/80 shadow-2xs z-20">
+        <div className="w-full px-3 sm:px-4 h-12 sm:h-13 flex items-center justify-between gap-3">
           {/* Left: Back & Title */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => navigate('/manager/menu')}
-              className="p-2 -ml-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              className="p-1.5 -ml-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer shrink-0"
               title="Back to Menu"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                   {isEditMode ? 'Edit Menu Item' : 'Create New Menu Item'}
                 </h1>
                 {isEditMode && hasChanges && (
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">
                     <Sparkles className="w-3 h-3 text-amber-600" />
-                    {modifiedCount} field{modifiedCount > 1 ? 's' : ''} modified
+                    {modifiedCount} modified
                   </span>
                 )}
                 {watchedValues.isDraft && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                    Draft (Step {completedStepLevel}/5)
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+                    Draft ({completedStepLevel}/6)
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 truncate hidden md:block">
-                {isEditMode
-                  ? 'Update dish details, portions, combo bundle, and modifiers.'
-                  : 'Add a new dish to your digital menu. Fill the details below to get started.'}
-              </p>
             </div>
           </div>
 
@@ -692,7 +688,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/manager/menu')}
-              className="px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             >
               Cancel
             </button>
@@ -700,16 +696,16 @@ export const ManagerMenuItemEditor: React.FC = () => {
               type="button"
               onClick={handleSaveAsDraft}
               disabled={saveMutation.isPending}
-              className="px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+              className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Save as Draft</span>
+              <span className="hidden sm:inline">Save Draft</span>
             </button>
             <button
               type="button"
               onClick={handleSaveAndPublish}
               disabled={saveMutation.isPending}
-              className="px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-bold text-white bg-slate-950 hover:bg-slate-900 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
+              className="px-3 py-1 sm:px-3.5 sm:py-1.5 text-xs font-bold text-white bg-slate-950 hover:bg-slate-900 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
             >
               {saveMutation.isPending ? (
                 <Loader className="w-3.5 h-3.5 animate-spin" />
@@ -724,22 +720,22 @@ export const ManagerMenuItemEditor: React.FC = () => {
 
       {/* Crash / Recovery Banner */}
       {showRecoveryBanner && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5">
-          <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 text-xs">
+        <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 shrink-0">
+          <div className="w-full flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-amber-900 font-medium">
-              <RefreshCw className="w-4 h-4 text-amber-600 animate-spin" />
-              <span>We restored unsaved changes from your previous session.</span>
+              <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+              <span className="text-[11px]">Restored unsaved changes from previous session.</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleApplyRecoveredDraft}
-                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition cursor-pointer"
+                className="px-2.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition cursor-pointer text-xs"
               >
-                Apply Restored Draft
+                Apply
               </button>
               <button
                 onClick={handleDiscardRecoveredDraft}
-                className="px-2.5 py-1 text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                className="px-2 py-0.5 text-slate-500 hover:text-slate-800 font-semibold cursor-pointer text-xs"
               >
                 Discard
               </button>
@@ -749,81 +745,76 @@ export const ManagerMenuItemEditor: React.FC = () => {
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
-      {/* MAIN 3-COLUMN WORKSPACE                                       */}
+      {/* MAIN 3-COLUMN WORKSPACE (Fills Screen, No outer scroll)        */}
       {/* ───────────────────────────────────────────────────────────── */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
+      <div className="flex-1 min-h-0 p-2 sm:p-2.5 w-full flex flex-col overflow-hidden">
+        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-2.5 items-stretch overflow-hidden">
           {/* ═════════════════════════════════════════════════════════ */}
           {/* COLUMN 1: STEP NAVIGATION (3 cols)                        */}
           {/* ═════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-3 space-y-3">
-            <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/90 shadow-2xs space-y-2">
-              <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 px-2 pb-1">
-                Steps Progress
-              </div>
-              <div className="space-y-1.5">
-                {STEPS.map((step) => {
-                  const isActive = currentStep === step.id;
-                  const isCompleted = completedStepLevel >= step.id && !isActive;
+          <div className="lg:col-span-3 h-full flex flex-col bg-white rounded-2xl p-2 sm:p-2.5 border border-slate-200/90 shadow-2xs overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-1.5">
+            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-1 pb-0.5">
+              Steps Progress
+            </div>
+            <div className="space-y-1 flex-1">
+              {STEPS.map((step) => {
+                const isActive = currentStep === step.id;
+                const isCompleted = completedStepLevel >= step.id && !isActive;
+                const stepDiffsCount = diffs.filter((d) => d.step === step.id).length;
 
-                  // Check if any diffs belong to this step in edit mode
-                  const stepDiffsCount = diffs.filter((d) => d.step === step.id).length;
-
-                  return (
-                    <button
-                      key={step.id}
-                      type="button"
-                      onClick={() => setCurrentStep(step.id)}
-                      className={`w-full text-left p-3 rounded-xl transition flex items-start gap-3 cursor-pointer ${
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setCurrentStep(step.id)}
+                    className={`w-full text-left p-2 rounded-xl transition flex items-start gap-2 cursor-pointer ${
+                      isActive
+                        ? 'bg-amber-500/10 border border-amber-500/30 text-slate-900 shadow-2xs'
+                        : 'hover:bg-slate-50 text-slate-600 border border-transparent'
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 transition ${
                         isActive
-                          ? 'bg-amber-500/10 border border-amber-500/30 text-slate-900 shadow-2xs'
-                          : 'hover:bg-slate-50 text-slate-600 border border-transparent'
+                          ? 'bg-amber-500 text-slate-950 font-black'
+                          : isCompleted
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 text-slate-500'
                       }`}
                     >
-                      <div
-                        className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 transition ${
-                          isActive
-                            ? 'bg-amber-500 text-slate-950 font-black'
-                            : isCompleted
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : step.id}
-                      </div>
+                      {isCompleted ? <Check className="w-3 h-3 stroke-[3]" /> : step.id}
+                    </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <span
-                            className={`text-xs font-bold truncate ${
-                              isActive ? 'text-slate-900 font-extrabold' : 'text-slate-700'
-                            }`}
-                          >
-                            {step.title}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span
+                          className={`text-xs font-bold truncate ${
+                            isActive ? 'text-slate-900 font-extrabold' : 'text-slate-700'
+                          }`}
+                        >
+                          {step.title}
+                        </span>
+                        {stepDiffsCount > 0 && isEditMode && (
+                          <span className="text-[9px] font-extrabold bg-amber-200/80 text-amber-900 px-1 py-0.2 rounded">
+                            {stepDiffsCount}
                           </span>
-                          {stepDiffsCount > 0 && isEditMode && (
-                            <span className="text-[9px] font-extrabold bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded-md">
-                              {stepDiffsCount} edited
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400 truncate mt-0.5">{step.subtitle}</p>
+                        )}
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      <p className="text-[10px] text-slate-400 truncate leading-tight">{step.subtitle}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Edit Mode Summary Box */}
             {isEditMode && hasChanges && (
-              <div className="bg-amber-50/80 rounded-2xl p-4 border border-amber-200/80 text-xs space-y-2">
-                <div className="flex items-center gap-1.5 text-amber-950 font-bold">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Modified Fields ({modifiedCount})</span>
+              <div className="bg-amber-50/80 rounded-xl p-2 border border-amber-200/80 text-xs space-y-0.5 mt-auto">
+                <div className="flex items-center gap-1 text-amber-950 font-bold text-[10px]">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span>Modified ({modifiedCount})</span>
                 </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Before saving, review your highlighted changes in Step 5 to avoid accidental edits.
+                <p className="text-[9px] text-amber-800 leading-tight">
+                  Review highlighted edits in Step 6.
                 </p>
               </div>
             )}
@@ -832,18 +823,29 @@ export const ManagerMenuItemEditor: React.FC = () => {
           {/* ═════════════════════════════════════════════════════════ */}
           {/* COLUMN 2: ACTIVE STEP FORM (5 cols)                       */}
           {/* ═════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-2xs space-y-5">
+          <div className="lg:col-span-5 h-full flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            {/* Card Header (Fixed at top of middle card) */}
+            <div className="px-3.5 sm:px-4 py-2 border-b border-slate-100 shrink-0 flex items-center justify-between">
+              <div>
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                  {STEPS[currentStep - 1]?.title}
+                </h2>
+                <p className="text-[10px] text-slate-400">
+                  {STEPS[currentStep - 1]?.subtitle}
+                </p>
+              </div>
+              <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                Step {currentStep} of {STEPS.length}
+              </span>
+            </div>
+
+            {/* Card Form Body (Scrolls individually with 0px scrollbar, compact inputs) */}
+            <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-3.5 sm:p-4 space-y-3">
               {/* ────────────────────────────────────────── */}
               {/* STEP 1: BASIC DETAILS                      */}
               {/* ────────────────────────────────────────── */}
               {currentStep === 1 && (
-                <div className="space-y-5">
-                  <div className="border-b border-slate-100 pb-3">
-                    <h2 className="text-base font-bold text-slate-900">Basic Details</h2>
-                    <p className="text-xs text-slate-500">Add the essential information about your dish.</p>
-                  </div>
-
+                <div className="space-y-3">
                   {/* Dish Name */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -865,13 +867,13 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       maxLength={120}
                       placeholder="e.g. Madras Filter Coffee"
                       {...register('name')}
-                      className={`w-full px-3.5 py-2.5 border rounded-xl text-sm font-bold transition focus:outline-none ${
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-bold transition focus:outline-none ${
                         isFieldModified('name')
                           ? 'border-amber-400 bg-amber-50/30 focus:border-amber-500'
                           : 'border-slate-200 focus:border-slate-900'
                       }`}
                     />
-                    {errors.name && <p className="text-xs text-rose-600 font-medium">{String(errors.name.message)}</p>}
+                    {errors.name && <p className="text-[11px] text-rose-600 font-medium">{String(errors.name.message)}</p>}
                   </div>
 
                   {/* Category Selection + Quick Add */}
@@ -896,7 +898,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                     </div>
                     <select
                       {...register('categoryId')}
-                      className={`w-full px-3.5 py-2.5 border rounded-xl text-sm font-semibold bg-white transition focus:outline-none ${
+                      className={`w-full px-3 py-2 border rounded-xl text-xs font-semibold bg-white transition focus:outline-none ${
                         isFieldModified('categoryId')
                           ? 'border-amber-400 bg-amber-50/30 focus:border-amber-500'
                           : 'border-slate-200 focus:border-slate-900'
@@ -912,7 +914,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       ))}
                     </select>
                     {errors.categoryId && (
-                      <p className="text-xs text-rose-600 font-medium">{String(errors.categoryId.message)}</p>
+                      <p className="text-[11px] text-rose-600 font-medium">{String(errors.categoryId.message)}</p>
                     )}
                   </div>
 
@@ -933,10 +935,10 @@ export const ManagerMenuItemEditor: React.FC = () => {
                     </div>
                     <textarea
                       maxLength={300}
-                      rows={3}
+                      rows={2}
                       placeholder="A short appetizing description about this dish..."
                       {...register('description')}
-                      className={`w-full px-3.5 py-2.5 border rounded-xl text-xs leading-relaxed transition focus:outline-none resize-none ${
+                      className={`w-full px-3 py-2 border rounded-xl text-xs leading-relaxed transition focus:outline-none resize-none ${
                         isFieldModified('description')
                           ? 'border-amber-400 bg-amber-50/30 focus:border-amber-500'
                           : 'border-slate-200 focus:border-slate-900'
@@ -945,13 +947,13 @@ export const ManagerMenuItemEditor: React.FC = () => {
                   </div>
 
                   {/* Dietary & Feature Tags */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-700 block">Dietary &amp; Tags</label>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => setValue('isVegetarian', !watchedValues.isVegetarian)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                           watchedValues.isVegetarian
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs'
                             : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
@@ -964,7 +966,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setValue('isSpicy', !watchedValues.isSpicy)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                           watchedValues.isSpicy
                             ? 'bg-rose-50 text-rose-800 border-rose-300 shadow-2xs'
                             : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
@@ -977,7 +979,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setValue('isChefsSpecial', !watchedValues.isChefsSpecial)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                           watchedValues.isChefsSpecial
                             ? 'bg-amber-50 text-amber-900 border-amber-300 shadow-2xs'
                             : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
@@ -1000,28 +1002,45 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       )}
                     </label>
                     <div className="relative">
-                      <Clock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2" />
                       <input
                         type="number"
                         min="1"
                         placeholder="e.g. 15"
                         {...register('prepTimeMinutes')}
-                        className="w-full pl-10 pr-12 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:outline-none focus:border-slate-900"
+                        className="w-full pl-8 pr-12 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-slate-900"
                       />
-                      <span className="absolute right-3.5 top-3 text-xs text-slate-400 font-medium">mins</span>
+                      <span className="absolute right-3 top-1.5 text-[11px] text-slate-400 font-medium">mins</span>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Dish Image Upload */}
+              {/* ────────────────────────────────────────── */}
+              {/* STEP 2: DISH IMAGERY                       */}
+              {/* ────────────────────────────────────────── */}
+              {currentStep === 2 && (
+                <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <span>Dish Image</span>
-                      {isFieldModified('imageUrl') && (
-                        <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md">
-                          Modified
-                        </span>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                        <span>Dish Photo</span>
+                        {isFieldModified('imageUrl') && (
+                          <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md">
+                            Modified
+                          </span>
+                        )}
+                      </label>
+                      {watchedValues.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setValue('imageUrl', '')}
+                          className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Remove photo
+                        </button>
                       )}
-                    </label>
+                    </div>
                     <ImageUploader
                       restaurantId={activeRestaurantId!}
                       value={watchedValues.imageUrl}
@@ -1029,73 +1048,32 @@ export const ManagerMenuItemEditor: React.FC = () => {
                     />
                   </div>
 
-                  {/* Dish Type / Combo deal selector */}
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
-                    <label className="text-xs font-bold text-slate-700 block">Dish Type</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setValue('isCombo', false)}
-                        className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
-                          !watchedValues.isCombo
-                            ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="text-xs font-bold">Single Dish</div>
-                        <div
-                          className={`text-[10px] mt-0.5 ${
-                            !watchedValues.isCombo ? 'text-slate-300' : 'text-slate-400'
-                          }`}
-                        >
-                          A standalone menu item
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setValue('isCombo', true);
-                          setCurrentStep(3); // jump to combo builder if selected
-                        }}
-                        className={`p-3 rounded-2xl border text-left transition cursor-pointer relative ${
-                          watchedValues.isCombo
-                            ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-2xs'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">Bundle (Multi-Dish)</span>
-                          <span className="text-[8px] font-black uppercase bg-amber-400 text-amber-950 px-1.5 py-0.2 rounded-md">
-                            Combo Deal
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">Combine multiple items with special pricing</div>
-                      </button>
+                  <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/70 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 text-amber-950 font-bold text-[11px]">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Photography Tip</span>
                     </div>
+                    <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                      High quality appetizing food photos with good natural lighting can boost dish orders by up to 35% on digital menus.
+                    </p>
                   </div>
                 </div>
               )}
 
               {/* ────────────────────────────────────────── */}
-              {/* STEP 2: PRICING & INVENTORY                */}
+              {/* STEP 3: PRICING & STOCK                    */}
               {/* ────────────────────────────────────────── */}
-              {currentStep === 2 && (
-                <div className="space-y-5">
-                  <div className="border-b border-slate-100 pb-3">
-                    <h2 className="text-base font-bold text-slate-900">Pricing &amp; Inventory</h2>
-                    <p className="text-xs text-slate-500">Configure base price, portion sizes, and stock control.</p>
-                  </div>
-
+              {currentStep === 3 && (
+                <div className="space-y-3.5">
                   {/* Pricing Model Selector */}
-                  <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div className="space-y-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-700">Pricing Model</label>
-                      <div className="flex gap-1 p-0.5 bg-slate-200/80 rounded-xl text-xs">
+                      <div className="flex gap-1 p-0.5 bg-slate-200/80 rounded-lg text-xs">
                         <button
                           type="button"
                           onClick={() => setValue('pricingType', 'SINGLE')}
-                          className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                             watchedValues.pricingType === 'SINGLE'
                               ? 'bg-slate-950 text-white shadow-xs'
                               : 'text-slate-600'
@@ -1111,7 +1089,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                               handleApplyVariantPreset('HALF_FULL');
                             }
                           }}
-                          className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                             watchedValues.pricingType === 'PORTION'
                               ? 'bg-slate-950 text-white shadow-xs'
                               : 'text-slate-600'
@@ -1135,68 +1113,68 @@ export const ManagerMenuItemEditor: React.FC = () => {
                           )}
                         </label>
                         <div className="relative">
-                          <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-400">₹</span>
+                          <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             step="0.01"
                             placeholder="150.00"
                             {...register('price')}
-                            className="w-full pl-8 pr-3.5 py-2.5 border border-slate-200 bg-white rounded-xl text-sm font-mono font-bold focus:outline-none focus:border-slate-900"
+                            className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-slate-900"
                           />
                         </div>
                       </div>
                     ) : (
                       /* Portion Sizes Configuration */
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[11px] font-bold text-slate-500">Quick Presets:</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-slate-500">Presets:</span>
                           {(['HALF_FULL', 'SML', 'REG_LARGE'] as const).map((preset) => (
                             <button
                               key={preset}
                               type="button"
                               onClick={() => handleApplyVariantPreset(preset)}
-                              className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-lg border border-slate-300 transition cursor-pointer"
+                              className="px-1.5 py-0.5 bg-white hover:bg-slate-100 text-slate-800 text-[10px] font-bold rounded border border-slate-300 transition cursor-pointer"
                             >
                               {preset === 'HALF_FULL' ? '+ Half / Full' : preset === 'SML' ? '+ S / M / L' : '+ Reg / Large'}
                             </button>
                           ))}
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           {(watchedValues.variants || []).map((_v: any, idx: number) => (
-                            <div key={idx} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-slate-200">
+                            <div key={idx} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
                               <input
                                 type="text"
                                 placeholder="Size name (e.g. Full)"
                                 {...register(`variants.${idx}.name` as const)}
-                                className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none"
+                                className="w-1/2 px-2.5 py-1 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none"
                               />
                               <div className="w-1/3 relative">
-                                <span className="absolute left-2.5 top-1.5 text-xs text-slate-400 font-mono">₹</span>
+                                <span className="absolute left-2 top-1 text-[11px] text-slate-400 font-mono">₹</span>
                                 <input
                                   type="number"
                                   step="0.01"
                                   placeholder="Price"
                                   {...register(`variants.${idx}.price` as const)}
-                                  className="w-full pl-6 pr-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
+                                  className="w-full pl-5 pr-2 py-1 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
                                 />
                               </div>
                               <button
                                 type="button"
                                 onClick={() => removeVariant(idx)}
-                                className="text-slate-400 hover:text-rose-600 p-1.5 transition cursor-pointer"
+                                className="text-slate-400 hover:text-rose-600 p-1 transition cursor-pointer"
                                 title="Remove size"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           ))}
                           <button
                             type="button"
                             onClick={() => appendVariant({ name: '', price: 0, isDefault: false })}
-                            className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                            className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer pt-0.5"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Add Portion Size
+                            <Plus className="w-3 h-3" /> Add Portion Size
                           </button>
                         </div>
                       </div>
@@ -1204,12 +1182,12 @@ export const ManagerMenuItemEditor: React.FC = () => {
                   </div>
 
                   {/* Stock Tracking Toggle & Quantity */}
-                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-4">
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-xs font-bold text-slate-800">Track Stock &amp; Inventory</div>
-                        <div className="text-[11px] text-slate-400">
-                          Automatically 86 dish when quantity reaches zero
+                        <div className="text-[10px] text-slate-400">
+                          Automatically mark 86 when quantity reaches zero
                         </div>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
@@ -1219,14 +1197,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
                           onChange={(e) => setValue('trackStock', e.target.checked)}
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                       </label>
                     </div>
 
                     {watchedValues.trackStock && (
-                      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-200/60">
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
                         <div>
-                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
                             Available Stock
                           </label>
                           <input
@@ -1234,11 +1212,11 @@ export const ManagerMenuItemEditor: React.FC = () => {
                             min="0"
                             placeholder="0"
                             {...register('stockQuantity')}
-                            className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold"
+                            className="w-full px-2.5 py-1 border border-slate-200 bg-white rounded-lg text-xs font-mono font-bold"
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
                             Low Stock Alert
                           </label>
                           <input
@@ -1246,7 +1224,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                             min="1"
                             placeholder="5"
                             {...register('lowStockThreshold')}
-                            className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold"
+                            className="w-full px-2.5 py-1 border border-slate-200 bg-white rounded-lg text-xs font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -1256,14 +1234,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
               )}
 
               {/* ────────────────────────────────────────── */}
-              {/* STEP 3: BUNDLING (COMBO BUILDER)          */}
+              {/* STEP 4: BUNDLING (COMBO BUILDER)          */}
               {/* ────────────────────────────────────────── */}
-              {currentStep === 3 && (
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              {currentStep === 4 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
                     <div>
-                      <h2 className="text-base font-bold text-slate-900">Bundle as Multi-Dish Combo</h2>
-                      <p className="text-xs text-slate-500">Combine multiple menu items into a single meal bundle.</p>
+                      <div className="text-xs font-bold text-slate-900">Bundle as Multi-Dish Combo</div>
+                      <div className="text-[10px] text-slate-400">Combine multiple menu items into one deal</div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -1272,88 +1250,68 @@ export const ManagerMenuItemEditor: React.FC = () => {
                         onChange={(e) => setValue('isCombo', e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                     </label>
                   </div>
 
                   {watchedValues.isCombo ? (
-                    <div className="space-y-5">
+                    <div className="space-y-3">
                       {/* Bundle Financial Metrics Cards */}
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Bundled Dishes
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">
+                            Bundled
                           </span>
-                          <span className="text-lg font-black text-slate-900 font-mono">
+                          <span className="text-sm font-black text-slate-900 font-mono">
                             {(watchedValues.comboItems || []).length}
                           </span>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Separate Total
+                        <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block">
+                            Regular Total
                           </span>
-                          <span className="text-lg font-black text-slate-900 font-mono">
+                          <span className="text-sm font-black text-slate-900 font-mono">
                             ₹{bundledRegularTotal.toFixed(0)}
                           </span>
                         </div>
-                        <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
-                          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
-                            Customer Saves
+                        <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
+                          <span className="text-[9px] font-bold text-emerald-700 uppercase block">
+                            Saves
                           </span>
-                          <span className="text-lg font-black text-emerald-700 font-mono">
+                          <span className="text-sm font-black text-emerald-700 font-mono">
                             ₹{customerSavingsAmount.toFixed(0)} ({customerSavingsPercent}%)
                           </span>
                         </div>
                       </div>
 
                       {/* Selected Bundle Items */}
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800">Selected Bundle Items</span>
+                          <span className="text-xs font-bold text-slate-800">Included Dishes</span>
                           <button
                             type="button"
                             onClick={() => setIsCustomComboModalOpen(true)}
-                            className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-0.5 cursor-pointer"
+                            className="text-[10px] font-bold text-amber-600 hover:underline flex items-center gap-0.5 cursor-pointer"
                           >
-                            <Plus className="w-3 h-3" /> Add Custom Item
+                            <Plus className="w-3 h-3" /> Custom Item
                           </button>
                         </div>
 
                         {(watchedValues.comboItems || []).length === 0 ? (
-                          <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center space-y-1">
-                            <Package className="w-8 h-8 text-slate-300 mx-auto" />
-                            <p className="text-xs font-bold text-slate-600">No items added yet</p>
-                            <p className="text-[11px] text-slate-400">
-                              Select dishes from the menu list below to create your combo.
-                            </p>
+                          <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                            Select dishes below to add to bundle.
                           </div>
                         ) : (
-                          <div className="space-y-2 divide-y divide-slate-100 border border-slate-200 rounded-2xl p-2 bg-white">
+                          <div className="space-y-1 divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-white max-h-36 overflow-y-auto [scrollbar-width:none]">
                             {(watchedValues.comboItems || []).map((cItem: any, idx: number) => (
-                              <div key={idx} className="flex items-center justify-between pt-2 first:pt-0">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="w-9 h-9 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-100">
-                                    {cItem.imageUrl ? (
-                                      <img
-                                        src={cItem.imageUrl}
-                                        alt={cItem.name}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                        <Package className="w-4 h-4" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-bold text-slate-900 truncate">{cItem.name}</div>
-                                    <div className="text-[10px] text-slate-400 truncate">{cItem.categoryName || 'Dish'}</div>
-                                  </div>
+                              <div key={idx} className="flex items-center justify-between pt-1.5 first:pt-0">
+                                <div className="min-w-0 pr-2">
+                                  <div className="text-xs font-bold text-slate-900 truncate">{cItem.name}</div>
+                                  <div className="text-[9px] text-slate-400 truncate">{cItem.categoryName || 'Dish'}</div>
                                 </div>
 
-                                <div className="flex items-center gap-3">
-                                  {/* Qty Controls */}
-                                  <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-0.5">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1364,7 +1322,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                           removeComboItem(idx);
                                         }
                                       }}
-                                      className="w-6 h-6 rounded-lg bg-white text-slate-700 text-xs font-bold flex items-center justify-center shadow-2xs hover:bg-slate-50 cursor-pointer"
+                                      className="w-5 h-5 rounded bg-white text-slate-700 text-xs font-bold flex items-center justify-center shadow-2xs hover:bg-slate-50 cursor-pointer"
                                     >
                                       -
                                     </button>
@@ -1374,7 +1332,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                       onClick={() =>
                                         setValue(`comboItems.${idx}.quantity`, Number(cItem.quantity || 1) + 1)
                                       }
-                                      className="w-6 h-6 rounded-lg bg-white text-slate-700 text-xs font-bold flex items-center justify-center shadow-2xs hover:bg-slate-50 cursor-pointer"
+                                      className="w-5 h-5 rounded bg-white text-slate-700 text-xs font-bold flex items-center justify-center shadow-2xs hover:bg-slate-50 cursor-pointer"
                                     >
                                       +
                                     </button>
@@ -1385,7 +1343,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                     onClick={() => removeComboItem(idx)}
                                     className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </div>
@@ -1395,24 +1353,22 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       </div>
 
                       {/* Add More Items to Bundle (Picker) */}
-                      <div className="space-y-3 pt-3 border-t border-slate-100">
-                        <span className="text-xs font-bold text-slate-800 block">Add More Items to Bundle</span>
-
-                        <div className="flex gap-2">
+                      <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                        <div className="flex gap-1.5">
                           <div className="relative flex-1">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                             <input
                               type="text"
                               value={comboSearchQuery}
                               onChange={(e) => setComboSearchQuery(e.target.value)}
-                              placeholder="Search dishes to add..."
-                              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-slate-900"
+                              placeholder="Search dishes..."
+                              className="w-full pl-8 pr-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-slate-900"
                             />
                           </div>
                           <select
                             value={comboCategoryFilter}
                             onChange={(e) => setComboCategoryFilter(e.target.value)}
-                            className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white focus:outline-none"
+                            className="px-2 py-1 border border-slate-200 rounded-lg text-xs font-semibold bg-white focus:outline-none"
                           >
                             <option value="ALL">All Categories</option>
                             {categories.map((c: any) => (
@@ -1424,37 +1380,22 @@ export const ManagerMenuItemEditor: React.FC = () => {
                         </div>
 
                         {/* Dish items list */}
-                        <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100">
-                          {availableDishesForCombo.map((dish: any) => (
-                            <div key={dish._id} className="flex items-center justify-between pt-1.5 first:pt-0">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden shrink-0">
-                                  {dish.imageUrl ? (
-                                    <img
-                                      src={dish.imageUrl}
-                                      alt={dish.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                      <Package className="w-3.5 h-3.5" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="text-xs font-bold text-slate-900 truncate">{dish.name}</div>
-                                  <div className="text-[10px] text-slate-400 font-mono">
-                                    ₹{((dish.price || 0) / 100).toFixed(0)}
-                                  </div>
+                        <div className="max-h-36 overflow-y-auto [scrollbar-width:none] space-y-1 divide-y divide-slate-100">
+                          {availableDishesForCombo.slice(0, 20).map((dish: any) => (
+                            <div key={dish._id} className="flex items-center justify-between pt-1 first:pt-0">
+                              <div className="min-w-0 pr-2">
+                                <div className="text-xs font-bold text-slate-900 truncate">{dish.name}</div>
+                                <div className="text-[9px] text-slate-400 font-mono">
+                                  ₹{((dish.price || 0) / 100).toFixed(0)}
                                 </div>
                               </div>
 
                               <button
                                 type="button"
                                 onClick={() => handleAddDishToCombo(dish)}
-                                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 flex items-center justify-center transition cursor-pointer shadow-2xs shrink-0"
+                                className="w-6 h-6 rounded bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 flex items-center justify-center transition cursor-pointer shadow-2xs shrink-0"
                               >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           ))}
@@ -1462,73 +1403,63 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-2">
-                      <Package className="w-10 h-10 text-slate-300 mx-auto" />
-                      <p className="font-bold text-slate-600">Bundling is disabled for this dish</p>
-                      <p className="text-[11px]">Enable the toggle above if you want to turn this dish into a combo bundle.</p>
+                    <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-1">
+                      <Package className="w-8 h-8 text-slate-300 mx-auto" />
+                      <p className="font-bold text-slate-600">Bundling is optional</p>
+                      <p className="text-[10px]">Enable the toggle above if you want to turn this dish into a combo bundle.</p>
                     </div>
                   )}
                 </div>
               )}
 
               {/* ────────────────────────────────────────── */}
-              {/* STEP 4: ADD-ONS & MODIFIERS                */}
+              {/* STEP 5: ADD-ONS & MODIFIERS                */}
               {/* ────────────────────────────────────────── */}
-              {currentStep === 4 && (
-                <div className="space-y-5">
-                  <div className="border-b border-slate-100 pb-3">
-                    <h2 className="text-base font-bold text-slate-900">Add-ons &amp; Modifiers</h2>
-                    <p className="text-xs text-slate-500">Attach dish-specific add-ons and global modifier templates.</p>
-                  </div>
-
+              {currentStep === 5 && (
+                <div className="space-y-3">
                   {/* Custom Add-ons (This dish only) */}
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-bold text-slate-800">Custom Add-ons (This dish only)</span>
-                        <span className="text-[10px] text-slate-400 block">
-                          Add custom options specific to this menu item
-                        </span>
-                      </div>
+                      <span className="text-xs font-bold text-slate-800">Custom Add-ons (This dish only)</span>
                       <button
                         type="button"
                         onClick={() => appendAddOn({ name: '', priceDelta: 0 })}
-                        className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-0.5 cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Add Add-on
+                        <Plus className="w-3 h-3" /> Add Add-on
                       </button>
                     </div>
 
                     {(watchedValues.addOns || []).length === 0 ? (
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
                         No dish-specific add-ons added.
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto [scrollbar-width:none]">
                         {(watchedValues.addOns || []).map((_a: any, idx: number) => (
-                          <div key={idx} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-slate-200">
+                          <div key={idx} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
                             <input
                               type="text"
-                              placeholder="e.g. Extra Butter, Cheese Slice"
+                              placeholder="e.g. Extra Butter"
                               {...register(`addOns.${idx}.name` as const)}
-                              className="w-2/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none"
+                              className="w-2/3 px-2.5 py-1 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none"
                             />
                             <div className="w-1/3 relative">
-                              <span className="absolute left-2.5 top-1.5 text-xs text-slate-400 font-mono">₹</span>
+                              <span className="absolute left-2 top-1 text-[11px] text-slate-400 font-mono">₹</span>
                               <input
                                 type="number"
                                 step="0.01"
                                 placeholder="Price"
                                 {...register(`addOns.${idx}.priceDelta` as const)}
-                                className="w-full pl-6 pr-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
+                                className="w-full pl-5 pr-2 py-1 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
                               />
                             </div>
                             <button
                               type="button"
                               onClick={() => removeAddOn(idx)}
-                              className="text-slate-400 hover:text-rose-600 p-1.5 cursor-pointer"
+                              className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}
@@ -1537,26 +1468,21 @@ export const ManagerMenuItemEditor: React.FC = () => {
                   </div>
 
                   {/* Reusable Modifier Templates */}
-                  <div className="space-y-3 pt-3 border-t border-slate-100">
-                    <div>
-                      <span className="text-xs font-bold text-slate-800">Reusable Modifier Groups</span>
-                      <span className="text-[10px] text-slate-400 block">
-                        Attach pre-configured modifier templates to this dish
-                      </span>
-                    </div>
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <span className="text-xs font-bold text-slate-800 block">Reusable Modifier Groups</span>
 
                     {customGroups.length === 0 ? (
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                        No modifier templates available. Create templates in the Customizations tab.
+                      <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                        No modifier templates available.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto [scrollbar-width:none]">
                         {customGroups.map((group: any) => {
                           const isChecked = (watchedValues.attachedAddOnGroupIds || []).includes(group._id);
                           return (
                             <label
                               key={group._id}
-                              className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                              className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
                                 isChecked
                                   ? 'bg-amber-500/10 border-amber-500 text-slate-900 shadow-2xs'
                                   : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -1564,7 +1490,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                             >
                               <div className="min-w-0 pr-2">
                                 <div className="text-xs font-bold truncate">{group.name}</div>
-                                <div className="text-[10px] text-slate-400 truncate">
+                                <div className="text-[9px] text-slate-400 truncate">
                                   {group.options?.length || 0} options • {group.type}
                                 </div>
                               </div>
@@ -1594,37 +1520,28 @@ export const ManagerMenuItemEditor: React.FC = () => {
               )}
 
               {/* ────────────────────────────────────────── */}
-              {/* STEP 5: REVIEW & PUBLISH                   */}
+              {/* STEP 6: REVIEW & PUBLISH                   */}
               {/* ────────────────────────────────────────── */}
-              {currentStep === 5 && (
-                <div className="space-y-5">
-                  <div className="border-b border-slate-100 pb-3">
-                    <h2 className="text-base font-bold text-slate-900">Review &amp; Publish</h2>
-                    <p className="text-xs text-slate-500">
-                      {isEditMode
-                        ? 'Verify modified fields before completing the update.'
-                        : 'Review all details before publishing this dish to your live menu.'}
-                    </p>
-                  </div>
-
+              {currentStep === 6 && (
+                <div className="space-y-3">
                   {/* Edit Mode Diff Table */}
                   {isEditMode && hasChanges && (
-                    <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-3">
+                    <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2">
                       <div className="flex items-center gap-1.5 text-amber-950 font-black text-xs">
-                        <Sparkles className="w-4 h-4 text-amber-600" />
-                        <span>Changes to be Applied ({modifiedCount})</span>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Changes ({modifiedCount})</span>
                       </div>
 
-                      <div className="divide-y divide-amber-200/60 border border-amber-200/60 rounded-xl bg-white text-xs overflow-hidden">
+                      <div className="divide-y divide-amber-200/60 border border-amber-200/60 rounded-lg bg-white text-xs overflow-hidden max-h-32 overflow-y-auto [scrollbar-width:none]">
                         {diffs.map((d, i) => (
-                          <div key={i} className="p-2.5 flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-700 w-1/3 truncate">{d.label}</span>
-                            <div className="flex items-center gap-2 w-2/3 justify-end text-[11px] font-mono">
-                              <span className="text-slate-400 line-through truncate max-w-[100px]">
+                          <div key={i} className="p-2 flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-700 w-1/3 truncate text-[11px]">{d.label}</span>
+                            <div className="flex items-center gap-1.5 w-2/3 justify-end text-[10px] font-mono">
+                              <span className="text-slate-400 line-through truncate max-w-[80px]">
                                 {d.originalFormatted}
                               </span>
                               <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                              <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded truncate max-w-[90px]">
                                 {d.currentFormatted}
                               </span>
                             </div>
@@ -1635,21 +1552,21 @@ export const ManagerMenuItemEditor: React.FC = () => {
                   )}
 
                   {/* Summary Card */}
-                  <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/60 space-y-3 text-xs">
+                  <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">Dish Name:</span>
+                      <span className="text-slate-500 font-medium text-[11px]">Dish Name:</span>
                       <span className="font-bold text-slate-900">{watchedValues.name || 'Untitled'}</span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">Category:</span>
+                      <span className="text-slate-500 font-medium text-[11px]">Category:</span>
                       <span className="font-bold text-slate-900">
                         {categories.find((c: any) => c._id === watchedValues.categoryId)?.name || 'None'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">Pricing Model:</span>
+                      <span className="text-slate-500 font-medium text-[11px]">Pricing:</span>
                       <span className="font-bold text-slate-900">
                         {watchedValues.pricingType === 'PORTION'
                           ? `${(watchedValues.variants || []).length} Portion Sizes`
@@ -1659,197 +1576,193 @@ export const ManagerMenuItemEditor: React.FC = () => {
 
                     {watchedValues.isCombo && (
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-medium">Bundle Items:</span>
-                        <span className="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg">
+                        <span className="text-slate-500 font-medium text-[11px]">Bundle:</span>
+                        <span className="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded text-[10px]">
                           {(watchedValues.comboItems || []).length} items included
                         </span>
                       </div>
                     )}
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 font-medium">Stock Tracking:</span>
+                      <span className="text-slate-500 font-medium text-[11px]">Stock Tracking:</span>
                       <span className="font-bold text-slate-900">
                         {watchedValues.trackStock
                           ? `${watchedValues.stockQuantity} in stock`
-                          : 'Unlimited (No tracking)'}
+                          : 'Unlimited'}
                       </span>
                     </div>
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* ────────────────────────────────────────── */}
-              {/* WIZARD STEPPERS (BOTTOM BAR)               */}
-              {/* ────────────────────────────────────────── */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            {/* Pinned Bottom Stepper Navigation (Identical position on EVERY step) */}
+            <div className="px-3.5 sm:px-4 py-2 sm:py-2.5 border-t border-slate-100 bg-white shrink-0 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={goToPreviousStep}
+                disabled={currentStep === 1}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Previous
+              </button>
+
+              <div className="text-[11px] font-bold text-slate-400 font-mono">
+                Step {currentStep} of {STEPS.length}
+              </div>
+
+              {currentStep < STEPS.length ? (
                 <button
                   type="button"
-                  onClick={goToPreviousStep}
-                  disabled={currentStep === 1}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                  onClick={goToNextStep}
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-950 hover:bg-slate-800 rounded-xl transition flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
                 >
-                  <ChevronLeft className="w-4 h-4" /> Previous
+                  Next Step <ChevronRight className="w-3.5 h-3.5" />
                 </button>
-
-                <div className="text-[11px] font-bold text-slate-400 font-mono">
-                  Step {currentStep} of 5
-                </div>
-
-                {currentStep < 5 ? (
-                  <button
-                    type="button"
-                    onClick={goToNextStep}
-                    className="px-4 py-2 text-xs font-bold text-white bg-slate-950 hover:bg-slate-800 rounded-xl transition flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
-                  >
-                    Next Step <ChevronRight className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSaveAndPublish}
-                    disabled={saveMutation.isPending}
-                    className="px-5 py-2 text-xs font-black text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
-                  >
-                    {saveMutation.isPending ? (
-                      <Loader className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="w-4 h-4 text-slate-950" />
-                    )}
-                    <span className="text-slate-950">{isEditMode ? 'Complete Edit' : 'Publish Dish'}</span>
-                  </button>
-                )}
-              </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveAndPublish}
+                  disabled={saveMutation.isPending}
+                  className="px-4 py-1.5 text-xs font-black text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  {saveMutation.isPending ? (
+                    <Loader className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-slate-950" />
+                  )}
+                  <span className="text-slate-950">{isEditMode ? 'Complete Edit' : 'Publish Dish'}</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* ═════════════════════════════════════════════════════════ */}
           {/* COLUMN 3: LIVE PREVIEW (4 cols)                           */}
           {/* ═════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-4 space-y-3 sticky top-18 sm:top-20">
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-4">
-              {/* Header & Switcher */}
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                  <Smartphone className="w-4 h-4 text-amber-500" />
-                  <span>Live Preview</span>
-                </div>
-
-                <div className="flex bg-slate-100 p-0.5 rounded-xl text-[10px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDeviceMode('MOBILE')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                      previewDeviceMode === 'MOBILE' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                    }`}
-                  >
-                    <Smartphone className="w-3 h-3" />
-                    <span>Customer View</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDeviceMode('KIOSK')}
-                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
-                      previewDeviceMode === 'KIOSK' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                    }`}
-                  >
-                    <Tablet className="w-3 h-3" />
-                    <span>Kiosk View</span>
-                  </button>
-                </div>
+          <div className="lg:col-span-4 h-full flex flex-col bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-2.5">
+            {/* Header & Switcher */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                <Smartphone className="w-3.5 h-3.5 text-amber-500" />
+                <span>Live Preview</span>
               </div>
 
-              {/* Realistic Customer Card Preview */}
-              <div className="bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-4 shadow-inner space-y-3">
-                {/* Hero Thumbnail Image */}
-                <div className="w-full h-44 bg-slate-100 rounded-2xl overflow-hidden relative border border-slate-200/60 flex items-center justify-center">
-                  {watchedValues.imageUrl ? (
-                    <img
-                      src={watchedValues.imageUrl}
-                      alt={watchedValues.name}
-                      className="w-full h-full object-cover"
-                    />
+              <div className="flex bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setPreviewDeviceMode('MOBILE')}
+                  className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
+                    previewDeviceMode === 'MOBILE' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
+                  }`}
+                >
+                  <Smartphone className="w-3 h-3" />
+                  <span>Customer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDeviceMode('KIOSK')}
+                  className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
+                    previewDeviceMode === 'KIOSK' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
+                  }`}
+                >
+                  <Tablet className="w-3 h-3" />
+                  <span>Kiosk</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Realistic Customer Card Preview */}
+            <div className="bg-[#FAF9F6] border border-slate-200/80 rounded-xl p-3 shadow-inner space-y-2.5 flex-1 flex flex-col">
+              {/* Hero Thumbnail Image */}
+              <div className="w-full h-36 bg-slate-100 rounded-xl overflow-hidden relative border border-slate-200/60 flex items-center justify-center shrink-0">
+                {watchedValues.imageUrl ? (
+                  <img
+                    src={watchedValues.imageUrl}
+                    alt={watchedValues.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center text-slate-400 space-y-1">
+                    <Sparkles className="w-5 h-5 mx-auto text-slate-300" />
+                    <span className="text-[10px] font-semibold block">Photo will appear here</span>
+                  </div>
+                )}
+
+                {watchedValues.isCombo && (
+                  <div className="absolute top-2 left-2">
+                    <span className="text-[8px] font-black uppercase text-amber-950 bg-amber-400 px-1.5 py-0.5 rounded-full shadow-xs">
+                      Combo Deal
+                    </span>
+                  </div>
+                )}
+
+                {watchedValues.isChefsSpecial && !watchedValues.isCombo && (
+                  <div className="absolute top-2 left-2">
+                    <span className="text-[8px] font-black uppercase text-white bg-slate-950/85 px-1.5 py-0.5 rounded-full">
+                      Chef&apos;s Special
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Dish Titles & Price */}
+              <div className="space-y-1 flex-1">
+                <div className="flex items-start justify-between gap-1.5">
+                  <h3 className="text-xs font-bold text-slate-900 leading-snug break-words">
+                    {watchedValues.name || 'Dish Name'}
+                  </h3>
+                  <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                    <MenuBadge variant={watchedValues.isVegetarian ? 'veg' : 'nonveg'} />
+                    {watchedValues.isSpicy && <MenuBadge variant="spicy" />}
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="text-sm font-black text-slate-900 font-mono">
+                  {watchedValues.pricingType === 'PORTION' && (watchedValues.variants || []).length > 0 ? (
+                    <span>
+                      From ₹
+                      {Math.min(
+                        ...(watchedValues.variants || []).map((v: any) => Number(v.price || 0))
+                      ).toFixed(2)}
+                    </span>
                   ) : (
-                    <div className="text-center text-slate-400 space-y-1">
-                      <Sparkles className="w-6 h-6 mx-auto text-slate-300" />
-                      <span className="text-[10px] font-semibold block">Upload photo to preview</span>
-                    </div>
-                  )}
-
-                  {watchedValues.isCombo && (
-                    <div className="absolute top-2.5 left-2.5">
-                      <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-400 px-2 py-0.5 rounded-full shadow-xs">
-                        Combo Deal
-                      </span>
-                    </div>
-                  )}
-
-                  {watchedValues.isChefsSpecial && !watchedValues.isCombo && (
-                    <div className="absolute top-2.5 left-2.5">
-                      <span className="text-[9px] font-black uppercase text-white bg-slate-950/85 px-2 py-0.5 rounded-full">
-                        Chef&apos;s Special
-                      </span>
-                    </div>
+                    <span>₹{Number(watchedValues.price || 0).toFixed(2)}</span>
                   )}
                 </div>
 
-                {/* Dish Titles & Price */}
-                <div className="space-y-1.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug break-words">
-                      {watchedValues.name || 'Dish Name'}
-                    </h3>
-                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                      <MenuBadge variant={watchedValues.isVegetarian ? 'veg' : 'nonveg'} />
-                      {watchedValues.isSpicy && <MenuBadge variant="spicy" />}
-                    </div>
-                  </div>
-
-                  {/* Price */}
-                  <div className="text-base font-black text-slate-900 font-mono">
-                    {watchedValues.pricingType === 'PORTION' && (watchedValues.variants || []).length > 0 ? (
-                      <span>
-                        From ₹
-                        {Math.min(
-                          ...(watchedValues.variants || []).map((v: any) => Number(v.price || 0))
-                        ).toFixed(2)}
-                      </span>
-                    ) : (
-                      <span>₹{Number(watchedValues.price || 0).toFixed(2)}</span>
-                    )}
-                  </div>
-
-                  {/* Tags Pill Row */}
-                  <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold text-slate-500 pt-0.5">
-                    {watchedValues.prepTimeMinutes && (
-                      <span className="flex items-center gap-0.5 bg-slate-100 px-2 py-0.5 rounded-md">
-                        <Clock className="w-3 h-3 text-slate-400" /> {watchedValues.prepTimeMinutes} mins
-                      </span>
-                    )}
-                    {watchedValues.isVegetarian && (
-                      <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md">Veg</span>
-                    )}
-                    {watchedValues.isChefsSpecial && (
-                      <span className="bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md">Chef&apos;s Special</span>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-1 line-clamp-2">
-                    {watchedValues.description || 'Description will appear here...'}
-                  </p>
-
-                  {/* Bundle Includes Box */}
-                  {watchedValues.isCombo && (watchedValues.comboItems || []).length > 0 && (
-                    <div className="p-2.5 bg-amber-50/80 rounded-xl border border-amber-200/80 text-[10px] space-y-1">
-                      <span className="font-bold text-amber-900 block">✨ This Bundle Includes:</span>
-                      <div className="text-slate-700 leading-tight">
-                        {(watchedValues.comboItems || [])
-                          .map((c: any) => `${c.quantity > 1 ? `${c.quantity}x ` : ''}${c.name}`)
-                          .join(' + ')}
-                      </div>
-                    </div>
+                {/* Tags Pill Row */}
+                <div className="flex items-center gap-1 flex-wrap text-[9px] font-semibold text-slate-500 pt-0.5">
+                  {watchedValues.prepTimeMinutes && (
+                    <span className="flex items-center gap-0.5 bg-slate-100 px-1.5 py-0.5 rounded">
+                      <Clock className="w-2.5 h-2.5 text-slate-400" /> {watchedValues.prepTimeMinutes} mins
+                    </span>
+                  )}
+                  {watchedValues.isVegetarian && (
+                    <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded">Veg</span>
+                  )}
+                  {watchedValues.isChefsSpecial && (
+                    <span className="bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded">Chef&apos;s Special</span>
                   )}
                 </div>
+
+                {/* Description */}
+                <p className="text-[10px] text-slate-500 leading-relaxed pt-0.5 line-clamp-2">
+                  {watchedValues.description || 'Description will appear here...'}
+                </p>
+
+                {/* Bundle Includes Box */}
+                {watchedValues.isCombo && (watchedValues.comboItems || []).length > 0 && (
+                  <div className="p-2 bg-amber-50/80 rounded-lg border border-amber-200/80 text-[9px] space-y-0.5 mt-1">
+                    <span className="font-bold text-amber-900 block">✨ Bundle Includes:</span>
+                    <div className="text-slate-700 leading-tight">
+                      {(watchedValues.comboItems || [])
+                        .map((c: any) => `${c.quantity > 1 ? `${c.quantity}x ` : ''}${c.name}`)
+                        .join(' + ')}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1861,14 +1774,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
       {/* ───────────────────────────────────────────────────────────── */}
       {isQuickCatModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 space-y-4">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl border border-slate-100 space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-base font-bold text-slate-900">New Category</h3>
+              <h3 className="text-sm font-bold text-slate-900">New Category</h3>
               <button
                 onClick={() => setIsQuickCatModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div>
@@ -1878,14 +1791,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
                 value={quickCatName}
                 onChange={(e) => setQuickCatName(e.target.value)}
                 placeholder="e.g. Hot Beverages"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-slate-900"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-slate-900"
               />
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setIsQuickCatModalOpen(false)}
-                className="w-1/2 py-2 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50"
+                className="w-1/2 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -1897,7 +1810,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                   }
                 }}
                 disabled={!quickCatName.trim() || createCategoryMutation.isPending}
-                className="w-1/2 py-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer"
+                className="w-1/2 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer"
               >
                 {createCategoryMutation.isPending ? 'Creating...' : 'Create'}
               </button>
@@ -1911,14 +1824,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
       {/* ───────────────────────────────────────────────────────────── */}
       {isCustomComboModalOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 space-y-4">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl border border-slate-100 space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-base font-bold text-slate-900">Add Non-Menu Item to Bundle</h3>
+              <h3 className="text-sm font-bold text-slate-900">Add Custom Item to Bundle</h3>
               <button
                 onClick={() => setIsCustomComboModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div>
@@ -1928,14 +1841,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
                 value={customComboItemName}
                 onChange={(e) => setCustomComboItemName(e.target.value)}
                 placeholder="e.g. Complimentary Drink, French Fries"
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-slate-900"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-slate-900"
               />
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setIsCustomComboModalOpen(false)}
-                className="w-1/2 py-2 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50"
+                className="w-1/2 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -1943,7 +1856,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                 type="button"
                 onClick={handleAddCustomComboItem}
                 disabled={!customComboItemName.trim()}
-                className="w-1/2 py-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer"
+                className="w-1/2 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer"
               >
                 Add Item
               </button>

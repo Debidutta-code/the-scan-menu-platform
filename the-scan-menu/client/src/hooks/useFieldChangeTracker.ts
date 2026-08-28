@@ -133,7 +133,7 @@ export function useFieldChangeTracker(
         label: 'Dish Image',
         originalFormatted: origImg ? 'Previous photo' : 'No photo',
         currentFormatted: currImg ? 'Updated photo' : 'Photo removed',
-        step: 1,
+        step: 2,
       });
     }
 
@@ -144,10 +144,10 @@ export function useFieldChangeTracker(
       modifiedKeys.add('isCombo');
       diffs.push({
         key: 'isCombo',
-        label: 'Dish Type',
+        label: 'Dish Type (Combo)',
         originalFormatted: origIsCombo ? 'Bundle Combo' : 'Single Dish',
         currentFormatted: currIsCombo ? 'Bundle Combo' : 'Single Dish',
-        step: 1,
+        step: 4,
       });
     }
 
@@ -161,7 +161,7 @@ export function useFieldChangeTracker(
         label: 'Pricing Model',
         originalFormatted: origPricingType === 'PORTION' ? 'Portion Sizes' : 'Single Price',
         currentFormatted: currPricingType === 'PORTION' ? 'Portion Sizes' : 'Single Price',
-        step: 2,
+        step: 3,
       });
     }
 
@@ -174,7 +174,7 @@ export function useFieldChangeTracker(
         label: 'Dish Base Price',
         originalFormatted: `₹${origPrice.toFixed(2)}`,
         currentFormatted: `₹${currPrice.toFixed(2)}`,
-        step: 2,
+        step: 3,
       });
     }
 
@@ -189,7 +189,7 @@ export function useFieldChangeTracker(
           label: 'Portion Sizes & Pricing',
           originalFormatted: `${(baselineItem.variants || []).length} portion sizes`,
           currentFormatted: `${(currentValues?.variants || []).length} portion sizes`,
-          step: 2,
+          step: 3,
         });
       }
     }
@@ -204,7 +204,7 @@ export function useFieldChangeTracker(
         label: 'Stock Tracking',
         originalFormatted: origTrack ? 'Enabled' : 'Disabled',
         currentFormatted: currTrack ? 'Enabled' : 'Disabled',
-        step: 2,
+        step: 3,
       });
     }
 
@@ -217,7 +217,7 @@ export function useFieldChangeTracker(
         label: 'Stock Quantity',
         originalFormatted: `${origStock} units`,
         currentFormatted: `${currStock} units`,
-        step: 2,
+        step: 3,
       });
     }
 
@@ -232,7 +232,7 @@ export function useFieldChangeTracker(
           label: 'Bundle Dishes',
           originalFormatted: `${(baselineItem.comboItems || []).length} items`,
           currentFormatted: `${(currentValues?.comboItems || []).length} items`,
-          step: 3,
+          step: 4,
         });
       }
     }
@@ -247,7 +247,7 @@ export function useFieldChangeTracker(
         label: 'Custom Add-ons',
         originalFormatted: `${(baselineItem.addOns || []).length} add-ons`,
         currentFormatted: `${(currentValues?.addOns || []).length} add-ons`,
-        step: 4,
+        step: 5,
       });
     }
 
@@ -266,7 +266,7 @@ export function useFieldChangeTracker(
         label: 'Attached Modifier Templates',
         originalFormatted: `${(baselineItem.attachedAddOnGroupIds || []).length} attached`,
         currentFormatted: `${(currentValues?.attachedAddOnGroupIds || []).length} attached`,
-        step: 4,
+        step: 5,
       });
     }
 
