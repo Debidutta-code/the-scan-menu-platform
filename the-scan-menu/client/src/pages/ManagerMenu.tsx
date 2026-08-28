@@ -27,6 +27,11 @@ import {
   Sparkles,
   Check,
   Minus,
+  MoreVertical,
+  Search,
+  Package,
+  Clock,
+  AlertCircle,
 } from 'lucide-react';
 
 import {
@@ -544,6 +549,12 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  // ── New UI state ───────────────────────────────────────────────────────────
+  const [activeItemInspector, setActiveItemInspector] = useState<any | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [inspectorTab, setInspectorTab] = useState<'OVERVIEW' | 'VARIANTS' | 'ADDONS' | 'INVENTORY'>('OVERVIEW');
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Fetch Categories
   const { data: catResponse, isLoading: isLoadingCats } = useQuery({
     queryKey: ['categories', targetRestaurantId],
@@ -575,7 +586,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     enabled: !!targetRestaurantId && !!selectedCatId,
   });
 
-  const menuItems = itemsResponse?.data || [];
+  const menuItems = useMemo(() => itemsResponse?.data || [], [itemsResponse]);
 
   // Fetch Customization Groups
   const { data: customGroupsResponse, isLoading: isLoadingGroups } = useQuery({
@@ -625,20 +636,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     },
   });
 
-  const deleteCatMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiClient.delete(`/restaurants/${targetRestaurantId}/categories/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminCategories', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
-      setSelectedCatId(null);
-      toast('Category deleted successfully.', 'success');
-    },
-    onError: (err: any) => {
-      toast(err.response?.data?.error?.message || 'Error deleting category', 'error');
-    },
-  });
 
   const reorderCatsMutation = useMutation({
     mutationFn: (categoryIds: string[]) =>
@@ -1066,453 +1063,900 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     }
   };
 
+  // Filtered items for search
+  const filteredMenuItems = useMemo(() => {
+    if (!searchQuery.trim()) return menuItems;
+    const q = searchQuery.toLowerCase();
+    return menuItems.filter((item: any) =>
+      item.name?.toLowerCase().includes(q) ||
+      item.description?.toLowerCase().includes(q)
+    );
+  }, [menuItems, searchQuery]);
+
   if (!restaurantId && user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('qr_menu')) {
     return <Navigate to="/manager" replace />;
   }
 
   return (
-    <div className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-3 sm:space-y-4 font-sans select-none pb-12 pr-0.5">
-      {/* Top Header & Tab Toggle */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs shrink-0">
+    <div
+      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none font-sans select-none pb-8 pr-0.5"
+      onClick={() => setOpenMenuId(null)}
+    >
+
+      {/* ── Header Bar ── */}
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white/95 backdrop-blur-md p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs mb-3 transition-all">
         <div>
-          <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">
-            Menu &amp; Catalog Manager
-          </h1>
-          <p className="text-slate-500 text-[11px] font-medium mt-0.5">
-            Portion-based multi pricing, combos builder, and reusable add-on templates
-          </p>
+          <h1 className="font-display tracking-tight text-lg font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
+          <p className="text-slate-500 text-[11px] font-medium mt-0.5">Manage dishes, categories, pricing and modifier templates</p>
         </div>
-
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Global UI Text Size / Font Scale Switcher */}
+          {/* Font scale switcher */}
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
-            <button
-              type="button"
-              onClick={() => setFontScale('SMALL')}
-              className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
-                fontScale === 'SMALL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Small Text (81.25% - 13px Base)"
-            >
-              A⁻
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('NORMAL')}
-              className={`px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
-                fontScale === 'NORMAL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Normal Text (87.5% - 14px Base)"
-            >
-              A
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('LARGE')}
-              className={`px-2 py-1 rounded-lg text-sm font-black transition cursor-pointer ${
-                fontScale === 'LARGE'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Large Text (100% - 16px Base)"
-            >
-              A⁺
-            </button>
+            {(['SMALL', 'NORMAL', 'LARGE'] as const).map((scale) => (
+              <button
+                key={scale}
+                type="button"
+                onClick={() => setFontScale(scale)}
+                className={`px-2 py-1 rounded-lg font-black transition cursor-pointer ${
+                  fontScale === scale ? 'bg-white text-slate-900 shadow-2xs border border-slate-200' : 'text-slate-500 hover:text-slate-900'
+                } ${scale === 'SMALL' ? 'text-[10px]' : scale === 'LARGE' ? 'text-sm' : 'text-xs'}`}
+              >
+                {scale === 'SMALL' ? 'A⁻' : scale === 'NORMAL' ? 'A' : 'A⁺'}
+              </button>
+            ))}
           </div>
-
+          {/* Tab switcher */}
           <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
             <button
               type="button"
               onClick={() => setActiveTab('MENU')}
-              className={`h-10 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'MENU' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`h-9 flex items-center gap-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === 'MENU' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
             >
-              <FolderOpen className="w-4 h-4" />
-              <span>Menu Dishes</span>
+              <FolderOpen className="w-3.5 h-3.5" />
+              Menu Dishes
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('CUSTOMIZATIONS')}
-              className={`h-10 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'CUSTOMIZATIONS' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`h-9 flex items-center gap-2 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeTab === 'CUSTOMIZATIONS' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
             >
-              <Sliders className="w-4 h-4" />
-              <span>Add-on Templates ({customGroups.length})</span>
+              <Sliders className="w-3.5 h-3.5" />
+              Add-on Templates{customGroups.length > 0 ? ` (${customGroups.length})` : ''}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ========================================== */}
-      {/* TAB 1: MENU DISHES & CATEGORIES           */}
-      {/* ========================================== */}
+      {/* ══════════════════════════════════════════ */}
+      {/* TAB 1: MENU DISHES                        */}
+      {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
-          {/* Categories Sidebar */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 sticky top-2 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-none">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <h2 className="font-display text-base font-bold text-slate-900">Categories</h2>
-              <button
-                onClick={() => {
-                  setEditingCat(null);
-                  catForm.reset();
-                  setIsCatOpen(true);
-                }}
-                className="h-8 flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 rounded-xl transition cursor-pointer shadow-2xs active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                <span>New</span>
-              </button>
+        <div className="flex gap-3 items-start">
+
+          {/* ── Category Sidebar ── */}
+          <div className="w-56 xl:w-64 shrink-0 sticky top-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col max-h-[calc(100vh-4.5rem)] overflow-hidden">
+            <div className="px-3.5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h2 className="font-bold text-sm text-slate-900">Categories</h2>
+              <span className="text-[11px] font-mono font-black text-slate-400">{categories.length}</span>
             </div>
 
-            {isLoadingCats ? (
-              <div className="flex justify-center p-8">
-                <Loader className="w-6 h-6 animate-spin text-amber-500" />
-              </div>
-            ) : categories.length === 0 ? (
-              <div className="text-center p-8 text-xs text-slate-400">No categories found. Click + New above.</div>
-            ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCategories}>
-                <SortableContext items={categories.map((c: any) => c._id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-1.5">
-                    {categories.map((cat: any) => (
-                      <SortableItem key={cat._id} id={cat._id}>
-                        {({ dragHandleProps }) => (
-                          <div
-                            onClick={() => setSelectedCatId(cat._id)}
-                            className={`group flex items-center justify-between p-2.5 rounded-2xl cursor-pointer text-xs font-semibold transition ${
-                              selectedCatId === cat._id
-                                ? 'bg-slate-950 text-white shadow-sm font-bold'
-                                : 'hover:bg-slate-50 text-slate-700'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span {...dragHandleProps} className="cursor-grab text-slate-400 hover:text-slate-600">
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-2">
+              {isLoadingCats ? (
+                <div className="flex justify-center py-8"><Loader className="w-5 h-5 animate-spin text-amber-500" /></div>
+              ) : categories.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-400">No categories yet.<br />Click below to add one.</div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCategories}>
+                  <SortableContext items={categories.map((c: any) => c._id)} strategy={verticalListSortingStrategy}>
+                    {categories.map((cat: any) => {
+                      const isActive = selectedCatId === cat._id;
+                      return (
+                        <SortableItem key={cat._id} id={cat._id}>
+                          {({ dragHandleProps }) => (
+                            <div
+                              onClick={() => { setSelectedCatId(cat._id); setActiveItemInspector(null); setSearchQuery(''); }}
+                              className={`group flex items-center gap-2 px-2.5 py-2 rounded-xl cursor-pointer text-xs font-semibold transition mb-0.5 ${
+                                isActive ? 'bg-slate-950 text-white' : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <span
+                                {...dragHandleProps}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`cursor-grab shrink-0 ${isActive ? 'text-white/30' : 'text-slate-300 group-hover:text-slate-400'}`}
+                              >
                                 <GripVertical className="w-3.5 h-3.5" />
                               </span>
-                              <span className="truncate">{cat.name}</span>
-                            </div>
-
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                              {cat.imageUrl ? (
+                                <img src={cat.imageUrl} alt={cat.name} className="w-6 h-6 rounded-lg object-cover shrink-0" />
+                              ) : (
+                                <div className={`w-6 h-6 rounded-lg shrink-0 flex items-center justify-center ${isActive ? 'bg-white/10' : 'bg-slate-100'}`}>
+                                  <FolderOpen className={`w-3 h-3 ${isActive ? 'text-white/50' : 'text-slate-400'}`} />
+                                </div>
+                              )}
+                              <span className="truncate flex-1 leading-tight">{cat.name}</span>
                               <button
                                 onClick={(e) => handleEditCatClick(cat, e)}
-                                className="p-1 hover:bg-white/20 rounded-lg text-slate-400 hover:text-slate-200 cursor-pointer"
+                                className={`p-1 rounded-lg transition cursor-pointer opacity-0 group-hover:opacity-100 shrink-0 ${
+                                  isActive ? 'hover:bg-white/10 text-white/40 hover:text-white' : 'hover:bg-slate-200 text-slate-300 hover:text-slate-600'
+                                }`}
+                                title="Edit category"
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (confirm('Delete this category and all associated items?')) {
-                                    deleteCatMutation.mutate(cat._id);
-                                  }
-                                }}
-                                className="p-1 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-300 cursor-pointer"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </SortableItem>
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
-
-          {/* Menu Items List Workspace */}
-          <div className="lg:col-span-3 bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-5">
-            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md pb-3 pt-1 -mt-1 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-all">
-              <div>
-                <h2 className="font-display text-lg font-bold text-slate-900">
-                  {categories.find((c: any) => c._id === selectedCatId)?.name || 'Items'}
-                </h2>
-                <span className="text-xs text-slate-400 font-medium font-mono">{menuItems.length} dishes in this category</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setBulkMode(!bulkMode)}
-                  className={`h-10 px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer active:scale-95 shadow-xs ${
-                    bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
-                </button>
-                <button
-                  onClick={handleNewItemClick}
-                  disabled={!selectedCatId}
-                  className="h-10 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"
-                >
-                  <Plus className="w-4 h-4" strokeWidth={2.5} />
-                  <span>New Menu Item</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Bulk Action Bar */}
-            {bulkMode && (
-              <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3 flex items-center justify-between text-xs">
-                <span className="font-bold text-amber-950 font-mono">
-                  {selectedItemIds.length} items selected
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true })}
-                    disabled={selectedItemIds.length === 0}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs disabled:opacity-40"
-                  >
-                    Make Available
-                  </button>
-                  <button
-                    onClick={() => bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false })}
-                    disabled={selectedItemIds.length === 0}
-                    className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs disabled:opacity-40"
-                  >
-                    Make 86'd
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Items Grid / List */}
-            {isLoadingItems ? (
-              <div className="flex justify-center p-12">
-                <Loader className="w-8 h-8 animate-spin text-amber-500" />
-              </div>
-            ) : menuItems.length === 0 ? (
-              <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-2">
-                <p>No dishes in this category yet.</p>
-                <button
-                  onClick={handleNewItemClick}
-                  className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl"
-                >
-                  Create First Dish
-                </button>
-              </div>
-            ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndItems}>
-                <SortableContext items={menuItems.map((i: any) => i._id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-3">
-                    {menuItems.map((item: any) => {
-                      const isPortion = item.pricingType === 'PORTION' && item.variants && item.variants.length > 0;
-                      return (
-                        <SortableItem key={item._id} id={item._id}>
-                          {({ dragHandleProps }) => (
-                            <div className="p-4 rounded-2xl border border-slate-200/90 hover:border-slate-300 bg-white transition flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center shadow-2xs">
-                              <div className="flex items-start gap-3 min-w-0 flex-1">
-                                {bulkMode && (
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedItemIds.includes(item._id)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedItemIds((prev) => [...prev, item._id]);
-                                      } else {
-                                        setSelectedItemIds((prev) => prev.filter((id) => id !== item._id));
-                                      }
-                                    }}
-                                    className="mt-1 w-4 h-4 accent-amber-500 rounded"
-                                  />
-                                )}
-                                <span {...dragHandleProps} className="cursor-grab text-slate-300 hover:text-slate-600 mt-1">
-                                  <GripVertical className="w-4 h-4" />
-                                </span>
-
-                                {item.imageUrl && (
-                                  <img
-                                    src={item.imageUrl}
-                                    alt={item.name}
-                                    className="w-14 h-14 object-cover rounded-xl shrink-0 border border-slate-100"
-                                  />
-                                )}
-
-                                <div className="space-y-1 min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                                    <h4 className="text-sm font-bold text-slate-900 truncate">{item.name}</h4>
-                                    {item.isSpicy && <MenuBadge variant="spicy" />}
-                                    {item.isCombo && (
-                                      <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
-                                        Combo Pack
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {item.description && (
-                                    <p className="text-xs text-slate-500 line-clamp-1">{item.description}</p>
-                                  )}
-
-                                  {/* Portion Variants Tags */}
-                                  {isPortion && (
-                                    <div className="flex flex-wrap gap-1.5 pt-1">
-                                      {item.variants.map((v: any, vIdx: number) => (
-                                        <span
-                                          key={vIdx}
-                                          className="text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-900 px-2 py-0.5 rounded-lg flex items-center gap-1"
-                                        >
-                                          <span>{v.name}:</span>
-                                          <strong className="font-mono">₹{(v.price / 100).toFixed(2)}</strong>
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Combo Bundled Items Summary */}
-                                  {item.isCombo && item.comboItems && item.comboItems.length > 0 && (
-                                    <p className="text-[10px] text-amber-800 font-medium">
-                                      Includes: {item.comboItems.map((c: any) => `${c.quantity}x ${c.name}`).join(' + ')}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Price and Action Buttons */}
-                              <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
-                                {!isPortion && (
-                                  <span className="font-mono font-black text-sm text-slate-900">
-                                    ₹{(item.price / 100).toFixed(2)}
-                                  </span>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAvailableMutation.mutate(item._id)}
-                                  className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                                    item.isAvailable
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                                      : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                                  }`}
-                                >
-                                  {item.isAvailable ? 'Available' : "86'd"}
-                                </button>
-
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPreviewDish({
-                                        ...item,
-                                        price: (item.price || 0) / 100,
-                                        variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
-                                        addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
-                                      });
-                                      setPreviewMode('LIST');
-                                    }}
-                                    className="p-1.5 hover:bg-amber-50 rounded-xl text-amber-600 hover:text-amber-800 transition"
-                                    title="Preview Customer View"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleEditItemClick(item)}
-                                    className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition"
-                                    title="Edit Dish"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (confirm(`Delete "${item.name}"?`)) {
-                                        deleteItemMutation.mutate(item._id);
-                                      }
-                                    }}
-                                    className="p-1.5 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition"
-                                    title="Delete Dish"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
                             </div>
                           )}
                         </SortableItem>
                       );
                     })}
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+
+            {/* Sidebar Footer */}
+            <div className="p-3 border-t border-slate-100 shrink-0 space-y-2">
+              <div className="grid grid-cols-2 gap-1.5 text-center">
+                <div className="bg-slate-50 rounded-xl p-2">
+                  <div className="text-[10px] text-slate-400 font-medium">Categories</div>
+                  <div className="text-base font-black text-slate-900 font-mono">{categories.length}</div>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-2">
+                  <div className="text-[10px] text-amber-700 font-medium">Live Items</div>
+                  <div className="text-base font-black text-amber-900 font-mono">
+                    {menuItems.filter((i: any) => i.isAvailable).length}
                   </div>
-                </SortableContext>
-              </DndContext>
-            )}
+                </div>
+              </div>
+              <button
+                onClick={() => { setEditingCat(null); catForm.reset(); setIsCatOpen(true); }}
+                className="w-full h-9 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                Add New Category
+              </button>
+            </div>
+          </div>
+
+          {/* ── Main Panel ── */}
+          <div className="flex-1 min-w-0 flex gap-3 items-start">
+
+            {/* ── Items Table Panel ── */}
+            <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+
+              {/* Panel Header */}
+              <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 shrink-0">
+                <div className="min-w-0 mr-2">
+                  <h2 className="font-bold text-sm text-slate-900 leading-tight truncate">
+                    {categories.find((c: any) => c._id === selectedCatId)?.name || 'Select a category'}
+                  </h2>
+                  <p className="text-[11px] text-slate-400 font-medium font-mono">
+                    {menuItems.length} {menuItems.length === 1 ? 'item' : 'items'}
+                    {menuItems.filter((i: any) => !i.isAvailable).length > 0 && (
+                      <span className="text-rose-500 ml-1.5">· {menuItems.filter((i: any) => !i.isAvailable).length} unavailable</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Search */}
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+                  <input
+                    type="text"
+                    placeholder="Search items..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-40 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition"
+                  />
+                </div>
+
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
+                    className={`h-8 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {bulkMode ? 'Cancel' : 'Bulk Edit'}
+                  </button>
+                  <button
+                    onClick={handleNewItemClick}
+                    disabled={!selectedCatId}
+                    className="h-8 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    New Item
+                  </button>
+                </div>
+              </div>
+
+              {/* Bulk Action Bar */}
+              {bulkMode && (
+                <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200 flex items-center justify-between text-xs">
+                  <span className="font-bold text-amber-950">
+                    {selectedItemIds.length} item{selectedItemIds.length !== 1 ? 's' : ''} selected
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedItemIds(filteredMenuItems.map((i: any) => i._id))}
+                      className="text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true }); }}
+                      disabled={selectedItemIds.length === 0}
+                      className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer"
+                    >
+                      Make Available
+                    </button>
+                    <button
+                      onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false }); }}
+                      disabled={selectedItemIds.length === 0}
+                      className="h-7 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer"
+                    >
+                      Mark 86&apos;d
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Items Content */}
+              {isLoadingItems ? (
+                <div className="flex justify-center py-16"><Loader className="w-7 h-7 animate-spin text-amber-500" /></div>
+              ) : !selectedCatId ? (
+                <div className="text-center py-16 text-xs text-slate-400 space-y-2">
+                  <FolderOpen className="w-12 h-12 mx-auto text-slate-200 mb-3" />
+                  <p>Select a category to view its items</p>
+                </div>
+              ) : filteredMenuItems.length === 0 ? (
+                <div className="text-center py-16 text-xs text-slate-400 space-y-3">
+                  {searchQuery ? (
+                    <>
+                      <p>No items match &ldquo;<strong>{searchQuery}</strong>&rdquo;.</p>
+                      <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear search</button>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                      <p>No dishes in this category yet.</p>
+                      <button onClick={handleNewItemClick} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer hover:bg-slate-800 transition">Create First Dish</button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {/* Table Column Header */}
+                  <div className={`grid items-center px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 gap-3 ${
+                    bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_100px_32px]' : 'grid-cols-[16px_1fr_80px_52px_100px_32px]'
+                  }`}>
+                    {bulkMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.length === filteredMenuItems.length && filteredMenuItems.length > 0}
+                        onChange={(e) => setSelectedItemIds(e.target.checked ? filteredMenuItems.map((i: any) => i._id) : [])}
+                        className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                      />
+                    )}
+                    <div /> {/* drag handle col */}
+                    <div>Item</div>
+                    <div className="text-right">Price</div>
+                    <div className="text-right">Stock</div>
+                    <div className="text-center">Status</div>
+                    <div />
+                  </div>
+
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndItems}>
+                    <SortableContext items={filteredMenuItems.map((i: any) => i._id)} strategy={verticalListSortingStrategy}>
+                      <div className="divide-y divide-slate-100">
+                        {filteredMenuItems.map((item: any) => {
+                          const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
+                          const isSelected = selectedItemIds.includes(item._id);
+                          const isInspecting = activeItemInspector?._id === item._id;
+                          const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
+                          const isMenuOpen = openMenuId === item._id;
+
+                          return (
+                            <SortableItem key={item._id} id={item._id}>
+                              {({ dragHandleProps }) => (
+                                <div
+                                  className={`group grid items-center px-4 py-2.5 gap-3 transition cursor-pointer ${
+                                    bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_100px_32px]' : 'grid-cols-[16px_1fr_80px_52px_100px_32px]'
+                                  } ${isInspecting ? 'bg-amber-50/50 border-l-2 border-amber-500' : 'hover:bg-slate-50/70 border-l-2 border-transparent'}`}
+                                  onClick={() => {
+                                    if (!bulkMode) {
+                                      setActiveItemInspector(isInspecting ? null : item);
+                                      setInspectorTab('OVERVIEW');
+                                      setOpenMenuId(null);
+                                    }
+                                  }}
+                                >
+                                  {/* Checkbox (bulk) */}
+                                  {bulkMode && (
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        if (e.target.checked) setSelectedItemIds(prev => [...prev, item._id]);
+                                        else setSelectedItemIds(prev => prev.filter(id => id !== item._id));
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                                    />
+                                  )}
+
+                                  {/* Drag handle */}
+                                  <span
+                                    {...dragHandleProps}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="cursor-grab text-slate-300 group-hover:text-slate-400 transition"
+                                  >
+                                    <GripVertical className="w-4 h-4" />
+                                  </span>
+
+                                  {/* Item info */}
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-100">
+                                      {item.imageUrl ? (
+                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                          <Sparkles className="w-4 h-4" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                        <span className="text-sm font-bold text-slate-900 leading-tight">{item.name}</span>
+                                        {item.isSpicy && <MenuBadge variant="spicy" />}
+                                        {item.isChefsSpecial && (
+                                          <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.5 rounded-full">Special</span>
+                                        )}
+                                        {item.isCombo && (
+                                          <span className="text-[9px] font-black uppercase text-violet-900 bg-violet-100 px-1.5 py-0.5 rounded-full">Combo</span>
+                                        )}
+                                      </div>
+                                      {item.description && (
+                                        <p className="text-[11px] text-slate-400 truncate mt-0.5 max-w-[220px]">{item.description}</p>
+                                      )}
+                                      {item.prepTimeMinutes && (
+                                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5 mt-0.5">
+                                          <Clock className="w-2.5 h-2.5" />{item.prepTimeMinutes} min
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Price */}
+                                  <div className="text-right">
+                                    {isPortion ? (
+                                      <div>
+                                        <span className="text-[10px] text-slate-400 block leading-tight">From</span>
+                                        <span className="text-sm font-black text-slate-900 font-mono">₹{(minPrice / 100).toFixed(0)}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-sm font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
+                                    )}
+                                  </div>
+
+                                  {/* Stock */}
+                                  <div className="text-right">
+                                    {item.trackStock ? (
+                                      <div>
+                                        <span className={`text-sm font-black font-mono ${
+                                          item.stockQuantity === 0 ? 'text-rose-600' :
+                                          item.stockQuantity <= (item.lowStockThreshold || 5) ? 'text-amber-600' :
+                                          'text-emerald-700'
+                                        }`}>{item.stockQuantity}</span>
+                                        {item.stockQuantity <= (item.lowStockThreshold || 5) && item.stockQuantity > 0 && (
+                                          <span className="text-[9px] font-bold text-amber-600 block leading-tight">Low</span>
+                                        )}
+                                        {item.stockQuantity === 0 && (
+                                          <span className="text-[9px] font-bold text-rose-600 block leading-tight">Out</span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-slate-300 font-mono">—</span>
+                                    )}
+                                  </div>
+
+                                  {/* Availability toggle */}
+                                  <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleAvailableMutation.mutate(item._id)}
+                                      className={`h-7 px-3 rounded-xl text-[11px] font-bold transition cursor-pointer border whitespace-nowrap ${
+                                        item.isAvailable
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                      }`}
+                                    >
+                                      {item.isAvailable ? 'Available' : "86'd"}
+                                    </button>
+                                  </div>
+
+                                  {/* ⋯ Overflow menu */}
+                                  <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenMenuId(isMenuOpen ? null : item._id)}
+                                      className={`w-8 h-8 flex items-center justify-center rounded-xl transition cursor-pointer ${
+                                        isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                                      }`}
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </button>
+
+                                    {isMenuOpen && (
+                                      <div className="absolute right-0 top-9 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
+                                        <button
+                                          onClick={() => {
+                                            setOpenMenuId(null);
+                                            setPreviewDish({
+                                              ...item,
+                                              price: (item.price || 0) / 100,
+                                              variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                                              addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                                            });
+                                            setPreviewMode('LIST');
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
+                                        >
+                                          <Eye className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                          Customer Preview
+                                        </button>
+                                        <button
+                                          onClick={() => { setOpenMenuId(null); handleEditItemClick(item); }}
+                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                          Edit Details
+                                        </button>
+                                        <div className="h-px bg-slate-100 my-0.5" />
+                                        <button
+                                          onClick={() => {
+                                            setOpenMenuId(null);
+                                            if (confirm(`Delete "${item.name}"?\n\nThis cannot be undone. Items with order history will be archived instead.`)) {
+                                              if (activeItemInspector?._id === item._id) setActiveItemInspector(null);
+                                              deleteItemMutation.mutate(item._id);
+                                            }
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                          Delete Item
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </SortableItem>
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+
+                  {/* Footer count */}
+                  <div className="px-4 py-2.5 border-t border-slate-100 text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                    <span>Showing {filteredMenuItems.length} of {menuItems.length} {menuItems.length === 1 ? 'item' : 'items'}</span>
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear search</button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Item Inspector Panel ── */}
+            {activeItemInspector && (() => {
+              const item = activeItemInspector;
+              const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
+              const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
+              const attachedGroups = customGroups.filter((g: any) => item.attachedAddOnGroupIds?.includes(g._id));
+
+              return (
+                <div className="w-80 xl:w-96 shrink-0 sticky top-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col max-h-[calc(100vh-4.5rem)] overflow-hidden">
+                  {/* Inspector Header */}
+                  <div className="px-4 py-3.5 border-b border-slate-100 shrink-0 bg-slate-50/60">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                              <Sparkles className="w-5 h-5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-sm text-slate-900 leading-tight">{item.name}</h3>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {item._id?.slice(-8)}</p>
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                            {item.isSpicy && <MenuBadge variant="spicy" />}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              item.isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                            }`}>{item.isAvailable ? 'Active' : "86'd"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveItemInspector(null)}
+                        className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition shrink-0 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-medium block leading-tight">
+                          {isPortion ? `From · ${item.variants.length} portions` : 'Price'}
+                        </span>
+                        <span className="text-xl font-black text-slate-900 font-mono">
+                          {isPortion ? `₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleAvailableMutation.mutate(item._id)}
+                        className={`h-8 px-4 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                          item.isAvailable
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                        }`}
+                      >
+                        {item.isAvailable ? '✓ Available' : "✕ 86'd"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inspector Tabs */}
+                  <div className="flex border-b border-slate-100 shrink-0 overflow-x-auto scrollbar-none">
+                    {(['OVERVIEW', 'VARIANTS', 'ADDONS', 'INVENTORY'] as const).map((tab) => {
+                      const label =
+                        tab === 'OVERVIEW' ? 'Overview' :
+                        tab === 'VARIANTS' ? `Portions${isPortion ? ` (${item.variants.length})` : ''}` :
+                        tab === 'ADDONS' ? `Add-Ons${(item.addOns?.length || 0) + attachedGroups.length > 0 ? ` (${(item.addOns?.length || 0) + attachedGroups.length})` : ''}` :
+                        'Inventory';
+                      return (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setInspectorTab(tab)}
+                          className={`flex-shrink-0 px-3.5 py-2.5 text-[11px] font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                            inspectorTab === tab
+                              ? 'border-amber-500 text-amber-700 bg-amber-50/40'
+                              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Inspector Tab Content */}
+                  <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-4">
+
+                    {/* ── OVERVIEW TAB ── */}
+                    {inspectorTab === 'OVERVIEW' && (
+                      <>
+                        {item.description && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Description</p>
+                            <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
+                          </div>
+                        )}
+
+                        {(item.isChefsSpecial || item.isCombo || item.prepTimeMinutes) && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Properties</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {item.isChefsSpecial && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                                  <span className="text-xs font-bold text-amber-900">Chef&apos;s Special</span>
+                                </div>
+                              )}
+                              {item.isCombo && (
+                                <div className="bg-violet-50 border border-violet-200 rounded-xl p-2.5 flex items-center gap-2">
+                                  <Package className="w-4 h-4 text-violet-500 shrink-0" />
+                                  <span className="text-xs font-bold text-violet-900">Combo Pack</span>
+                                </div>
+                              )}
+                              {item.prepTimeMinutes && (
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                                  <span className="text-xs font-bold text-slate-700">{item.prepTimeMinutes} min prep</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {item.isCombo && item.comboItems?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Bundled Items</p>
+                            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                              {item.comboItems.map((c: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
+                                  <span className="text-slate-700 font-medium">{c.name}</span>
+                                  <span className="font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-lg">×{c.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mini customer card preview */}
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Customer Card Preview</p>
+                          <div className="bg-[#FAF9F6] border border-slate-200 rounded-2xl p-3">
+                            <div className="flex gap-3 items-start">
+                              <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100">
+                                {item.imageUrl ? (
+                                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-slate-200"><Sparkles className="w-6 h-6" /></div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                  <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                  <span className="text-xs font-bold text-slate-900 truncate">{item.name}</span>
+                                </div>
+                                {item.description && <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{item.description}</p>}
+                                <div className="flex items-center justify-between mt-2">
+                                  <span className="text-sm font-black text-slate-900 font-mono">
+                                    {isPortion ? `From ₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
+                                  </span>
+                                  <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg">+ Add</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewDish({
+                                ...item,
+                                price: (item.price || 0) / 100,
+                                variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                                addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                              });
+                              setPreviewMode('LIST');
+                            }}
+                            className="w-full mt-2 h-8 flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-amber-500" />
+                            Full Customer Preview
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── VARIANTS TAB ── */}
+                    {inspectorTab === 'VARIANTS' && (
+                      <>
+                        {!isPortion ? (
+                          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
+                            <p className="font-medium">Single pricing model</p>
+                            <p className="text-2xl font-black text-slate-800 font-mono">₹{(item.price / 100).toFixed(2)}</p>
+                            <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Edit to add portion sizes</button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Portion Sizes</p>
+                            {item.variants.map((v: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-slate-900">{v.name}</span>
+                                  {v.isDefault && <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Default</span>}
+                                </div>
+                                <span className="font-mono font-black text-slate-900">₹{(v.price / 100).toFixed(0)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── ADD-ONS TAB ── */}
+                    {inspectorTab === 'ADDONS' && (
+                      <>
+                        {item.addOns?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Dish-Specific Add-Ons</p>
+                            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                              {item.addOns.map((addon: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
+                                  <span className="text-slate-700 font-medium">{addon.name}</span>
+                                  <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">
+                                    +₹{((addon.priceDelta || 0) / 100).toFixed(0)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {attachedGroups.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Modifier Templates</p>
+                            <div className="space-y-2">
+                              {attachedGroups.map((group: any) => (
+                                <div key={group._id} className="border border-slate-200 rounded-xl overflow-hidden">
+                                  <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+                                    <span className="text-xs font-bold text-slate-900">{group.name}</span>
+                                    <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded-full">{group.type}</span>
+                                  </div>
+                                  <div className="divide-y divide-slate-100">
+                                    {group.options.map((opt: any, oIdx: number) => (
+                                      <div key={oIdx} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                                        <span className="text-slate-600">{opt.name}</span>
+                                        <span className="font-mono font-bold text-slate-700">+₹{((opt.priceDelta || opt.price || 0) / 100).toFixed(0)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {!item.addOns?.length && !attachedGroups.length && (
+                          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
+                            <Sliders className="w-8 h-8 mx-auto text-slate-200 mb-2" />
+                            <p>No add-ons attached to this item.</p>
+                            <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Add customizations</button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── INVENTORY TAB ── */}
+                    {inspectorTab === 'INVENTORY' && (
+                      <>
+                        {item.trackStock ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-700">Stock Tracking</span>
+                              <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Enabled</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className={`text-center p-4 rounded-xl border ${
+                                item.stockQuantity === 0 ? 'bg-rose-50 border-rose-200' :
+                                item.stockQuantity <= (item.lowStockThreshold || 5) ? 'bg-amber-50 border-amber-200' :
+                                'bg-emerald-50/60 border-emerald-200'
+                              }`}>
+                                <div className="text-3xl font-black font-mono text-slate-900">{item.stockQuantity}</div>
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">In Stock</div>
+                              </div>
+                              <div className="text-center p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                <div className="text-3xl font-black font-mono text-amber-600">{item.lowStockThreshold || 5}</div>
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">Alert Level</div>
+                              </div>
+                            </div>
+                            {item.stockQuantity <= (item.lowStockThreshold || 5) && (
+                              <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold">
+                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                <span>
+                                  {item.stockQuantity === 0
+                                    ? 'Out of stock. Customers cannot order this item.'
+                                    : `Low stock — restock soon (threshold: ${item.lowStockThreshold || 5}).`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
+                            <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                            <p className="font-medium">Stock tracking not enabled</p>
+                            <p className="text-slate-400 max-w-[200px] mx-auto">Enable stock tracking in edit mode to monitor inventory for this item.</p>
+                            <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Enable in Edit Details</button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Inspector Footer */}
+                  <div className="px-4 py-3 border-t border-slate-100 shrink-0 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setPreviewDish({
+                          ...item,
+                          price: (item.price || 0) / 100,
+                          variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                          addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                        });
+                        setPreviewMode('LIST');
+                      }}
+                      className="h-10 w-10 flex items-center justify-center border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:text-amber-600 transition cursor-pointer"
+                      title="Customer Preview"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEditItemClick(item)}
+                      className="flex-1 h-10 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Edit Details
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* TAB 2: REUSABLE CUSTOMIZATION TEMPLATES    */}
-      {/* ========================================== */}
+      {/* ══════════════════════════════════════════ */}
+      {/* TAB 2: ADD-ON TEMPLATES                   */}
+      {/* ══════════════════════════════════════════ */}
       {activeTab === 'CUSTOMIZATIONS' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-6">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h2 className="font-display text-lg font-bold text-slate-900">Customization & Add-on Templates</h2>
+              <h2 className="font-display text-lg font-bold text-slate-900">Customization &amp; Add-on Templates</h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Create reusable templates (e.g. Extra Cheese, Garlic Dip, Gulab Jamun) and easily connect them across dishes
+                Create reusable templates and connect them across dishes
               </p>
             </div>
             <button
               onClick={() => {
-                groupForm.reset({
-                  name: '',
-                  type: 'ADDON',
-                  description: '',
-                  options: [{ name: '', priceDelta: 0, price: 0 }],
-                  isGlobal: true,
-                });
+                groupForm.reset({ name: '', type: 'ADDON', description: '', options: [{ name: '', priceDelta: 0, price: 0 }], isGlobal: true });
                 setIsGroupModalOpen(true);
               }}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition shadow-xs"
+              className="h-10 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-              <span>Create Template</span>
+              <Plus className="w-4 h-4" strokeWidth={2.5} />
+              Create Template
             </button>
           </div>
 
           {isLoadingGroups ? (
-            <div className="flex justify-center p-12">
-              <Loader className="w-8 h-8 animate-spin text-amber-500" />
-            </div>
+            <div className="flex justify-center p-12"><Loader className="w-8 h-8 animate-spin text-amber-500" /></div>
           ) : customGroups.length === 0 ? (
             <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-2">
+              <Sliders className="w-10 h-10 mx-auto text-slate-200 mb-2" />
               <p>No reusable templates created yet.</p>
-              <p className="text-[11px] text-slate-400">Templates save time when adding standard add-ons across multiple dishes.</p>
+              <p className="text-[11px]">Templates save time when adding standard add-ons across multiple dishes.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {customGroups.map((group: any) => (
-                <div key={group._id} className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                <div key={group._id} className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs hover:border-slate-300 transition">
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full font-mono">
-                        {group.type}
-                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full font-mono">{group.type}</span>
                       <h4 className="font-bold text-slate-900 text-sm mt-1">{group.name}</h4>
                       {group.description && <p className="text-xs text-slate-500">{group.description}</p>}
                     </div>
                     <button
-                      onClick={() => deleteGroupMutation.mutate(group._id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      onClick={() => {
+                        if (confirm(`Archive "${group.name}"? It will be removed from all dishes.`)) {
+                          deleteGroupMutation.mutate(group._id);
+                        }
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                       title="Archive template"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-
                   <div className="divide-y divide-slate-100 border-t border-slate-100 pt-2 text-xs">
                     {group.options.map((opt: any, optIdx: number) => (
                       <div key={optIdx} className="py-1.5 flex justify-between items-center text-slate-700">
                         <span>{opt.name}</span>
-                        <span className="font-mono font-bold text-slate-900">
-                          +₹{((opt.priceDelta || opt.price || 0) / 100).toFixed(2)}
-                        </span>
+                        <span className="font-mono font-bold text-slate-900">+₹{((opt.priceDelta || opt.price || 0) / 100).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -1523,6 +1967,10 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         </div>
       )}
 
+      {/* ──────────────────────────────────── */}
+      {/* MODALS                              */}
+      {/* ──────────────────────────────────── */}
+
       {/* Category Modal */}
       {isCatOpen && createPortal(
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
@@ -1531,59 +1979,32 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               <h2 className="font-display text-xl font-bold text-slate-900">
                 {editingCat ? 'Edit Category' : 'New Category'}
               </h2>
-              <button onClick={() => setIsCatOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setIsCatOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
 
             {errorMsg && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
-                {errorMsg}
-              </div>
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">{errorMsg}</div>
             )}
 
             <form onSubmit={catForm.handleSubmit(onCatSubmit)} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Category Name</label>
-                <input
-                  type="text"
-                  placeholder="Desserts"
-                  {...catForm.register('name')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                />
+                <input type="text" placeholder="Desserts" {...catForm.register('name')} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500" />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea
-                  placeholder="Sweet treats & baked delights..."
-                  {...catForm.register('description')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20"
-                />
+                <textarea placeholder="Sweet treats & baked delights..." {...catForm.register('description')} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20 resize-none" />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Category Image</label>
-                <ImageUploader
-                  restaurantId={activeRestaurantId!}
-                  value={catForm.watch('imageUrl')}
-                  onChange={(url: string) => catForm.setValue('imageUrl', url)}
-                />
+                <ImageUploader restaurantId={activeRestaurantId!} value={catForm.watch('imageUrl')} onChange={(url: string) => catForm.setValue('imageUrl', url)} />
               </div>
-
               <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsCatOpen(false)}
-                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-semibold rounded-xl transition cursor-pointer"
-                >
-                  {editingCat ? 'Save' : 'Create'}
+                <button type="button" onClick={() => setIsCatOpen(false)} className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition cursor-pointer">Cancel</button>
+                <button type="submit" className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-semibold rounded-xl transition cursor-pointer">
+                  {editingCat ? 'Save Changes' : 'Create Category'}
                 </button>
               </div>
             </form>
@@ -1592,15 +2013,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         document.body
       )}
 
-      {/* Menu Item Modal with Portion Pricing, Combos, & Live Customer Preview */}
+      {/* Menu Item Modal */}
       {isItemOpen && createPortal(
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
           <div className="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-5 my-auto">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
-                <h2 className="font-display text-xl font-bold text-slate-900">
-                  {editingItem ? 'Edit Menu Item' : 'New Menu Item'}
-                </h2>
+                <h2 className="font-display text-xl font-bold text-slate-900">{editingItem ? 'Edit Menu Item' : 'New Menu Item'}</h2>
                 <span className="text-xs text-slate-400">Configure dish details, portion variants, or combos</span>
               </div>
               <button onClick={() => setIsItemOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
@@ -1610,413 +2029,154 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
             {/* Modal Mode Selector */}
             <div className="flex bg-slate-100 p-1 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => setItemModalTab('FORM')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition ${
-                  itemModalTab === 'FORM' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
+              <button type="button" onClick={() => setItemModalTab('FORM')} className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${itemModalTab === 'FORM' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
                 Dish Configuration
               </button>
-              <button
-                type="button"
-                onClick={() => setItemModalTab('PREVIEW')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
-                  itemModalTab === 'PREVIEW' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Live Customer Preview</span>
+              <button type="button" onClick={() => setItemModalTab('PREVIEW')} className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${itemModalTab === 'PREVIEW' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+                <Smartphone className="w-3.5 h-3.5" />Live Customer Preview
               </button>
             </div>
 
-            {errorMsg && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">
-                {errorMsg}
-              </div>
-            )}
+            {errorMsg && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600">{errorMsg}</div>}
 
             {itemModalTab === 'PREVIEW' ? (
               <div className="space-y-4">
-                <CustomerDishPreview
-                  item={itemForm.watch()}
-                  previewMode={previewMode}
-                  setPreviewMode={setPreviewMode}
-                />
+                <CustomerDishPreview item={itemForm.watch()} previewMode={previewMode} setPreviewMode={setPreviewMode} />
                 <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setItemModalTab('FORM')}
-                    className="w-1/2 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition"
-                  >
-                    Back to Edit Form
-                  </button>
-                  <button
-                    type="button"
-                    onClick={itemForm.handleSubmit(
-                      onItemSubmit,
-                      (errors) => {
-                        console.error('Validation errors:', errors);
-                        const firstKey = Object.keys(errors)[0];
-                        const firstErr: any = errors[firstKey];
-                        const msg = firstErr?.message || firstErr?.name?.message || firstErr?.price?.message || 'Please check the required fields.';
-                        toast(msg, 'error');
-                        setItemModalTab('FORM');
-                      }
-                    )}
-                    className="w-1/2 py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition shadow-xs"
-                  >
+                  <button type="button" onClick={() => setItemModalTab('FORM')} className="w-1/2 py-2.5 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition cursor-pointer">Back to Edit</button>
+                  <button type="button" onClick={itemForm.handleSubmit(onItemSubmit, (errors) => { const k = Object.keys(errors)[0]; const e: any = errors[k]; toast(e?.message || e?.name?.message || 'Check required fields.', 'error'); setItemModalTab('FORM'); })} className="w-1/2 py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition shadow-xs cursor-pointer">
                     {editingItem ? 'Save Changes' : 'Create Dish'}
                   </button>
                 </div>
               </div>
             ) : (
-              <form
-                onSubmit={itemForm.handleSubmit(
-                  onItemSubmit,
-                  (errors) => {
-                    console.error('Validation errors:', errors);
-                    const firstKey = Object.keys(errors)[0];
-                    const firstErr: any = errors[firstKey];
-                    const msg = firstErr?.message || firstErr?.name?.message || firstErr?.price?.message || 'Please check the required fields.';
-                    toast(msg, 'error');
-                  }
-                )}
-                className="space-y-5"
-              >
-                {/* Item Name */}
+              <form onSubmit={itemForm.handleSubmit(onItemSubmit, (errors) => { const k = Object.keys(errors)[0]; const e: any = errors[k]; toast(e?.message || e?.name?.message || e?.price?.message || 'Check required fields.', 'error'); })} className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Name</label>
-                  <input
-                    type="text"
-                    placeholder="Paneer Butter Masala"
-                    {...itemForm.register('name')}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-bold"
-                  />
+                  <input type="text" placeholder="Paneer Butter Masala" {...itemForm.register('name')} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-bold" />
                 </div>
 
-                {/* PRICING MODE SELECTOR */}
                 <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-black uppercase tracking-wider text-amber-950">Pricing Model</label>
                     <div className="flex gap-1 p-0.5 bg-amber-100/80 rounded-xl border border-amber-300/80 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => itemForm.setValue('pricingType', 'SINGLE')}
-                        className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
-                          itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
-                        }`}
-                      >
-                        Single Price
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          itemForm.setValue('pricingType', 'PORTION');
-                          if (variantFields.length === 0) {
-                            handleApplyVariantPreset('HALF_FULL');
-                          }
-                        }}
-                        className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
-                          itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'
-                        }`}
-                      >
-                        Portion Sizes (Half/Full)
-                      </button>
+                      <button type="button" onClick={() => itemForm.setValue('pricingType', 'SINGLE')} className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${itemForm.watch('pricingType') === 'SINGLE' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'}`}>Single Price</button>
+                      <button type="button" onClick={() => { itemForm.setValue('pricingType', 'PORTION'); if (variantFields.length === 0) handleApplyVariantPreset('HALF_FULL'); }} className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${itemForm.watch('pricingType') === 'PORTION' ? 'bg-slate-950 text-white shadow-xs' : 'text-amber-900'}`}>Portion Sizes</button>
                     </div>
                   </div>
-
                   {itemForm.watch('pricingType') === 'SINGLE' ? (
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Dish Price (INR)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="280.00"
-                        {...itemForm.register('price')}
-                        className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold"
-                      />
+                      <input type="number" step="0.01" placeholder="280.00" {...itemForm.register('price')} className="w-full px-3.5 py-2 border border-slate-200 bg-white rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold" />
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {/* Quick Presets Bar */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[11px] font-bold text-amber-900">Quick Presets:</span>
-                        <button
-                          type="button"
-                          onClick={() => handleApplyVariantPreset('HALF_FULL')}
-                          className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
-                        >
-                          + Half / Full
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApplyVariantPreset('SML')}
-                          className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
-                        >
-                          + Small / Med / Large
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApplyVariantPreset('REG_LARGE')}
-                          className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer"
-                        >
-                          + Regular / Large
-                        </button>
+                        {(['HALF_FULL', 'SML', 'REG_LARGE'] as const).map((preset) => (
+                          <button key={preset} type="button" onClick={() => handleApplyVariantPreset(preset)} className="px-2 py-0.5 bg-white hover:bg-amber-100 text-amber-950 text-[11px] font-bold rounded-lg border border-amber-300 transition cursor-pointer">
+                            {preset === 'HALF_FULL' ? '+ Half/Full' : preset === 'SML' ? '+ S/M/L' : '+ Reg/Large'}
+                          </button>
+                        ))}
                       </div>
-
-                      {/* Variant Rows */}
                       <div className="space-y-2">
                         {variantFields.map((field, vIdx) => (
                           <div key={field.id} className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-amber-200/80">
-                            <input
-                              type="text"
-                              placeholder="Size (e.g. Half)"
-                              {...itemForm.register(`variants.${vIdx}.name` as const)}
-                              className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="Price (INR)"
-                              {...itemForm.register(`variants.${vIdx}.price` as const)}
-                              className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeVariant(vIdx)}
-                              className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <input type="text" placeholder="Size (e.g. Half)" {...itemForm.register(`variants.${vIdx}.name` as const)} className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold" />
+                            <input type="number" step="0.01" placeholder="Price (INR)" {...itemForm.register(`variants.${vIdx}.price` as const)} className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold" />
+                            <button type="button" onClick={() => removeVariant(vIdx)} className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 rounded cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                           </div>
                         ))}
-                        <button
-                          type="button"
-                          onClick={() => appendVariant({ name: '', price: 0, isDefault: false })}
-                          className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Custom Size Option</span>
-                        </button>
+                        <button type="button" onClick={() => appendVariant({ name: '', price: 0, isDefault: false })} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Custom Size</button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* COMBOS BUNDLE BUILDER SECTION */}
                 <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="isComboToggle"
-                      {...itemForm.register('isCombo')}
-                      className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                    />
-                    <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">
-                      Bundle as Multi-Dish Combo (e.g. Garlic Naan + Paneer Butter Masala)
-                    </label>
+                    <input type="checkbox" id="isComboToggle" {...itemForm.register('isCombo')} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
+                    <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">Bundle as Multi-Dish Combo</label>
                   </div>
-
                   {itemForm.watch('isCombo') && (
                     <div className="space-y-2 pt-2">
-                      <p className="text-[11px] text-slate-500">
-                        Add items included in this combo pack:
-                      </p>
                       {comboFields.map((cField, cIdx) => (
                         <div key={cField.id} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
-                          <input
-                            type="text"
-                            placeholder="Dish name (e.g. Garlic Naan)"
-                            {...itemForm.register(`comboItems.${cIdx}.name` as const)}
-                            className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
-                          />
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="Qty (e.g. 2)"
-                            {...itemForm.register(`comboItems.${cIdx}.quantity` as const)}
-                            className="w-20 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Category (e.g. Breads)"
-                            {...itemForm.register(`comboItems.${cIdx}.categoryName` as const)}
-                            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeComboItem(cIdx)}
-                            className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <input type="text" placeholder="Dish name" {...itemForm.register(`comboItems.${cIdx}.name` as const)} className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                          <input type="number" min="1" placeholder="Qty" {...itemForm.register(`comboItems.${cIdx}.quantity` as const)} className="w-16 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold" />
+                          <input type="text" placeholder="Category" {...itemForm.register(`comboItems.${cIdx}.categoryName` as const)} className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                          <button type="button" onClick={() => removeComboItem(cIdx)} className="text-rose-500 p-1 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       ))}
-                      <button
-                        type="button"
-                        onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })}
-                        className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Bundled Item</span>
-                      </button>
+                      <button type="button" onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Bundled Item</button>
                     </div>
                   )}
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                  <textarea
-                    placeholder="Spiced cottage cheese chunks simmered in rich tomato butter gravy..."
-                    {...itemForm.register('description')}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-16"
-                  />
+                  <textarea placeholder="Spiced cottage cheese simmered in rich tomato butter gravy..." {...itemForm.register('description')} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-16 resize-none" />
                 </div>
 
-                {/* Dietary Indicators with FSSAI Badges */}
                 <div className="grid grid-cols-3 gap-3">
-                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
-                    itemForm.watch('isVegetarian') ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
-                  }`}>
+                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${itemForm.watch('isVegetarian') ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold' : 'border-slate-200 bg-white text-slate-700'}`}>
                     <input type="checkbox" {...itemForm.register('isVegetarian')} className="hidden" />
-                    <MenuBadge variant="veg" />
-                    <span className="text-xs">Vegetarian</span>
+                    <MenuBadge variant="veg" /><span className="text-xs">Vegetarian</span>
                   </label>
-
-                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
-                    itemForm.watch('isSpicy') ? 'bg-rose-50 border-rose-500 text-rose-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
-                  }`}>
+                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${itemForm.watch('isSpicy') ? 'bg-rose-50 border-rose-500 text-rose-950 font-bold' : 'border-slate-200 bg-white text-slate-700'}`}>
                     <input type="checkbox" {...itemForm.register('isSpicy')} className="hidden" />
-                    <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} />
-                    <span className="text-xs">Spicy</span>
+                    <Flame className="w-4 h-4 text-rose-500" strokeWidth={2} /><span className="text-xs">Spicy</span>
                   </label>
-
-                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${
-                    itemForm.watch('isChefsSpecial') ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold' : 'border-slate-200 bg-white text-slate-700'
-                  }`}>
+                  <label className={`p-3 rounded-2xl border-2 flex items-center gap-2 cursor-pointer transition ${itemForm.watch('isChefsSpecial') ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold' : 'border-slate-200 bg-white text-slate-700'}`}>
                     <input type="checkbox" {...itemForm.register('isChefsSpecial')} className="hidden" />
-                    <span className="text-xs">Chef's Special</span>
+                    <span className="text-xs">Chef&apos;s Special</span>
                   </label>
-
                   {isEnabled('ordering') && (
-                    <div>
-                      <input
-                        type="number"
-                        placeholder="15 mins prep"
-                        {...itemForm.register('prepTimeMinutes')}
-                        className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium"
-                      />
-                    </div>
+                    <input type="number" placeholder="15 mins prep" {...itemForm.register('prepTimeMinutes')} className="w-full px-3 py-3 border-2 border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-amber-500 font-medium" />
                   )}
                 </div>
 
-                {/* Image Uploader */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Dish Image</label>
-                  <ImageUploader
-                    restaurantId={activeRestaurantId!}
-                    value={itemForm.watch('imageUrl')}
-                    onChange={(url: string) => itemForm.setValue('imageUrl', url)}
-                  />
+                  <ImageUploader restaurantId={activeRestaurantId!} value={itemForm.watch('imageUrl')} onChange={(url: string) => itemForm.setValue('imageUrl', url)} />
                 </div>
 
-                {/* Add-On Customizations Repeater */}
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                    <span className="text-xs font-bold text-slate-900">Custom Add-Ons (Specific to this dish)</span>
-                    <button
-                      type="button"
-                      onClick={() => appendAddOn({ name: '', priceDelta: 0 })}
-                      className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Add-on</span>
-                    </button>
+                    <span className="text-xs font-bold text-slate-900">Custom Add-Ons (This dish only)</span>
+                    <button type="button" onClick={() => appendAddOn({ name: '', priceDelta: 0 })} className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Add-on</button>
                   </div>
-
                   {addOnFields.map((field, index) => (
                     <div key={field.id} className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        placeholder="e.g. Extra Butter"
-                        {...itemForm.register(`addOns.${index}.name` as const)}
-                        className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold"
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Extra Price (INR)"
-                        {...itemForm.register(`addOns.${index}.priceDelta` as const)}
-                        className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeAddOn(index)}
-                        className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <input type="text" placeholder="e.g. Extra Butter" {...itemForm.register(`addOns.${index}.name` as const)} className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold" />
+                      <input type="number" step="0.01" placeholder="Extra Price" {...itemForm.register(`addOns.${index}.priceDelta` as const)} className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold" />
+                      <button type="button" onClick={() => removeAddOn(index)} className="text-rose-500 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   ))}
                 </div>
 
-                {/* Reusable Modifier / Customization Groups */}
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
                     <div>
                       <span className="text-xs font-bold text-slate-900 block">Reusable Modifier Groups</span>
-                      <span className="text-[10px] text-slate-400">Attach pre-configured modifier templates (e.g. Crusts, Dips, Sizes)</span>
+                      <span className="text-[10px] text-slate-400">Attach pre-configured modifier templates</span>
                     </div>
                     {customGroups.length === 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsItemOpen(false);
-                          setActiveTab('CUSTOMIZATIONS');
-                          setIsGroupModalOpen(true);
-                        }}
-                        className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Create Template</span>
-                      </button>
+                      <button type="button" onClick={() => { setIsItemOpen(false); setActiveTab('CUSTOMIZATIONS'); setIsGroupModalOpen(true); }} className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Create Template</button>
                     )}
                   </div>
-
                   {customGroups.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {customGroups.map((group: any) => {
                         const currentAttached: string[] = itemForm.watch('attachedAddOnGroupIds') || [];
                         const isAttached = currentAttached.includes(group._id);
                         return (
-                          <button
-                            key={group._id}
-                            type="button"
-                            onClick={() => {
-                              if (isAttached) {
-                                itemForm.setValue('attachedAddOnGroupIds', currentAttached.filter((id) => id !== group._id));
-                              } else {
-                                itemForm.setValue('attachedAddOnGroupIds', [...currentAttached, group._id]);
-                              }
-                            }}
-                            className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-                              isAttached
-                                ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20 text-amber-950'
-                                : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'
-                            }`}
-                          >
+                          <button key={group._id} type="button" onClick={() => { if (isAttached) itemForm.setValue('attachedAddOnGroupIds', currentAttached.filter(id => id !== group._id)); else itemForm.setValue('attachedAddOnGroupIds', [...currentAttached, group._id]); }} className={`p-3 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${isAttached ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20 text-amber-950' : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'}`}>
                             <div className="min-w-0 pr-2">
                               <span className="font-bold text-xs block truncate">{group.name}</span>
-                              <span className="text-[10px] text-slate-400 block truncate">
-                                {group.options?.length || 0} options • {group.selectionType === 'SINGLE' ? 'Single' : 'Multi'}
-                              </span>
+                              <span className="text-[10px] text-slate-400 block">{group.options?.length || 0} options</span>
                             </div>
-                            <div className={`w-5 h-5 rounded-lg border flex items-center justify-center text-xs shrink-0 ${
-                              isAttached ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 bg-white'
-                            }`}>
+                            <div className={`w-5 h-5 rounded-lg border flex items-center justify-center text-xs shrink-0 ${isAttached ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 bg-white'}`}>
                               {isAttached && <Check className="w-3.5 h-3.5" />}
                             </div>
                           </button>
@@ -2025,43 +2185,18 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     </div>
                   ) : (
                     <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
-                      <p className="text-xs text-slate-500">No reusable modifier groups created yet.</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsItemOpen(false);
-                          setActiveTab('CUSTOMIZATIONS');
-                          setIsGroupModalOpen(true);
-                        }}
-                        className="mt-1.5 text-xs font-bold text-amber-600 hover:underline"
-                      >
-                        + Create your first modifier template
-                      </button>
+                      <p className="text-xs text-slate-500">No modifier groups yet.</p>
+                      <button type="button" onClick={() => { setIsItemOpen(false); setActiveTab('CUSTOMIZATIONS'); setIsGroupModalOpen(true); }} className="mt-1.5 text-xs font-bold text-amber-600 hover:underline cursor-pointer">+ Create your first modifier template</button>
                     </div>
                   )}
                 </div>
 
-                {/* Form Action Buttons */}
                 <div className="flex gap-2.5 pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsItemOpen(false)}
-                    className="w-1/4 py-3 border border-slate-200 text-slate-600 text-xs font-semibold rounded-2xl hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    Cancel
+                  <button type="button" onClick={() => setIsItemOpen(false)} className="w-1/4 py-3 border border-slate-200 text-slate-600 text-xs font-semibold rounded-2xl hover:bg-slate-50 transition cursor-pointer">Cancel</button>
+                  <button type="button" onClick={() => setItemModalTab('PREVIEW')} className="w-1/3 py-3 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-bold rounded-2xl transition cursor-pointer flex items-center justify-center gap-1">
+                    <Smartphone className="w-3.5 h-3.5" />Preview
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setItemModalTab('PREVIEW')}
-                    className="w-1/3 py-3 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-bold rounded-2xl transition cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>Preview Card</span>
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl transition shadow-md cursor-pointer"
-                  >
+                  <button type="submit" className="flex-1 py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl transition shadow-md cursor-pointer">
                     {editingItem ? 'Save Changes' : 'Create Dish'}
                   </button>
                 </div>
@@ -2072,38 +2207,21 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         document.body
       )}
 
-      {/* Standalone Customer Dish Preview Modal */}
+      {/* Standalone Customer Preview Modal */}
       {previewDish && createPortal(
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
           <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 space-y-4 my-auto">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div>
                 <h2 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-amber-500" />
-                  <span>Customer Experience Preview</span>
+                  <Smartphone className="w-4 h-4 text-amber-500" />Customer Experience Preview
                 </h2>
-                <p className="text-[11px] text-slate-400">Live diner view for "{previewDish.name}"</p>
+                <p className="text-[11px] text-slate-400">Live diner view for &ldquo;{previewDish.name}&rdquo;</p>
               </div>
-              <button onClick={() => setPreviewDish(null)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X className="w-5 h-5" strokeWidth={1.75} />
-              </button>
+              <button onClick={() => setPreviewDish(null)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"><X className="w-5 h-5" strokeWidth={1.75} /></button>
             </div>
-
-            <CustomerDishPreview
-              item={previewDish}
-              previewMode={previewMode}
-              setPreviewMode={setPreviewMode}
-            />
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setPreviewDish(null)}
-                className="w-full py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition cursor-pointer"
-              >
-                Close Preview
-              </button>
-            </div>
+            <CustomerDishPreview item={previewDish} previewMode={previewMode} setPreviewMode={setPreviewMode} />
+            <button type="button" onClick={() => setPreviewDish(null)} className="w-full py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition cursor-pointer">Close Preview</button>
           </div>
         </div>,
         document.body
@@ -2115,85 +2233,29 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4 my-auto">
             <div className="flex justify-between items-center">
               <h2 className="font-display text-xl font-bold text-slate-900">New Add-On Template</h2>
-              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"><X className="w-5 h-5" /></button>
             </div>
-
-            <form
-              onSubmit={groupForm.handleSubmit((values: any) => {
-                createGroupMutation.mutate({
-                  ...values,
-                  options: values.options.map((opt: any) => ({
-                    name: opt.name.trim(),
-                    priceDelta: Math.round(Number(opt.priceDelta || 0) * 100),
-                  })),
-                });
-              })}
-              className="space-y-4"
-            >
+            <form onSubmit={groupForm.handleSubmit((values: any) => { createGroupMutation.mutate({ ...values, options: values.options.map((opt: any) => ({ name: opt.name.trim(), priceDelta: Math.round(Number(opt.priceDelta || 0) * 100) })) }); })} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Template Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Extra Dips & Sauces"
-                  {...groupForm.register('name')}
-                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold"
-                />
+                <input type="text" placeholder="e.g. Extra Dips & Sauces" {...groupForm.register('name')} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Options List</label>
                 <div className="space-y-2">
                   {groupOptionFields.map((field, idx) => (
                     <div key={field.id} className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        placeholder="Option name"
-                        {...groupForm.register(`options.${idx}.name` as const)}
-                        className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs"
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Price (INR)"
-                        {...groupForm.register(`options.${idx}.priceDelta` as const)}
-                        className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeGroupOption(idx)}
-                        className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <input type="text" placeholder="Option name" {...groupForm.register(`options.${idx}.name` as const)} className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                      <input type="number" step="0.01" placeholder="Price (INR)" {...groupForm.register(`options.${idx}.priceDelta` as const)} className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold" />
+                      <button type="button" onClick={() => removeGroupOption(idx)} className="text-rose-500 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => appendGroupOption({ name: '', priceDelta: 0, price: 0 })}
-                    className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Option</span>
-                  </button>
+                  <button type="button" onClick={() => appendGroupOption({ name: '', priceDelta: 0, price: 0 })} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Option</button>
                 </div>
               </div>
-
               <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsGroupModalOpen(false)}
-                  className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-md cursor-pointer"
-                >
-                  Save Template
-                </button>
+                <button type="button" onClick={() => setIsGroupModalOpen(false)} className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl cursor-pointer hover:bg-slate-50 transition">Cancel</button>
+                <button type="submit" className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-md cursor-pointer">Save Template</button>
               </div>
             </form>
           </div>
