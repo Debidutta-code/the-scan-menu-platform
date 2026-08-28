@@ -919,6 +919,108 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     name: 'comboItems',
   });
 
+  const [comboDishSearch, setComboDishSearch] = useState('');
+  const [comboCategoryFilter, setComboCategoryFilter] = useState<string | null>(null);
+
+  const availableDishesForCombo = useMemo(() => {
+    return allMenuItems.filter((dish: any) => {
+      if (editingItem && dish._id === editingItem._id) return false;
+      if (comboDishSearch.trim()) {
+        const q = comboDishSearch.toLowerCase();
+        const catName = typeof dish.categoryId === 'object' ? dish.categoryId?.name : categories.find((c: any) => c._id === dish.categoryId)?.name || '';
+        if (!dish.name.toLowerCase().includes(q) && !catName.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      if (comboCategoryFilter) {
+        const cId = typeof dish.categoryId === 'object' ? dish.categoryId?._id : dish.categoryId;
+        if (cId !== comboCategoryFilter) return false;
+      }
+      return true;
+    });
+  }, [allMenuItems, editingItem, comboDishSearch, comboCategoryFilter, categories]);
+
+  const watchedComboItems = itemForm.watch('comboItems');
+
+  const bundledRegularTotal = useMemo(() => {
+    const currentCombo = watchedComboItems || [];
+    return currentCombo.reduce((acc: number, cItem: any) => {
+      const originalDish = allMenuItems.find((d: any) => d._id === cItem.menuItemId || d.name === cItem.name);
+      const itemPrice = originalDish ? (originalDish.price || 0) / 100 : 0;
+      return acc + (itemPrice * (cItem.quantity || 1));
+    }, 0);
+  }, [watchedComboItems, allMenuItems]);
+
+  const handleAddDishToCombo = (dish: any) => {
+    const currentComboItems = itemForm.getValues('comboItems') || [];
+    const existingIndex = currentComboItems.findIndex((c: any) => c.menuItemId === dish._id || c.name === dish.name);
+    if (existingIndex >= 0) {
+      const currentQty = Number(currentComboItems[existingIndex].quantity || 1);
+      itemForm.setValue(`comboItems.${existingIndex}.quantity`, currentQty + 1);
+    } else {
+      const catName = typeof dish.categoryId === 'object' ? dish.categoryId?.name : categories.find((c: any) => c._id === dish.categoryId)?.name || '';
+      appendComboItem({
+        menuItemId: dish._id,
+        name: dish.name,
+        categoryName: catName,
+        quantity: 1,
+        imageUrl: dish.imageUrl || '',
+      });
+    }
+    // Auto suggest combo name if empty
+    if (currentComboItems.length === 0 && !itemForm.getValues('name')) {
+      itemForm.setValue('name', `${dish.name} Combo`);
+    }
+    // Auto update suggested price if price is 0
+    const newItems = itemForm.getValues('comboItems') || [];
+    const newTotal = newItems.reduce((acc: number, cItem: any) => {
+      const originalDish = allMenuItems.find((d: any) => d._id === cItem.menuItemId || d.name === cItem.name);
+      const itemPrice = originalDish ? (originalDish.price || 0) / 100 : 0;
+      return acc + (itemPrice * (cItem.quantity || 1));
+    }, 0);
+    if (itemForm.getValues('price') === 0 || !itemForm.getValues('price')) {
+      itemForm.setValue('price', Math.round(newTotal * 0.9));
+    }
+  };
+
+  const handleCreateComboFromSelected = () => {
+    const selectedItems = allMenuItems.filter((i: any) => selectedItemIds.includes(i._id));
+    if (selectedItems.length === 0) return;
+    const totalBasePrice = selectedItems.reduce((acc: number, i: any) => acc + (i.price || 0), 0) / 100;
+    const comboItems = selectedItems.map((i: any) => ({
+      menuItemId: i._id,
+      name: i.name,
+      categoryName: typeof i.categoryId === 'object' ? i.categoryId?.name : categories.find((c: any) => c._id === i.categoryId)?.name || '',
+      quantity: 1,
+      imageUrl: i.imageUrl || '',
+    }));
+
+    setEditingItem(null);
+    setItemModalTab('FORM');
+    itemForm.reset({
+      name: selectedItems.map((i: any) => i.name).join(' + ') + ' Combo',
+      description: `Includes ${selectedItems.map((i: any) => `1x ${i.name}`).join(', ')}.`,
+      pricingType: 'SINGLE',
+      price: Math.round(totalBasePrice * 0.9),
+      variants: [],
+      imageUrl: selectedItems[0]?.imageUrl || '',
+      isVegetarian: selectedItems.every((i: any) => i.isVegetarian),
+      isSpicy: selectedItems.some((i: any) => i.isSpicy),
+      isChefsSpecial: false,
+      prepTimeMinutes: Math.max(...selectedItems.map((i: any) => i.prepTimeMinutes || 10)),
+      trackStock: false,
+      stockQuantity: 0,
+      lowStockThreshold: 5,
+      isCombo: true,
+      comboItems,
+      addOns: [],
+      attachedAddOnGroupIds: [],
+    });
+    setBulkMode(false);
+    setSelectedItemIds([]);
+    setIsItemOpen(true);
+  };
+
   const groupForm = useForm<any>({
     resolver: zodResolver(customGroupSchema),
     defaultValues: {
@@ -1364,17 +1466,27 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
             {/* Bulk Action Bar */}
             {bulkMode && (
-              <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200 flex items-center justify-between text-xs shrink-0">
+              <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
                 <span className="font-bold text-amber-950">
                   {selectedItemIds.length} item{selectedItemIds.length !== 1 ? 's' : ''} selected
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setSelectedItemIds(filteredMenuItems.map((i: any) => i._id))}
-                    className="text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
+                    className="text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer mr-1"
                   >
                     Select All
                   </button>
+                  {selectedItemIds.length >= 2 && (
+                    <button
+                      type="button"
+                      onClick={handleCreateComboFromSelected}
+                      className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs text-xs"
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      Create Combo Bundle ({selectedItemIds.length})
+                    </button>
+                  )}
                   <button
                     onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true }); }}
                     disabled={selectedItemIds.length === 0}
@@ -2344,22 +2456,250 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   )}
                 </div>
 
-                <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="isComboToggle" {...itemForm.register('isCombo')} className="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
-                    <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer">Bundle as Multi-Dish Combo</label>
+                {/* ── COMBO BUNDLE BUILDER SECTION ── */}
+                <div className={`border-2 rounded-2xl transition ${
+                  itemForm.watch('isCombo') ? 'border-violet-300 bg-violet-50/40 p-4 space-y-4 shadow-xs' : 'border-slate-200 bg-slate-50/60 p-3.5'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="isComboToggle"
+                        {...itemForm.register('isCombo')}
+                        className="w-4 h-4 accent-violet-600 rounded cursor-pointer"
+                      />
+                      <div>
+                        <label htmlFor="isComboToggle" className="text-xs font-bold text-slate-900 cursor-pointer flex items-center gap-2">
+                          <span>Bundle as Multi-Dish Combo</span>
+                          <span className="text-[10px] bg-violet-100 text-violet-800 font-bold px-2 py-0.5 rounded-full border border-violet-200">
+                            Combo Deal
+                          </span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Combine multiple menu items into a single meal bundle with special pricing.
+                        </p>
+                      </div>
+                    </div>
                   </div>
+
                   {itemForm.watch('isCombo') && (
-                    <div className="space-y-2 pt-2">
-                      {comboFields.map((cField, cIdx) => (
-                        <div key={cField.id} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
-                          <input type="text" placeholder="Dish name" {...itemForm.register(`comboItems.${cIdx}.name` as const)} className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                          <input type="number" min="1" placeholder="Qty" {...itemForm.register(`comboItems.${cIdx}.quantity` as const)} className="w-16 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold" />
-                          <input type="text" placeholder="Category" {...itemForm.register(`comboItems.${cIdx}.categoryName` as const)} className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                          <button type="button" onClick={() => removeComboItem(cIdx)} className="text-rose-500 p-1 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <div className="space-y-3 pt-2 border-t border-violet-200/60">
+                      
+                      {/* Live Price Calculation Bar */}
+                      <div className="flex items-center justify-between bg-white rounded-xl p-3 border border-violet-200 text-xs shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-medium block leading-none">Bundled Dishes</span>
+                            <span className="text-sm font-black text-slate-900 font-mono">{comboFields.length}</span>
+                          </div>
+                          <div className="h-6 w-px bg-slate-200" />
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-medium block leading-none">Separate Total</span>
+                            <span className="text-sm font-black text-slate-700 font-mono line-through">₹{bundledRegularTotal.toFixed(0)}</span>
+                          </div>
+                          <div className="h-6 w-px bg-slate-200" />
+                          <div>
+                            <span className="text-[10px] text-violet-600 font-bold block leading-none">Customer Saves</span>
+                            <span className="text-sm font-black text-emerald-600 font-mono">
+                              ₹{Math.max(0, bundledRegularTotal - (Number(itemForm.watch('price')) || 0)).toFixed(0)}
+                            </span>
+                          </div>
                         </div>
-                      ))}
-                      <button type="button" onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: '' })} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Bundled Item</button>
+                        {bundledRegularTotal > 0 && (!itemForm.watch('price') || Number(itemForm.watch('price')) === 0) && (
+                          <button
+                            type="button"
+                            onClick={() => itemForm.setValue('price', Math.round(bundledRegularTotal * 0.9))}
+                            className="px-2.5 py-1 bg-violet-100 hover:bg-violet-200 text-violet-800 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                          >
+                            Apply 10% Off (₹{Math.round(bundledRegularTotal * 0.9)})
+                          </button>
+                        )}
+                      </div>
+
+                      {/* List of currently bundled items */}
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-bold text-slate-800">Selected Bundle Items:</span>
+                        {comboFields.length === 0 ? (
+                          <div className="text-center py-4 bg-white/80 rounded-xl border border-dashed border-violet-300 text-xs text-slate-400 space-y-1">
+                            <Package className="w-6 h-6 mx-auto text-violet-300" />
+                            <p>No dishes in this combo yet. Click on dishes below to add them!</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-none pr-0.5">
+                            {comboFields.map((cField: any, cIdx: number) => {
+                              const originalDish = allMenuItems.find((d: any) => d._id === cField.menuItemId || d.name === cField.name);
+                              const currentQty = Number(itemForm.watch(`comboItems.${cIdx}.quantity`) || 1);
+
+                              return (
+                                <div key={cField.id} className="flex items-center justify-between gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    {cField.imageUrl ? (
+                                      <img src={cField.imageUrl} alt={cField.name} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-100" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-slate-400">
+                                        <Package className="w-4 h-4" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-xs font-bold text-slate-900 truncate leading-tight">{cField.name}</div>
+                                      <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                        {cField.categoryName && <span className="bg-slate-100 px-1.5 py-0.2 rounded font-medium">{cField.categoryName}</span>}
+                                        {originalDish && <span className="font-mono">₹{(originalDish.price / 100).toFixed(0)} each</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Quantity Stepper */}
+                                  <div className="flex items-center gap-1 shrink-0 bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (currentQty > 1) {
+                                          itemForm.setValue(`comboItems.${cIdx}.quantity`, currentQty - 1);
+                                        } else {
+                                          removeComboItem(cIdx);
+                                        }
+                                      }}
+                                      className="w-5 h-5 flex items-center justify-center rounded bg-white hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition shadow-2xs"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-6 text-center text-xs font-mono font-bold text-slate-900">
+                                      {currentQty}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => itemForm.setValue(`comboItems.${cIdx}.quantity`, currentQty + 1)}
+                                      className="w-5 h-5 flex items-center justify-center rounded bg-white hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition shadow-2xs"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => removeComboItem(cIdx)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                    title="Remove from combo"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quick Dish Picker / Selector */}
+                      <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <Plus className="w-3.5 h-3.5 text-violet-600" />
+                            Add Menu Dishes to Bundle:
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-mono font-bold">
+                            {availableDishesForCombo.length} available
+                          </span>
+                        </div>
+
+                        {/* Search & Category Filter */}
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              placeholder="Search dishes to add..."
+                              value={comboDishSearch}
+                              onChange={(e) => setComboDishSearch(e.target.value)}
+                              className="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-violet-500 placeholder:text-slate-400"
+                            />
+                            {comboDishSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setComboDishSearch('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                          {categories.length > 0 && (
+                            <select
+                              value={comboCategoryFilter || ''}
+                              onChange={(e) => setComboCategoryFilter(e.target.value || null)}
+                              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-violet-500 text-slate-700 font-medium"
+                            >
+                              <option value="">All Categories</option>
+                              {categories.map((cat: any) => (
+                                <option key={cat._id} value={cat._id}>{cat.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        {/* Dishes Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto scrollbar-none pt-1">
+                          {availableDishesForCombo.length === 0 ? (
+                            <div className="col-span-full text-center py-3 text-xs text-slate-400">
+                              No dishes found matching filter.
+                            </div>
+                          ) : (
+                            availableDishesForCombo.map((dish: any) => {
+                              const isAlreadyAdded = comboFields.some((c: any) => c.menuItemId === dish._id || c.name === dish.name);
+                              const catName = typeof dish.categoryId === 'object' ? dish.categoryId?.name : categories.find((c: any) => c._id === dish.categoryId)?.name;
+
+                              return (
+                                <button
+                                  key={dish._id}
+                                  type="button"
+                                  onClick={() => handleAddDishToCombo(dish)}
+                                  className={`flex items-center justify-between p-2 rounded-xl border text-left transition cursor-pointer text-xs ${
+                                    isAlreadyAdded
+                                      ? 'bg-violet-50/70 border-violet-300 text-violet-950'
+                                      : 'bg-slate-50/50 hover:bg-slate-100/80 border-slate-200/80 text-slate-800'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    {dish.imageUrl ? (
+                                      <img src={dish.imageUrl} alt={dish.name} className="w-7 h-7 rounded-lg object-cover shrink-0" />
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-lg bg-slate-200/80 flex items-center justify-center shrink-0 text-slate-400">
+                                        <Package className="w-3.5 h-3.5" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-bold truncate leading-tight">{dish.name}</div>
+                                      <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                                        <span>₹{((dish.price || 0) / 100).toFixed(0)}</span>
+                                        {catName && <span>· {catName}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className={`p-1 rounded-lg shrink-0 ml-1 font-bold text-[11px] ${
+                                    isAlreadyAdded ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-violet-500 hover:text-white'
+                                  }`}>
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Optional Custom Item Adder */}
+                        <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => appendComboItem({ name: '', quantity: 1, categoryName: 'Custom' })}
+                            className="text-[11px] font-bold text-violet-600 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add custom non-menu item (e.g. Complimentary Drink)
+                          </button>
+                        </div>
+                      </div>
+
                     </div>
                   )}
                 </div>
