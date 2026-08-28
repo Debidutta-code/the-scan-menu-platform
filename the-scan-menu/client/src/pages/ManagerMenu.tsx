@@ -1172,7 +1172,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       {/* TAB 1: MENU DISHES (Sticky 3-Column Area)  */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="sticky top-0 z-10 flex gap-3 items-start h-[calc(100vh-5.25rem)]">
+        <div className="sticky top-0 z-10 flex gap-3 items-start h-full min-h-0">
 
           {/* ── Column 1: Category Sidebar ── */}
           <div className="w-56 xl:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
