@@ -1071,23 +1071,25 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   }
 
   return (
-    <div className="space-y-4 font-sans select-none pb-12">
+    <div className="w-full h-full min-h-0 overflow-y-auto scrollbar-none space-y-3 sm:space-y-4 font-sans select-none pb-12 pr-0.5">
       {/* Top Header & Tab Toggle */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3.5 sm:p-4 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs shrink-0">
         <div>
-          <h1 className="font-display text-lg md:text-xl font-bold text-slate-900 tracking-tight">Menu & Catalog Manager</h1>
-          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+          <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+            Menu &amp; Catalog Manager
+          </h1>
+          <p className="text-slate-500 text-[11px] font-medium mt-0.5">
             Portion-based multi pricing, combos builder, and reusable add-on templates
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* Global UI Text Size / Font Scale Switcher */}
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
             <button
               type="button"
               onClick={() => setFontScale('SMALL')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
                 fontScale === 'SMALL'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1099,7 +1101,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             <button
               type="button"
               onClick={() => setFontScale('NORMAL')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+              className={`px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
                 fontScale === 'NORMAL'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1111,7 +1113,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             <button
               type="button"
               onClick={() => setFontScale('LARGE')}
-              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+              className={`px-2 py-1 rounded-lg text-sm font-black transition cursor-pointer ${
                 fontScale === 'LARGE'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -1122,11 +1124,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             </button>
           </div>
 
-          <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
+          <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
             <button
               type="button"
               onClick={() => setActiveTab('MENU')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+              className={`h-10 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'MENU' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1136,7 +1138,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             <button
               type="button"
               onClick={() => setActiveTab('CUSTOMIZATIONS')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition ${
+              className={`h-10 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'CUSTOMIZATIONS' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1151,9 +1153,9 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       {/* TAB 1: MENU DISHES & CATEGORIES           */}
       {/* ========================================== */}
       {activeTab === 'MENU' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
           {/* Categories Sidebar */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs h-fit space-y-4">
+          <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 sticky top-2 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-none">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h2 className="font-display text-base font-bold text-slate-900">Categories</h2>
               <button
@@ -1162,7 +1164,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   catForm.reset();
                   setIsCatOpen(true);
                 }}
-                className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100/70 px-2.5 py-1 rounded-xl transition"
+                className="h-8 flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 rounded-xl transition cursor-pointer shadow-2xs active:scale-95"
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                 <span>New</span>
@@ -1200,7 +1202,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                               <button
                                 onClick={(e) => handleEditCatClick(cat, e)}
-                                className="p-1 hover:bg-white/20 rounded-lg text-slate-400 hover:text-slate-200"
+                                className="p-1 hover:bg-white/20 rounded-lg text-slate-400 hover:text-slate-200 cursor-pointer"
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
@@ -1211,7 +1213,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                     deleteCatMutation.mutate(cat._id);
                                   }
                                 }}
-                                className="p-1 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-300"
+                                className="p-1 hover:bg-rose-500/20 rounded-lg text-slate-400 hover:text-rose-300 cursor-pointer"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -1227,8 +1229,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           </div>
 
           {/* Menu Items List Workspace */}
-          <div className="lg:col-span-3 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
+          <div className="lg:col-span-3 bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-5">
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md pb-3 pt-1 -mt-1 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-all">
               <div>
                 <h2 className="font-display text-lg font-bold text-slate-900">
                   {categories.find((c: any) => c._id === selectedCatId)?.name || 'Items'}
@@ -1240,8 +1242,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 <button
                   type="button"
                   onClick={() => setBulkMode(!bulkMode)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                    bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  className={`h-10 px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer active:scale-95 shadow-xs ${
+                    bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
@@ -1249,9 +1251,9 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 <button
                   onClick={handleNewItemClick}
                   disabled={!selectedCatId}
-                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition shadow-xs disabled:opacity-40"
+                  className="h-10 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"
                 >
-                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  <Plus className="w-4 h-4" strokeWidth={2.5} />
                   <span>New Menu Item</span>
                 </button>
               </div>

@@ -761,7 +761,7 @@ export const ManagerLayout: React.FC = () => {
         {/* Active Content Panel */}
         <main
           className={`flex-1 min-h-0 relative scrollbar-none ${
-            ['orders', 'counter', 'kds', 'tables'].includes(activeTab)
+            ['orders', 'counter', 'kds', 'tables', 'menu'].includes(activeTab)
               ? 'p-2.5 sm:p-3.5 lg:p-4 overflow-hidden flex flex-col'
               : 'p-3 sm:p-4 lg:p-6 overflow-y-auto'
           }`}
