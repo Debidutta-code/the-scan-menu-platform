@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { apiClient } from '../lib/api';
-import { Leaf, Flame, Loader, FolderOpen, ToggleLeft, ToggleRight, Lock } from 'lucide-react';
+import { Leaf, Flame, FolderOpen, ToggleLeft, ToggleRight, Lock } from 'lucide-react';
 
 /**
  * ManagerMenuAvailability — STAFF-safe item availability view.
@@ -106,8 +106,23 @@ export const ManagerMenuAvailability: React.FC = () => {
 
   if (flagsLoading || isLoadingCats) {
     return (
-      <div className="min-h-[40vh] flex items-center justify-center">
-        <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
+      <div className="w-full space-y-4 font-sans select-none pb-12 animate-pulse">
+        <div className="px-4 py-3.5 sm:px-5 border-b border-slate-150 bg-white rounded-2xl shrink-0 space-y-1">
+          <div className="h-6 w-56 bg-slate-200 rounded" />
+          <div className="h-3 w-72 bg-slate-100 rounded" />
+        </div>
+        <div className="flex flex-1 overflow-hidden bg-white rounded-2xl border border-slate-150">
+          <aside className="w-48 md:w-56 shrink-0 bg-slate-50 border-r border-slate-150 p-3 space-y-2">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div key={n} className="h-9 w-full bg-slate-200 rounded-xl" />
+            ))}
+          </aside>
+          <main className="flex-1 p-4 md:p-6 space-y-3">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="h-16 w-full bg-slate-100 rounded-2xl" />
+            ))}
+          </main>
+        </div>
       </div>
     );
   }
@@ -151,8 +166,10 @@ export const ManagerMenuAvailability: React.FC = () => {
         {/* Items Panel */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {isLoadingItems ? (
-            <div className="flex items-center justify-center h-40">
-              <Loader className="w-6 h-6 animate-spin text-slate-400" strokeWidth={1.75} />
+            <div className="space-y-3 animate-pulse">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <div key={n} className="h-16 w-full bg-slate-100 rounded-2xl" />
+              ))}
             </div>
           ) : menuItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-center">

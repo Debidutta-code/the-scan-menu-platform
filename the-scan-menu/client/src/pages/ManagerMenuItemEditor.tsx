@@ -9,6 +9,7 @@ import { useToast } from '../hooks/useToast';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
+import { MenuItemEditorSkeleton } from '../components/menu/MenuItemEditorSkeleton';
 import { useFieldChangeTracker } from '../hooks/useFieldChangeTracker';
 import {
   ArrowLeft,
@@ -217,7 +218,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
   });
 
   // Fetch Categories
-  const { data: categoriesResponse } = useQuery({
+  const { data: categoriesResponse, isLoading: isLoadingCategories } = useQuery({
     queryKey: ['categories', activeRestaurantId],
     queryFn: async () => {
       const res = await apiClient.get(`/restaurants/${activeRestaurantId}/categories`);
@@ -688,15 +689,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
     )();
   };
 
-  if (isLoadingItem && isEditMode) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center space-y-3">
-          <Loader className="w-8 h-8 animate-spin text-amber-500 mx-auto" />
-          <p className="text-xs text-slate-500 font-bold">Loading menu item details...</p>
-        </div>
-      </div>
-    );
+  if ((isLoadingItem && isEditMode) || (isLoadingCategories && categories.length === 0)) {
+    return <MenuItemEditorSkeleton isEditMode={isEditMode} />;
   }
 
   return (

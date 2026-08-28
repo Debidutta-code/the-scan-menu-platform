@@ -11,12 +11,12 @@ import { useToast } from '../hooks/useToast';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
+import { MenuManagementSkeleton } from '../components/menu/MenuManagementSkeleton';
 import {
   Plus,
   Edit2,
   Trash2,
   X,
-  Loader,
   FolderOpen,
   GripVertical,
   Sliders,
@@ -902,6 +902,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     return <Navigate to="/manager" replace />;
   }
 
+  if (
+    (activeTab === 'MENU' && isLoadingCats && categories.length === 0) ||
+    (activeTab === 'CUSTOMIZATIONS' && isLoadingGroups && customGroups.length === 0)
+  ) {
+    return <MenuManagementSkeleton activeTab={activeTab} />;
+  }
+
   return (
     <div
       className="w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden pb-1"
@@ -959,7 +966,16 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             {/* Categories List (Scrollable) */}
             <div className="space-y-1 overflow-y-auto flex-1 scrollbar-none p-2" onScroll={handleItemsScroll}>
               {isLoadingCats ? (
-                <div className="flex justify-center py-8"><Loader className="w-5 h-5 animate-spin text-amber-500" /></div>
+                <div className="space-y-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <div key={n} className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-slate-50/70 animate-pulse">
+                      <GripVertical className="w-3.5 h-3.5 text-slate-200 shrink-0" />
+                      <div className="w-6 h-6 rounded-lg bg-slate-200 shrink-0" />
+                      <div className="h-3 flex-1 bg-slate-200 rounded" />
+                      <div className="h-3.5 w-5 bg-slate-200/80 rounded-md shrink-0" />
+                    </div>
+                  ))}
+                </div>
               ) : categories.length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-400">No categories yet.<br />Click below to add one.</div>
               ) : (
@@ -1249,7 +1265,36 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               onScroll={handleItemsScroll}
             >
               {isLoadingItems ? (
-                <div className="flex justify-center py-16"><Loader className="w-7 h-7 animate-spin text-amber-500" /></div>
+                <div className="divide-y divide-slate-100 p-1">
+                  {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                    <div
+                      key={n}
+                      className={`grid items-center px-4 py-3 gap-3 animate-pulse ${
+                        activeItemInspector
+                          ? bulkMode ? 'grid-cols-[16px_16px_1fr_72px]' : 'grid-cols-[16px_1fr_72px]'
+                          : bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_110px_32px]' : 'grid-cols-[16px_1fr_80px_52px_110px_32px]'
+                      }`}
+                    >
+                      {bulkMode && <div className="w-4 h-4 rounded bg-slate-200" />}
+                      <GripVertical className="w-3.5 h-3.5 text-slate-200" />
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-slate-200 shrink-0" />
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="h-3.5 w-36 sm:w-48 bg-slate-200 rounded" />
+                          <div className="h-2.5 w-48 sm:w-64 bg-slate-100 rounded hidden sm:block" />
+                        </div>
+                      </div>
+                      <div className="h-3.5 w-14 bg-slate-200 rounded ml-auto" />
+                      {!activeItemInspector && (
+                        <>
+                          <div className="h-4 w-9 bg-slate-100 rounded-full ml-auto" />
+                          <div className="h-5 w-20 bg-emerald-50 border border-emerald-100 rounded-full mx-auto" />
+                          <div className="w-5 h-5 bg-slate-100 rounded-md ml-auto" />
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               ) : !selectedCatId && !isSearching ? (
                 <div className="text-center py-16 text-xs text-slate-400 space-y-2">
                   <FolderOpen className="w-12 h-12 mx-auto text-slate-200 mb-3" />
@@ -1974,7 +2019,30 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           </div>
 
           {isLoadingGroups ? (
-            <div className="flex justify-center p-12"><Loader className="w-8 h-8 animate-spin text-amber-500" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-16 bg-amber-100 rounded-full" />
+                      <div className="h-4 w-32 bg-slate-200 rounded" />
+                      <div className="h-3 w-40 bg-slate-100 rounded" />
+                    </div>
+                    <div className="w-5 h-5 bg-slate-100 rounded" />
+                  </div>
+                  <div className="divide-y divide-slate-100 border-t border-slate-100 pt-2 space-y-2">
+                    <div className="flex justify-between py-1">
+                      <div className="h-3 w-20 bg-slate-200 rounded" />
+                      <div className="h-3 w-12 bg-slate-200 rounded" />
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <div className="h-3 w-24 bg-slate-200 rounded" />
+                      <div className="h-3 w-12 bg-slate-200 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : customGroups.length === 0 ? (
             <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400 space-y-2">
               <Sliders className="w-10 h-10 mx-auto text-slate-200 mb-2" />
