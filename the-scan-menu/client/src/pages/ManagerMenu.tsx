@@ -574,19 +574,17 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     }
   }, [categories, selectedCatId]);
 
-  // Fetch Menu Items scoped inside selectedCategory
+  // Fetch ALL Menu Items for global search and high-speed category switching
   const { data: itemsResponse, isLoading: isLoadingItems } = useQuery({
-    queryKey: ['menuItems', targetRestaurantId, selectedCatId],
+    queryKey: ['menuItems', targetRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(
-        `/restaurants/${targetRestaurantId}/menu-items?categoryId=${selectedCatId}`
-      );
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}/menu-items`);
       return res.data;
     },
-    enabled: !!targetRestaurantId && !!selectedCatId,
+    enabled: !!targetRestaurantId,
   });
 
-  const menuItems = useMemo(() => itemsResponse?.data || [], [itemsResponse]);
+  const allMenuItems = useMemo(() => itemsResponse?.data || [], [itemsResponse]);
 
   // Fetch Customization Groups
   const { data: customGroupsResponse, isLoading: isLoadingGroups } = useQuery({
@@ -636,7 +634,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     },
   });
 
-
   const reorderCatsMutation = useMutation({
     mutationFn: (categoryIds: string[]) =>
       apiClient.patch(`/restaurants/${targetRestaurantId}/categories-reorder`, { categoryIds }),
@@ -676,7 +673,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     mutationFn: (data: any) =>
       apiClient.post(`/restaurants/${targetRestaurantId}/menu-items`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setIsItemOpen(false);
@@ -692,7 +689,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       setIsItemOpen(false);
@@ -709,7 +706,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     mutationFn: (id: string) =>
       apiClient.delete(`/restaurants/${targetRestaurantId}/menu-items/${id}`),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminMenuItems', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       if (res.data?.data?.archived) {
@@ -727,31 +724,45 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         categoryId: selectedCatId,
       }),
     onMutate: async (itemIds: string[]) => {
-      await queryClient.cancelQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
-      const previous = queryClient.getQueryData(['menuItems', targetRestaurantId, selectedCatId]);
+      await queryClient.cancelQueries({ queryKey: ['menuItems', targetRestaurantId] });
+      const previous = queryClient.getQueryData(['menuItems', targetRestaurantId]);
 
-      queryClient.setQueryData(['menuItems', targetRestaurantId, selectedCatId], (old: any) => {
+      queryClient.setQueryData(['menuItems', targetRestaurantId], (old: any) => {
         if (!old) return old;
-        const sorted = [...old.data].sort((a, b) => {
+        const otherItems = old.data.filter((item: any) => {
+          const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+          return cId !== selectedCatId;
+        });
+        const currentCategoryItems = old.data.filter((item: any) => {
+          const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+          return cId === selectedCatId;
+        });
+        const sorted = [...currentCategoryItems].sort((a, b) => {
           return itemIds.indexOf(a._id) - itemIds.indexOf(b._id);
         });
-        return { ...old, data: sorted };
+        return { ...old, data: [...otherItems, ...sorted] };
       });
 
       return { previous };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
     },
   });
 
   const handleDragEndItems = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = menuItems.findIndex((i: any) => i._id === active.id);
-      const newIndex = menuItems.findIndex((i: any) => i._id === over.id);
-      const reordered = arrayMove(menuItems, oldIndex, newIndex);
-      reorderItemsMutation.mutate(reordered.map((i: any) => i._id));
+    if (over && active.id !== over.id && selectedCatId) {
+      const catItems = allMenuItems.filter((i: any) => {
+        const cId = typeof i.categoryId === 'object' ? i.categoryId?._id : i.categoryId;
+        return cId === selectedCatId;
+      });
+      const oldIndex = catItems.findIndex((i: any) => i._id === active.id);
+      const newIndex = catItems.findIndex((i: any) => i._id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(catItems, oldIndex, newIndex);
+        reorderItemsMutation.mutate(reordered.map((i: any) => i._id));
+      }
     }
   };
 
@@ -760,11 +771,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     mutationFn: (id: string) =>
       apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items/${id}/availability`),
     onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
-      const previousItems = queryClient.getQueryData(['menuItems', targetRestaurantId, selectedCatId]);
+      await queryClient.cancelQueries({ queryKey: ['menuItems', targetRestaurantId] });
+      const previousItems = queryClient.getQueryData(['menuItems', targetRestaurantId]);
 
       queryClient.setQueryData(
-        ['menuItems', targetRestaurantId, selectedCatId],
+        ['menuItems', targetRestaurantId],
         (old: any) => {
           if (!old) return old;
           return {
@@ -776,18 +787,52 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         }
       );
 
+      if (activeItemInspector?._id === id) {
+        setActiveItemInspector((prev: any) => prev ? { ...prev, isAvailable: !prev.isAvailable } : null);
+      }
+
       return { previousItems };
     },
     onError: (_err, _id, context) => {
       if (context?.previousItems) {
         queryClient.setQueryData(
-          ['menuItems', targetRestaurantId, selectedCatId],
+          ['menuItems', targetRestaurantId],
           context.previousItems
         );
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
+    },
+  });
+
+  // Direct Stock Update Mutation
+  const updateStockMutation = useMutation({
+    mutationFn: ({
+      itemId,
+      stockQuantity,
+      trackStock,
+      lowStockThreshold,
+    }: {
+      itemId: string;
+      stockQuantity: number;
+      trackStock?: boolean;
+      lowStockThreshold?: number;
+    }) =>
+      apiClient.patch(`/restaurants/${targetRestaurantId}/menu-items/${itemId}/stock`, {
+        stockQuantity,
+        trackStock: trackStock !== undefined ? trackStock : true,
+        lowStockThreshold,
+      }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
+      if (activeItemInspector && res.data?.data) {
+        setActiveItemInspector(res.data.data);
+      }
+      toast('Stock updated successfully', 'success');
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || 'Error updating stock', 'error');
     },
   });
 
@@ -799,7 +844,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
         isAvailable,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId, selectedCatId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItems', targetRestaurantId] });
       setSelectedItemIds([]);
       setBulkMode(false);
     },
@@ -1063,15 +1108,28 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     }
   };
 
-  // Filtered items for search
+  // ── Global & Category Filtering ──────────────────────────────────────────
+  const isSearching = searchQuery.trim().length > 0;
+
   const filteredMenuItems = useMemo(() => {
-    if (!searchQuery.trim()) return menuItems;
-    const q = searchQuery.toLowerCase();
-    return menuItems.filter((item: any) =>
-      item.name?.toLowerCase().includes(q) ||
-      item.description?.toLowerCase().includes(q)
-    );
-  }, [menuItems, searchQuery]);
+    if (isSearching) {
+      const q = searchQuery.toLowerCase().trim();
+      return allMenuItems.filter((item: any) => {
+        const catName = typeof item.categoryId === 'object' ? item.categoryId?.name : '';
+        return (
+          item.name?.toLowerCase().includes(q) ||
+          item.description?.toLowerCase().includes(q) ||
+          catName?.toLowerCase().includes(q) ||
+          item.variants?.some((v: any) => v.name?.toLowerCase().includes(q))
+        );
+      });
+    }
+    if (!selectedCatId) return [];
+    return allMenuItems.filter((item: any) => {
+      const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+      return cId === selectedCatId;
+    });
+  }, [allMenuItems, selectedCatId, isSearching, searchQuery]);
 
   if (!restaurantId && user?.role !== 'SUPER_ADMIN' && !flagsLoading && !isEnabled('qr_menu')) {
     return <Navigate to="/manager" replace />;
@@ -1079,12 +1137,12 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   return (
     <div
-      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none font-sans select-none pb-8 pr-0.5"
+      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none font-sans select-none pb-8 pr-0.5 space-y-3"
       onClick={() => setOpenMenuId(null)}
     >
 
-      {/* ── Header Bar ── */}
-      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-white/95 backdrop-blur-md p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs mb-3 transition-all">
+      {/* ── Page Header (Scrolls naturally with page) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs shrink-0 transition-all">
         <div>
           <h1 className="font-display tracking-tight text-lg font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
           <p className="text-slate-500 text-[11px] font-medium mt-0.5">Manage dishes, categories, pricing and modifier templates</p>
@@ -1128,13 +1186,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       </div>
 
       {/* ══════════════════════════════════════════ */}
-      {/* TAB 1: MENU DISHES                        */}
+      {/* TAB 1: MENU DISHES (3-Column Sticky Container) */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="flex gap-3 items-start">
+        <div className="sticky top-0 z-10 flex gap-3 items-start h-[calc(100vh-4.75rem)]">
 
-          {/* ── Category Sidebar ── */}
-          <div className="w-56 xl:w-64 shrink-0 sticky top-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col max-h-[calc(100vh-4.5rem)] overflow-hidden">
+          {/* ── Column 1: Category Sidebar ── */}
+          <div className="w-56 xl:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
             <div className="px-3.5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h2 className="font-bold text-sm text-slate-900">Categories</h2>
               <span className="text-[11px] font-mono font-black text-slate-400">{categories.length}</span>
@@ -1149,14 +1207,19 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCategories}>
                   <SortableContext items={categories.map((c: any) => c._id)} strategy={verticalListSortingStrategy}>
                     {categories.map((cat: any) => {
-                      const isActive = selectedCatId === cat._id;
+                      const isActive = selectedCatId === cat._id && !isSearching;
+                      const catItemCount = allMenuItems.filter((i: any) => {
+                        const cId = typeof i.categoryId === 'object' ? i.categoryId?._id : i.categoryId;
+                        return cId === cat._id;
+                      }).length;
+
                       return (
                         <SortableItem key={cat._id} id={cat._id}>
                           {({ dragHandleProps }) => (
                             <div
                               onClick={() => { setSelectedCatId(cat._id); setActiveItemInspector(null); setSearchQuery(''); }}
                               className={`group flex items-center gap-2 px-2.5 py-2 rounded-xl cursor-pointer text-xs font-semibold transition mb-0.5 ${
-                                isActive ? 'bg-slate-950 text-white' : 'hover:bg-slate-50 text-slate-700'
+                                isActive ? 'bg-slate-950 text-white shadow-xs' : 'hover:bg-slate-50 text-slate-700'
                               }`}
                             >
                               <span
@@ -1174,6 +1237,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                 </div>
                               )}
                               <span className="truncate flex-1 leading-tight">{cat.name}</span>
+                              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md shrink-0 ${
+                                isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200/80 group-hover:text-slate-600'
+                              }`}>
+                                {catItemCount}
+                              </span>
                               <button
                                 onClick={(e) => handleEditCatClick(cat, e)}
                                 className={`p-1 rounded-lg transition cursor-pointer opacity-0 group-hover:opacity-100 shrink-0 ${
@@ -1203,13 +1271,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 <div className="bg-amber-50 rounded-xl p-2">
                   <div className="text-[10px] text-amber-700 font-medium">Live Items</div>
                   <div className="text-base font-black text-amber-900 font-mono">
-                    {menuItems.filter((i: any) => i.isAvailable).length}
+                    {allMenuItems.filter((i: any) => i.isAvailable).length}
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => { setEditingCat(null); catForm.reset(); setIsCatOpen(true); }}
-                className="w-full h-9 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer active:scale-95"
+                className="w-full h-9 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer active:scale-95 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                 Add New Category
@@ -1217,104 +1285,138 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             </div>
           </div>
 
-          {/* ── Main Panel ── */}
-          <div className="flex-1 min-w-0 flex gap-3 items-start">
+          {/* ── Column 2: Items Table Panel ── */}
+          <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
 
-            {/* ── Items Table Panel ── */}
-            <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            {/* Panel Header */}
+            <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 shrink-0">
+              <div className="min-w-0 mr-2">
+                <h2 className="font-bold text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5">
+                  {isSearching ? (
+                    <>
+                      <span>Search Results</span>
+                      <span className="text-xs font-normal text-amber-600 font-mono">(&ldquo;{searchQuery}&rdquo;)</span>
+                    </>
+                  ) : (
+                    categories.find((c: any) => c._id === selectedCatId)?.name || 'Select a category'
+                  )}
+                </h2>
+                <p className="text-[11px] text-slate-400 font-medium font-mono">
+                  {filteredMenuItems.length} {filteredMenuItems.length === 1 ? 'item' : 'items'}
+                  {filteredMenuItems.filter((i: any) => !i.isAvailable).length > 0 && (
+                    <span className="text-rose-500 ml-1.5">· {filteredMenuItems.filter((i: any) => !i.isAvailable).length} unavailable</span>
+                  )}
+                </p>
+              </div>
 
-              {/* Panel Header */}
-              <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 shrink-0">
-                <div className="min-w-0 mr-2">
-                  <h2 className="font-bold text-sm text-slate-900 leading-tight truncate">
-                    {categories.find((c: any) => c._id === selectedCatId)?.name || 'Select a category'}
-                  </h2>
-                  <p className="text-[11px] text-slate-400 font-medium font-mono">
-                    {menuItems.length} {menuItems.length === 1 ? 'item' : 'items'}
-                    {menuItems.filter((i: any) => !i.isAvailable).length > 0 && (
-                      <span className="text-rose-500 ml-1.5">· {menuItems.filter((i: any) => !i.isAvailable).length} unavailable</span>
-                    )}
-                  </p>
-                </div>
-
-                {/* Search */}
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
-                  <input
-                    type="text"
-                    placeholder="Search items..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-40 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition"
-                  />
-                </div>
-
-                <div className="ml-auto flex items-center gap-2">
+              {/* Global Search Input */}
+              <div className="relative ml-auto sm:ml-0" onClick={(e) => e.stopPropagation()}>
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+                <input
+                  type="text"
+                  placeholder="Global search dishes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-48 sm:w-56 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition placeholder:text-slate-400"
+                />
+                {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
-                    className={`h-8 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                      bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
                   >
-                    {bulkMode ? 'Cancel' : 'Bulk Edit'}
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
+                  className={`h-8 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                    bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {bulkMode ? 'Cancel' : 'Bulk Edit'}
+                </button>
+                <button
+                  onClick={handleNewItemClick}
+                  disabled={!selectedCatId && !isSearching}
+                  className="h-8 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  New Item
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk Action Bar */}
+            {bulkMode && (
+              <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200 flex items-center justify-between text-xs shrink-0">
+                <span className="font-bold text-amber-950">
+                  {selectedItemIds.length} item{selectedItemIds.length !== 1 ? 's' : ''} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSelectedItemIds(filteredMenuItems.map((i: any) => i._id))}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
+                  >
+                    Select All
                   </button>
                   <button
-                    onClick={handleNewItemClick}
-                    disabled={!selectedCatId}
-                    className="h-8 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"
+                    onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true }); }}
+                    disabled={selectedItemIds.length === 0}
+                    className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-2xs"
                   >
-                    <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    New Item
+                    Make Available
+                  </button>
+                  <button
+                    onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false }); }}
+                    disabled={selectedItemIds.length === 0}
+                    className="h-7 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-2xs"
+                  >
+                    Mark 86&apos;d
                   </button>
                 </div>
               </div>
+            )}
 
-              {/* Bulk Action Bar */}
+            {/* Column Header */}
+            <div className={`grid items-center px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 gap-3 shrink-0 ${
+              bulkMode ? 'grid-cols-[16px_16px_1fr_80px_60px_130px_32px]' : 'grid-cols-[16px_1fr_80px_60px_130px_32px]'
+            }`}>
               {bulkMode && (
-                <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200 flex items-center justify-between text-xs">
-                  <span className="font-bold text-amber-950">
-                    {selectedItemIds.length} item{selectedItemIds.length !== 1 ? 's' : ''} selected
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSelectedItemIds(filteredMenuItems.map((i: any) => i._id))}
-                      className="text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
-                    >
-                      Select All
-                    </button>
-                    <button
-                      onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true }); }}
-                      disabled={selectedItemIds.length === 0}
-                      className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer"
-                    >
-                      Make Available
-                    </button>
-                    <button
-                      onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false }); }}
-                      disabled={selectedItemIds.length === 0}
-                      className="h-7 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer"
-                    >
-                      Mark 86&apos;d
-                    </button>
-                  </div>
-                </div>
+                <input
+                  type="checkbox"
+                  checked={selectedItemIds.length === filteredMenuItems.length && filteredMenuItems.length > 0}
+                  onChange={(e) => setSelectedItemIds(e.target.checked ? filteredMenuItems.map((i: any) => i._id) : [])}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
               )}
+              <div /> {/* drag handle col */}
+              <div>Item</div>
+              <div className="text-right">Price</div>
+              <div className="text-right">Stock</div>
+              <div className="text-center">Status</div>
+              <div />
+            </div>
 
-              {/* Items Content */}
+            {/* Items Rows (Independently Scrollable Container) */}
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none divide-y divide-slate-100">
               {isLoadingItems ? (
                 <div className="flex justify-center py-16"><Loader className="w-7 h-7 animate-spin text-amber-500" /></div>
-              ) : !selectedCatId ? (
+              ) : !selectedCatId && !isSearching ? (
                 <div className="text-center py-16 text-xs text-slate-400 space-y-2">
                   <FolderOpen className="w-12 h-12 mx-auto text-slate-200 mb-3" />
                   <p>Select a category to view its items</p>
                 </div>
               ) : filteredMenuItems.length === 0 ? (
                 <div className="text-center py-16 text-xs text-slate-400 space-y-3">
-                  {searchQuery ? (
+                  {isSearching ? (
                     <>
-                      <p>No items match &ldquo;<strong>{searchQuery}</strong>&rdquo;.</p>
-                      <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear search</button>
+                      <p>No menu items matched &ldquo;<strong>{searchQuery}</strong>&rdquo; across all categories.</p>
+                      <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear global search</button>
                     </>
                   ) : (
                     <>
@@ -1325,576 +1427,658 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   )}
                 </div>
               ) : (
-                <div>
-                  {/* Table Column Header */}
-                  <div className={`grid items-center px-4 py-2 bg-slate-50/80 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 gap-3 ${
-                    bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_100px_32px]' : 'grid-cols-[16px_1fr_80px_52px_100px_32px]'
-                  }`}>
-                    {bulkMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedItemIds.length === filteredMenuItems.length && filteredMenuItems.length > 0}
-                        onChange={(e) => setSelectedItemIds(e.target.checked ? filteredMenuItems.map((i: any) => i._id) : [])}
-                        className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                      />
-                    )}
-                    <div /> {/* drag handle col */}
-                    <div>Item</div>
-                    <div className="text-right">Price</div>
-                    <div className="text-right">Stock</div>
-                    <div className="text-center">Status</div>
-                    <div />
-                  </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndItems}>
+                  <SortableContext items={filteredMenuItems.map((i: any) => i._id)} strategy={verticalListSortingStrategy}>
+                    {filteredMenuItems.map((item: any) => {
+                      const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
+                      const isSelected = selectedItemIds.includes(item._id);
+                      const isInspecting = activeItemInspector?._id === item._id;
+                      const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
+                      const isMenuOpen = openMenuId === item._id;
+                      const isAvailable = item.isAvailable !== false;
+                      const categoryName = typeof item.categoryId === 'object' ? item.categoryId?.name : categories.find((c: any) => c._id === item.categoryId)?.name;
 
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndItems}>
-                    <SortableContext items={filteredMenuItems.map((i: any) => i._id)} strategy={verticalListSortingStrategy}>
-                      <div className="divide-y divide-slate-100">
-                        {filteredMenuItems.map((item: any) => {
-                          const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
-                          const isSelected = selectedItemIds.includes(item._id);
-                          const isInspecting = activeItemInspector?._id === item._id;
-                          const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
-                          const isMenuOpen = openMenuId === item._id;
-
-                          return (
-                            <SortableItem key={item._id} id={item._id}>
-                              {({ dragHandleProps }) => (
-                                <div
-                                  className={`group grid items-center px-4 py-2.5 gap-3 transition cursor-pointer ${
-                                    bulkMode ? 'grid-cols-[16px_16px_1fr_80px_52px_100px_32px]' : 'grid-cols-[16px_1fr_80px_52px_100px_32px]'
-                                  } ${isInspecting ? 'bg-amber-50/50 border-l-2 border-amber-500' : 'hover:bg-slate-50/70 border-l-2 border-transparent'}`}
-                                  onClick={() => {
-                                    if (!bulkMode) {
-                                      setActiveItemInspector(isInspecting ? null : item);
-                                      setInspectorTab('OVERVIEW');
-                                      setOpenMenuId(null);
-                                    }
+                      return (
+                        <SortableItem key={item._id} id={item._id}>
+                          {({ dragHandleProps }) => (
+                            <div
+                              className={`group grid items-center px-4 py-2.5 gap-3 transition cursor-pointer border-l-3 ${
+                                bulkMode ? 'grid-cols-[16px_16px_1fr_80px_60px_130px_32px]' : 'grid-cols-[16px_1fr_80px_60px_130px_32px]'
+                              } ${
+                                isInspecting
+                                  ? 'bg-amber-50/70 border-amber-500'
+                                  : !isAvailable
+                                  ? 'bg-slate-50/80 hover:bg-slate-100/70 border-rose-300'
+                                  : 'hover:bg-slate-50/70 border-transparent'
+                              }`}
+                              onClick={() => {
+                                if (!bulkMode) {
+                                  setActiveItemInspector(isInspecting ? null : item);
+                                  setInspectorTab('OVERVIEW');
+                                  setOpenMenuId(null);
+                                }
+                              }}
+                            >
+                              {/* Checkbox (bulk) */}
+                              {bulkMode && (
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    if (e.target.checked) setSelectedItemIds(prev => [...prev, item._id]);
+                                    else setSelectedItemIds(prev => prev.filter(id => id !== item._id));
                                   }}
-                                >
-                                  {/* Checkbox (bulk) */}
-                                  {bulkMode && (
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={(e) => {
-                                        e.stopPropagation();
-                                        if (e.target.checked) setSelectedItemIds(prev => [...prev, item._id]);
-                                        else setSelectedItemIds(prev => prev.filter(id => id !== item._id));
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                                />
+                              )}
+
+                              {/* Drag handle */}
+                              <span
+                                {...dragHandleProps}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`cursor-grab transition ${isSearching ? 'opacity-20 cursor-not-allowed' : 'text-slate-300 group-hover:text-slate-400'}`}
+                                title={isSearching ? 'Reordering disabled during global search' : 'Drag to reorder'}
+                              >
+                                <GripVertical className="w-4 h-4" />
+                              </span>
+
+                              {/* Item info */}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-100 relative">
+                                  {item.imageUrl ? (
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.name}
+                                      className={`w-full h-full object-cover transition duration-150 ${!isAvailable ? 'grayscale-[50%] opacity-75' : ''}`}
                                     />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                      <Sparkles className="w-4 h-4" />
+                                    </div>
                                   )}
-
-                                  {/* Drag handle */}
-                                  <span
-                                    {...dragHandleProps}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="cursor-grab text-slate-300 group-hover:text-slate-400 transition"
-                                  >
-                                    <GripVertical className="w-4 h-4" />
-                                  </span>
-
-                                  {/* Item info */}
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-100">
-                                      {item.imageUrl ? (
-                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                          <Sparkles className="w-4 h-4" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                                        <span className="text-sm font-bold text-slate-900 leading-tight">{item.name}</span>
-                                        {item.isSpicy && <MenuBadge variant="spicy" />}
-                                        {item.isChefsSpecial && (
-                                          <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.5 rounded-full">Special</span>
-                                        )}
-                                        {item.isCombo && (
-                                          <span className="text-[9px] font-black uppercase text-violet-900 bg-violet-100 px-1.5 py-0.5 rounded-full">Combo</span>
-                                        )}
-                                      </div>
-                                      {item.description && (
-                                        <p className="text-[11px] text-slate-400 truncate mt-0.5 max-w-[220px]">{item.description}</p>
-                                      )}
-                                      {item.prepTimeMinutes && (
-                                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5 mt-0.5">
-                                          <Clock className="w-2.5 h-2.5" />{item.prepTimeMinutes} min
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Price */}
-                                  <div className="text-right">
-                                    {isPortion ? (
-                                      <div>
-                                        <span className="text-[10px] text-slate-400 block leading-tight">From</span>
-                                        <span className="text-sm font-black text-slate-900 font-mono">₹{(minPrice / 100).toFixed(0)}</span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-sm font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                    <span className={`text-sm font-bold leading-tight ${!isAvailable ? 'text-slate-700' : 'text-slate-900'}`}>
+                                      {item.name}
+                                    </span>
+                                    {!isAvailable && (
+                                      <span className="text-[9px] font-black uppercase text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.2 rounded-md">
+                                        86&apos;d
+                                      </span>
+                                    )}
+                                    {item.isSpicy && <MenuBadge variant="spicy" />}
+                                    {item.isChefsSpecial && (
+                                      <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.5 rounded-full">Special</span>
+                                    )}
+                                    {item.isCombo && (
+                                      <span className="text-[9px] font-black uppercase text-violet-900 bg-violet-100 px-1.5 py-0.5 rounded-full">Combo</span>
                                     )}
                                   </div>
 
-                                  {/* Stock */}
-                                  <div className="text-right">
-                                    {item.trackStock ? (
-                                      <div>
-                                        <span className={`text-sm font-black font-mono ${
-                                          item.stockQuantity === 0 ? 'text-rose-600' :
-                                          item.stockQuantity <= (item.lowStockThreshold || 5) ? 'text-amber-600' :
-                                          'text-emerald-700'
-                                        }`}>{item.stockQuantity}</span>
-                                        {item.stockQuantity <= (item.lowStockThreshold || 5) && item.stockQuantity > 0 && (
-                                          <span className="text-[9px] font-bold text-amber-600 block leading-tight">Low</span>
-                                        )}
-                                        {item.stockQuantity === 0 && (
-                                          <span className="text-[9px] font-bold text-rose-600 block leading-tight">Out</span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-slate-300 font-mono">—</span>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {isSearching && categoryName && (
+                                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded flex items-center gap-1">
+                                        <FolderOpen className="w-2.5 h-2.5 text-slate-400" />
+                                        {categoryName}
+                                      </span>
                                     )}
-                                  </div>
-
-                                  {/* Availability toggle */}
-                                  <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleAvailableMutation.mutate(item._id)}
-                                      className={`h-7 px-3 rounded-xl text-[11px] font-bold transition cursor-pointer border whitespace-nowrap ${
-                                        item.isAvailable
-                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                                      }`}
-                                    >
-                                      {item.isAvailable ? 'Available' : "86'd"}
-                                    </button>
-                                  </div>
-
-                                  {/* ⋯ Overflow menu */}
-                                  <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                      type="button"
-                                      onClick={() => setOpenMenuId(isMenuOpen ? null : item._id)}
-                                      className={`w-8 h-8 flex items-center justify-center rounded-xl transition cursor-pointer ${
-                                        isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
-                                      }`}
-                                    >
-                                      <MoreVertical className="w-4 h-4" />
-                                    </button>
-
-                                    {isMenuOpen && (
-                                      <div className="absolute right-0 top-9 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
-                                        <button
-                                          onClick={() => {
-                                            setOpenMenuId(null);
-                                            setPreviewDish({
-                                              ...item,
-                                              price: (item.price || 0) / 100,
-                                              variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
-                                              addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
-                                            });
-                                            setPreviewMode('LIST');
-                                          }}
-                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
-                                        >
-                                          <Eye className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                          Customer Preview
-                                        </button>
-                                        <button
-                                          onClick={() => { setOpenMenuId(null); handleEditItemClick(item); }}
-                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                                        >
-                                          <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                          Edit Details
-                                        </button>
-                                        <div className="h-px bg-slate-100 my-0.5" />
-                                        <button
-                                          onClick={() => {
-                                            setOpenMenuId(null);
-                                            if (confirm(`Delete "${item.name}"?\n\nThis cannot be undone. Items with order history will be archived instead.`)) {
-                                              if (activeItemInspector?._id === item._id) setActiveItemInspector(null);
-                                              deleteItemMutation.mutate(item._id);
-                                            }
-                                          }}
-                                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                                          Delete Item
-                                        </button>
-                                      </div>
+                                    {item.description && (
+                                      <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{item.description}</p>
+                                    )}
+                                    {item.prepTimeMinutes && (
+                                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-0.5">
+                                        <Clock className="w-2.5 h-2.5" />{item.prepTimeMinutes} min
+                                      </span>
                                     )}
                                   </div>
                                 </div>
-                              )}
-                            </SortableItem>
-                          );
-                        })}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
+                              </div>
 
-                  {/* Footer count */}
-                  <div className="px-4 py-2.5 border-t border-slate-100 text-[11px] text-slate-400 font-medium flex items-center justify-between">
-                    <span>Showing {filteredMenuItems.length} of {menuItems.length} {menuItems.length === 1 ? 'item' : 'items'}</span>
-                    {searchQuery && (
-                      <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear search</button>
-                    )}
-                  </div>
-                </div>
+                              {/* Price */}
+                              <div className="text-right">
+                                {isPortion ? (
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 block leading-tight">From</span>
+                                    <span className="text-sm font-black text-slate-900 font-mono">₹{(minPrice / 100).toFixed(0)}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
+                                )}
+                              </div>
+
+                              {/* Stock */}
+                              <div className="text-right">
+                                {item.trackStock ? (
+                                  <div>
+                                    <span className={`text-sm font-black font-mono ${
+                                      item.stockQuantity === 0 ? 'text-rose-600' :
+                                      item.stockQuantity <= (item.lowStockThreshold || 5) ? 'text-amber-600' :
+                                      'text-emerald-700'
+                                    }`}>{item.stockQuantity}</span>
+                                    {item.stockQuantity <= (item.lowStockThreshold || 5) && item.stockQuantity > 0 && (
+                                      <span className="text-[9px] font-bold text-amber-600 block leading-tight">Low</span>
+                                    )}
+                                    {item.stockQuantity === 0 && (
+                                      <span className="text-[9px] font-bold text-rose-600 block leading-tight">Out</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-300 font-mono">—</span>
+                                )}
+                              </div>
+
+                              {/* Status Toggle Switch */}
+                              <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={isAvailable}
+                                  onClick={() => toggleAvailableMutation.mutate(item._id)}
+                                  title={isAvailable ? "Click to 86 / mark unavailable" : "Click to make available"}
+                                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                                    isAvailable ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 hover:bg-slate-400'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-150 ease-in-out ${
+                                      isAvailable ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                                <span className={`text-[11px] font-bold w-16 text-left select-none ${
+                                  isAvailable ? 'text-emerald-700' : 'text-slate-400'
+                                }`}>
+                                  {isAvailable ? 'Available' : '86\'d'}
+                                </span>
+                              </div>
+
+                              {/* ⋯ Overflow menu */}
+                              <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenMenuId(isMenuOpen ? null : item._id)}
+                                  className={`w-8 h-8 flex items-center justify-center rounded-xl transition cursor-pointer ${
+                                    isMenuOpen ? 'bg-slate-100 text-slate-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                                  }`}
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {isMenuOpen && (
+                                  <div className="absolute right-0 top-9 z-40 bg-white border border-slate-200 rounded-xl shadow-xl w-44 py-1 overflow-hidden">
+                                    <button
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        setPreviewDish({
+                                          ...item,
+                                          price: (item.price || 0) / 100,
+                                          variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                                          addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                                        });
+                                        setPreviewMode('LIST');
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-amber-50 hover:text-amber-900 transition cursor-pointer"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                      Customer Preview
+                                    </button>
+                                    <button
+                                      onClick={() => { setOpenMenuId(null); handleEditItemClick(item); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      Edit Details
+                                    </button>
+                                    <div className="h-px bg-slate-100 my-0.5" />
+                                    <button
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        if (confirm(`Delete "${item.name}"?\n\nThis cannot be undone. Items with order history will be archived instead.`)) {
+                                          if (activeItemInspector?._id === item._id) setActiveItemInspector(null);
+                                          deleteItemMutation.mutate(item._id);
+                                        }
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                      Delete Item
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </SortableItem>
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
 
-            {/* ── Item Inspector Panel ── */}
-            {activeItemInspector && (() => {
-              const item = activeItemInspector;
-              const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
-              const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
-              const attachedGroups = customGroups.filter((g: any) => item.attachedAddOnGroupIds?.includes(g._id));
+            {/* Middle Panel Footer */}
+            <div className="px-4 py-2.5 border-t border-slate-100 text-[11px] text-slate-400 font-medium flex items-center justify-between shrink-0">
+              <span>
+                Showing {filteredMenuItems.length} of {allMenuItems.length} {allMenuItems.length === 1 ? 'item' : 'items'}
+                {isSearching && ' (Global Search)'}
+              </span>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear search</button>
+              )}
+            </div>
+          </div>
 
-              return (
-                <div className="w-80 xl:w-96 shrink-0 sticky top-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col max-h-[calc(100vh-4.5rem)] overflow-hidden">
-                  {/* Inspector Header */}
-                  <div className="px-4 py-3.5 border-b border-slate-100 shrink-0 bg-slate-50/60">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <Sparkles className="w-5 h-5" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-sm text-slate-900 leading-tight">{item.name}</h3>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {item._id?.slice(-8)}</p>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                            {item.isSpicy && <MenuBadge variant="spicy" />}
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              item.isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                            }`}>{item.isAvailable ? 'Active' : "86'd"}</span>
+          {/* ── Column 3: Item Inspector Panel ── */}
+          {activeItemInspector && (() => {
+            const item = activeItemInspector;
+            const isPortion = item.pricingType === 'PORTION' && item.variants?.length > 0;
+            const minPrice = isPortion ? Math.min(...item.variants.map((v: any) => v.price)) : item.price;
+            const attachedGroups = customGroups.filter((g: any) => item.attachedAddOnGroupIds?.includes(g._id));
+            const isAvailable = item.isAvailable !== false;
+
+            return (
+              <div className="w-80 xl:w-96 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full overflow-hidden">
+                {/* Inspector Header */}
+                <div className="px-4 py-3.5 border-b border-slate-100 shrink-0 bg-slate-50/60">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300">
+                            <Sparkles className="w-5 h-5" />
                           </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-sm text-slate-900 leading-tight truncate">{item.name}</h3>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {item._id?.slice(-8)}</p>
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                          {item.isSpicy && <MenuBadge variant="spicy" />}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                          }`}>{isAvailable ? 'Active' : "86'd"}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setActiveItemInspector(null)}
-                        className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition shrink-0 cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-medium block leading-tight">
-                          {isPortion ? `From · ${item.variants.length} portions` : 'Price'}
-                        </span>
-                        <span className="text-xl font-black text-slate-900 font-mono">
-                          {isPortion ? `₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleAvailableMutation.mutate(item._id)}
-                        className={`h-8 px-4 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                          item.isAvailable
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                        }`}
-                      >
-                        {item.isAvailable ? '✓ Available' : "✕ 86'd"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Inspector Tabs */}
-                  <div className="flex border-b border-slate-100 shrink-0 overflow-x-auto scrollbar-none">
-                    {(['OVERVIEW', 'VARIANTS', 'ADDONS', 'INVENTORY'] as const).map((tab) => {
-                      const label =
-                        tab === 'OVERVIEW' ? 'Overview' :
-                        tab === 'VARIANTS' ? `Portions${isPortion ? ` (${item.variants.length})` : ''}` :
-                        tab === 'ADDONS' ? `Add-Ons${(item.addOns?.length || 0) + attachedGroups.length > 0 ? ` (${(item.addOns?.length || 0) + attachedGroups.length})` : ''}` :
-                        'Inventory';
-                      return (
-                        <button
-                          key={tab}
-                          type="button"
-                          onClick={() => setInspectorTab(tab)}
-                          className={`flex-shrink-0 px-3.5 py-2.5 text-[11px] font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-                            inspectorTab === tab
-                              ? 'border-amber-500 text-amber-700 bg-amber-50/40'
-                              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Inspector Tab Content */}
-                  <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-4">
-
-                    {/* ── OVERVIEW TAB ── */}
-                    {inspectorTab === 'OVERVIEW' && (
-                      <>
-                        {item.description && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Description</p>
-                            <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
-                          </div>
-                        )}
-
-                        {(item.isChefsSpecial || item.isCombo || item.prepTimeMinutes) && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Properties</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {item.isChefsSpecial && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center gap-2">
-                                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                                  <span className="text-xs font-bold text-amber-900">Chef&apos;s Special</span>
-                                </div>
-                              )}
-                              {item.isCombo && (
-                                <div className="bg-violet-50 border border-violet-200 rounded-xl p-2.5 flex items-center gap-2">
-                                  <Package className="w-4 h-4 text-violet-500 shrink-0" />
-                                  <span className="text-xs font-bold text-violet-900">Combo Pack</span>
-                                </div>
-                              )}
-                              {item.prepTimeMinutes && (
-                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-2">
-                                  <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                                  <span className="text-xs font-bold text-slate-700">{item.prepTimeMinutes} min prep</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {item.isCombo && item.comboItems?.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Bundled Items</p>
-                            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                              {item.comboItems.map((c: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
-                                  <span className="text-slate-700 font-medium">{c.name}</span>
-                                  <span className="font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-lg">×{c.quantity}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Mini customer card preview */}
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Customer Card Preview</p>
-                          <div className="bg-[#FAF9F6] border border-slate-200 rounded-2xl p-3">
-                            <div className="flex gap-3 items-start">
-                              <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100">
-                                {item.imageUrl ? (
-                                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-slate-200"><Sparkles className="w-6 h-6" /></div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1">
-                                  <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                                  <span className="text-xs font-bold text-slate-900 truncate">{item.name}</span>
-                                </div>
-                                {item.description && <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{item.description}</p>}
-                                <div className="flex items-center justify-between mt-2">
-                                  <span className="text-sm font-black text-slate-900 font-mono">
-                                    {isPortion ? `From ₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
-                                  </span>
-                                  <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg">+ Add</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPreviewDish({
-                                ...item,
-                                price: (item.price || 0) / 100,
-                                variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
-                                addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
-                              });
-                              setPreviewMode('LIST');
-                            }}
-                            className="w-full mt-2 h-8 flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-amber-500" />
-                            Full Customer Preview
-                          </button>
-                        </div>
-                      </>
-                    )}
-
-                    {/* ── VARIANTS TAB ── */}
-                    {inspectorTab === 'VARIANTS' && (
-                      <>
-                        {!isPortion ? (
-                          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
-                            <p className="font-medium">Single pricing model</p>
-                            <p className="text-2xl font-black text-slate-800 font-mono">₹{(item.price / 100).toFixed(2)}</p>
-                            <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Edit to add portion sizes</button>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Portion Sizes</p>
-                            {item.variants.map((v: any, idx: number) => (
-                              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-slate-900">{v.name}</span>
-                                  {v.isDefault && <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Default</span>}
-                                </div>
-                                <span className="font-mono font-black text-slate-900">₹{(v.price / 100).toFixed(0)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* ── ADD-ONS TAB ── */}
-                    {inspectorTab === 'ADDONS' && (
-                      <>
-                        {item.addOns?.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Dish-Specific Add-Ons</p>
-                            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
-                              {item.addOns.map((addon: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
-                                  <span className="text-slate-700 font-medium">{addon.name}</span>
-                                  <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">
-                                    +₹{((addon.priceDelta || 0) / 100).toFixed(0)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {attachedGroups.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Modifier Templates</p>
-                            <div className="space-y-2">
-                              {attachedGroups.map((group: any) => (
-                                <div key={group._id} className="border border-slate-200 rounded-xl overflow-hidden">
-                                  <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
-                                    <span className="text-xs font-bold text-slate-900">{group.name}</span>
-                                    <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded-full">{group.type}</span>
-                                  </div>
-                                  <div className="divide-y divide-slate-100">
-                                    {group.options.map((opt: any, oIdx: number) => (
-                                      <div key={oIdx} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                                        <span className="text-slate-600">{opt.name}</span>
-                                        <span className="font-mono font-bold text-slate-700">+₹{((opt.priceDelta || opt.price || 0) / 100).toFixed(0)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {!item.addOns?.length && !attachedGroups.length && (
-                          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
-                            <Sliders className="w-8 h-8 mx-auto text-slate-200 mb-2" />
-                            <p>No add-ons attached to this item.</p>
-                            <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Add customizations</button>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* ── INVENTORY TAB ── */}
-                    {inspectorTab === 'INVENTORY' && (
-                      <>
-                        {item.trackStock ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-700">Stock Tracking</span>
-                              <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Enabled</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className={`text-center p-4 rounded-xl border ${
-                                item.stockQuantity === 0 ? 'bg-rose-50 border-rose-200' :
-                                item.stockQuantity <= (item.lowStockThreshold || 5) ? 'bg-amber-50 border-amber-200' :
-                                'bg-emerald-50/60 border-emerald-200'
-                              }`}>
-                                <div className="text-3xl font-black font-mono text-slate-900">{item.stockQuantity}</div>
-                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">In Stock</div>
-                              </div>
-                              <div className="text-center p-4 rounded-xl bg-slate-50 border border-slate-200">
-                                <div className="text-3xl font-black font-mono text-amber-600">{item.lowStockThreshold || 5}</div>
-                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">Alert Level</div>
-                              </div>
-                            </div>
-                            {item.stockQuantity <= (item.lowStockThreshold || 5) && (
-                              <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold">
-                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                <span>
-                                  {item.stockQuantity === 0
-                                    ? 'Out of stock. Customers cannot order this item.'
-                                    : `Low stock — restock soon (threshold: ${item.lowStockThreshold || 5}).`}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
-                            <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-                            <p className="font-medium">Stock tracking not enabled</p>
-                            <p className="text-slate-400 max-w-[200px] mx-auto">Enable stock tracking in edit mode to monitor inventory for this item.</p>
-                            <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Enable in Edit Details</button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Inspector Footer */}
-                  <div className="px-4 py-3 border-t border-slate-100 shrink-0 flex gap-2">
                     <button
-                      onClick={() => {
-                        setPreviewDish({
-                          ...item,
-                          price: (item.price || 0) / 100,
-                          variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
-                          addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
-                        });
-                        setPreviewMode('LIST');
-                      }}
-                      className="h-10 w-10 flex items-center justify-center border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:text-amber-600 transition cursor-pointer"
-                      title="Customer Preview"
+                      onClick={() => setActiveItemInspector(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition shrink-0 cursor-pointer"
                     >
-                      <Eye className="w-4 h-4" />
+                      <X className="w-4 h-4" />
                     </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-medium block leading-tight">
+                        {isPortion ? `From · ${item.variants.length} portions` : 'Price'}
+                      </span>
+                      <span className="text-xl font-black text-slate-900 font-mono">
+                        {isPortion ? `₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
+                      </span>
+                    </div>
+                    {/* Interactive Switch in Header */}
                     <button
-                      onClick={() => handleEditItemClick(item)}
-                      className="flex-1 h-10 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm active:scale-95"
+                      type="button"
+                      onClick={() => toggleAvailableMutation.mutate(item._id)}
+                      className={`h-8 px-3.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
+                        isAvailable
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      }`}
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      Edit Details
+                      <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      {isAvailable ? 'Available' : "86'd"}
                     </button>
                   </div>
                 </div>
-              );
-            })()}
-          </div>
+
+                {/* Inspector Tabs */}
+                <div className="flex border-b border-slate-100 shrink-0 overflow-x-auto scrollbar-none">
+                  {(['OVERVIEW', 'VARIANTS', 'ADDONS', 'INVENTORY'] as const).map((tab) => {
+                    const label =
+                      tab === 'OVERVIEW' ? 'Overview' :
+                      tab === 'VARIANTS' ? `Portions${isPortion ? ` (${item.variants.length})` : ''}` :
+                      tab === 'ADDONS' ? `Add-Ons${(item.addOns?.length || 0) + attachedGroups.length > 0 ? ` (${(item.addOns?.length || 0) + attachedGroups.length})` : ''}` :
+                      'Inventory';
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setInspectorTab(tab)}
+                        className={`flex-shrink-0 px-3.5 py-2.5 text-[11px] font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                          inspectorTab === tab
+                            ? 'border-amber-500 text-amber-700 bg-amber-50/40'
+                            : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Inspector Tab Content (Independently Scrollable Container) */}
+                <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-4">
+
+                  {/* ── OVERVIEW TAB ── */}
+                  {inspectorTab === 'OVERVIEW' && (
+                    <>
+                      {item.description && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Description</p>
+                          <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
+                        </div>
+                      )}
+
+                      {(item.isChefsSpecial || item.isCombo || item.prepTimeMinutes) && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Properties</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {item.isChefsSpecial && (
+                              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                                <span className="text-xs font-bold text-amber-900">Chef&apos;s Special</span>
+                              </div>
+                            )}
+                            {item.isCombo && (
+                              <div className="bg-violet-50 border border-violet-200 rounded-xl p-2.5 flex items-center gap-2">
+                                <Package className="w-4 h-4 text-violet-500 shrink-0" />
+                                <span className="text-xs font-bold text-violet-900">Combo Pack</span>
+                              </div>
+                            )}
+                            {item.prepTimeMinutes && (
+                              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                                <span className="text-xs font-bold text-slate-700">{item.prepTimeMinutes} min prep</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {item.isCombo && item.comboItems?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Bundled Items</p>
+                          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                            {item.comboItems.map((c: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
+                                <span className="text-slate-700 font-medium">{c.name}</span>
+                                <span className="font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-lg">×{c.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mini customer card preview */}
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Customer Card Preview</p>
+                        <div className="bg-[#FAF9F6] border border-slate-200 rounded-2xl p-3">
+                          <div className="flex gap-3 items-start">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-100">
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-200"><Sparkles className="w-6 h-6" /></div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                <span className="text-xs font-bold text-slate-900 truncate">{item.name}</span>
+                              </div>
+                              {item.description && <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{item.description}</p>}
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-sm font-black text-slate-900 font-mono">
+                                  {isPortion ? `From ₹${(minPrice / 100).toFixed(0)}` : `₹${(item.price / 100).toFixed(0)}`}
+                                </span>
+                                <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg">+ Add</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewDish({
+                              ...item,
+                              price: (item.price || 0) / 100,
+                              variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                              addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                            });
+                            setPreviewMode('LIST');
+                          }}
+                          className="w-full mt-2 h-8 flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-amber-500" />
+                          Full Customer Preview
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── VARIANTS TAB ── */}
+                  {inspectorTab === 'VARIANTS' && (
+                    <>
+                      {!isPortion ? (
+                        <div className="text-center py-8 text-xs text-slate-400 space-y-2">
+                          <p className="font-medium">Single pricing model</p>
+                          <p className="text-2xl font-black text-slate-800 font-mono">₹{(item.price / 100).toFixed(2)}</p>
+                          <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Edit to add portion sizes</button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Portion Sizes</p>
+                          {item.variants.map((v: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-900">{v.name}</span>
+                                {v.isDefault && <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">Default</span>}
+                              </div>
+                              <span className="font-mono font-black text-slate-900">₹{(v.price / 100).toFixed(0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── ADD-ONS TAB ── */}
+                  {inspectorTab === 'ADDONS' && (
+                    <>
+                      {item.addOns?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Dish-Specific Add-Ons</p>
+                          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+                            {item.addOns.map((addon: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
+                                <span className="text-slate-700 font-medium">{addon.name}</span>
+                                <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">
+                                  +₹{((addon.priceDelta || 0) / 100).toFixed(0)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {attachedGroups.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Modifier Templates</p>
+                          <div className="space-y-2">
+                            {attachedGroups.map((group: any) => (
+                              <div key={group._id} className="border border-slate-200 rounded-xl overflow-hidden">
+                                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+                                  <span className="text-xs font-bold text-slate-900">{group.name}</span>
+                                  <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded-full">{group.type}</span>
+                                </div>
+                                <div className="divide-y divide-slate-100">
+                                  {group.options.map((opt: any, oIdx: number) => (
+                                    <div key={oIdx} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                                      <span className="text-slate-600">{opt.name}</span>
+                                      <span className="font-mono font-bold text-slate-700">+₹{((opt.priceDelta || opt.price || 0) / 100).toFixed(0)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {!item.addOns?.length && !attachedGroups.length && (
+                        <div className="text-center py-8 text-xs text-slate-400 space-y-2">
+                          <Sliders className="w-8 h-8 mx-auto text-slate-200 mb-2" />
+                          <p>No add-ons attached to this item.</p>
+                          <button onClick={() => handleEditItemClick(item)} className="text-amber-600 font-bold hover:underline cursor-pointer">Add customizations</button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── INVENTORY TAB (Interactive Stock Manager) ── */}
+                  {inspectorTab === 'INVENTORY' && (
+                    <>
+                      {item.trackStock ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-700">Stock Tracking</span>
+                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Enabled</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className={`text-center p-4 rounded-2xl border ${
+                              item.stockQuantity === 0 ? 'bg-rose-50 border-rose-200' :
+                              item.stockQuantity <= (item.lowStockThreshold || 5) ? 'bg-amber-50 border-amber-200' :
+                              'bg-emerald-50/60 border-emerald-200'
+                            }`}>
+                              <div className="text-3xl font-black font-mono text-slate-900">{item.stockQuantity}</div>
+                              <div className="text-[10px] text-slate-500 font-medium mt-0.5">In Stock</div>
+                            </div>
+                            <div className="text-center p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                              <div className="text-3xl font-black font-mono text-amber-600">{item.lowStockThreshold || 5}</div>
+                              <div className="text-[10px] text-slate-500 font-medium mt-0.5">Alert Level</div>
+                            </div>
+                          </div>
+
+                          {/* Quick Adjust Buttons */}
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Stock Adjust</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {[-5, -1, +1, +5].map((delta) => (
+                                <button
+                                  key={delta}
+                                  type="button"
+                                  onClick={() => updateStockMutation.mutate({
+                                    itemId: item._id,
+                                    stockQuantity: Math.max(0, (item.stockQuantity || 0) + delta),
+                                    trackStock: true,
+                                    lowStockThreshold: item.lowStockThreshold || 5,
+                                  })}
+                                  className="py-1.5 rounded-xl border border-slate-200 text-xs font-mono font-bold bg-white hover:bg-slate-100 text-slate-800 transition cursor-pointer active:scale-95"
+                                >
+                                  {delta > 0 ? `+${delta}` : delta}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => updateStockMutation.mutate({
+                                  itemId: item._id,
+                                  stockQuantity: 0,
+                                  trackStock: true,
+                                  lowStockThreshold: item.lowStockThreshold || 5,
+                                })}
+                                className="py-2 rounded-xl border border-rose-200 text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                              >
+                                Set Out (0)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateStockMutation.mutate({
+                                  itemId: item._id,
+                                  stockQuantity: 20,
+                                  trackStock: true,
+                                  lowStockThreshold: item.lowStockThreshold || 5,
+                                })}
+                                className="py-2 rounded-xl border border-emerald-200 text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
+                              >
+                                Restock (+20)
+                              </button>
+                            </div>
+                          </div>
+
+                          {item.stockQuantity <= (item.lowStockThreshold || 5) && (
+                            <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold">
+                              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                              <span>
+                                {item.stockQuantity === 0
+                                  ? 'Out of stock. Customers will see this item marked unavailable.'
+                                  : `Low stock alert — remaining count (${item.stockQuantity}) is below threshold (${item.lowStockThreshold || 5}).`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-xs text-slate-400 space-y-3">
+                          <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                          <p className="font-medium text-slate-700">Stock tracking is disabled for this dish</p>
+                          <p className="text-slate-400 max-w-[220px] mx-auto text-[11px]">Enable stock tracking to monitor inventory and prevent orders when depleted.</p>
+                          <button
+                            type="button"
+                            onClick={() => updateStockMutation.mutate({
+                              itemId: item._id,
+                              trackStock: true,
+                              stockQuantity: 25,
+                              lowStockThreshold: 5,
+                            })}
+                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                          >
+                            Enable Stock Tracking (Start with 25)
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Inspector Footer */}
+                <div className="px-4 py-3 border-t border-slate-100 shrink-0 flex gap-2">
+                  <button
+                    onClick={() => {
+                      setPreviewDish({
+                        ...item,
+                        price: (item.price || 0) / 100,
+                        variants: item.variants?.map((v: any) => ({ ...v, price: (v.price || 0) / 100 })),
+                        addOns: item.addOns?.map((a: any) => ({ ...a, priceDelta: (a.priceDelta || 0) / 100 })),
+                      });
+                      setPreviewMode('LIST');
+                    }}
+                    className="h-10 w-10 flex items-center justify-center border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:text-amber-600 transition cursor-pointer shrink-0"
+                    title="Customer Preview"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleEditItemClick(item)}
+                    className="flex-1 h-10 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit Details
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2020,7 +2204,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h2 className="font-display text-xl font-bold text-slate-900">{editingItem ? 'Edit Menu Item' : 'New Menu Item'}</h2>
-                <span className="text-xs text-slate-400">Configure dish details, portion variants, or combos</span>
+                <span className="text-xs text-slate-400">Configure dish details, pricing, inventory, and modifier templates</span>
               </div>
               <button onClick={() => setIsItemOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" strokeWidth={1.75} />
@@ -2088,6 +2272,48 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                           </div>
                         ))}
                         <button type="button" onClick={() => appendVariant({ name: '', price: 0, isDefault: false })} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1 mt-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Custom Size</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stock & Inventory Card */}
+                <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/70 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label htmlFor="trackStockToggle" className="text-xs font-bold text-slate-900 cursor-pointer block">
+                        Inventory &amp; Stock Tracking
+                      </label>
+                      <span className="text-[10px] text-slate-400">Track current quantity and receive low-stock alerts</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="trackStockToggle"
+                      {...itemForm.register('trackStock')}
+                      className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                    />
+                  </div>
+                  {itemForm.watch('trackStock') && (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Current Stock Quantity</label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="e.g. 50"
+                          {...itemForm.register('stockQuantity')}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Low Stock Alert Level</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 5"
+                          {...itemForm.register('lowStockThreshold')}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
                       </div>
                     </div>
                   )}
