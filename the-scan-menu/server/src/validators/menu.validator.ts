@@ -54,8 +54,8 @@ export const createMenuItemSchema = z.object({
     )
     .optional(),
   isDraft: z.boolean().optional().default(false),
-  completedStep: z.number().int().min(1).max(5).optional().default(5),
-  totalSteps: z.number().int().min(1).max(5).optional().default(5),
+  completedStep: z.number().int().min(1).max(10).optional().default(5),
+  totalSteps: z.number().int().min(1).max(10).optional().default(5),
 });
 
 export const updateMenuItemSchema = createMenuItemSchema.partial();

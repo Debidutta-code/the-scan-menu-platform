@@ -533,8 +533,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
       const finalPayload = {
         ...payload,
         isDraft,
-        completedStep: isDraft ? currentStep : 6,
-        totalSteps: 6,
+        completedStep: isDraft ? Math.min(5, currentStep) : 5,
+        totalSteps: 5,
       };
 
       if (isEditMode) {
@@ -605,8 +605,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
       attachedAddOnGroupIds: values.attachedAddOnGroupIds || [],
       isAvailable: true,
       isDraft,
-      completedStep: isDraft ? currentStep : 6,
-      totalSteps: 6,
+      completedStep: isDraft ? Math.min(5, currentStep) : 5,
+      totalSteps: 5,
     };
   };
 
