@@ -14,7 +14,6 @@ import {
   useManagerTables,
   TableFormValues,
   BulkTableFormValues,
-  ZoneFormValues,
 } from '../hooks/useManagerTables';
 import {
   Plus,
@@ -42,6 +41,8 @@ import {
   ArrowRightLeft,
   MoreVertical,
   ChevronDown,
+  MapPin,
+  AlertTriangle,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
@@ -55,9 +56,6 @@ const tableSchema = z.object({
   zoneId: z.string().optional(),
 });
 
-const zoneSchema = z.object({
-  name: z.string().min(1, 'Zone name is required'),
-});
 
 const bulkTableSchema = z.object({
   count: z.number().min(1, 'Count must be at least 1').max(100, 'Cannot create more than 100 tables at once'),
@@ -114,11 +112,20 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [activeTableAction, setActiveTableAction] = useState<Table | null>(null);
   const [sidePanelTab, setSidePanelTab] = useState<'ACTIONS' | 'QR'>('ACTIONS');
   const [showZoneManager, setShowZoneManager] = useState(false);
+  const [isZoneDeleteMode, setIsZoneDeleteMode] = useState(false);
+  const [selectedZonesForDelete, setSelectedZonesForDelete] = useState<string[]>([]);
+  const [isZoneManagerMoreOpen, setIsZoneManagerMoreOpen] = useState(false);
+  const [zoneInlineAddOpen, setZoneInlineAddOpen] = useState(false);
+  const [editingZoneInline, setEditingZoneInline] = useState<TableZone | null>(null);
+  const [zoneInlineName, setZoneInlineName] = useState('');
+  const [activeOrderBlockedAlert, setActiveOrderBlockedAlert] = useState<{
+    zoneNames: string[];
+    tables: { tableNumber: string; displayName: string; zoneName: string; activeOrderCount: number }[];
+  } | null>(null);
+  const [deleteZoneConfirmList, setDeleteZoneConfirmList] = useState<TableZone[] | null>(null);
 
   const [isFormOpen, setIsCreateOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<Table | null>(null);
-  const [isZoneFormOpen, setIsZoneFormOpen] = useState(false);
-  const [editingZone, setEditingZone] = useState<TableZone | null>(null);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
   const [showQrStudio, setShowQrStudio] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -153,6 +160,72 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
   const addMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const zoneManagerMoreRef = useRef<HTMLDivElement>(null);
+
+  const handleSaveInlineZone = async () => {
+    const trimmed = zoneInlineName.trim();
+    if (!trimmed) return;
+
+    try {
+      if (editingZoneInline) {
+        await editZoneMutation.mutateAsync({
+          id: editingZoneInline._id,
+          data: { name: trimmed },
+        });
+      } else {
+        await createZoneMutation.mutateAsync({
+          name: trimmed,
+        });
+      }
+      setZoneInlineName('');
+      setZoneInlineAddOpen(false);
+      setEditingZoneInline(null);
+    } catch (err) {
+      // Error handled by mutation toast
+    }
+  };
+
+  const handleInitiateZoneDelete = () => {
+    if (selectedZonesForDelete.length === 0) return;
+
+    // 1. Gather all occupied tables in the selected zones
+    const occupiedTables: { tableNumber: string; displayName: string; zoneName: string; activeOrderCount: number }[] = [];
+    const targetZones: TableZone[] = [];
+
+    for (const zoneId of selectedZonesForDelete) {
+      const zone = zones.find((z) => z._id === zoneId);
+      if (zone) targetZones.push(zone);
+
+      const zoneTables = tables.filter((t) => {
+        const tid = typeof t.zoneId === 'string' ? t.zoneId : (t.zoneId as any)?._id;
+        return tid === zoneId;
+      });
+
+      for (const table of zoneTables) {
+        const isOccupied = table.status === 'OCCUPIED' || (table.activeOrderCount && table.activeOrderCount > 0);
+        if (isOccupied) {
+          occupiedTables.push({
+            tableNumber: table.tableNumber,
+            displayName: table.displayName,
+            zoneName: zone?.name || 'Zone',
+            activeOrderCount: table.activeOrderCount || 1,
+          });
+        }
+      }
+    }
+
+    // 2. If ANY table has active orders, block and show alert
+    if (occupiedTables.length > 0) {
+      setActiveOrderBlockedAlert({
+        zoneNames: targetZones.map((z) => z.name),
+        tables: occupiedTables,
+      });
+      return;
+    }
+
+    // 3. Otherwise, show confirmation modal
+    setDeleteZoneConfirmList(targetZones);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -161,6 +234,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       }
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
         setIsMoreMenuOpen(false);
+      }
+      if (zoneManagerMoreRef.current && !zoneManagerMoreRef.current.contains(e.target as Node)) {
+        setIsZoneManagerMoreOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -262,7 +338,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     resolver: zodResolver(bulkTableSchema),
     defaultValues: { count: 10, prefix: '', zoneId: undefined },
   });
-  const zoneForm = useForm<ZoneFormValues>({ resolver: zodResolver(zoneSchema) });
 
   // ── Computed Stats ──────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -321,13 +396,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     bulkCreateMutation.mutate(values, { onSuccess: () => setIsBulkFormOpen(false) });
   };
 
-  const onZoneSubmit = (values: ZoneFormValues) => {
-    if (editingZone) {
-      editZoneMutation.mutate({ id: editingZone._id, data: values }, { onSuccess: () => setIsZoneFormOpen(false) });
-    } else {
-      createZoneMutation.mutate(values, { onSuccess: () => setIsZoneFormOpen(false) });
-    }
-  };
 
   const handleEditClick = (table: Table) => {
     setEditingTable(table);
@@ -412,7 +480,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         if (
           activeTableAction &&
           !isFormOpen &&
-          !isZoneFormOpen &&
           !isBulkFormOpen &&
           !showZoneManager &&
           !showQrStudio &&
@@ -430,7 +497,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     tableSelectionMode,
     activeTableAction,
     isFormOpen,
-    isZoneFormOpen,
     isBulkFormOpen,
     showZoneManager,
     showQrStudio,
@@ -1405,62 +1471,375 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         </div>
       </div>
 
-      {/* ── Zone Manager Slide-over ────────────────────────────────────────────── */}
+      {/* ── Manage Zones Modal ─────────────────────────────────────────────────── */}
       {showZoneManager && createPortal(
         <div
           className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 z-[99999] animate-in fade-in duration-200"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowZoneManager(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowZoneManager(false);
+              setIsZoneDeleteMode(false);
+              setZoneInlineAddOpen(false);
+              setEditingZoneInline(null);
+            }
+          }}
         >
-          <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <h2 className="font-display text-xl font-bold text-slate-900">Manage Zones</h2>
-              <button onClick={() => setShowZoneManager(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer">
-                <X className="w-5 h-5" strokeWidth={1.75} />
-              </button>
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white shrink-0">
+              <div>
+                <h2 className="font-display text-lg font-bold text-slate-900 leading-tight">Manage Zones</h2>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Floor sections &amp; dining areas</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* + Add Zone button */}
+                {!isZoneDeleteMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingZoneInline(null);
+                      setZoneInlineName('');
+                      setZoneInlineAddOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    <span>Add Zone</span>
+                  </button>
+                )}
+
+                {/* 3-Dot More Menu */}
+                <div className="relative" ref={zoneManagerMoreRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsZoneManagerMoreOpen(!isZoneManagerMoreOpen)}
+                    className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition border border-slate-200 cursor-pointer"
+                    title="More zone options"
+                  >
+                    <MoreVertical className="w-4 h-4" strokeWidth={2} />
+                  </button>
+
+                  {isZoneManagerMoreOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsZoneManagerMoreOpen(false);
+                          setIsZoneDeleteMode(!isZoneDeleteMode);
+                          setSelectedZonesForDelete([]);
+                          setZoneInlineAddOpen(false);
+                          setEditingZoneInline(null);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl transition text-left cursor-pointer ${
+                          isZoneDeleteMode ? 'text-slate-700 hover:bg-slate-100' : 'text-rose-600 hover:bg-rose-50'
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600" strokeWidth={1.75} />
+                        <span>{isZoneDeleteMode ? 'Exit Delete Mode' : 'Delete Zone(s)'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Close modal */}
+                <button
+                  onClick={() => {
+                    setShowZoneManager(false);
+                    setIsZoneDeleteMode(false);
+                    setZoneInlineAddOpen(false);
+                    setEditingZoneInline(null);
+                  }}
+                  className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" strokeWidth={1.75} />
+                </button>
+              </div>
             </div>
 
-            <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
-              {zones.length === 0 && (
-                <p className="text-center text-sm text-slate-400 py-6">No zones yet. Create your first zone below.</p>
+            {/* Delete Selection Mode Banner */}
+            {isZoneDeleteMode && (
+              <div className="bg-rose-50 border-b border-rose-200 px-5 py-2.5 flex items-center justify-between text-xs font-semibold text-rose-950 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Choose zones to delete:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedZonesForDelete.length === zones.length) {
+                        setSelectedZonesForDelete([]);
+                      } else {
+                        setSelectedZonesForDelete(zones.map((z) => z._id));
+                      }
+                    }}
+                    className="text-[11px] font-bold text-rose-700 hover:text-rose-900 underline cursor-pointer"
+                  >
+                    {selectedZonesForDelete.length === zones.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsZoneDeleteMode(false);
+                      setSelectedZonesForDelete([]);
+                    }}
+                    className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-white border border-rose-200 px-2 py-0.5 rounded-lg cursor-pointer ml-1"
+                  >
+                    Exit
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Inline Add/Edit Form */}
+            {(zoneInlineAddOpen || editingZoneInline) && (
+              <div className="p-4 bg-amber-50/70 border-b border-amber-200/80 shrink-0 animate-in slide-in-from-top-2 duration-150">
+                <p className="text-xs font-bold text-amber-950 mb-2">
+                  {editingZoneInline ? `Edit Zone Name` : 'Create New Floor Zone'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Indoor Dining, Rooftop, Patio"
+                    value={zoneInlineName}
+                    onChange={(e) => setZoneInlineName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveInlineZone();
+                      if (e.key === 'Escape') {
+                        setZoneInlineAddOpen(false);
+                        setEditingZoneInline(null);
+                      }
+                    }}
+                    autoFocus
+                    className="flex-1 px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveInlineZone}
+                    disabled={createZoneMutation.isPending || editZoneMutation.isPending || !zoneInlineName.trim()}
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                  >
+                    {createZoneMutation.isPending || editZoneMutation.isPending ? (
+                      <Loader className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <span>Save</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoneInlineAddOpen(false);
+                      setEditingZoneInline(null);
+                    }}
+                    className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-bold text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Zones List */}
+            <div className="p-4 sm:p-5 space-y-2.5 flex-1 min-h-0 overflow-y-auto">
+              {zones.length === 0 ? (
+                <div className="text-center py-10 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                  <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-slate-700">No Zones Created Yet</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Click "+ Add Zone" to organize your floor plan.</p>
+                </div>
+              ) : (
+                zones.map((zone) => {
+                  const zoneTables = tables.filter((t) => {
+                    const tid = typeof t.zoneId === 'string' ? t.zoneId : (t.zoneId as any)?._id;
+                    return tid === zone._id;
+                  });
+                  const occupiedTablesCount = zoneTables.filter(
+                    (t) => t.status === 'OCCUPIED' || (t.activeOrderCount && t.activeOrderCount > 0)
+                  ).length;
+                  const isSelectedForDelete = selectedZonesForDelete.includes(zone._id);
+
+                  return (
+                    <div
+                      key={zone._id}
+                      className={`flex items-center justify-between border rounded-2xl px-4 py-3 transition-all ${
+                        isZoneDeleteMode && isSelectedForDelete
+                          ? 'bg-rose-50 border-rose-400 shadow-xs'
+                          : 'bg-slate-50/70 hover:bg-slate-50 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {isZoneDeleteMode ? (
+                          <input
+                            type="checkbox"
+                            checked={isSelectedForDelete}
+                            onChange={() => {
+                              if (isSelectedForDelete) {
+                                setSelectedZonesForDelete(selectedZonesForDelete.filter((id) => id !== zone._id));
+                              } else {
+                                setSelectedZonesForDelete([...selectedZonesForDelete, zone._id]);
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer"
+                          />
+                        ) : (
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                        )}
+
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 text-sm truncate">{zone.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-[11px] text-slate-500">
+                              {zoneTables.length} table{zoneTables.length === 1 ? '' : 's'}
+                            </span>
+                            {occupiedTablesCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.2 rounded-md">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                                {occupiedTablesCount} occupied
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right side edit button */}
+                      {!isZoneDeleteMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingZoneInline(zone);
+                            setZoneInlineName(zone.name);
+                            setZoneInlineAddOpen(false);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-amber-50 text-slate-600 hover:text-amber-700 border border-slate-200 hover:border-amber-300 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
+                          title="Edit zone name"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 text-amber-600" strokeWidth={1.75} />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               )}
-              {zones.map((zone) => (
-                <div key={zone._id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
+            </div>
+
+            {/* Bottom Footer in Delete Mode */}
+            {isZoneDeleteMode && (
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsZoneDeleteMode(false);
+                    setSelectedZonesForDelete([]);
+                  }}
+                  className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInitiateZoneDelete}
+                  disabled={selectedZonesForDelete.length === 0}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+                  <span>Delete Selected Zone{selectedZonesForDelete.length > 1 ? 's' : ''} ({selectedZonesForDelete.length})</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Active Order Blocked Alert Modal ───────────────────────────────────── */}
+      {activeOrderBlockedAlert && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[100000] animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-rose-200 p-6 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
+              <AlertTriangle className="w-6 h-6" strokeWidth={2} />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-bold text-slate-900 leading-tight">
+                Cannot Delete Zone: Active Orders Detected
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                The following table(s) currently have active guest orders or open tickets on the floor. You cannot delete a zone while tables inside it are active.
+              </p>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80 text-xs">
+              {activeOrderBlockedAlert.tables.map((t, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-100 shadow-2xs">
                   <div>
-                    <p className="font-bold text-slate-900 text-sm">{zone.name}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {tables.filter((t) => {
-                        const tid = typeof t.zoneId === 'string' ? t.zoneId : t.zoneId?._id;
-                        return tid === zone._id;
-                      }).length} tables
-                    </p>
+                    <span className="font-bold text-slate-900">{t.displayName}</span>
+                    <span className="text-slate-400 font-mono ml-1.5">(Table #{t.tableNumber})</span>
+                    <p className="text-[10px] text-amber-700 font-medium">{t.zoneName}</p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => { setEditingZone(zone); zoneForm.reset({ name: zone.name }); setIsZoneFormOpen(true); setShowZoneManager(false); }}
-                      className="p-2 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-xl transition cursor-pointer"
-                      title="Edit zone"
-                    >
-                      <Edit2 className="w-4 h-4" strokeWidth={1.75} />
-                    </button>
-                    <button
-                      onClick={() => { if (confirm(`Delete zone "${zone.name}"? ALL tables in this zone will be deleted.`)) deleteZoneMutation.mutate(zone._id); }}
-                      className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition cursor-pointer"
-                      title="Delete zone"
-                    >
-                      <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                    </button>
-                  </div>
+                  <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                    {t.activeOrderCount} active order{t.activeOrderCount > 1 ? 's' : ''}
+                  </span>
                 </div>
               ))}
             </div>
 
-            <div className="px-5 pb-5">
+            <p className="text-[11px] text-slate-500">
+              💡 <strong>Tip:</strong> Settle and clear the table bills or transfer these tables to another zone before deleting.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setActiveOrderBlockedAlert(null)}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-xs"
+            >
+              Understood
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Delete Zone Confirmation Modal ─────────────────────────────────────── */}
+      {deleteZoneConfirmList && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[100000] animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
+              <Trash2 className="w-6 h-6" strokeWidth={2} />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-bold text-slate-900 leading-tight">
+                Delete {deleteZoneConfirmList.length === 1 ? `"${deleteZoneConfirmList[0].name}" Zone?` : `${deleteZoneConfirmList.length} Zones?`}
+              </h3>
+              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                Are you sure you want to delete {deleteZoneConfirmList.map((z) => `"${z.name}"`).join(', ')}?
+                All associated tables in these zones will be permanently removed. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
               <button
-                onClick={() => { setEditingZone(null); zoneForm.reset({ name: '' }); setIsZoneFormOpen(true); setShowZoneManager(false); }}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition cursor-pointer"
+                type="button"
+                onClick={() => setDeleteZoneConfirmList(null)}
+                className="w-1/2 py-3 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition cursor-pointer"
               >
-                <Plus className="w-4 h-4" strokeWidth={2} />
-                Create New Zone
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const zonesToDelete = [...deleteZoneConfirmList];
+                  setDeleteZoneConfirmList(null);
+                  for (const z of zonesToDelete) {
+                    await deleteZoneMutation.mutateAsync(z._id);
+                  }
+                  setSelectedZonesForDelete([]);
+                  setIsZoneDeleteMode(false);
+                }}
+                disabled={deleteZoneMutation.isPending}
+                className="w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-xs flex items-center justify-center gap-2"
+              >
+                {deleteZoneMutation.isPending ? <Loader className="w-4 h-4 animate-spin text-white" /> : 'Yes, Delete Zone(s)'}
               </button>
             </div>
           </div>
@@ -1577,33 +1956,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         document.body
       )}
 
-      {/* ── Zone Form Modal ────────────────────────────────────────────────────── */}
-      {isZoneFormOpen && createPortal(
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-              <h2 className="font-display text-xl font-bold text-slate-900">{editingZone ? 'Edit Zone' : 'New Zone'}</h2>
-              <button onClick={() => setIsZoneFormOpen(false)} className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition cursor-pointer">
-                <X className="w-5 h-5" strokeWidth={1.75} />
-              </button>
-            </div>
-            <form onSubmit={zoneForm.handleSubmit(onZoneSubmit)} className="p-6 space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Zone Name</label>
-                <input type="text" placeholder="e.g. Patio, Main Hall, Rooftop" {...zoneForm.register('name')} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500" />
-                {zoneForm.formState.errors.name && <p className="text-xs text-red-500 mt-1">{zoneForm.formState.errors.name.message}</p>}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsZoneFormOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200 cursor-pointer">Cancel</button>
-                <button type="submit" disabled={createZoneMutation.isPending || editZoneMutation.isPending} className="w-1/2 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition flex items-center justify-center gap-2 cursor-pointer">
-                  {createZoneMutation.isPending || editZoneMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : editingZone ? 'Save Zone' : 'Create Zone'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* ── Print Order Modal ────────────────────────────────────────────────── */}
       <PrintOrderModal
