@@ -8,7 +8,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/featureFlags/useFeatureFlags';
 import { Navigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
-import { useFontScale } from '../hooks/useFontScale';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
@@ -519,7 +518,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
 
   const { activeRestaurantId, user } = useAuth();
-  const { fontScale, setFontScale } = useFontScale();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1137,32 +1135,17 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
   return (
     <div
-      className="w-full h-full min-h-0 overflow-y-auto scrollbar-none font-sans select-none pb-8 pr-0.5 space-y-3"
+      className="w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden space-y-2.5 pb-1 pr-0.5"
       onClick={() => setOpenMenuId(null)}
     >
 
-      {/* ── Page Header (Scrolls naturally with page) ── */}
+      {/* ── Page Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs shrink-0 transition-all">
         <div>
           <h1 className="font-display tracking-tight text-lg font-bold text-slate-900 leading-tight">Menu &amp; Catalog Manager</h1>
           <p className="text-slate-500 text-[11px] font-medium mt-0.5">Manage dishes, categories, pricing and modifier templates</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Font scale switcher */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
-            {(['SMALL', 'NORMAL', 'LARGE'] as const).map((scale) => (
-              <button
-                key={scale}
-                type="button"
-                onClick={() => setFontScale(scale)}
-                className={`px-2 py-1 rounded-lg font-black transition cursor-pointer ${
-                  fontScale === scale ? 'bg-white text-slate-900 shadow-2xs border border-slate-200' : 'text-slate-500 hover:text-slate-900'
-                } ${scale === 'SMALL' ? 'text-[10px]' : scale === 'LARGE' ? 'text-sm' : 'text-xs'}`}
-              >
-                {scale === 'SMALL' ? 'A⁻' : scale === 'NORMAL' ? 'A' : 'A⁺'}
-              </button>
-            ))}
-          </div>
           {/* Tab switcher */}
           <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
             <button
@@ -1186,10 +1169,10 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       </div>
 
       {/* ══════════════════════════════════════════ */}
-      {/* TAB 1: MENU DISHES (3-Column Sticky Container) */}
+      {/* TAB 1: MENU DISHES (3-Column Layout)       */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'MENU' && (
-        <div className="sticky top-0 z-10 flex gap-3 items-start h-[calc(100vh-4.75rem)]">
+        <div className="flex-1 min-h-0 flex gap-3 items-start overflow-hidden">
 
           {/* ── Column 1: Category Sidebar ── */}
           <div className="w-56 xl:w-64 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
@@ -2086,7 +2069,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       {/* TAB 2: ADD-ON TEMPLATES                   */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'CUSTOMIZATIONS' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
             <div>
               <h2 className="font-display text-lg font-bold text-slate-900">Customization &amp; Add-on Templates</h2>
