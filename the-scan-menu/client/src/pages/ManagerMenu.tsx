@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -30,8 +30,6 @@ import {
   Package,
   Clock,
   AlertCircle,
-  ChevronUp,
-  ChevronDown,
 } from 'lucide-react';
 
 import {
@@ -487,14 +485,26 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const [inspectorTab, setInspectorTab] = useState<'OVERVIEW' | 'VARIANTS' | 'ADDONS' | 'INVENTORY'>('OVERVIEW');
   const [searchQuery, setSearchQuery] = useState('');
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const lastScrollTopRef = useRef<number>(0);
 
   const handleItemsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
-    if (scrollTop > 35 && !isHeaderCollapsed) {
-      setIsHeaderCollapsed(true);
-    } else if (scrollTop <= 10 && isHeaderCollapsed) {
-      setIsHeaderCollapsed(false);
+    const delta = scrollTop - lastScrollTopRef.current;
+
+    // When scrolling down past threshold, smoothly collapse header
+    if (delta > 6 && scrollTop > 20) {
+      if (!isHeaderCollapsed) {
+        setIsHeaderCollapsed(true);
+      }
     }
+    // When scrolling up or when reaching top, smoothly restore header
+    else if (delta < -6 || scrollTop <= 5) {
+      if (isHeaderCollapsed) {
+        setIsHeaderCollapsed(false);
+      }
+    }
+
+    lastScrollTopRef.current = scrollTop;
   };
 
   // Fetch Categories
@@ -844,6 +854,23 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const isSearching = searchQuery.trim().length > 0;
 
   const filteredMenuItems = useMemo(() => {
+    if (statusFilter === 'DRAFTS') {
+      if (isSearching) {
+        const q = searchQuery.toLowerCase().trim();
+        return allMenuItems.filter((item: any) => {
+          if (!item.isDraft) return false;
+          const catName = typeof item.categoryId === 'object' ? item.categoryId?.name : categories.find((c: any) => c._id === item.categoryId)?.name || '';
+          return (
+            item.name?.toLowerCase().includes(q) ||
+            item.description?.toLowerCase().includes(q) ||
+            catName?.toLowerCase().includes(q) ||
+            item.variants?.some((v: any) => v.name?.toLowerCase().includes(q))
+          );
+        });
+      }
+      return allMenuItems.filter((item: any) => !!item.isDraft);
+    }
+
     let list: any[] = [];
     if (isSearching) {
       const q = searchQuery.toLowerCase().trim();
@@ -867,8 +894,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
     if (statusFilter === 'PUBLISHED') {
       return list.filter((item: any) => !item.isDraft);
-    } else if (statusFilter === 'DRAFTS') {
-      return list.filter((item: any) => !!item.isDraft);
     }
     return list;
   }, [allMenuItems, selectedCatId, isSearching, searchQuery, statusFilter, categories]);
@@ -914,15 +939,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 Add-on Templates{customGroups.length > 0 ? ` (${customGroups.length})` : ''}
               </button>
             </div>
-            {/* Manual Collapse Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsHeaderCollapsed(true)}
-              title="Hide Header (Maximize Work Area)"
-              className="h-9 w-9 hidden sm:flex items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:text-slate-800 hover:bg-slate-50 transition cursor-pointer"
-            >
-              <ChevronUp className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </div>
@@ -940,7 +956,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               <span className="text-[11px] font-mono font-black text-slate-400">{categories.length}</span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-2">
+            {/* Categories List (Scrollable) */}
+            <div className="space-y-1 overflow-y-auto flex-1 scrollbar-none p-2" onScroll={handleItemsScroll}>
               {isLoadingCats ? (
                 <div className="flex justify-center py-8"><Loader className="w-5 h-5 animate-spin text-amber-500" /></div>
               ) : categories.length === 0 ? (
@@ -1033,8 +1050,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             {/* Panel Header */}
             <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center gap-2 shrink-0 flex-nowrap min-w-0">
               <div className="min-w-0 mr-1 flex-1">
-                <h2 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5" title={categories.find((c: any) => c._id === selectedCatId)?.name || 'Categories'}>
-                  {isSearching ? (
+                <h2 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5" title={statusFilter === 'DRAFTS' ? 'Draft Dishes' : isSearching ? 'Search Results' : categories.find((c: any) => c._id === selectedCatId)?.name || 'Categories'}>
+                  {statusFilter === 'DRAFTS' ? (
+                    <>
+                      <span className="truncate">Draft Dishes</span>
+                      <span className="text-[11px] font-normal text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded font-mono truncate">All Categories</span>
+                    </>
+                  ) : isSearching ? (
                     <>
                       <span className="truncate">Results</span>
                       <span className="text-[11px] font-normal text-amber-600 font-mono truncate">(&ldquo;{searchQuery}&rdquo;)</span>
@@ -1109,17 +1131,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
               {/* Action Buttons: Compact icon-only when 3rd column is open, full text when closed */}
               <div className="flex items-center gap-1.5 shrink-0">
-                {isHeaderCollapsed && (
-                  <button
-                    type="button"
-                    onClick={() => setIsHeaderCollapsed(false)}
-                    title="Show Page Header"
-                    className="h-8 px-2 flex items-center gap-1 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 transition cursor-pointer shrink-0"
-                  >
-                    <ChevronDown className="w-3.5 h-3.5 text-amber-600" />
-                    <span className="hidden xl:inline text-[11px]">Show Header</span>
-                  </button>
-                )}
                 {activeItemInspector ? (
                   <>
                     <button
@@ -1246,7 +1257,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 </div>
               ) : filteredMenuItems.length === 0 ? (
                 <div className="text-center py-16 text-xs text-slate-400 space-y-3">
-                  {isSearching ? (
+                  {statusFilter === 'DRAFTS' ? (
+                    <>
+                      <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                      <p>No draft dishes found. Any unfinished dishes will appear here.</p>
+                      <button onClick={handleNewItemClick} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer hover:bg-slate-800 transition">Create New Dish</button>
+                    </>
+                  ) : isSearching ? (
                     <>
                       <p>No menu items matched &ldquo;<strong>{searchQuery}</strong>&rdquo; across all categories.</p>
                       <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear global search</button>
@@ -1343,7 +1360,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                     </span>
                                     {item.isDraft && (
                                       <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-200 border border-amber-300 px-1.5 py-0.2 rounded-md">
-                                        Draft ({item.completedStep || 1}/5)
+                                        Draft (Step {item.completedStep || 1}/6)
                                       </span>
                                     )}
                                     {!isAvailable && !item.isDraft && (
@@ -1361,7 +1378,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                   </div>
 
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    {isSearching && categoryName && (
+                                    {(isSearching || statusFilter === 'DRAFTS') && categoryName && (
                                       <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded flex items-center gap-1">
                                         <FolderOpen className="w-2.5 h-2.5 text-slate-400" />
                                         {categoryName}
@@ -1923,7 +1940,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     }`}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
-                    {item.isDraft ? `Resume Draft (Step ${item.completedStep || 1}/5)` : 'Edit Details'}
+                    {item.isDraft ? `Resume Draft (Step ${item.completedStep || 1}/6)` : 'Edit Details'}
                   </button>
                 </div>
               </div>
@@ -1936,7 +1953,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
       {/* TAB 2: ADD-ON TEMPLATES                   */}
       {/* ══════════════════════════════════════════ */}
       {activeTab === 'CUSTOMIZATIONS' && (
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-6" onScroll={handleItemsScroll}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
             <div>
               <h2 className="font-display text-lg font-bold text-slate-900">Customization &amp; Add-on Templates</h2>

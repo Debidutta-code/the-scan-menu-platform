@@ -131,6 +131,11 @@ export const ManagerMenuItemEditor: React.FC = () => {
   const [completedStepLevel, setCompletedStepLevel] = useState<number>(1);
   const [previewDeviceMode, setPreviewDeviceMode] = useState<'MOBILE' | 'KIOSK'>('MOBILE');
 
+  // Automatic backend draft saving state
+  const [persistedItemId, setPersistedItemId] = useState<string | undefined>(itemId);
+  const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
+  const [lastAutoSavedTime, setLastAutoSavedTime] = useState<Date | null>(null);
+
   // Crash recovery state
   const [recoveredDraft, setRecoveredDraft] = useState<any | null>(null);
   const [showRecoveryBanner, setShowRecoveryBanner] = useState<boolean>(false);
@@ -505,6 +510,40 @@ export const ManagerMenuItemEditor: React.FC = () => {
     setIsCustomComboModalOpen(false);
   };
 
+  // Automatic background draft saving
+  const autoSaveDraftToBackend = async (targetStep: number) => {
+    const rawValues = getValues();
+    if (!rawValues.name?.trim() || !rawValues.categoryId || !activeRestaurantId) {
+      return;
+    }
+
+    try {
+      setIsAutoSaving(true);
+      const payload = preparePayload(rawValues, true);
+      payload.completedStep = Math.min(5, targetStep);
+      payload.totalSteps = 5;
+      payload.isDraft = true;
+
+      const activeId = persistedItemId || itemId;
+      if (activeId) {
+        await apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${activeId}`, payload);
+      } else {
+        const res = await apiClient.post(`/restaurants/${activeRestaurantId}/menu-items`, payload);
+        if (res.data?.data?._id) {
+          const newId = res.data.data._id;
+          setPersistedItemId(newId);
+          window.history.replaceState(null, '', `/manager/menu/${newId}/edit`);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId] });
+      setLastAutoSavedTime(new Date());
+    } catch (err) {
+      console.warn('Auto-save draft warning:', err);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  };
+
   // Step advancement & validation
   const goToNextStep = async () => {
     if (currentStep === 1) {
@@ -521,6 +560,18 @@ export const ManagerMenuItemEditor: React.FC = () => {
     const nextStep = Math.min(6, currentStep + 1);
     setCurrentStep(nextStep);
     setCompletedStepLevel((prev) => Math.max(prev, nextStep));
+
+    // Automatically save draft on step advancement
+    autoSaveDraftToBackend(nextStep);
+  };
+
+  const handleStepClick = (stepId: number) => {
+    if (currentStep === 1 && (!watchedValues.name?.trim() || !watchedValues.categoryId)) {
+      setCurrentStep(stepId);
+      return;
+    }
+    setCurrentStep(stepId);
+    autoSaveDraftToBackend(stepId);
   };
 
   const goToPreviousStep = () => {
@@ -537,21 +588,22 @@ export const ManagerMenuItemEditor: React.FC = () => {
         totalSteps: 5,
       };
 
-      if (isEditMode) {
-        return apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${itemId}`, finalPayload);
+      const activeId = persistedItemId || itemId;
+      if (activeId || isEditMode) {
+        return apiClient.patch(`/restaurants/${activeRestaurantId}/menu-items/${activeId || itemId}`, finalPayload);
       } else {
         return apiClient.post(`/restaurants/${activeRestaurantId}/menu-items`, finalPayload);
       }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['menuItems', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['menuItem', activeRestaurantId, itemId] });
+      queryClient.invalidateQueries({ queryKey: ['menuItem', activeRestaurantId, persistedItemId || itemId] });
       localStorage.removeItem(localStorageKey);
 
       if (variables.isDraft) {
-        toast(`Draft saved at Step ${currentStep} of 6. It will not show on public menu.`, 'info');
+        toast(`Draft saved at Step ${currentStep} of 6.`, 'info');
       } else {
-        toast(isEditMode ? 'Menu item updated and published!' : 'Menu item published to live menu!', 'success');
+        toast(isEditMode || persistedItemId ? 'Menu item updated and published!' : 'Menu item published to live menu!', 'success');
       }
       navigate('/manager/menu');
     },
@@ -674,11 +726,21 @@ export const ManagerMenuItemEditor: React.FC = () => {
                     {modifiedCount} modified
                   </span>
                 )}
-                {watchedValues.isDraft && (
+                {isAutoSaving ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">
+                    <Loader className="w-2.5 h-2.5 animate-spin text-amber-600" />
+                    Auto-saving...
+                  </span>
+                ) : lastAutoSavedTime ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                    <Check className="w-2.5 h-2.5 text-emerald-600 stroke-[3]" />
+                    Auto-saved
+                  </span>
+                ) : (watchedValues.isDraft || persistedItemId) ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
                     Draft ({completedStepLevel}/6)
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -766,7 +828,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                   <button
                     key={step.id}
                     type="button"
-                    onClick={() => setCurrentStep(step.id)}
+                    onClick={() => handleStepClick(step.id)}
                     className={`w-full text-left p-2 rounded-xl transition flex items-start gap-2 cursor-pointer ${
                       isActive
                         ? 'bg-amber-500/10 border border-amber-500/30 text-slate-900 shadow-2xs'
