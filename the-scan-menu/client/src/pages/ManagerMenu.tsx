@@ -1272,35 +1272,37 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full overflow-hidden">
 
             {/* Panel Header */}
-            <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 shrink-0">
-              <div className="min-w-0 mr-2">
-                <h2 className="font-bold text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5">
+            <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center gap-2 shrink-0 flex-nowrap min-w-0">
+              <div className="min-w-0 mr-1 flex-1">
+                <h2 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5" title={categories.find((c: any) => c._id === selectedCatId)?.name || 'Categories'}>
                   {isSearching ? (
                     <>
-                      <span>Search Results</span>
-                      <span className="text-xs font-normal text-amber-600 font-mono">(&ldquo;{searchQuery}&rdquo;)</span>
+                      <span className="truncate">Results</span>
+                      <span className="text-[11px] font-normal text-amber-600 font-mono truncate">(&ldquo;{searchQuery}&rdquo;)</span>
                     </>
                   ) : (
                     categories.find((c: any) => c._id === selectedCatId)?.name || 'Select a category'
                   )}
                 </h2>
-                <p className="text-[11px] text-slate-400 font-medium font-mono">
+                <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium font-mono truncate">
                   {filteredMenuItems.length} {filteredMenuItems.length === 1 ? 'item' : 'items'}
                   {filteredMenuItems.filter((i: any) => !i.isAvailable).length > 0 && (
-                    <span className="text-rose-500 ml-1.5">· {filteredMenuItems.filter((i: any) => !i.isAvailable).length} unavailable</span>
+                    <span className="text-rose-500 ml-1">· {filteredMenuItems.filter((i: any) => !i.isAvailable).length} off</span>
                   )}
                 </p>
               </div>
 
               {/* Global Search Input */}
-              <div className="relative ml-auto sm:ml-0" onClick={(e) => e.stopPropagation()}>
+              <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
                 <input
                   type="text"
-                  placeholder="Global search dishes..."
+                  placeholder={activeItemInspector ? "Search..." : "Global search dishes..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs w-48 sm:w-56 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition placeholder:text-slate-400"
+                  className={`pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition placeholder:text-slate-400 ${
+                    activeItemInspector ? 'w-32 xl:w-44' : 'w-44 sm:w-56'
+                  }`}
                 />
                 {searchQuery && (
                   <button
@@ -1313,24 +1315,50 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 )}
               </div>
 
-              <div className="ml-auto flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
-                  className={`h-8 px-3 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                    bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {bulkMode ? 'Cancel' : 'Bulk Edit'}
-                </button>
-                <button
-                  onClick={handleNewItemClick}
-                  disabled={!selectedCatId && !isSearching}
-                  className="h-8 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"
-                >
-                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  New Item
-                </button>
+              {/* Action Buttons: Compact icon-only when 3rd column is open, full text when closed */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {activeItemInspector ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
+                      title={bulkMode ? "Cancel Bulk Edit" : "Bulk Edit"}
+                      className={`h-8 w-8 flex items-center justify-center rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
+                        bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" strokeWidth={2} />
+                    </button>
+                    <button
+                      onClick={handleNewItemClick}
+                      disabled={!selectedCatId && !isSearching}
+                      title="New Item"
+                      className="h-8 w-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" strokeWidth={2.5} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
+                      className={`h-8 px-3 rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
+                        bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {bulkMode ? 'Cancel' : 'Bulk Edit'}
+                    </button>
+                    <button
+                      onClick={handleNewItemClick}
+                      disabled={!selectedCatId && !isSearching}
+                      className="h-8 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      New Item
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
