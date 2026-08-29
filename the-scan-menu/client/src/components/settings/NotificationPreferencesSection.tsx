@@ -186,7 +186,7 @@ export const NotificationPreferencesSection: React.FC<NotificationPreferencesSec
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 bg-slate-50/70 border border-slate-200 rounded-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50/70 border border-slate-200 rounded-2xl">
           <div className="flex items-center gap-3.5">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${soundEnabled ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
               {soundEnabled ? <Volume2 className="w-5 h-5" strokeWidth={2} /> : <VolumeX className="w-5 h-5" strokeWidth={2} />}
@@ -236,7 +236,7 @@ export const NotificationPreferencesSection: React.FC<NotificationPreferencesSec
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5 bg-slate-50/70 border border-slate-200 rounded-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50/70 border border-slate-200 rounded-2xl">
           <div className="flex items-center gap-3.5">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${pushPermission === 'granted' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
               <Bell className="w-5 h-5" strokeWidth={2} />

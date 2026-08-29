@@ -9,9 +9,8 @@ export function useFontScale() {
       if (saved === 'SMALL' || saved === 'NORMAL' || saved === 'LARGE') {
         return saved;
       }
-      if (window.innerWidth <= 1440) return 'SMALL';
     }
-    return 'SMALL';
+    return 'NORMAL';
   });
 
   const setFontScale = useCallback((scale: FontScale) => {
@@ -36,15 +35,9 @@ export function useFontScale() {
       }
     };
 
-    const root = document.documentElement;
-    root.classList.remove('font-scale-small', 'font-scale-normal', 'font-scale-large');
-    if (fontScale === 'SMALL') root.classList.add('font-scale-small');
-    else if (fontScale === 'LARGE') root.classList.add('font-scale-large');
-    else root.classList.add('font-scale-normal');
-
     window.addEventListener('fontScaleChanged', handleSync);
     return () => window.removeEventListener('fontScaleChanged', handleSync);
-  }, [fontScale]);
+  }, []);
 
   return { fontScale, setFontScale };
 }

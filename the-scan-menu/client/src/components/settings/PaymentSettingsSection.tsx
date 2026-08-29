@@ -422,20 +422,20 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
 
         {/* ── 3. CREDENTIALS CONFIGURATION ── */}
         {upiEnabled && (
-          <div className="pt-2">
-            <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4.5 space-y-2">
+          <div className="pt-3">
+            <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-5 sm:p-6 space-y-3 shadow-xs">
               <label className="block text-xs font-bold text-slate-900">
                 Merchant UPI ID (VPA) <span className="text-amber-600">*</span>
               </label>
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
                 <input
                   type="text"
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
                   placeholder="e.g. democafe@okhdfcbank"
-                  className="w-full sm:max-w-md px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold text-slate-900"
+                  className="w-full sm:max-w-md px-4 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold text-slate-900 shadow-2xs"
                 />
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500 leading-relaxed">
                   Instant scan-and-pay UPI QR codes generated dynamically on customer tables and printed bills.
                 </span>
               </div>
@@ -444,16 +444,18 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         )}
 
         {razorpayEnabled && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4.5 space-y-3">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between">
               <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                <Globe className="w-4 h-4 text-indigo-600" />
                 <span>Razorpay Gateway API Keys</span>
               </h5>
-              <span className="text-[10px] text-slate-500 font-mono">Test & Live Mode</span>
+              <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
+                Test & Live Mode
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">Key ID</label>
                 <input
@@ -461,7 +463,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                   value={razorpayKeyId}
                   onChange={(e) => setRazorpayKeyId(e.target.value)}
                   placeholder="rzp_test_..."
-                  className="w-full px-3 py-2 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono shadow-2xs"
                 />
               </div>
 
@@ -472,7 +474,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                   value={razorpayKeySecret}
                   onChange={(e) => setRazorpayKeySecret(e.target.value)}
                   placeholder="Enter secret"
-                  className="w-full px-3 py-2 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono shadow-2xs"
                 />
               </div>
 
@@ -483,7 +485,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                   value={razorpayWebhookSecret}
                   onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
                   placeholder="Enter webhook secret"
-                  className="w-full px-3 py-2 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono shadow-2xs"
                 />
               </div>
             </div>

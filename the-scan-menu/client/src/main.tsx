@@ -9,6 +9,16 @@ import './index.css';
 // Register PWA Service Worker for automatic updates
 registerSW({ immediate: true });
 
+// Initialize saved font scale on startup
+if (typeof window !== 'undefined') {
+  const savedScale = localStorage.getItem('manager_font_scale');
+  const root = document.documentElement;
+  root.classList.remove('font-scale-small', 'font-scale-normal', 'font-scale-large');
+  if (savedScale === 'SMALL') root.classList.add('font-scale-small');
+  else if (savedScale === 'LARGE') root.classList.add('font-scale-large');
+  else root.classList.add('font-scale-normal');
+}
+
 // Initialize the query client
 const queryClient = new QueryClient({
   defaultOptions: {
