@@ -103,53 +103,42 @@ export const QuickAddControl: React.FC<QuickAddControlProps> = ({
 }) => {
   if (cartQty > 0) {
     return (
-      <div className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-1.5 bg-slate-950 text-white rounded-2xl px-2 py-1 shadow-sm border border-slate-900">
-          <button
-            type="button"
-            onClick={onDecrement}
-            className="w-5 h-5 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-white transition active:scale-90 cursor-pointer"
-            title="Decrease quantity"
-          >
-            <Minus className="w-3 h-3" strokeWidth={2.5} />
-          </button>
-          <span className="w-4 text-center font-mono font-black text-xs text-amber-400">
-            {cartQty}
-          </span>
-          <button
-            type="button"
-            onClick={onIncrement}
-            className="w-5 h-5 rounded-lg bg-amber-500 hover:bg-amber-400 flex items-center justify-center text-slate-950 transition active:scale-90 cursor-pointer"
-            title="Increase quantity"
-          >
-            <Plus className="w-3 h-3" strokeWidth={2.5} />
-          </button>
-        </div>
-        {isCustomizable && (
-          <span className="text-[9px] font-bold text-amber-700 font-mono tracking-tight leading-none pr-1">
-            Customised
-          </span>
-        )}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-[88px] h-8 flex items-center justify-between bg-slate-950 text-white rounded-2xl px-1.5 shadow-sm border border-slate-900 select-none shrink-0"
+      >
+        <button
+          type="button"
+          onClick={onDecrement}
+          className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-white transition active:scale-90 cursor-pointer"
+          title="Decrease quantity"
+        >
+          <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
+        </button>
+        <span className="font-mono font-black text-xs text-amber-400">
+          {cartQty}
+        </span>
+        <button
+          type="button"
+          onClick={onIncrement}
+          className="w-6 h-6 rounded-lg bg-amber-500 hover:bg-amber-400 flex items-center justify-center text-slate-950 transition active:scale-90 cursor-pointer"
+          title="Increase quantity"
+        >
+          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-end gap-0.5">
-      <button
-        type="button"
-        onClick={onAdd}
-        className="inline-flex items-center gap-1.5 text-[11px] font-black text-amber-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 px-3.5 py-1.5 rounded-2xl transition-all shadow-xs active:scale-95 uppercase tracking-wider cursor-pointer"
-      >
-        <Plus className="w-3 h-3" strokeWidth={3} />
-        <span>{isCustomizable ? 'Options' : 'Add'}</span>
-      </button>
-      {isCustomizable && (
-        <span className="text-[9px] font-semibold text-slate-400 font-mono tracking-tight leading-none pr-1">
-          customisable
-        </span>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onAdd}
+      className="w-[88px] h-8 inline-flex items-center justify-center gap-1 text-[11px] font-black text-amber-950 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 rounded-2xl transition-all shadow-xs active:scale-95 uppercase tracking-wider cursor-pointer shrink-0"
+    >
+      <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+      <span>{isCustomizable ? 'Options' : 'Add'}</span>
+    </button>
   );
 };
 

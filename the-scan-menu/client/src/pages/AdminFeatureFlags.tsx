@@ -30,6 +30,7 @@ import {
   SlidersHorizontal,
   Check,
   ShieldCheck,
+  Smartphone,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -79,6 +80,7 @@ const FLAG_ICON_MAP: Record<string, any> = {
   ordering: ShoppingBag,
   waiter_call: Bell,
   customer_display: Tv,
+  mobile_app: Smartphone,
   kds: Flame,
   inventory: Boxes,
   pos: Calculator,

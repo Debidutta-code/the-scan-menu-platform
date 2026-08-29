@@ -103,6 +103,7 @@ export const PublicTable: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [dietFilter, setDietFilter] = useState<'all' | 'veg' | 'nonveg'>('all');
+  const [chefsSpecialFilter, setChefsSpecialFilter] = useState<boolean>(false);
   const [priceSort, setPriceSort] = useState<'default' | 'low-high' | 'high-low'>('default');
   const showAvailableOnly = true;
 
@@ -536,10 +537,13 @@ export const PublicTable: React.FC = () => {
             (dietFilter === 'veg' && item.isVegetarian) ||
             (dietFilter === 'nonveg' && !item.isVegetarian);
 
+          // Chef's special filter
+          const matchesChefsSpecial = !chefsSpecialFilter || !!item.isChefsSpecial;
+
           // Availability check
           const matchesAvailability = !showAvailableOnly || item.isAvailable;
 
-          return matchesQuery && matchesDiet && matchesAvailability;
+          return matchesQuery && matchesDiet && matchesAvailability && matchesChefsSpecial;
         });
 
         // Price Sorting
@@ -993,7 +997,7 @@ export const PublicTable: React.FC = () => {
   const activeOrdersIds = (sessionDetailsData?.data?.orders || []).map((o: any) => o._id);
 
   return (
-    <div style={cssVariables} className="min-h-screen bg-slate-50 font-sans antialiased pb-28 relative">
+    <div style={cssVariables} className="min-h-screen bg-slate-50 font-sans antialiased pb-20 relative">
       <Helmet>
         <title>{restaurant.name} - Digital Menu & Ordering</title>
         <meta name="description" content={restaurant.description || `View the digital menu and place your order at ${restaurant.name}.`} />
@@ -1052,6 +1056,8 @@ export const PublicTable: React.FC = () => {
           onQuickAdd={handleQuickAdd}
           onQuickIncrement={handleQuickIncrement}
           onQuickDecrement={handleQuickDecrement}
+          chefsSpecialFilter={chefsSpecialFilter}
+          onChefsSpecialFilterToggle={() => setChefsSpecialFilter((prev) => !prev)}
           onTrackOrders={(orderId) => updateNavigationState('cart-orders', 'orders', orderId)}
           getItemCartQuantity={getItemCartQuantity}
           getItemBadge={getItemBadge}

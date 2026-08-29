@@ -126,6 +126,8 @@ export interface MenuTabProps {
   onTrackOrders: (orderId: string) => void;
   getItemCartQuantity: (id: string) => number;
   getItemBadge: (item: import('../../services/restaurant.service').MenuItem, idx: number) => string | null;
+  chefsSpecialFilter: boolean;
+  onChefsSpecialFilterToggle: () => void;
   featureFlags: { key: string; enabled: boolean }[];
 }
 

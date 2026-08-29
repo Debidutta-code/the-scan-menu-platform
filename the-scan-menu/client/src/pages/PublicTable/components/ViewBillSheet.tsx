@@ -65,7 +65,12 @@ export const ViewBillSheet: React.FC<ViewBillSheetProps> = ({
                         <span className="font-bold text-slate-800">{item.nameSnapshot}</span>
                         <span className="text-slate-400 font-mono ml-1.5">x{item.quantity}</span>
                         {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                          <p className="text-[10px] text-slate-400">+ {item.selectedAddOns.map((x: any) => x.name).join(', ')}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">
+                            + {item.selectedAddOns.map((x: any) => {
+                              const delta = x.priceDelta ?? x.price ?? 0;
+                              return `${x.name}${delta > 0 ? ` (${formatPrice(delta, currency)})` : ''}`;
+                            }).join(', ')}
+                          </p>
                         )}
                       </div>
                       <span className="font-mono font-bold text-slate-900">

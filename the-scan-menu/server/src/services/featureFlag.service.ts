@@ -39,6 +39,12 @@ export const DEFAULT_FLAGS: FeatureFlagMeta[] = [
 
   // 2. Kitchen & Operations
   {
+    key: 'mobile_app',
+    name: 'Captain Mobile App Access',
+    category: 'OPERATIONS',
+    description: 'Staff & Captain Android / iOS mobile ordering, waiter call alerts, and live table management app.',
+  },
+  {
     key: 'kds',
     name: 'Kitchen Display System (KDS)',
     category: 'OPERATIONS',

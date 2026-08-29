@@ -9,7 +9,7 @@ import '../../../core/sockets/socket_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../models/user_model.dart';
 
-enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
+enum AuthStatus { initial, loading, authenticated, unauthenticated, mobileDisabled, error }
 
 class AuthState {
   final AuthStatus status;
@@ -133,6 +133,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
             _pushNotificationService.syncTokenWithServer(restaurantId: savedRestaurantId);
           }
 
+          // Check if Mobile App access is enabled for this restaurant
+          if (userData.role != 'SUPER_ADMIN' && restaurant != null) {
+            final isMobileEnabled = restaurant.featureFlags.contains('mobile_app');
+            if (!isMobileEnabled) {
+              state = state.copyWith(
+                status: AuthStatus.mobileDisabled,
+                user: userData,
+                activeRestaurant: restaurant,
+                errorMessage: 'Mobile application access is disabled for ${restaurant.name}.',
+              );
+              return;
+            }
+          }
+
           // ignore: avoid_print
           print('[AUTH] Persistent Mobile Session Verified -> ${userData.email} | Rest: $savedRestaurantId');
 
@@ -235,7 +249,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
               restaurant = RestaurantProfile.fromJson(restRes.data['data']);
             }
           } catch (_) {}
+        }
 
+        // Check if Mobile App access is enabled for this restaurant
+        if (userData.role != 'SUPER_ADMIN' && restaurant != null) {
+          final isMobileEnabled = restaurant.featureFlags.contains('mobile_app');
+          if (!isMobileEnabled) {
+            state = state.copyWith(
+              status: AuthStatus.mobileDisabled,
+              user: userData,
+              activeRestaurant: restaurant,
+              errorMessage: 'Mobile application access is disabled for ${restaurant.name}.',
+            );
+            return;
+          }
+        }
+
+        if (activeRestaurantId != null) {
           await _socketService.connect(activeRestaurantId);
           _pushNotificationService.syncTokenWithServer(restaurantId: activeRestaurantId);
         }
@@ -250,6 +280,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } on DioException catch (dioErr) {
       final formatted = _apiClient.formatDioError(dioErr);
+      final errorCode = dioErr.response?.data?['error']?['code'];
+      if (errorCode == 'MOBILE_APP_DISABLED') {
+        state = state.copyWith(
+          status: AuthStatus.mobileDisabled,
+          errorMessage: formatted.message,
+        );
+        return;
+      }
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: formatted.message,

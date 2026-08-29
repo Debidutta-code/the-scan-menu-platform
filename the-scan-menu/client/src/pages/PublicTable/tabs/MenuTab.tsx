@@ -17,6 +17,8 @@ export const MenuTab: React.FC<MenuTabProps> = ({
   categoryNavRef,
   activeOrderCount,
   activeOrdersIds,
+  chefsSpecialFilter,
+  onChefsSpecialFilterToggle,
   onSearchChange,
   onSearchClear,
   onDietFilterChange,
@@ -61,33 +63,57 @@ export const MenuTab: React.FC<MenuTabProps> = ({
           )}
         </div>
 
-        <div className="flex gap-2.5 items-center justify-between">
-          {/* Diet filter group */}
-          <div className="flex gap-1">
-            {([
-              { key: 'all', label: 'All' },
-              { key: 'veg', label: 'Veg' },
-              { key: 'nonveg', label: 'Non-Veg' },
-            ] as const).map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => onDietFilterChange(opt.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                  dietFilter === opt.key
-                    ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
-                    : 'bg-white border-slate-150 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <div className="flex gap-2 items-center justify-between overflow-x-auto no-scrollbar py-0.5">
+          {/* Filter Toggles Group */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Veg Toggle */}
+            <button
+              type="button"
+              onClick={() => onDietFilterChange(dietFilter === 'veg' ? 'all' : 'veg')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer select-none ${
+                dietFilter === 'veg'
+                  ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-xs ring-1 ring-emerald-400/30'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${dietFilter === 'veg' ? 'bg-emerald-500 ring-2 ring-emerald-300' : 'bg-emerald-500'}`} />
+              <span>Veg</span>
+            </button>
+
+            {/* Non-Veg Toggle */}
+            <button
+              type="button"
+              onClick={() => onDietFilterChange(dietFilter === 'nonveg' ? 'all' : 'nonveg')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer select-none ${
+                dietFilter === 'nonveg'
+                  ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-xs ring-1 ring-rose-400/30'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${dietFilter === 'nonveg' ? 'bg-rose-500 ring-2 ring-rose-300' : 'bg-rose-500'}`} />
+              <span>Non-Veg</span>
+            </button>
+
+            {/* Chef's Special Toggle */}
+            <button
+              type="button"
+              onClick={onChefsSpecialFilterToggle}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer select-none ${
+                chefsSpecialFilter
+                  ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-400/30'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${chefsSpecialFilter ? 'text-amber-600' : 'text-amber-500'}`} strokeWidth={2.5} />
+              <span>Chef's Special</span>
+            </button>
           </div>
 
           {/* Price Sort Dropdown */}
           <select
             value={priceSort}
             onChange={(e) => onPriceSortChange(e.target.value as any)}
-            className="border border-slate-150 rounded-xl px-2.5 py-1.5 bg-white focus:outline-none font-bold text-xs text-slate-600"
+            className="border border-slate-200 rounded-xl px-2.5 py-1.5 bg-white focus:outline-none font-bold text-xs text-slate-700 shrink-0 cursor-pointer shadow-xs"
           >
             <option value="default">Sort Price</option>
             <option value="low-high">Low to High</option>
@@ -232,6 +258,13 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                                 </span>
                               </div>
                             )}
+                            {item.isChefsSpecial && item.isAvailable && !badge && !isCombo && (
+                              <div className="absolute top-1 left-1">
+                                <span className="text-[8px] font-black text-amber-950 uppercase tracking-wider px-1.5 py-0.5 bg-amber-400 rounded-full shadow-2xs flex items-center gap-0.5">
+                                  <Sparkles className="w-2.5 h-2.5" /> Chef's Special
+                                </span>
+                              </div>
+                            )}
                             {!item.isAvailable && (
                               <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
                                 <span className="text-[9px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-black/60 rounded">
@@ -319,6 +352,83 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                 </div>
               </section>
             ))}
+
+            {/* End of Menu Brick UI - Pure Background 3D Typography */}
+            <div className="pt-4 pb-6 flex flex-col items-center justify-center text-center select-none px-4">
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-2 max-w-sm mx-auto">
+                <div className="flex items-center gap-1">
+                  {['F', 'E', 'A', 'S', 'T'].map((char, i) => {
+                    const rotations = [-3, 2, -2, 3, -1];
+                    const rot = rotations[i % rotations.length];
+                    return (
+                      <span
+                        key={i}
+                        style={{
+                          transform: `rotate(${rot}deg)`,
+                          display: 'inline-block',
+                          color: '#FFFFFF',
+                          WebkitTextStroke: '2px #0f172a',
+                          paintOrder: 'stroke fill',
+                          textShadow: `
+                            0 3px 0 #FFB300,
+                            0 4px 0 #FFA000,
+                            0 5px 0 #FF8F00,
+                            0 6px 0 #FF6F00,
+                            0 7px 0 #F57C00,
+                            0 8px 0 #E65100,
+                            0 9px 0 #DD2C00,
+                            0 10px 0 #BF360C,
+                            0 12px 0 #871400,
+                            0 15px 22px rgba(15, 23, 42, 0.25)
+                          `,
+                        }}
+                        className="font-black text-5xl sm:text-6xl tracking-tight select-none transition-transform hover:scale-110 active:scale-95"
+                      >
+                        {char}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {['M', 'O', 'D', 'E'].map((char, i) => {
+                    const rotations = [2, -2, 3, -2];
+                    const rot = rotations[i % rotations.length];
+                    return (
+                      <span
+                        key={i}
+                        style={{
+                          transform: `rotate(${rot}deg)`,
+                          display: 'inline-block',
+                          color: '#FFFFFF',
+                          WebkitTextStroke: '2px #0f172a',
+                          paintOrder: 'stroke fill',
+                          textShadow: `
+                            0 3px 0 #FFB300,
+                            0 4px 0 #FFA000,
+                            0 5px 0 #FF8F00,
+                            0 6px 0 #FF6F00,
+                            0 7px 0 #F57C00,
+                            0 8px 0 #E65100,
+                            0 9px 0 #DD2C00,
+                            0 10px 0 #BF360C,
+                            0 12px 0 #871400,
+                            0 15px 22px rgba(15, 23, 42, 0.25)
+                          `,
+                        }}
+                        className="font-black text-5xl sm:text-6xl tracking-tight select-none transition-transform hover:scale-110 active:scale-95"
+                      >
+                        {char}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <p className="text-xs font-bold tracking-widest text-slate-400 uppercase font-mono mt-3">
+                SERVED FRESH & HOT
+              </p>
+            </div>
           </div>
         )}
       </div>

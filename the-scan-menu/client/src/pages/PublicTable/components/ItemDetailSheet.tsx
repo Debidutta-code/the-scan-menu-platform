@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Plus, Minus } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { Sparkles, Plus, Minus } from 'lucide-react';
 import { ItemDetailSheetProps } from '../types';
 import { MenuBadge } from './MenuBadge';
 import { formatPrice } from '../utils';
@@ -20,6 +20,55 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
   onInstructionsChange,
   featureFlags,
 }) => {
+  const dragControls = useDragControls();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const isItemOpen = Boolean(selectedItem);
+
+  // Lock body scroll and touch actions while modal is open
+  useEffect(() => {
+    if (!isItemOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, [isItemOpen]);
+
+  // Handle Phone Back Button (popstate) and Keyboard Escape Key
+  useEffect(() => {
+    if (!isItemOpen) return;
+
+    window.history.pushState({ modalOpen: 'item-detail' }, '');
+
+    const handlePopState = () => {
+      onCloseRef.current();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+      if (window.history.state?.modalOpen === 'item-detail') {
+        window.history.back();
+      }
+    };
+  }, [isItemOpen]);
+
   if (!selectedItem) return null;
 
   const isOrderingEnabled = (featureFlags || []).some(f => f.key === 'ordering' && f.enabled);
@@ -31,7 +80,7 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="fixed inset-0 z-50 flex items-end justify-center overscroll-contain touch-none">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -41,24 +90,34 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
           onClick={onClose}
         />
 
-        {/* Bottom Drawer Sheet */}
+        {/* Bottom Drawer Sheet with drag-down-to-close */}
         <motion.div
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 24, stiffness: 240 }}
-          className="relative bg-white w-full max-w-xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto font-sans flex flex-col"
+          transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+          drag="y"
+          dragControls={dragControls}
+          dragListener={false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.7 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 80 || info.velocity.y > 300) {
+              onClose();
+            }
+          }}
+          className="relative bg-white w-full max-w-xl rounded-t-3xl shadow-2xl max-h-[90vh] font-sans flex flex-col overflow-hidden overscroll-contain"
         >
-          <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto my-3 shrink-0" />
-
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full text-slate-500 hover:text-slate-700 z-10"
+          {/* Top Drag Handle Header */}
+          <div
+            onPointerDown={(e) => dragControls.start(e)}
+            className="pt-3.5 pb-2 shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
           >
-            <X className="w-5 h-5" strokeWidth={1.75} />
-          </button>
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full hover:bg-slate-400 transition" />
+          </div>
 
-          <div className="flex-1 overflow-y-auto p-5 pb-8 space-y-6">
+          {/* Scrollable Body Content */}
+          <div className="flex-1 overflow-y-auto p-5 pb-6 space-y-6">
             <div className="w-full h-56 bg-slate-50 rounded-2xl overflow-hidden relative border border-slate-100">
               {selectedItem.imageUrl ? (
                 <img src={selectedItem.imageUrl} alt={selectedItem.name} className="w-full h-full object-cover" />
@@ -120,7 +179,7 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
                         key={v.name}
                         type="button"
                         onClick={() => onVariantChange && onVariantChange(v)}
-                        className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between gap-1 select-none ${
+                        className={`p-3 rounded-2xl border-2 text-left transition-all flex flex-col justify-between gap-1 select-none cursor-pointer ${
                           isSelected
                             ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-400/20'
                             : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -149,7 +208,7 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
                         key={addOn.name}
                         className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
                           isChecked
-                            ? 'bg-amber-50/50 border-[var(--theme-accent)]/40 text-slate-950'
+                            ? 'bg-amber-50/50 border-amber-400 text-slate-950 shadow-2xs'
                             : 'border-slate-150 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
@@ -158,11 +217,11 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => onAddOnToggle(addOn)}
-                            className="w-4.5 h-4.5 accent-[var(--theme-accent)] rounded border-slate-300"
+                            className="w-4.5 h-4.5 accent-amber-500 rounded border-slate-300 cursor-pointer"
                           />
                           <span className="text-sm font-semibold">{addOn.name}</span>
                         </div>
-                        <span className="text-sm font-bold">+ {formatPrice(addOn.priceDelta, currency)}</span>
+                        <span className="text-sm font-bold font-mono">+ {formatPrice(addOn.priceDelta, currency)}</span>
                       </label>
                     );
                   })}
@@ -178,38 +237,44 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
                 placeholder="E.g., Make Maggi dry, extra spicy, less oil..."
                 value={detailSpecialInstructions}
                 onChange={(e) => onInstructionsChange(e.target.value)}
-                className="w-full p-3.5 border border-slate-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--theme-accent)]/30 focus:border-[var(--theme-accent)] text-sm placeholder:text-slate-400"
+                className="w-full p-3.5 border border-slate-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-sm placeholder:text-slate-400"
               />
             </div>
+          </div>
 
-            {isOrderingEnabled && (
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1 shrink-0">
-                  <button
-                    onClick={() => onQuantityChange(Math.max(1, detailQuantity - 1))}
-                    className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
-                  >
-                    <Minus className="w-3.5 h-3.5" strokeWidth={2} />
-                  </button>
-                  <span className="px-4 font-bold text-slate-900 text-sm font-mono w-8 text-center">{detailQuantity}</span>
-                  <button
-                    onClick={() => onQuantityChange(detailQuantity + 1)}
-                    className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-                  </button>
-                </div>
-
+          {/* Sticky Bottom Footer */}
+          {isOrderingEnabled && (
+            <div className="shrink-0 p-4 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-[0_-8px_20px_-6px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3 z-20">
+              <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1 shrink-0">
                 <button
-                  onClick={onAddToCart}
-                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-colors flex items-center justify-between shadow-md"
+                  type="button"
+                  onClick={() => onQuantityChange(Math.max(1, detailQuantity - 1))}
+                  className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95 cursor-pointer"
+                  title="Decrease quantity"
                 >
-                  <span>Add to Cart</span>
-                  <span>{formatPrice(itemTotal, currency)}</span>
+                  <Minus className="w-3.5 h-3.5" strokeWidth={2} />
+                </button>
+                <span className="px-3 font-bold text-slate-900 text-sm font-mono w-8 text-center">{detailQuantity}</span>
+                <button
+                  type="button"
+                  onClick={() => onQuantityChange(detailQuantity + 1)}
+                  className="p-2 text-slate-600 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95 cursor-pointer"
+                  title="Increase quantity"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2} />
                 </button>
               </div>
-            )}
-          </div>
+
+              <button
+                type="button"
+                onClick={onAddToCart}
+                className="flex-1 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white py-3.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-between shadow-md cursor-pointer"
+              >
+                <span>Add to Cart</span>
+                <span className="font-mono font-black">{formatPrice(itemTotal, currency)}</span>
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     </AnimatePresence>

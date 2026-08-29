@@ -1,41 +1,95 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, useMotionValue, animate, AnimatePresence } from 'framer-motion';
+import { ShoppingBag } from 'lucide-react';
 import { FloatingCartBarProps } from '../types';
-import { formatPrice } from '../utils';
 
 export const FloatingCartBar: React.FC<FloatingCartBarProps> = ({
   cartItems,
-  currency,
   activeTab,
   onViewCart,
 }) => {
-  const cartSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const x = useMotionValue(0);
+  const [side, setSide] = useState<'right' | 'left'>('right');
+  const buttonWidth = 64; // 64px = w-16
+  const margin = 16; // 16px padding on each side
+
+  const getTravelDistance = () => {
+    if (typeof window === 'undefined') return 250;
+    const screenWidth = window.innerWidth;
+    const containerWidth = Math.min(screenWidth, 448);
+    return Math.max(80, containerWidth - buttonWidth - margin * 2);
+  };
+
+  const [travelDistance, setTravelDistance] = useState(getTravelDistance);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const newTravel = getTravelDistance();
+      setTravelDistance(newTravel);
+      if (side === 'left') {
+        x.set(-newTravel);
+      } else {
+        x.set(0);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [side, x]);
+
+  if (cartItems.length === 0 || activeTab === 'cart-orders') {
+    return null;
+  }
 
   return (
     <AnimatePresence>
-      {cartItems.length > 0 && activeTab !== 'cart-orders' && (
+      <div className="fixed bottom-20 left-0 right-0 z-40 max-w-md mx-auto pointer-events-none px-4 flex justify-end">
         <motion.div
-          initial={{ y: 60, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 60, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="fixed bottom-20 left-4 right-4 z-30 max-w-md mx-auto"
+          style={{ x }}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+          drag="x"
+          dragConstraints={{ left: -travelDistance, right: 0 }}
+          dragElastic={0.05}
+          onDragEnd={(_, info) => {
+            const currentX = x.get();
+            const midpoint = -travelDistance / 2;
+
+            if (info.velocity.x > 250) {
+              setSide('right');
+              animate(x, 0, { type: 'spring', damping: 25, stiffness: 350 });
+            } else if (info.velocity.x < -250) {
+              setSide('left');
+              animate(x, -travelDistance, { type: 'spring', damping: 25, stiffness: 350 });
+            } else {
+              if (currentX < midpoint) {
+                setSide('left');
+                animate(x, -travelDistance, { type: 'spring', damping: 25, stiffness: 350 });
+              } else {
+                setSide('right');
+                animate(x, 0, { type: 'spring', damping: 25, stiffness: 350 });
+              }
+            }
+          }}
+          className="pointer-events-auto cursor-grab active:cursor-grabbing touch-none select-none"
         >
           <button
+            type="button"
             onClick={onViewCart}
-            className="w-full bg-slate-950 hover:bg-slate-900 text-white py-3.5 px-5 rounded-2xl font-bold text-sm tracking-wide transition-all shadow-xl flex items-center justify-between border border-slate-800 active:scale-[0.98]"
+            className="relative w-16 h-16 rounded-full bg-slate-950 text-white shadow-2xl border-2 border-amber-500 flex items-center justify-center hover:bg-slate-900 active:scale-95 transition-transform cursor-pointer"
+            title="View Cart"
           >
-            <div className="flex items-center gap-3">
-              <span className="bg-amber-500 text-slate-950 font-black font-mono text-xs px-2.5 py-0.5 rounded-full flex items-center justify-center">
-                {totalCount}
-              </span>
-              <span className="font-sans">View Basket</span>
-            </div>
-            <span className="font-mono font-black">{formatPrice(cartSubtotal, currency)}</span>
+            <ShoppingBag className="w-7 h-7 text-amber-400" strokeWidth={2.2} />
+
+            {/* Badge for item count */}
+            <span className="absolute -top-1 -right-1 min-w-[24px] h-[24px] px-1 rounded-full bg-amber-500 text-slate-950 font-black font-mono text-xs flex items-center justify-center shadow-md border-2 border-slate-950">
+              {totalCount}
+            </span>
           </button>
         </motion.div>
-      )}
+      </div>
     </AnimatePresence>
   );
 };

@@ -8,6 +8,7 @@ import '../../core/notifications/notification_permission_dialog.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../active_orders/providers/active_orders_provider.dart';
 import '../active_orders/screens/active_orders_screen.dart';
+import '../auth/screens/mobile_disabled_screen.dart';
 import '../profile/screens/profile_screen.dart';
 import '../tables/screens/tables_screen.dart';
 import '../waiter_calls/providers/waiter_calls_provider.dart';
@@ -24,13 +25,6 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
   StreamSubscription? _notifSubscription;
-
-  final List<Widget> _screens = const [
-    TablesScreen(),
-    ActiveOrdersScreen(),
-    WaiterCallsScreen(),
-    ProfileScreen(),
-  ];
 
   @override
   void initState() {
@@ -97,9 +91,19 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
+    // Gate screen if mobile access is disabled
+    if (authState.status == AuthStatus.mobileDisabled ||
+        (authState.user != null &&
+         authState.user!.role != 'SUPER_ADMIN' &&
+         authState.activeRestaurant != null &&
+         !authState.activeRestaurant!.featureFlags.contains('mobile_app'))) {
+      return const MobileDisabledScreen();
+    }
+
     final activeOrdersState = ref.watch(activeOrdersProvider);
     final waiterCallsState = ref.watch(waiterCallsProvider);
-    final authState = ref.watch(authProvider);
 
     final activeOrdersCount = activeOrdersState.orders.length;
     final pendingCallsCount = waiterCallsState.pendingCount;

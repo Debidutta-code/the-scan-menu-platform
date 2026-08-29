@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
+import 'mobile_disabled_screen.dart';
 import '../../screens/main_shell_screen.dart';
 
 class SplashScreen extends ConsumerWidget {
@@ -16,6 +17,10 @@ class SplashScreen extends ConsumerWidget {
       if (next.status == AuthStatus.authenticated) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainShellScreen()),
+        );
+      } else if (next.status == AuthStatus.mobileDisabled) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MobileDisabledScreen()),
         );
       } else if (next.status == AuthStatus.unauthenticated ||
           next.status == AuthStatus.error) {

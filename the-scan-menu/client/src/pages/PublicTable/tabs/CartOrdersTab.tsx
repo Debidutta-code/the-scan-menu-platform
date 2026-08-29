@@ -59,41 +59,43 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
       key="cart-orders"
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-md mx-auto px-4 py-4 space-y-6 flex flex-col pb-8"
+      className="max-w-md mx-auto px-4 py-4 space-y-4 flex flex-col"
     >
-      {/* Header */}
-      <div className="text-center space-y-1">
+      {/* Header (Scrolls with page) */}
+      <div className="text-center space-y-1 pb-1">
         <h3 className="font-display text-4xl font-normal text-slate-900 tracking-tight">My Basket & Orders</h3>
         <p className="text-xs text-slate-500">Manage your active cart and track kitchen orders.</p>
       </div>
 
-      {/* Sticky/Fixed Segmented Top Tab Controls */}
-      <div className="flex bg-slate-100 rounded-2xl p-1.5 border border-slate-200">
-        <button
-          onClick={() => onSubTabChange('cart')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all ${
-            cartOrdersSubTab === 'cart'
-              ? 'bg-white text-slate-950 shadow-sm'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Basket Cart ({cartItems.reduce((sum, item) => sum + item.quantity, 0)})
-        </button>
-        <button
-          onClick={() => onSubTabChange('orders')}
-          className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all ${
-            cartOrdersSubTab === 'orders'
-              ? 'bg-white text-slate-950 shadow-sm'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Placed Orders ({activeOrderCount})
-        </button>
+      {/* Sticky Segmented Top Tab Controls */}
+      <div className="sticky top-0 z-20 py-2.5 bg-slate-50/95 backdrop-blur-md -mx-4 px-4 border-b border-slate-200/60 shadow-2xs mb-3">
+        <div className="flex bg-slate-100 rounded-2xl p-1.5 border border-slate-200">
+          <button
+            onClick={() => onSubTabChange('cart')}
+            className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+              cartOrdersSubTab === 'cart'
+                ? 'bg-white text-slate-950 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Basket Cart ({cartItems.reduce((sum, item) => sum + item.quantity, 0)})
+          </button>
+          <button
+            onClick={() => onSubTabChange('orders')}
+            className={`flex-1 py-2.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+              cartOrdersSubTab === 'orders'
+                ? 'bg-white text-slate-950 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Placed Orders ({activeOrderCount})
+          </button>
+        </div>
       </div>
 
       {/* Sub Tab: CART */}
       {cartOrdersSubTab === 'cart' && (
-        <div className="space-y-6">
+        <div className="space-y-5 pt-1 pb-14">
           {cartItems.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-3xl border border-slate-150 p-8 space-y-4">
               <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 mx-auto">
@@ -363,36 +365,44 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                     </button>
                   </div>
                 ) : null}
-
-                {/* Recovering Order Ambient Notice */}
-                {isRecoveringOrder && (
-                  <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center gap-2.5 text-xs text-indigo-900 animate-pulse">
-                    <Loader className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
-                    <span>Verifying your order status with the restaurant... Please don't submit again.</span>
-                  </div>
-                )}
-
-                <button
-                  onClick={onCheckoutTrigger}
-                  disabled={isPlacingOrder || isRecoveringOrder}
-                  className="w-full py-4 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPlacingOrder ? (
-                    <>
-                      <Loader className="w-4 h-4 animate-spin text-amber-400" />
-                      <span>Submitting Order...</span>
-                    </>
-                  ) : isCustomerAuthenticated && customer?.name ? (
-                    <span>
-                      PLACE ORDER AS {customer.name.toUpperCase()} • {formatPrice(finalPayableTotal, currency)}
-                    </span>
-                  ) : (
-                    <span>CONTINUE TO CHECKOUT • {formatPrice(finalPayableTotal, currency)}</span>
-                  )}
-                </button>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sticky Bottom Checkout Bar (Above Bottom Navigation) */}
+      {cartOrdersSubTab === 'cart' && cartItems.length > 0 && (
+        <div className="fixed bottom-16 left-0 right-0 z-30 p-3 bg-white/95 backdrop-blur-md border-t border-slate-150 shadow-lg">
+          <div className="max-w-md mx-auto">
+            {isRecoveringOrder && (
+              <div className="mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-[11px] text-indigo-900 animate-pulse">
+                <Loader className="w-3.5 h-3.5 animate-spin text-indigo-600 shrink-0" />
+                <span>Verifying order status with the restaurant...</span>
+              </div>
+            )}
+            <button
+              onClick={onCheckoutTrigger}
+              disabled={isPlacingOrder || isRecoveringOrder}
+              className="w-full py-4 px-5 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md transition flex items-center justify-between active:scale-98 disabled:opacity-50 cursor-pointer"
+            >
+              {isPlacingOrder ? (
+                <div className="flex items-center justify-center gap-2 w-full">
+                  <Loader className="w-4 h-4 animate-spin text-amber-400" />
+                  <span>Submitting Order...</span>
+                </div>
+              ) : (
+                <>
+                  <span className="font-extrabold text-sm tracking-wide">
+                    {isCustomerAuthenticated && customer?.name ? `Checkout • ${customer.name}` : 'Checkout'}
+                  </span>
+                  <span className="font-mono font-black text-amber-400 text-base">
+                    {formatPrice(finalPayableTotal, currency)}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
@@ -596,7 +606,12 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                                             {item.nameSnapshot} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
                                           </h6>
                                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                            <p className="text-[10px] text-slate-400 mt-0.5">+ {item.selectedAddOns.map((x: any) => x.name).join(', ')}</p>
+                                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                              + {item.selectedAddOns.map((x: any) => {
+                                                const delta = x.priceDelta ?? x.price ?? 0;
+                                                return `${x.name}${delta > 0 ? ` (${formatPrice(delta, currency)})` : ''}`;
+                                              }).join(', ')}
+                                            </p>
                                           )}
                                           {item.specialInstructions && (
                                             <div className="mt-1">

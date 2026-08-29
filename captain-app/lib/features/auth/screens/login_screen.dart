@@ -8,6 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../providers/auth_provider.dart';
 import '../../screens/main_shell_screen.dart';
+import 'mobile_disabled_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -109,6 +110,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainShellScreen()),
         );
+      } else if (next.status == AuthStatus.mobileDisabled) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MobileDisabledScreen()),
+        );
       }
     });
 
@@ -117,6 +122,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const MainShellScreen()),
+          );
+        }
+      });
+    } else if (authState.status == AuthStatus.mobileDisabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MobileDisabledScreen()),
           );
         }
       });

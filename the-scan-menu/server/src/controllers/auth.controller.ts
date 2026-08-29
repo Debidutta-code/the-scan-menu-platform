@@ -73,6 +73,38 @@ export class AuthController {
         assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 
+      // Check Mobile Application Feature Flag when logging in from mobile client
+      if (clientType === 'mobile' && user.role !== 'SUPER_ADMIN') {
+        const { FeatureFlag } = await import('../models/FeatureFlag');
+        let hasMobileAccess = false;
+
+        if (assignedRestaurants.length > 0) {
+          const enabledFlag = await FeatureFlag.findOne({
+            restaurantId: { $in: assignedRestaurants },
+            key: 'mobile_app',
+            enabled: true,
+          });
+          if (enabledFlag) {
+            hasMobileAccess = true;
+          }
+        }
+
+        if (!hasMobileAccess) {
+          sendError(
+            res,
+            'MOBILE_APP_DISABLED',
+            'Mobile application access is disabled for your restaurant. Please reach out to hello@pixorastudios.com or +91 6371875968 for help.',
+            {
+              supportEmail: 'hello@pixorastudios.com',
+              supportPhone: '+91 6371875968',
+              feature: 'mobile_app',
+            },
+            403
+          );
+          return;
+        }
+      }
+
       sendSuccess(
         res,
         {
