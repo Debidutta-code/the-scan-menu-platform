@@ -532,13 +532,13 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
 
       {/* ── Page Header & KPI Strip (Smoothly collapsible on scroll) ─────────── */}
       <div
-        className={`transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
-          isHeaderCollapsed ? 'max-h-0 opacity-0 mb-0 pointer-events-none scale-y-95' : 'max-h-72 opacity-100 mb-2.5 scale-y-100'
+        className={`transition-all duration-300 ease-in-out shrink-0 ${
+          isHeaderCollapsed ? 'max-h-0 opacity-0 mb-0 pointer-events-none scale-y-95 overflow-hidden' : 'max-h-[500px] opacity-100 mb-2.5 scale-y-100 z-40 relative'
         }`}
       >
         <div className="space-y-2.5">
           {/* Page Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
+          <div className="relative z-40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
             <div>
               <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">
                 Table Management
@@ -571,7 +571,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               )}
 
               {/* Add Table Dropdown */}
-              <div className="relative" ref={addMenuRef}>
+              <div className="relative z-50" ref={addMenuRef}>
                 <button
                   type="button"
                   onClick={() => {
@@ -586,7 +586,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 </button>
 
                 {isAddMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl border border-slate-200 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <button
                       type="button"
                       onClick={() => {
@@ -625,7 +625,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
                     >
-                      <Settings2 className="w-4 h-4 text-slate-600" strokeWidth={1.75} />
+                      <MapPin className="w-4 h-4 text-amber-600" strokeWidth={1.75} />
                       <span>Manage Zones</span>
                     </button>
                   </div>
@@ -633,7 +633,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               </div>
 
               {/* 3-Dot More Menu */}
-              <div className="relative" ref={moreMenuRef}>
+              <div className="relative z-50" ref={moreMenuRef}>
                 <button
                   type="button"
                   onClick={() => {
@@ -647,7 +647,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 </button>
 
                 {isMoreMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-2xl border border-slate-200 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <button
                       type="button"
                       onClick={() => {
