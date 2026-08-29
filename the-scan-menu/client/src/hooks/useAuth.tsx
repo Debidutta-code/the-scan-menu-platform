@@ -84,6 +84,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeAuth();
+
+    const handleUnauthorized = () => {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('tsm_impersonated_outlet');
+      setAccessToken(null);
+      setUser(null);
+      setImpersonatedOutlet(null);
+      setIsLoading(false);
+    };
+
+    window.addEventListener('tsm_auth_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('tsm_auth_unauthorized', handleUnauthorized);
   }, []);
 
   const login = async (email: string, password: string) => {
