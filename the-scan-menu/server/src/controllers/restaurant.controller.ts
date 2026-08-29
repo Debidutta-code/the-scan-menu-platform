@@ -536,6 +536,11 @@ export class RestaurantController {
       if (updateData.printerConfig) settings.printerConfig = { ...(settings.printerConfig || {}), ...updateData.printerConfig };
       if (updateData.qrCodeStyle) settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
 
+      // Strictly disable auto-accept in database if PREPAID mode is active
+      if (settings.paymentConfig.activeMode === 'PREPAID') {
+        settings.workflow.autoAcceptConfig.enabled = false;
+      }
+
       await settings.save();
 
       const responseData = {

@@ -494,8 +494,9 @@ export class OrderService {
     const settings = await RestaurantSettings.findOne({ restaurantId });
     const autoAcceptConfig = settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 };
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
+    const isPrepaid = (settings?.paymentConfig?.activeMode || 'POSTPAID') === 'PREPAID';
 
-    if (autoAcceptConfig.enabled) {
+    if (autoAcceptConfig.enabled && !isPrepaid) {
       const delayMs = (autoAcceptConfig.delaySeconds || 10) * 1000;
       const orderIdStr = order._id.toString();
       const restIdStr = restaurantId.toString();
