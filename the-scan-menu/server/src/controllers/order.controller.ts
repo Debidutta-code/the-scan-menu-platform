@@ -209,10 +209,16 @@ export class OrderController {
   async updateOrderStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, orderId } = req.params;
-      const { status: nextStatus } = req.body;
+      const { status: nextStatus, paymentStatus, paymentMethod } = req.body;
 
       const userRole = (req as any).staffRole || (req.user?.role as any) || 'STAFF';
-      const order = await orderService.updateOrderStatus(restaurantId, orderId, nextStatus as OrderStatus, userRole);
+      const order = await orderService.updateOrderStatus(
+        restaurantId,
+        orderId,
+        nextStatus as OrderStatus,
+        userRole,
+        paymentStatus ? { paymentStatus, paymentMethod } : undefined
+      );
 
       sendSuccess(res, order, 'Order status updated successfully');
     } catch (error: any) {

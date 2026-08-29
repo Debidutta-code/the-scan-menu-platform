@@ -531,7 +531,8 @@ export class OrderService {
     restaurantId: Types.ObjectId | string,
     orderId: Types.ObjectId | string,
     nextStatus: OrderStatus,
-    userRole: 'SUPER_ADMIN' | 'MANAGER' | 'STAFF'
+    userRole: 'SUPER_ADMIN' | 'MANAGER' | 'STAFF',
+    paymentUpdate?: { paymentStatus: 'PAID' | 'PENDING'; paymentMethod?: string }
   ): Promise<IOrder> {
     const order = await Order.findOne({
       _id: new Types.ObjectId(orderId),
@@ -540,6 +541,13 @@ export class OrderService {
 
     if (!order) {
       throw new CustomError('ORDER_NOT_FOUND', 'Order not found', 404);
+    }
+
+    if (paymentUpdate?.paymentStatus) {
+      order.paymentStatus = paymentUpdate.paymentStatus;
+      if (paymentUpdate.paymentMethod) {
+        order.paymentMethod = paymentUpdate.paymentMethod.toUpperCase();
+      }
     }
 
     const settings = await RestaurantSettings.findOne({ restaurantId });

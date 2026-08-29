@@ -90,8 +90,12 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (error.response && error.response.status === 401) {
-      // If the request was for /auth/login (i.e. user typed wrong password), don't redirect away from /login
-      if (originalRequest?.url?.includes('/auth/login')) {
+      // If the request was for /auth/login, /public/, or /customer/, don't redirect away to /login
+      if (
+        originalRequest?.url?.includes('/auth/login') ||
+        originalRequest?.url?.includes('/public/') ||
+        originalRequest?.url?.includes('/customer/')
+      ) {
         return Promise.reject(error);
       }
 

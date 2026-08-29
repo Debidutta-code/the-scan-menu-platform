@@ -50,6 +50,7 @@ export interface IRestaurantSettingsPayment {
   gstNumber?: string;
   fssaiNumber?: string;
   upiId?: string;
+  preferredMethodOrder?: ('CASH' | 'CARD' | 'UPI' | 'RAZORPAY')[];
 }
 
 export interface IRestaurantSettingsNotification {
@@ -214,6 +215,7 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       gstNumber: { type: String },
       fssaiNumber: { type: String },
       upiId: { type: String },
+      preferredMethodOrder: { type: [String], default: ['UPI', 'CASH', 'CARD', 'RAZORPAY'] },
     },
     notificationPreferences: {
       emailNotifications: { type: Boolean, default: true },

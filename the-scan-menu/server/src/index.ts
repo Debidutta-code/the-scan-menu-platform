@@ -29,7 +29,7 @@ import notificationRoutes from './routes/notification.routes';
 import shiftRoutes from './routes/shift.routes';
 import { globalSubscriptionRoutes, restaurantSubscriptionRoutes } from './routes/subscription.routes';
 import { correlationIdMiddleware } from './middleware/correlationId.middleware';
-import { authRateLimiter } from './middleware/rateLimiter.middleware';
+import { authRateLimiter, generalApiRateLimiter } from './middleware/rateLimiter.middleware';
 import { setupGracefulShutdown } from './utils/gracefulShutdown';
 import { errorHandler } from './middleware/errorHandler';
 import { SocketService } from './sockets/socket.service';
@@ -82,13 +82,7 @@ app.use(correlationIdMiddleware);
 app.use('/health', healthRoutes);
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+app.use(generalApiRateLimiter);
 
 app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 

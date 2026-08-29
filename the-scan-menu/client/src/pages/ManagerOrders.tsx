@@ -30,7 +30,7 @@ import {
   Printer,
   User,
 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { PaymentVerificationModal } from '../components/PaymentVerificationModal';
@@ -241,7 +241,6 @@ const getOrderContextDetails = (order: Order) => {
 // â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const ManagerOrders: React.FC = () => {
-  const queryClient = useQueryClient();
   // Active view toggle: Kanban vs History table
   const [viewMode, setViewMode] = useState<'KANBAN' | 'HISTORY'>('KANBAN');
 
@@ -316,6 +315,7 @@ export const ManagerOrders: React.FC = () => {
     isFetchingHistory,
     pendingOrderIds,
     updateStatusMutation,
+    updatePaymentStatusMutation,
     cancelOrderMutation,
     clearOrderMutation,
     retryPosMutation,
@@ -333,10 +333,11 @@ export const ManagerOrders: React.FC = () => {
       return res.data;
     },
     enabled: !!activeRestaurantId,
+    staleTime: 60_000,
   });
 
   const restaurantInfo = React.useMemo(() => ({
-    name: restaurantData?.data?.name,
+    name: restaurantData?.data?.name || 'Restaurant',
     address: restaurantData?.data?.address,
     phone: restaurantData?.data?.phone,
     gstNumber: restaurantData?.data?.gstNumber,
@@ -355,19 +356,8 @@ export const ManagerOrders: React.FC = () => {
     return pConfig?.paymentMethods || { cash: true, card: true, upi: true, razorpay: false };
   }, [restaurantData]);
 
-  const updatePaymentStatusMutation = useMutation({
-    mutationFn: async ({ orderId, paymentStatus, paymentMethod }: { orderId: string; paymentStatus: 'PAID' | 'PENDING'; paymentMethod?: string }) => {
-      const res = await apiClient.patch(`/restaurants/${activeRestaurantId}/orders/${orderId}/payment-status`, { paymentStatus, paymentMethod });
-      return res.data;
-    },
-    onSuccess: () => {
-      refetchActiveOrders();
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-    },
-  });
-
   const handleAdvanceOrder = React.useCallback((order: Order, nextStatus: string) => {
-    if (order.paymentStatus !== 'PAID' && (orderingPaymentPolicy === 'PREPAID' || order.status === 'PENDING')) {
+    if (order.paymentStatus !== 'PAID' && orderingPaymentPolicy === 'PREPAID') {
       setPaymentVerificationModalOrder({ order, targetAction: 'ACCEPT', nextStatus });
       return;
     }
@@ -387,19 +377,23 @@ export const ManagerOrders: React.FC = () => {
     const { order, targetAction, nextStatus } = paymentVerificationModalOrder;
 
     if (isPaid) {
-      updatePaymentStatusMutation.mutate(
-        { orderId: order._id, paymentStatus: 'PAID', paymentMethod },
-        {
-          onSuccess: () => {
-            if (targetAction === 'ACCEPT' && nextStatus) {
-              updateStatusMutation.mutate({ orderId: order._id, nextStatus });
-            } else if (targetAction === 'FREE_TABLE') {
-              setFreeTableOrder(order);
-            }
-            setPaymentVerificationModalOrder(null);
-          },
-        }
-      );
+      if (targetAction === 'ACCEPT' && nextStatus) {
+        // Single atomic mutation: updates paymentStatus to PAID AND status to nextStatus in one request
+        updateStatusMutation.mutate({
+          orderId: order._id,
+          nextStatus,
+          paymentStatus: 'PAID',
+          paymentMethod,
+        });
+      } else if (targetAction === 'FREE_TABLE') {
+        updatePaymentStatusMutation.mutate({
+          orderId: order._id,
+          paymentStatus: 'PAID',
+          paymentMethod,
+        });
+        setFreeTableOrder(order);
+      }
+      setPaymentVerificationModalOrder(null);
     } else {
       setPaymentVerificationModalOrder(null);
     }
@@ -1867,6 +1861,7 @@ export const ManagerOrders: React.FC = () => {
         currency={restaurantInfo.currency}
         mode={orderingPaymentPolicy}
         enabledPaymentMethods={enabledPaymentMethods}
+        preferredMethodOrder={restaurantData?.data?.preferredMethodOrder || restaurantData?.data?.paymentConfig?.preferredMethodOrder}
         onConfirmPayment={handlePaymentModalConfirm}
         onCancel={() => setPaymentVerificationModalOrder(null)}
       />

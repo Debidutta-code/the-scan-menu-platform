@@ -168,9 +168,9 @@ export const config: ServerConfig = {
   },
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: isTest ? 100000 : 300,
-    authMaxRequests: isTest ? 100000 : 10,
-    orderPlacementMax: isTest ? 100000 : 30,
+    maxRequests: (isTest || isDevelopment) ? 100000 : 3000,
+    authMaxRequests: (isTest || isDevelopment) ? 100000 : 30,
+    orderPlacementMax: (isTest || isDevelopment) ? 100000 : 100,
   },
 };
 

@@ -428,35 +428,63 @@ export const PublicTable: React.FC = () => {
 
   // Handle active category auto-scroll into horizontal nav view
   useEffect(() => {
-    if (activeCategoryId && activePillRef.current && categoryNavRef.current) {
-      const activePill = activePillRef.current;
-      const navContainer = categoryNavRef.current;
-      const containerWidth = navContainer.offsetWidth;
-      const pillOffsetLeft = activePill.offsetLeft;
-      const pillWidth = activePill.offsetWidth;
+    if (!activeCategoryId || !categoryNavRef.current) return;
 
-      navContainer.scrollTo({
-        left: pillOffsetLeft - containerWidth / 2 + pillWidth / 2,
-        behavior: 'smooth',
-      });
-    }
+    const frameId = requestAnimationFrame(() => {
+      if (activePillRef.current && categoryNavRef.current) {
+        const activePill = activePillRef.current;
+        const navContainer = categoryNavRef.current;
+        const containerWidth = navContainer.offsetWidth;
+        const pillOffsetLeft = activePill.offsetLeft;
+        const pillWidth = activePill.offsetWidth;
+
+        navContainer.scrollTo({
+          left: pillOffsetLeft - containerWidth / 2 + pillWidth / 2,
+          behavior: 'smooth',
+        });
+      }
+    });
+
+    return () => cancelAnimationFrame(frameId);
   }, [activeCategoryId]);
 
-  // Scroll Spy logic
+  // Scroll Spy logic with bottom-of-page and viewport detection
   useEffect(() => {
     if (activeTab !== 'menu') return;
     const handleScroll = () => {
       if (isScrollingRef.current) return;
 
       const categoryElements = document.querySelectorAll('[data-category-section]');
+      if (categoryElements.length === 0) return;
+
+      // 1. Check if user is near the bottom of the page (within 140px)
+      // When at bottom, always activate the last category section!
+      const scrollPosition = window.innerHeight + window.scrollY;
+      const totalHeight = document.documentElement.scrollHeight;
+      if (scrollPosition >= totalHeight - 140) {
+        const lastEl = categoryElements[categoryElements.length - 1] as HTMLElement;
+        const lastId = lastEl.getAttribute('data-category-section') || '';
+        if (lastId && lastId !== activeCategoryId) {
+          setActiveCategoryId(lastId);
+        }
+        return;
+      }
+
+      // 2. Normal scroll: find which category section covers the top view area
       let currentActiveId = '';
+      const topThreshold = 190;
 
       for (let i = 0; i < categoryElements.length; i++) {
         const el = categoryElements[i] as HTMLElement;
         const rect = el.getBoundingClientRect();
-        if (rect.top <= 140) {
+        if (rect.top <= topThreshold) {
           currentActiveId = el.getAttribute('data-category-section') || '';
         }
+      }
+
+      // If at the very top and no section crossed topThreshold yet, default to first category
+      if (!currentActiveId && categoryElements.length > 0) {
+        currentActiveId = (categoryElements[0] as HTMLElement).getAttribute('data-category-section') || '';
       }
 
       if (currentActiveId && currentActiveId !== activeCategoryId) {

@@ -26,6 +26,7 @@ export interface PaymentVerificationModalProps {
     upi?: boolean;
     razorpay?: boolean;
   };
+  preferredMethodOrder?: string[];
   onConfirmPayment: (isPaid: boolean, paymentMethod?: string) => void;
   onCancel: () => void;
 }
@@ -33,9 +34,9 @@ export interface PaymentVerificationModalProps {
 export type PaymentMethodType = 'CASH' | 'CARD' | 'UPI' | 'RAZORPAY';
 
 const ALL_PAYMENT_METHODS: { id: PaymentMethodType; key: 'cash' | 'card' | 'upi' | 'razorpay'; name: string; icon: any; description: string }[] = [
+  { id: 'UPI', key: 'upi', name: 'UPI / QR', icon: QrCode, description: 'Instant UPI QR code scan' },
   { id: 'CASH', key: 'cash', name: 'Cash', icon: Banknote, description: 'Cash collected at counter' },
   { id: 'CARD', key: 'card', name: 'Card / POS', icon: CreditCard, description: 'EDC Card machine terminal' },
-  { id: 'UPI', key: 'upi', name: 'UPI / QR', icon: QrCode, description: 'Instant UPI QR code scan' },
   { id: 'RAZORPAY', key: 'razorpay', name: 'Razorpay Gateway', icon: Globe, description: 'Online gateway' },
 ];
 
@@ -47,6 +48,7 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
   title,
   subtitle,
   enabledPaymentMethods,
+  preferredMethodOrder,
   onConfirmPayment,
   onCancel,
 }) => {
@@ -60,12 +62,23 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
   // Index 0: NOT_PAID, Index 1: PAID
   const [selectedStatusIdx, setSelectedStatusIdx] = useState<number>(1); // Default to Paid (Received) for fast workflow
 
-  // Filter payment methods based on manager configurations set in settings
+  // Filter and sort payment methods based on manager configurations set in settings
   const availableMethods = useMemo(() => {
-    if (!enabledPaymentMethods) return ALL_PAYMENT_METHODS;
-    const list = ALL_PAYMENT_METHODS.filter((m) => enabledPaymentMethods[m.key] !== false);
+    let list = ALL_PAYMENT_METHODS;
+    if (enabledPaymentMethods) {
+      list = ALL_PAYMENT_METHODS.filter((m) => enabledPaymentMethods[m.key] !== false);
+    }
+    if (preferredMethodOrder && Array.isArray(preferredMethodOrder) && preferredMethodOrder.length > 0) {
+      list = [...list].sort((a, b) => {
+        const idxA = preferredMethodOrder.indexOf(a.id);
+        const idxB = preferredMethodOrder.indexOf(b.id);
+        const orderA = idxA === -1 ? 999 : idxA;
+        const orderB = idxB === -1 ? 999 : idxB;
+        return orderA - orderB;
+      });
+    }
     return list.length > 0 ? list : ALL_PAYMENT_METHODS;
-  }, [enabledPaymentMethods]);
+  }, [enabledPaymentMethods, preferredMethodOrder]);
 
   useEffect(() => {
     if (isOpen) {

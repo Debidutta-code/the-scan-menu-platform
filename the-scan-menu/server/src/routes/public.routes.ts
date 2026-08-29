@@ -12,12 +12,12 @@ const router = Router();
 const publicController = new PublicController();
 const waiterCallController = new WaiterCallController();
 
-const isTest = config.app.isTest;
+const isDevOrTest = config.app.isTest || config.app.isDevelopment;
 
-// Tight public rate limiters to prevent API abuse and order spamming (relaxed in tests)
+// Public rate limiters to prevent API abuse and order spamming (relaxed in dev/test)
 const orderCreationLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: isTest ? 10000 : 20, // max 20 orders per 10 minutes per IP
+  max: isDevOrTest ? 10000 : 50, // max 50 orders per 10 minutes per IP in prod
   message: {
     success: false,
     error: {
@@ -32,12 +32,12 @@ const orderCreationLimiter = rateLimit({
 
 const waiterCallLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: isTest ? 10000 : 5, // max 5 waiter calls per 5 minutes per IP
+  max: isDevOrTest ? 10000 : 20, // max 20 waiter calls per 5 minutes per IP in prod
   message: {
     success: false,
     error: {
       code: 'TOO_MANY_REQUESTS',
-      message: 'Too many floor assistance requests from this connection. Please wait 5 minutes.',
+      message: 'Too many floor assistance requests from this connection. Please wait a few minutes.',
       details: null,
     },
   },
@@ -47,7 +47,7 @@ const waiterCallLimiter = rateLimit({
 
 const publicGetLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: isTest ? 10000 : 60, // max 60 read requests per 1 minute per IP
+  max: isDevOrTest ? 10000 : 300, // max 300 read requests per 1 minute per IP in prod
   message: {
     success: false,
     error: {

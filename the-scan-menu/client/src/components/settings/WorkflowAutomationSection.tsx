@@ -215,56 +215,6 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
         })}
       </div>
 
-      {/* Ordering Payment Policy Selector */}
-      <div className="pt-4 border-t border-slate-100 space-y-3">
-        <h5 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-          <GitBranch className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
-          <span>Ordering Payment Policy</span>
-        </h5>
-        <p className="text-xs text-slate-500">Choose when guest payment is verified for dine-in orders.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button
-            type="button"
-            disabled={hasActiveOrders}
-            onClick={() => {
-              if (hasActiveOrders) return;
-              setOrderingPaymentPolicy('POSTPAID');
-            }}
-            className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-              orderingPaymentPolicy === 'POSTPAID'
-                ? 'border-amber-500 bg-amber-50/50 text-slate-900 shadow-sm'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <span className="text-sm font-extrabold text-slate-900 block">POSTPAID Mode</span>
-            <span className="text-xs text-slate-500 block mt-0.5">
-              Guests pay after dining. Table cannot be freed after service until bill is marked Paid.
-            </span>
-          </button>
-
-          <button
-            type="button"
-            disabled={hasActiveOrders}
-            onClick={() => {
-              if (hasActiveOrders) return;
-              setOrderingPaymentPolicy('PREPAID');
-              setAutoAcceptEnabled(false);
-            }}
-            className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
-              orderingPaymentPolicy === 'PREPAID'
-                ? 'border-amber-500 bg-amber-50/50 text-slate-900 shadow-sm'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <span className="text-sm font-extrabold text-slate-900 block">PREPAID Mode</span>
-            <span className="text-xs text-slate-500 block mt-0.5">
-              Guests pay before cooking starts. Order cannot move to kitchen until payment is verified.
-            </span>
-          </button>
-        </div>
-      </div>
-
       {/* Auto-Accept Automation */}
       <div className={`pt-4 border-t border-slate-100 space-y-4 transition-all ${orderingPaymentPolicy === 'PREPAID' ? 'opacity-40 filter blur-[0.5px] pointer-events-none' : ''}`}>
         <div className="flex items-center justify-between">

@@ -439,6 +439,7 @@ export class RestaurantController {
         gstNumber: settings.paymentConfig?.gstNumber || '',
         fssaiNumber: settings.paymentConfig?.fssaiNumber || settings.printerConfig?.fssaiNumber || '',
         upiId: settings.paymentConfig?.upiId || settings.printerConfig?.upiId || '',
+        preferredMethodOrder: settings.paymentConfig?.preferredMethodOrder || ['UPI', 'CASH', 'CARD', 'RAZORPAY'],
         orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
         autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
         timings: settings.timings || { open: '09:00', close: '23:00' },
@@ -446,6 +447,8 @@ export class RestaurantController {
         whatsapp: settings.branding?.whatsapp || '',
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
         printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
+        paymentConfig: settings.paymentConfig,
+        activeMode: settings.paymentConfig?.activeMode || 'POSTPAID',
         qrCodeStyle: settings.qrCodeStyle,
         featureFlags: activeFlags,
       };
@@ -517,6 +520,10 @@ export class RestaurantController {
       if (updateData.paymentMethods) settings.paymentConfig.paymentMethods = { ...settings.paymentConfig.paymentMethods, ...updateData.paymentMethods };
       if (updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
       if (updateData.integrationConfig) settings.paymentConfig.integrationConfig = updateData.integrationConfig;
+      if (updateData.activeMode) settings.paymentConfig.activeMode = updateData.activeMode;
+      if (updateData.activeProvider) settings.paymentConfig.activeProvider = updateData.activeProvider;
+      if (updateData.paymentConfig) settings.paymentConfig = { ...settings.paymentConfig, ...updateData.paymentConfig };
+      if (updateData.preferredMethodOrder) settings.paymentConfig.preferredMethodOrder = updateData.preferredMethodOrder;
       if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
       if (updateData.fssaiNumber !== undefined) settings.paymentConfig.fssaiNumber = updateData.fssaiNumber;
       if (updateData.upiId !== undefined) settings.paymentConfig.upiId = updateData.upiId;
@@ -543,6 +550,7 @@ export class RestaurantController {
         gstNumber: settings.paymentConfig?.gstNumber || '',
         fssaiNumber: settings.paymentConfig?.fssaiNumber || settings.printerConfig?.fssaiNumber || '',
         upiId: settings.paymentConfig?.upiId || settings.printerConfig?.upiId || '',
+        preferredMethodOrder: settings.paymentConfig?.preferredMethodOrder || ['UPI', 'CASH', 'CARD', 'RAZORPAY'],
         orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
         autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
         timings: settings.timings || { open: '09:00', close: '23:00' },
@@ -550,6 +558,9 @@ export class RestaurantController {
         whatsapp: settings.branding?.whatsapp || '',
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
         printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
+        paymentConfig: settings.paymentConfig,
+        activeMode: settings.paymentConfig?.activeMode || 'POSTPAID',
+        activeProvider: settings.paymentConfig?.activeProvider || 'CASH',
         qrCodeStyle: settings.qrCodeStyle,
       };
 

@@ -191,9 +191,19 @@ export function useManagerOrders({
 
   // ─── OPTIMISTIC MUTATIONS ───────────────────────────────────────────────────
 
-  // A. Optimistic Update Status Mutation (Accept, Prep, Ready, Serve, Revert)
+  // A. Optimistic Update Status Mutation (Accept, Prep, Ready, Serve, Revert, with optional atomic payment)
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, nextStatus }: { orderId: string; nextStatus: string }) => {
+    mutationFn: async ({
+      orderId,
+      nextStatus,
+      paymentStatus,
+      paymentMethod,
+    }: {
+      orderId: string;
+      nextStatus: string;
+      paymentStatus?: 'PAID' | 'PENDING';
+      paymentMethod?: string;
+    }) => {
       // 1. Get existing promise chain for this orderId or start with resolved Promise
       const previousPromise = mutationQueueRef.current.get(orderId) || Promise.resolve();
 
@@ -202,7 +212,7 @@ export function useManagerOrders({
         async () => {
           const res = await apiClient.patch(
             `/restaurants/${activeRestaurantId}/orders/${orderId}/status`,
-            { status: nextStatus }
+            { status: nextStatus, paymentStatus, paymentMethod }
           );
           return res.data;
         },
@@ -217,14 +227,20 @@ export function useManagerOrders({
 
       return currentPromise;
     },
-    onMutate: async ({ orderId, nextStatus }) => {
+    onMutate: async ({ orderId, nextStatus, paymentStatus }) => {
       // 1. Cancel in-flight refetches
       await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
 
       // 2. Snapshot current state
       const previousActive = queryClient.getQueryData(['activeOrdersQueue', activeRestaurantId]);
-      const previousHistory = queryClient.getQueryData(['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter]);
+      const previousHistory = queryClient.getQueryData([
+        'allOrdersHistory',
+        activeRestaurantId,
+        historyPage,
+        debouncedSearch,
+        historyStatusFilter,
+      ]);
 
       // 3. Mark pending
       setPendingOrderIds((prev) => new Set(prev).add(orderId));
@@ -236,13 +252,21 @@ export function useManagerOrders({
         const updatedData = [...old.data];
 
         if (existingIndex !== -1) {
-          updatedData[existingIndex] = { ...updatedData[existingIndex], status: nextStatus as any };
+          updatedData[existingIndex] = {
+            ...updatedData[existingIndex],
+            status: nextStatus as any,
+            ...(paymentStatus ? { paymentStatus } : {}),
+          };
         } else if (nextStatus !== 'CANCELLED') {
           // Order was not in active queue (e.g. from history). Restore to active queue!
           const historyList = (previousHistory as any)?.data?.orders || [];
           const target = historyList.find((o: Order) => o._id === orderId);
           if (target) {
-            updatedData.unshift({ ...target, status: nextStatus as any });
+            updatedData.unshift({
+              ...target,
+              status: nextStatus as any,
+              ...(paymentStatus ? { paymentStatus } : {}),
+            });
           }
         }
         return { ...old, data: updatedData };
@@ -252,7 +276,13 @@ export function useManagerOrders({
       queryClient.setQueriesData({ queryKey: ['allOrdersHistory', activeRestaurantId] }, (old: any) => {
         if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
         const updatedOrders = old.data.orders.map((o: Order) => {
-          if (o._id === orderId) return { ...o, status: nextStatus as any };
+          if (o._id === orderId) {
+            return {
+              ...o,
+              status: nextStatus as any,
+              ...(paymentStatus ? { paymentStatus } : {}),
+            };
+          }
           return o;
         });
         return { ...old, data: { ...old.data, orders: updatedOrders } };
@@ -414,6 +444,89 @@ export function useManagerOrders({
     },
   });
 
+  // D. Optimistic Update Payment Status Mutation (Cash, Card, UPI, etc.)
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({
+      orderId,
+      paymentStatus,
+      paymentMethod,
+    }: {
+      orderId: string;
+      paymentStatus: 'PAID' | 'PENDING';
+      paymentMethod?: string;
+    }) => {
+      const res = await apiClient.patch(
+        `/restaurants/${activeRestaurantId}/orders/${orderId}/payment-status`,
+        { paymentStatus, paymentMethod }
+      );
+      return res.data;
+    },
+    onMutate: async ({ orderId, paymentStatus }) => {
+      // 1. Cancel in-flight queries
+      await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+      await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+
+      // 2. Snapshot current state for rollback
+      const previousActive = queryClient.getQueryData(['activeOrdersQueue', activeRestaurantId]);
+      const previousHistory = queryClient.getQueryData([
+        'allOrdersHistory',
+        activeRestaurantId,
+        historyPage,
+        debouncedSearch,
+        historyStatusFilter,
+      ]);
+
+      // 3. Mark pending
+      setPendingOrderIds((prev) => new Set(prev).add(orderId));
+
+      // 4. Optimistically update activeOrdersQueue cache immediately
+      queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
+        if (!old || !old.success || !Array.isArray(old.data)) return old;
+        const updatedData = old.data.map((order: Order) => {
+          if (order._id === orderId) {
+            return { ...order, paymentStatus };
+          }
+          return order;
+        });
+        return { ...old, data: updatedData };
+      });
+
+      // 5. Optimistically update allOrdersHistory cache immediately
+      queryClient.setQueriesData({ queryKey: ['allOrdersHistory', activeRestaurantId] }, (old: any) => {
+        if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
+        const updatedOrders = old.data.orders.map((o: Order) => {
+          if (o._id === orderId) return { ...o, paymentStatus };
+          return o;
+        });
+        return { ...old, data: { ...old.data, orders: updatedOrders } };
+      });
+
+      return { previousActive, previousHistory, orderId };
+    },
+    onError: (err: any, _variables, context: any) => {
+      if (context?.previousActive) {
+        queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], context.previousActive);
+      }
+      if (context?.previousHistory) {
+        queryClient.setQueryData(
+          ['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter],
+          context.previousHistory
+        );
+      }
+      const errMsg = err?.response?.data?.error?.message || 'Failed to update payment status. Rolled back.';
+      toast(errMsg, 'error');
+    },
+    onSettled: (_data, _error, variables) => {
+      setPendingOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(variables.orderId);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+    },
+  });
+
   // E. POS Retry Sync Mutation
   const retryPosMutation = useMutation({
     mutationFn: async (orderId: string) => {
@@ -439,6 +552,7 @@ export function useManagerOrders({
     isFetchingHistory,
     pendingOrderIds,
     updateStatusMutation,
+    updatePaymentStatusMutation,
     cancelOrderMutation,
     clearOrderMutation,
     closeSessionMutation,
