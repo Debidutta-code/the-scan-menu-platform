@@ -269,58 +269,48 @@ export const MenuTab: React.FC<MenuTabProps> = ({
 
                         {/* Pricing & Add Controls Row */}
                         <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 w-full">
-                          {(isPortion && item.variants) || (item.addOns && item.addOns.length > 0) ? (
-                            <div className="flex items-center justify-between w-full gap-3">
-                              <div className="flex flex-col">
-                                {isPortion && item.variants ? (
-                                  <>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{item.variants.length} Sizes</span>
-                                    <span className="text-sm font-black text-slate-900 font-mono">
-                                      From {formatPrice(Math.min(...item.variants.map((v) => v.price)), currency)}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Customizable</span>
-                                    <span className="text-sm font-black text-slate-900 font-mono">
-                                      {formatPrice(item.price, currency)}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                              {isOrderingEnabled && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onItemCardClick(item);
-                                  }}
-                                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition shadow-xs active:scale-95 shrink-0 cursor-pointer"
-                                >
-                                  Options
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between w-full gap-4">
+                          {/* Price Display */}
+                          <div className="flex flex-col">
+                            {isPortion && item.variants && item.variants.length > 0 ? (
+                              <>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                  {item.variants.length} Sizes
+                                </span>
+                                <span className="text-sm font-black text-slate-900 font-mono">
+                                  From {formatPrice(Math.min(...item.variants.map((v) => v.price)), currency)}
+                                </span>
+                              </>
+                            ) : item.addOns && item.addOns.length > 0 ? (
+                              <>
+                                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">
+                                  Customizable
+                                </span>
+                                <span className="text-sm font-black text-slate-900 font-mono">
+                                  {formatPrice(item.price, currency)}
+                                </span>
+                              </>
+                            ) : (
                               <span className="text-sm font-black text-slate-900 font-mono">
                                 {formatPrice(item.price, currency)}
                               </span>
-                              {isOrderingEnabled && (
-                                item.isAvailable ? (
-                                  <QuickAddControl
-                                    cartQty={cartQty}
-                                    onAdd={(e) => onQuickAdd(item, e)}
-                                    onIncrement={(e) => onQuickIncrement(item, e)}
-                                    onDecrement={(e) => onQuickDecrement(item, e)}
-                                  />
-                                ) : (
-                                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
-                                    Sold Out
-                                  </span>
-                                )
-                              )}
-                            </div>
+                            )}
+                          </div>
+
+                          {/* Add / Stepper Action */}
+                          {isOrderingEnabled && (
+                            item.isAvailable ? (
+                              <QuickAddControl
+                                cartQty={cartQty}
+                                isCustomizable={(isPortion && !!item.variants && item.variants.length > 0) || (!!item.addOns && item.addOns.length > 0)}
+                                onAdd={(e) => onQuickAdd(item, e)}
+                                onIncrement={(e) => onQuickIncrement(item, e)}
+                                onDecrement={(e) => onQuickDecrement(item, e)}
+                              />
+                            ) : (
+                              <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-xl">
+                                Sold Out
+                              </span>
+                            )
                           )}
                         </div>
                       </div>

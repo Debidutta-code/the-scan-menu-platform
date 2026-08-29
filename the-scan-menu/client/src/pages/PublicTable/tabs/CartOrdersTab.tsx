@@ -140,17 +140,26 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                       }`}
                     >
                       <div className="flex-1 space-y-1">
-                        <h4 className="text-xs font-bold text-slate-900 leading-snug">{item.name}</h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug">{item.name}</h4>
+                          {item.variantName && !item.name.includes(`(${item.variantName})`) && (
+                            <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+                              {item.variantName}
+                            </span>
+                          )}
+                        </div>
                         {item.selectedAddOns.length > 0 && (
-                          <p className="text-[10px] text-slate-400 font-medium">+ {item.selectedAddOns.map((x) => x.name).join(', ')}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">
+                            + {item.selectedAddOns.map((x) => `${x.name}${x.priceDelta > 0 ? ` (${formatPrice(x.priceDelta, currency)})` : ''}`).join(', ')}
+                          </p>
                         )}
                         {item.specialInstructions && (
-                          <p className="text-[10px] text-amber-600 bg-amber-50/50 rounded-lg px-2 py-1 inline-block italic font-medium">
+                          <p className="text-[10px] text-amber-700 bg-amber-50/80 rounded-lg px-2 py-0.5 inline-block italic font-medium border border-amber-200/60">
                             Note: "{item.specialInstructions}"
                           </p>
                         )}
                         {isFailed && <p className="text-[10px] font-bold text-red-600 mt-1">⚠️ Item is currently unavailable.</p>}
-                        <p className="text-xs font-bold text-slate-500">{formatPrice(item.price, currency)} each</p>
+                        <p className="text-[11px] font-semibold text-slate-400 font-mono">{formatPrice(item.price, currency)} each</p>
                       </div>
 
                       <div className="flex flex-col items-end justify-between shrink-0">
@@ -158,14 +167,20 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                         <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-0.5 mt-2">
                           <button
                             onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', -1, item.variantName)}
-                            className="p-1 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
+                            className="p-1 text-slate-500 hover:text-rose-600 transition-colors rounded-lg hover:bg-white active:scale-95 cursor-pointer"
+                            title={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
                           >
-                            <Minus className="w-3.5 h-3.5" strokeWidth={2} />
+                            {item.quantity === 1 ? (
+                              <Trash2 className="w-3.5 h-3.5 text-rose-500" strokeWidth={2} />
+                            ) : (
+                              <Minus className="w-3.5 h-3.5" strokeWidth={2} />
+                            )}
                           </button>
                           <span className="px-2 font-bold text-slate-900 text-[11px] font-mono w-5 text-center">{item.quantity}</span>
                           <button
                             onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', 1, item.variantName)}
-                            className="p-1 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95"
+                            className="p-1 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95 cursor-pointer"
+                            title="Increase quantity"
                           >
                             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
                           </button>

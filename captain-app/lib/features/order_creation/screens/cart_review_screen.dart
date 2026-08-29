@@ -200,26 +200,53 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                           color: AppColors.textPrimary,
                                         ),
                                       ),
-                                      if (cartItem.selectedAddOns.isNotEmpty)
+                                      if (cartItem.selectedVariant != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEFF6FF),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                  color:
+                                                      const Color(0xFFBFDBFE)),
+                                            ),
+                                            child: Text(
+                                              'Size: ${cartItem.selectedVariant!.name}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF1D4ED8),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      if (cartItem.selectedAddOns.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
                                         Text(
-                                          cartItem.selectedAddOns
-                                              .map((a) => a.name)
-                                              .join(', '),
+                                          '+ ${cartItem.selectedAddOns.map((a) => a.priceDelta > 0 ? '${a.name} (+${Formatters.formatCurrency(a.priceDelta)})' : a.name).join(', ')}',
                                           style: GoogleFonts.inter(
                                             fontSize: 11,
+                                            fontWeight: FontWeight.w600,
                                             color: AppColors.primary,
                                           ),
                                         ),
+                                      ],
                                       if (cartItem.specialInstructions
-                                          .isNotEmpty)
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 2),
                                         Text(
-                                          'Note: ${cartItem.specialInstructions}',
+                                          'Note: "${cartItem.specialInstructions}"',
                                           style: GoogleFonts.inter(
                                             fontSize: 11,
                                             fontStyle: FontStyle.italic,
                                             color: AppColors.textMuted,
                                           ),
                                         ),
+                                      ],
                                     ],
                                   ),
                                 ),

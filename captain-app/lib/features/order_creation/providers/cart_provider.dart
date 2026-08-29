@@ -125,6 +125,50 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
+  List<CartItemModel> getItemConfigurations(String itemId) =>
+      state.items.where((i) => i.item.id == itemId).toList();
+
+  void incrementSpecificItem(CartItemModel target) {
+    final existingIndex = state.items.indexWhere((i) {
+      final sameItem = i.item.id == target.item.id;
+      final sameVariant = i.selectedVariant?.name == target.selectedVariant?.name;
+      final sameAddons = _areAddonsEqual(i.selectedAddOns, target.selectedAddOns);
+      final sameNotes = i.specialInstructions == target.specialInstructions;
+      return sameItem && sameVariant && sameAddons && sameNotes;
+    });
+
+    if (existingIndex != -1) {
+      final updated = List<CartItemModel>.from(state.items);
+      updated[existingIndex] = updated[existingIndex].copyWith(
+        quantity: updated[existingIndex].quantity + 1,
+      );
+      state = state.copyWith(items: updated);
+    }
+  }
+
+  void decrementSpecificItem(CartItemModel target) {
+    final existingIndex = state.items.indexWhere((i) {
+      final sameItem = i.item.id == target.item.id;
+      final sameVariant = i.selectedVariant?.name == target.selectedVariant?.name;
+      final sameAddons = _areAddonsEqual(i.selectedAddOns, target.selectedAddOns);
+      final sameNotes = i.specialInstructions == target.specialInstructions;
+      return sameItem && sameVariant && sameAddons && sameNotes;
+    });
+
+    if (existingIndex == -1) return;
+
+    final currentQty = state.items[existingIndex].quantity;
+    if (currentQty > 1) {
+      final updated = List<CartItemModel>.from(state.items);
+      updated[existingIndex] = updated[existingIndex].copyWith(
+        quantity: currentQty - 1,
+      );
+      state = state.copyWith(items: updated);
+    } else {
+      removeItem(existingIndex);
+    }
+  }
+
   void incrementItem(MenuItemModel item) {
     final existingIndex =
         state.items.lastIndexWhere((i) => i.item.id == item.id);

@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Fuse from 'fuse.js';
 import { Helmet } from 'react-helmet-async';
-import { Loader, AlertTriangle, X } from 'lucide-react';
+import { Loader, AlertTriangle, X, Plus, Minus } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn, MenuItemVariant } from '../../services/restaurant.service';
 import { useCartStore } from '../../store/useCartStore';
 import { useCustomerAuth } from '../../hooks/useCustomerAuth';
@@ -11,7 +11,7 @@ import apiClient from '../../lib/api';
 import { useSocket } from '../../hooks/useSocket';
 
 import { ActiveTab, CartOrdersSubTab, WaiterCallState, WaiterRequestType } from './types';
-import { loadRazorpay, getItemBadge } from './utils';
+import { loadRazorpay, getItemBadge, formatPrice } from './utils';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ItemDetailSheet } from './components/ItemDetailSheet';
 import { OtpModal } from './components/OtpModal';
@@ -467,7 +467,8 @@ export const PublicTable: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [activeCategoryId, activeTab]);
 
-  const [repeatPromptItem, setRepeatPromptItem] = useState<{ item: MenuItem; lastCartItem: any } | null>(null);
+  const [repeatPromptItem, setRepeatPromptItem] = useState<{ item: MenuItem; configurations: any[] } | null>(null);
+  const [removePromptItem, setRemovePromptItem] = useState<{ item: MenuItem; configurations: any[] } | null>(null);
 
   if (isTableLoading) {
     return (
@@ -637,15 +638,15 @@ export const PublicTable: React.FC = () => {
       .reduce((sum, ci) => sum + ci.quantity, 0);
   };
 
-  // Helper to directly add/increment an item from the card without opening sheet unless choices are mandatory
+  // Helper to directly add an item from the card
   const handleQuickAdd = (item: MenuItem, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!item.isAvailable) return;
 
-    // Only open bottom sheet if there are explicitly mandatory choices or multiple portion options
     const isPortion = item.pricingType === 'PORTION' && item.variants && item.variants.length > 0;
-    const hasMandatoryChoices = (item as any).hasRequiredOptions === true || isPortion;
-    if (hasMandatoryChoices) {
+    const isCustomizable = isPortion || (item.addOns && item.addOns.length > 0);
+
+    if (isCustomizable) {
       handleItemCardClick(item);
       return;
     }
@@ -669,14 +670,16 @@ export const PublicTable: React.FC = () => {
       return;
     }
 
-    const target = existingEntries[existingEntries.length - 1];
+    const isPortion = item.pricingType === 'PORTION' && item.variants && item.variants.length > 0;
+    const isCustomizable = isPortion || (item.addOns && item.addOns.length > 0);
 
-    // If item has add-ons or special instructions, prompt user to repeat or choose new
-    if (target.selectedAddOns.length > 0 || (target.specialInstructions && target.specialInstructions.trim()) || existingEntries.length > 1) {
-      setRepeatPromptItem({ item, lastCartItem: target });
+    // If item is customizable, open prompt showing existing customizations
+    if (isCustomizable) {
+      setRepeatPromptItem({ item, configurations: existingEntries });
       return;
     }
 
+    const target = existingEntries[0];
     updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', 1, target.variantName);
   };
 
@@ -686,7 +689,13 @@ export const PublicTable: React.FC = () => {
     const existingEntries = cartItems.filter((ci) => ci.itemId === item._id);
     if (existingEntries.length === 0) return;
 
-    const target = existingEntries[existingEntries.length - 1];
+    // If there are multiple distinct customized configurations in cart, prompt user which to decrement/remove
+    if (existingEntries.length > 1) {
+      setRemovePromptItem({ item, configurations: existingEntries });
+      return;
+    }
+
+    const target = existingEntries[0];
     updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', -1, target.variantName);
   };
 
@@ -1208,74 +1217,229 @@ export const PublicTable: React.FC = () => {
       />
 
       {/* REPEAT CUSTOMIZATION PROMPT MODAL */}
-      {repeatPromptItem && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-150 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                Repeat Customization?
-              </span>
-              <button
-                onClick={() => setRepeatPromptItem(null)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {repeatPromptItem && (() => {
+        const activeConfigs = cartItems.filter((ci) => ci.itemId === repeatPromptItem.item._id);
+        const configsToDisplay = activeConfigs.length > 0 ? activeConfigs : repeatPromptItem.configurations;
 
-            <div className="space-y-1.5">
-              <h4 className="font-display text-base font-bold text-slate-900 leading-tight">
-                {repeatPromptItem.item.name}
-              </h4>
-              {repeatPromptItem.lastCartItem.variantName && (
-                <span className="inline-block text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded font-mono">
-                  Portion: {repeatPromptItem.lastCartItem.variantName}
+        return (
+          <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-150 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  Repeat Customization?
                 </span>
-              )}
-              {repeatPromptItem.lastCartItem.selectedAddOns.length > 0 && (
+                <button
+                  onClick={() => setRepeatPromptItem(null)}
+                  className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <h4 className="font-display text-lg font-bold text-slate-900 leading-tight">
+                  {repeatPromptItem.item.name}
+                </h4>
                 <p className="text-xs text-slate-500 font-medium">
-                  Add-ons: <span className="font-bold text-slate-800">{repeatPromptItem.lastCartItem.selectedAddOns.map((a: any) => a.name).join(', ')}</span>
+                  Select a previous customization to repeat, or customize a new one:
                 </p>
-              )}
-              {repeatPromptItem.lastCartItem.specialInstructions && (
-                <p className="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 italic font-medium">
-                  "{repeatPromptItem.lastCartItem.specialInstructions}"
-                </p>
-              )}
-            </div>
+              </div>
 
-            <div className="space-y-2 pt-2">
-              <button
-                onClick={() => {
-                  const target = repeatPromptItem.lastCartItem;
-                  updateQuantity(
-                    repeatPromptItem.item._id,
-                    target.selectedAddOns,
-                    target.specialInstructions || '',
-                    1,
-                    target.variantName
-                  );
-                  setRepeatPromptItem(null);
-                }}
-                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-2xl shadow-xs active:scale-95 transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Repeat Last (+1)</span>
-              </button>
+              {/* Configurations List */}
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                {configsToDisplay.map((cfg, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-amber-300 transition-all flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {cfg.variantName && (
+                          <span className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md font-mono">
+                            {cfg.variantName}
+                          </span>
+                        )}
+                        <span className="text-xs font-black text-slate-900 font-mono">
+                          {formatPrice(cfg.price, currency)}
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md font-mono">
+                          in cart: {cfg.quantity}
+                        </span>
+                      </div>
 
-              <button
-                onClick={() => {
-                  const item = repeatPromptItem.item;
-                  setRepeatPromptItem(null);
-                  handleItemCardClick(item);
-                }}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Choose New Customization</span>
-              </button>
+                      {cfg.selectedAddOns && cfg.selectedAddOns.length > 0 && (
+                        <p className="text-[11px] text-slate-600 font-medium line-clamp-2">
+                          + {cfg.selectedAddOns.map((a: any) => a.name).join(', ')}
+                        </p>
+                      )}
+
+                      {cfg.specialInstructions && (
+                        <p className="text-[10px] text-amber-800 italic bg-amber-50/80 px-2 py-0.5 rounded-lg border border-amber-200/50">
+                          "{cfg.specialInstructions}"
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateQuantity(
+                          repeatPromptItem.item._id,
+                          cfg.selectedAddOns,
+                          cfg.specialInstructions || '',
+                          1,
+                          cfg.variantName
+                        );
+                        setRepeatPromptItem(null);
+                      }}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-xs active:scale-95 transition whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      Repeat (+1)
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Choose New Customization Button */}
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const item = repeatPromptItem.item;
+                    setRepeatPromptItem(null);
+                    handleItemCardClick(item);
+                  }}
+                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  <span>+ Choose New Customization</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* REMOVE CUSTOMIZATION PROMPT MODAL */}
+      {removePromptItem && (() => {
+        const activeConfigs = cartItems.filter((ci) => ci.itemId === removePromptItem.item._id);
+
+        if (activeConfigs.length <= 1) {
+          // If only 0 or 1 remains, close remove prompt modal
+          setTimeout(() => setRemovePromptItem(null), 0);
+          return null;
+        }
+
+        return (
+          <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-150 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  Remove Customization
+                </span>
+                <button
+                  onClick={() => setRemovePromptItem(null)}
+                  className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <h4 className="font-display text-lg font-bold text-slate-900 leading-tight">
+                  {removePromptItem.item.name}
+                </h4>
+                <p className="text-xs text-slate-500 font-medium">
+                  You have multiple customizations of this item in your cart. Choose which one to remove or decrement:
+                </p>
+              </div>
+
+              {/* Configurations List */}
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                {activeConfigs.map((cfg, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {cfg.variantName && (
+                          <span className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md font-mono">
+                            {cfg.variantName}
+                          </span>
+                        )}
+                        <span className="text-xs font-black text-slate-900 font-mono">
+                          {formatPrice(cfg.price, currency)}
+                        </span>
+                      </div>
+
+                      {cfg.selectedAddOns && cfg.selectedAddOns.length > 0 && (
+                        <p className="text-[11px] text-slate-600 font-medium line-clamp-2">
+                          + {cfg.selectedAddOns.map((a: any) => a.name).join(', ')}
+                        </p>
+                      )}
+
+                      {cfg.specialInstructions && (
+                        <p className="text-[10px] text-amber-800 italic bg-amber-50/80 px-2 py-0.5 rounded-lg border border-amber-200/50">
+                          "{cfg.specialInstructions}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 bg-white border border-slate-200 rounded-xl p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateQuantity(
+                            removePromptItem.item._id,
+                            cfg.selectedAddOns,
+                            cfg.specialInstructions || '',
+                            -1,
+                            cfg.variantName
+                          );
+                        }}
+                        className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                        title="Remove 1"
+                      >
+                        <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      </button>
+                      <span className="w-5 text-center font-mono font-black text-xs text-slate-800">
+                        {cfg.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateQuantity(
+                            removePromptItem.item._id,
+                            cfg.selectedAddOns,
+                            cfg.specialInstructions || '',
+                            1,
+                            cfg.variantName
+                          );
+                        }}
+                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                        title="Add 1"
+                      >
+                        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRemovePromptItem(null)}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-2xl transition active:scale-95 cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

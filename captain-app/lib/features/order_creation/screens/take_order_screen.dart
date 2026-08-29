@@ -38,21 +38,354 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
     _showCustomizationSheet(item);
   }
 
-  void _onQuickAdd(MenuItemModel item) {
-    if (!item.isAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This item is currently 86ed / unavailable.')),
-      );
-      return;
-    }
+  void _onQuickIncrement(MenuItemModel item) {
+    HapticFeedback.lightImpact();
+    final isCustomizable = item.pricingType == 'PORTION' || item.variants.isNotEmpty || item.addOns.isNotEmpty;
 
-    if (item.pricingType == 'PORTION' || item.variants.isNotEmpty || item.addOns.isNotEmpty) {
+    if (isCustomizable) {
+      final configs = ref.read(cartProvider.notifier).getItemConfigurations(item.id);
+      if (configs.isNotEmpty) {
+        _showRepeatCustomizationSheet(item);
+        return;
+      }
       _showCustomizationSheet(item);
       return;
     }
 
-    HapticFeedback.lightImpact();
     ref.read(cartProvider.notifier).incrementItem(item);
+  }
+
+  void _onQuickDecrement(MenuItemModel item) {
+    HapticFeedback.lightImpact();
+    final isCustomizable = item.pricingType == 'PORTION' || item.variants.isNotEmpty || item.addOns.isNotEmpty;
+
+    if (isCustomizable) {
+      final configs = ref.read(cartProvider.notifier).getItemConfigurations(item.id);
+      if (configs.length > 1) {
+        _showRemoveCustomizationSheet(item);
+        return;
+      } else if (configs.length == 1) {
+        ref.read(cartProvider.notifier).decrementSpecificItem(configs.first);
+        return;
+      }
+    }
+
+    ref.read(cartProvider.notifier).decrementItem(item);
+  }
+
+  void _showRepeatCustomizationSheet(MenuItemModel item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) {
+          final configs = ref.watch(cartProvider).items.where((i) => i.item.id == item.id).toList();
+          if (configs.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (Navigator.canPop(ctx)) Navigator.pop(ctx);
+            });
+          }
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Repeat Customization?',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.x, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                Text(
+                  item.name,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: configs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, idx) {
+                      final cfg = configs[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (cfg.selectedVariant != null)
+                                    Text(
+                                      'Portion: ${cfg.selectedVariant!.name}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1D4ED8),
+                                      ),
+                                    ),
+                                  if (cfg.selectedAddOns.isNotEmpty)
+                                    Text(
+                                      '+ ${cfg.selectedAddOns.map((a) => a.name).join(', ')}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  if (cfg.specialInstructions.isNotEmpty)
+                                    Text(
+                                      'Note: "${cfg.specialInstructions}"',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${Formatters.formatCurrency(cfg.unitPrice)} (in cart: ${cfg.quantity})',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.surface,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () {
+                                ref.read(cartProvider.notifier).incrementSpecificItem(cfg);
+                                Navigator.pop(ctx);
+                              },
+                              child: const Text('Repeat (+1)'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(LucideIcons.plus, size: 16, color: AppColors.primary),
+                  label: Text(
+                    'Add New Customization',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showCustomizationSheet(item);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showRemoveCustomizationSheet(MenuItemModel item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) {
+          final configs = ref.watch(cartProvider).items.where((i) => i.item.id == item.id).toList();
+          if (configs.length <= 1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (Navigator.canPop(ctx)) Navigator.pop(ctx);
+            });
+          }
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Remove Customization',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(LucideIcons.x, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Select which customization to decrement or remove:',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: configs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, idx) {
+                      final cfg = configs[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (cfg.selectedVariant != null)
+                                    Text(
+                                      'Portion: ${cfg.selectedVariant!.name}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1D4ED8),
+                                      ),
+                                    ),
+                                  if (cfg.selectedAddOns.isNotEmpty)
+                                    Text(
+                                      '+ ${cfg.selectedAddOns.map((a) => a.name).join(', ')}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  if (cfg.specialInstructions.isNotEmpty)
+                                    Text(
+                                      'Note: "${cfg.specialInstructions}"',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Qty: ${cfg.quantity} • ${Formatters.formatCurrency(cfg.itemTotal)}',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(LucideIcons.minus, color: AppColors.error),
+                              onPressed: () {
+                                ref.read(cartProvider.notifier).decrementSpecificItem(cfg);
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.surfaceLight,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showCustomizationSheet(MenuItemModel item) {
@@ -444,10 +777,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       InkWell(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          ref.read(cartProvider.notifier).decrementItem(item);
-                        },
+                        onTap: () => _onQuickDecrement(item),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
                           width: 32,
@@ -484,10 +814,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                         ),
                       ),
                       InkWell(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          ref.read(cartProvider.notifier).incrementItem(item);
-                        },
+                        onTap: () => _onQuickIncrement(item),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
                           width: 32,
@@ -517,7 +844,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
               else
                 // Simple + Button
                 InkWell(
-                  onTap: () => _onQuickAdd(item),
+                  onTap: () => _onQuickIncrement(item),
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     width: 38,
