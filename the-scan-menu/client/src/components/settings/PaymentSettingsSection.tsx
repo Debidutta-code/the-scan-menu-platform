@@ -16,6 +16,7 @@ import {
   ChevronDown,
   CheckCircle2,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export interface PaymentSettingsSectionProps {
   restaurantId?: string;
@@ -230,16 +231,16 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
   };
 
   return (
-    <form onSubmit={handleSavePayments} className="space-y-6">
+    <form onSubmit={handleSavePayments} className="space-y-3 sm:space-y-4 font-sans select-none">
       {/* ── 1. ACTIVE DINING PAYMENT POLICY ── */}
-      <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-4">
-        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+        <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
           <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+              <CreditCard className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
               <span>Ordering Payment Policy</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               Choose when guest payments are collected for dine-in and counter sessions.
             </p>
           </div>
@@ -247,45 +248,45 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
 
         <div className="relative">
           {!isEnabled('payments') && (
-            <div className="absolute inset-0 z-10 bg-slate-50/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center border border-slate-200 rounded-2xl">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mb-2">
-                <Lock className="w-5 h-5 text-amber-600" />
+            <div className="absolute inset-0 z-10 bg-slate-50/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center border border-slate-200 rounded-xl">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center mb-1.5">
+                <Lock className="w-4 h-4 text-amber-600" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900 mb-1">Payments Feature Flag Disabled</h3>
-              <p className="text-xs text-slate-600 max-w-sm">
+              <h3 className="text-xs font-bold text-slate-900 mb-0.5">Payments Feature Flag Disabled</h3>
+              <p className="text-[11px] text-slate-600 max-w-sm">
                 Digital Payment Abstraction is not active on your current restaurant plan.
               </p>
             </div>
           )}
 
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!isEnabled('payments') ? 'opacity-30 pointer-events-none filter blur-[1px]' : ''}`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3 ${!isEnabled('payments') ? 'opacity-30 pointer-events-none filter blur-[1px]' : ''}`}>
             {/* POSTPAID OPTION */}
             <button
               type="button"
               onClick={() => setActivePaymentMode('POSTPAID')}
-              className={`p-5 rounded-2xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+              className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between ${
                 activePaymentMode === 'POSTPAID'
-                  ? 'border-amber-500 bg-amber-50/50 shadow-sm'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-xs'
+                  : 'border-slate-200/80 bg-white hover:border-slate-300'
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-extrabold text-slate-900">Postpaid Mode</span>
-                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-900">Postpaid Mode</span>
+                    <span className="text-[9px] font-black uppercase font-mono bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
                       Dine-in Standard
                     </span>
                   </div>
                   {activePaymentMode === 'POSTPAID' && (
-                    <CheckCircle2 className="w-5 h-5 text-amber-500" strokeWidth={2.5} />
+                    <CheckCircle2 className="w-4 h-4 text-amber-500" strokeWidth={2.5} />
                   )}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   Guests order and enjoy dining immediately. Payment is collected upon requesting the bill or freeing the table.
                 </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center gap-1.5 text-[11px] text-slate-500">
+              <div className="mt-2.5 pt-2 border-t border-slate-150 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 <span>Auto-accept orders supported</span>
               </div>
@@ -295,29 +296,29 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             <button
               type="button"
               onClick={() => setActivePaymentMode('PREPAID')}
-              className={`p-5 rounded-2xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+              className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between ${
                 activePaymentMode === 'PREPAID'
-                  ? 'border-amber-500 bg-amber-50/50 shadow-sm'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-xs'
+                  : 'border-slate-200/80 bg-white hover:border-slate-300'
               }`}
             >
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-extrabold text-slate-900">Prepaid Mode</span>
-                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                      QSR / Cafes / Fast Casual
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-900">Prepaid Mode</span>
+                    <span className="text-[9px] font-black uppercase font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                      QSR / Cafes
                     </span>
                   </div>
                   {activePaymentMode === 'PREPAID' && (
-                    <CheckCircle2 className="w-5 h-5 text-amber-500" strokeWidth={2.5} />
+                    <CheckCircle2 className="w-4 h-4 text-amber-500" strokeWidth={2.5} />
                   )}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   Guests must pay upfront. Orders will remain in the New column and cannot move to the Kitchen until payment is confirmed.
                 </p>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center gap-1.5 text-[11px] text-slate-500">
+              <div className="mt-2.5 pt-2 border-t border-slate-150 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                 <span>Zero unpaid order risk</span>
               </div>
@@ -327,23 +328,23 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
       </div>
 
       {/* ── 2. ACCEPTED METHODS & PRIORITY SORTING ── */}
-      <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-5">
-        <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+        <div className="border-b border-slate-100 pb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h4 className="text-base font-bold text-slate-900">
-              Accepted Payment Methods & Priority Sorting
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+              Accepted Payment Methods &amp; Priority Sorting
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Enable channels and use the <span className="font-semibold text-slate-700">▲ / ▼ arrows</span> to control which payment option appears first on the order screen.
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Enable channels and use the <span className="font-bold text-slate-700">▲ / ▼ arrows</span> to control which payment option appears first on the order screen.
             </p>
           </div>
-          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full self-start sm:self-auto">
-            Top item is default in settlement popup
+          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full self-start sm:self-auto font-mono">
+            Top item is default in settlement
           </span>
         </div>
 
         {/* Priority Sorted Method Cards */}
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {methodOrder.map((mId, index) => {
             const meta = DEFAULT_METHODS.find((m) => m.id === mId) || DEFAULT_METHODS[0];
             const isChecked = getMethodChecked(meta.key);
@@ -354,64 +355,64 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             return (
               <div
                 key={meta.id}
-                className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                className={`p-2.5 sm:p-3 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs ${
                   isChecked
-                    ? 'border-slate-250 bg-white hover:border-slate-300 shadow-[0_1px_3px_rgba(0,0,0,0.03)]'
+                    ? 'border-slate-200 bg-white hover:border-slate-300'
                     : 'border-slate-150 bg-slate-50/70 opacity-60'
                 }`}
               >
                 {/* Left: Checkbox + Icon + Details */}
-                <div className="flex items-center gap-3.5">
+                <div className="flex items-center gap-2.5">
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={(e) => setMethodChecked(meta.key, e.target.checked)}
-                    className="h-4.5 w-4.5 rounded text-amber-500 accent-amber-500 border-slate-300 cursor-pointer"
+                    className="h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 cursor-pointer"
                   />
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     isChecked ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'
                   }`}>
-                    <Icon className="w-4.5 h-4.5" strokeWidth={1.75} />
+                    <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-slate-900">{meta.name}</span>
-                      <span className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
                         {meta.badge}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{meta.subtitle}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{meta.subtitle}</p>
                   </div>
                 </div>
 
                 {/* Right: Priority Badge & Sorting Controls */}
-                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
                     index === 0
-                      ? 'bg-amber-500 text-slate-950 font-mono'
+                      ? 'bg-amber-500 text-slate-950 font-mono font-black'
                       : 'bg-slate-100 text-slate-600 font-mono'
                   }`}>
                     #{index + 1} {index === 0 ? '• Default' : ''}
                   </span>
 
-                  <div className="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200">
+                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                     <button
                       type="button"
                       disabled={isFirst}
                       onClick={() => moveMethod(index, 'UP')}
                       title="Move Up (Higher Priority)"
-                      className="p-1 rounded-lg hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
+                      className="p-1 rounded hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
                     >
-                      <ChevronUp className="w-3.5 h-3.5" />
+                      <ChevronUp className="w-3 h-3" />
                     </button>
                     <button
                       type="button"
                       disabled={isLast}
                       onClick={() => moveMethod(index, 'DOWN')}
                       title="Move Down (Lower Priority)"
-                      className="p-1 rounded-lg hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
+                      className="p-1 rounded hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
                     >
-                      <ChevronDown className="w-3.5 h-3.5" />
+                      <ChevronDown className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
@@ -422,20 +423,20 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
 
         {/* ── 3. CREDENTIALS CONFIGURATION ── */}
         {upiEnabled && (
-          <div className="pt-3">
-            <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-5 sm:p-6 space-y-3 shadow-xs">
+          <div className="pt-2">
+            <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-3 sm:p-3.5 space-y-2 shadow-2xs">
               <label className="block text-xs font-bold text-slate-900">
                 Merchant UPI ID (VPA) <span className="text-amber-600">*</span>
               </label>
-              <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
+              <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
                 <input
                   type="text"
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
                   placeholder="e.g. democafe@okhdfcbank"
-                  className="w-full sm:max-w-md px-4 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold text-slate-900 shadow-2xs"
+                  className="w-full sm:max-w-md px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono font-bold text-slate-900 shadow-2xs"
                 />
-                <span className="text-xs text-slate-500 leading-relaxed">
+                <span className="text-[11px] text-slate-500 leading-relaxed">
                   Instant scan-and-pay UPI QR codes generated dynamically on customer tables and printed bills.
                 </span>
               </div>
@@ -444,48 +445,48 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         )}
 
         {razorpayEnabled && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-3.5 space-y-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-indigo-600" />
+              <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 font-mono">
+                <Globe className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Razorpay Gateway API Keys</span>
               </h5>
-              <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border border-slate-200">
-                Test & Live Mode
+              <span className="text-[10px] text-slate-500 font-mono bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                Test &amp; Live Mode
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Key ID</label>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1">Key ID</label>
                 <input
                   type="text"
                   value={razorpayKeyId}
                   onChange={(e) => setRazorpayKeyId(e.target.value)}
                   placeholder="rzp_test_..."
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Key Secret</label>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1">Key Secret</label>
                 <input
                   type="password"
                   value={razorpayKeySecret}
                   onChange={(e) => setRazorpayKeySecret(e.target.value)}
                   placeholder="Enter secret"
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Webhook Secret</label>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1">Webhook Secret</label>
                 <input
                   type="password"
                   value={razorpayWebhookSecret}
                   onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
                   placeholder="Enter webhook secret"
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-250 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono shadow-2xs"
                 />
               </div>
             </div>
@@ -493,19 +494,14 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         )}
 
         {/* ── 4. SUBMIT ACTION ── */}
-        <div className="pt-3 flex justify-end">
-          <button
+        <div className="pt-2 flex justify-end">
+          <Button
             type="submit"
-            disabled={updateMutation.isPending}
-            className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+            isLoading={updateMutation.isPending}
+            leftIcon={<Save className="w-3.5 h-3.5" />}
           >
-            {updateMutation.isPending ? (
-              <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-            ) : (
-              <Save className="w-4 h-4" strokeWidth={1.75} />
-            )}
-            <span>Save Payment Settings</span>
-          </button>
+            Save Payment Settings
+          </Button>
         </div>
       </div>
     </form>

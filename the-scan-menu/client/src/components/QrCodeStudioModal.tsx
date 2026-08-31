@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { useToast } from '../hooks/useToast';
 import apiClient from '../lib/api';
 import { ImageUploader } from './ImageUploader';
+import { Button } from './ui/Button';
 import {
   QrCode,
   Palette,
@@ -158,41 +159,41 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[99999] overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-150 overflow-hidden flex flex-col lg:flex-row max-h-[92vh]">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 md:p-5 z-[99999] overflow-y-auto select-none font-sans">
+      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col lg:flex-row max-h-[92vh]">
         {/* Left Pane: Controls & Customization */}
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6 no-scrollbar">
+        <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 no-scrollbar">
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-150">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-sm">
-                <QrCode className="w-6 h-6" />
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-xs">
+                <QrCode className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-display text-xl font-bold text-slate-900 leading-tight">
-                  Table QR Code & Standee Studio
+                <h3 className="font-display text-lg font-bold text-slate-900 leading-tight">
+                  Table QR Code &amp; Standee Studio
                 </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                   Configure brand aesthetics, error complexity, center logo, and standee templates
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
               title="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* 1. Standee Template Selector */}
-          <div className="space-y-2.5">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-amber-500" />
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+              <Layers className="w-3.5 h-3.5 text-amber-500" />
               <span>1. Standee Visual Template</span>
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               {[
                 {
                   id: 'standee',
@@ -219,25 +220,25 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
                     key={tpl.id}
                     type="button"
                     onClick={() => setTemplateTheme(tpl.id as any)}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between shadow-2xs ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-50/40 shadow-sm ring-2 ring-amber-500/20'
-                        : 'border-slate-200 hover:bg-slate-50'
+                        ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20'
+                        : 'border-slate-200/80 hover:bg-slate-50'
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-display font-bold text-xs text-slate-900">{tpl.name}</span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md font-bold bg-slate-150 text-slate-700">
+                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-700">
                           {tpl.badge}
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-500 leading-snug">{tpl.desc}</p>
                     </div>
                     {isSelected && (
-                      <div className="mt-2 flex items-center gap-1 text-amber-700 font-bold text-[10px]">
+                      <div className="mt-1.5 flex items-center gap-1 text-amber-800 font-bold text-[10px] font-mono">
                         <Check className="w-3 h-3" strokeWidth={3} />
-                        <span>Active Template</span>
+                        <span>Active</span>
                       </div>
                     )}
                   </button>
@@ -455,41 +456,38 @@ export const QrCodeStudioModal: React.FC<QrCodeStudioModalProps> = ({
           </div>
 
           {/* 5. Card Header Text */}
-          <div className="space-y-2 pt-2 border-t border-slate-150">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <div className="space-y-1.5 pt-2 border-t border-slate-150">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
               5. Standee Call-To-Action Header
             </label>
             <input
               type="text"
               value={cardFrameText}
               onChange={(e) => setCardFrameText(e.target.value)}
-              placeholder="e.g. Scan to View Menu & Order"
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-2xl text-xs font-bold focus:outline-none focus:border-amber-500 shadow-xs"
+              placeholder="e.g. Scan to View Menu &amp; Order"
+              className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-amber-400 shadow-2xs"
             />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-slate-150">
-            <button
+          <div className="flex gap-2 pt-3 border-t border-slate-150">
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="w-1/3 py-3.5 border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 text-xs transition cursor-pointer"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
+              fullWidth
               onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="flex-1 py-3.5 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:bg-slate-400"
+              isLoading={saveMutation.isPending}
+              leftIcon={<Save className="w-3.5 h-3.5 text-amber-400" />}
             >
-              {saveMutation.isPending ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>Apply & Save Global QR Style</span>
-            </button>
+              Save Template &amp; Styling
+            </Button>
           </div>
         </div>
 

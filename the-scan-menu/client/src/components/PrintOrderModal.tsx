@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import { Button } from './ui/Button';
 import {
   PrintOrderData,
   RestaurantPrintInfo,
@@ -97,24 +98,24 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]"
+          className="bg-white rounded-2xl w-full max-w-lg shadow-xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh]"
         >
           {/* Header */}
-          <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                <Printer className="w-5 h-5" strokeWidth={2} />
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                <Printer className="w-4 h-4" strokeWidth={2} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="font-display font-black text-xl text-slate-950 leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="font-display font-black text-lg text-slate-950 leading-tight">
                     Order #{order.orderNumber}
                   </h2>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-slate-200 text-slate-700">
                     {resolvedPaperWidth}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 font-medium">
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                   {order.orderMode || 'Dine-In'} • {tableLabel} {order.customerName ? `• ${order.customerName}` : ''}
                 </p>
               </div>
@@ -122,22 +123,22 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               title="Close (Esc)"
             >
-              <X className="w-5 h-5" strokeWidth={2} />
+              <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
 
           {/* Quick Order Highlights */}
-          <div className="px-4 sm:px-5 py-2.5 bg-slate-100/60 border-b border-slate-200/60 flex items-center justify-between text-xs">
+          <div className="px-3.5 sm:px-4 py-2 bg-slate-100/60 border-b border-slate-200/60 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="text-slate-500 font-medium font-mono">
                 {order.items?.length || 0} items
               </span>
               <span className="text-slate-300">•</span>
               <span
-                className={`font-bold px-2 py-0.5 rounded-md text-[11px] ${
+                className={`font-bold px-1.5 py-0.2 rounded text-[10px] font-mono ${
                   isPaid
                     ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-amber-100 text-amber-800'
@@ -146,31 +147,31 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
                 {isPaid ? '✓ Paid' : 'Payment Due (UPI QR on Bill)'}
               </span>
             </div>
-            <div className="font-mono text-sm font-black text-slate-900">
+            <div className="font-mono text-xs font-black text-slate-900">
               ₹{totalFormatted}
             </div>
           </div>
 
           {/* Body: Action Buttons Grid */}
-          <div className="p-4 sm:p-5 space-y-3.5 max-h-[78vh] overflow-y-auto custom-scrollbar flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="p-3.5 sm:p-4 space-y-3 max-h-[78vh] overflow-y-auto custom-scrollbar flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* Customer Bill (Primary) */}
               <button
                 type="button"
                 onClick={() => handlePrint('CUSTOMER')}
-                className="p-4 rounded-2xl border-2 border-blue-200 bg-blue-50/70 hover:bg-blue-100 hover:border-blue-400 text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-2xs cursor-pointer"
+                className="p-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 hover:border-blue-300 text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-2xs cursor-pointer"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
-                    <Receipt className="w-4.5 h-4.5" strokeWidth={2} />
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                    <Receipt className="w-3.5 h-3.5" strokeWidth={2} />
                   </div>
-                  <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-blue-200/80 text-blue-900">
+                  <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-blue-200/80 text-blue-900">
                     Press [1]
                   </span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Customer Bill</h4>
-                  <p className="text-[11px] text-slate-600 mt-0.5 leading-tight">
+                  <h4 className="font-bold text-slate-900 text-xs">Customer Bill</h4>
+                  <p className="text-[10px] text-slate-600 mt-0.5 leading-tight">
                     {isPaid ? 'Paid Tax Invoice' : 'Bill for payment + Dynamic UPI QR'}
                   </p>
                 </div>
@@ -180,19 +181,19 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
               <button
                 type="button"
                 onClick={() => handlePrint('KITCHEN')}
-                className="p-4 rounded-2xl border-2 border-amber-200 bg-amber-50/70 hover:bg-amber-100 hover:border-amber-400 text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-2xs cursor-pointer"
+                className="p-3 rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100 hover:border-amber-300 text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-2xs cursor-pointer"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                    <ChefHat className="w-4.5 h-4.5" strokeWidth={2} />
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                    <ChefHat className="w-3.5 h-3.5" strokeWidth={2} />
                   </div>
-                  <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                  <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900">
                     Press [2]
                   </span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Kitchen KOT</h4>
-                  <p className="text-[11px] text-slate-600 mt-0.5 leading-tight">
+                  <h4 className="font-bold text-slate-900 text-xs">Kitchen KOT</h4>
+                  <p className="text-[10px] text-slate-600 mt-0.5 leading-tight">
                     High-contrast food prep slip (No logo)
                   </p>
                 </div>
@@ -202,19 +203,19 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
               <button
                 type="button"
                 onClick={() => handlePrint('COUNTER')}
-                className="p-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 hover:border-emerald-400 text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-2xs cursor-pointer"
+                className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 hover:border-emerald-300 text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-2xs cursor-pointer"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                    <FileText className="w-4.5 h-4.5" strokeWidth={2} />
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <FileText className="w-3.5 h-3.5" strokeWidth={2} />
                   </div>
-                  <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-200/80 text-emerald-900">
+                  <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-emerald-200/80 text-emerald-900">
                     Press [3]
                   </span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Counter Copy</h4>
-                  <p className="text-[11px] text-slate-600 mt-0.5 leading-tight">
+                  <h4 className="font-bold text-slate-900 text-xs">Counter Copy</h4>
+                  <p className="text-[10px] text-slate-600 mt-0.5 leading-tight">
                     Cashier audit slip with signature line
                   </p>
                 </div>
@@ -224,20 +225,20 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
               <button
                 type="button"
                 onClick={() => handlePrint('BOTH')}
-                className="p-4 rounded-2xl border-2 border-slate-900 bg-slate-950 hover:bg-slate-900 text-white text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-sm cursor-pointer"
+                className="p-3 rounded-xl border border-slate-900 bg-slate-950 hover:bg-slate-900 text-white text-left transition flex flex-col justify-between group active:scale-[0.98] shadow-xs cursor-pointer"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 text-amber-400 flex items-center justify-center shadow-xs">
-                    <Layers className="w-4.5 h-4.5" strokeWidth={2} />
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-slate-800 text-amber-400 flex items-center justify-center shadow-xs">
+                    <Layers className="w-3.5 h-3.5" strokeWidth={2} />
                   </div>
-                  <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">
-                    Enter ↵
+                  <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-500 text-slate-950">
+                    Press [4]
                   </span>
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-sm">Print Both</h4>
-                  <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">
-                    Kitchen KOT + Counter Bill in sequence
+                  <h4 className="font-bold text-white text-xs">Both (Bill + KOT)</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                    Full batch print in sequence
                   </p>
                 </div>
               </button>
@@ -308,21 +309,24 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-            <button
+          <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
             >
               Cancel (Esc)
-            </button>
+            </Button>
 
-            <button
+            <Button
+              type="button"
+              variant="primary"
               onClick={() => handlePrint('CUSTOMER')}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-[0.98] cursor-pointer"
+              leftIcon={<Receipt className="w-3.5 h-3.5" />}
             >
-              <Receipt className="w-4 h-4" strokeWidth={2} />
-              <span>Print Customer Bill</span>
-            </button>
+              Print Customer Bill
+            </Button>
           </div>
         </motion.div>
       </div>

@@ -11,6 +11,7 @@ import {
   Save,
   Loader,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export interface WorkflowAutomationSectionProps {
   restaurantId?: string;
@@ -119,28 +120,28 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
   }
 
   return (
-    <form onSubmit={handleSaveWorkflow} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-      <div className="border-b border-slate-100 pb-3">
-        <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <GitBranch className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-          <span>Order Workflow & Auto-Accept Rules</span>
+    <form onSubmit={handleSaveWorkflow} className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3.5 font-sans select-none">
+      <div className="border-b border-slate-100 pb-2.5">
+        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+          <GitBranch className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
+          <span>Order Workflow &amp; Auto-Accept Rules</span>
         </h4>
-        <p className="text-xs text-slate-500 mt-0.5">Define order step lifecycle and auto-dispatch timers.</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">Define order step lifecycle and auto-dispatch timers.</p>
       </div>
 
       {hasActiveOrders && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
           <div>
-            <h5 className="font-bold text-sm">Action Disabled: Active Orders Exist</h5>
-            <p className="text-xs text-rose-600 mt-1 leading-relaxed">
+            <h5 className="font-bold text-xs">Action Disabled: Active Orders Exist</h5>
+            <p className="text-[11px] text-rose-600 mt-0.5 leading-relaxed">
               You cannot change the order workflow while there are active orders being processed. Please serve or cancel all pending, preparing, or ready orders before changing this setting to prevent state mismatches.
             </p>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         {([
           {
             value: 'FIVE_STEP',
@@ -171,24 +172,24 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
               type="button"
               disabled={hasActiveOrders}
               onClick={() => !hasActiveOrders && setOrderWorkflowMode(mode.value)}
-              className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 space-y-3 cursor-pointer ${
+              className={`p-3 rounded-xl border text-left transition space-y-2 cursor-pointer ${
                 isSelected
-                  ? 'border-amber-500 bg-amber-50/50 shadow-md'
+                  ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-2xs'
                   : hasActiveOrders
-                  ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed'
-                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                  ? 'border-slate-200/80 bg-slate-50 opacity-50 cursor-not-allowed'
+                  : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className={`text-sm font-extrabold ${isSelected ? 'text-amber-700' : 'text-slate-800'}`}>
+                  <p className={`text-xs font-bold ${isSelected ? 'text-amber-800' : 'text-slate-900'}`}>
                     {mode.label}
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{mode.desc}</p>
                 </div>
                 {isSelected && (
-                  <span className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center shrink-0 mt-0.5">
-                    <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 text-white fill-current">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                    <svg viewBox="0 0 12 12" className="w-2 h-2 text-white fill-current">
                       <path
                         d="M1.5 6.5l3 3L10.5 3"
                         stroke="white"
@@ -201,12 +202,12 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 mt-2 pt-2 border-t border-slate-100/60">
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5 mt-1.5 pt-1.5 border-t border-slate-100/80">
                 {mode.steps.map((step, i) => (
                   <div key={step} className="flex items-center gap-1 whitespace-nowrap">
                     <span className={`w-1.5 h-1.5 rounded-full ${mode.colors[i]}`} />
-                    <span className="text-[10px] font-bold text-slate-500">{step}</span>
-                    {i < mode.steps.length - 1 && <span className="text-[10px] text-slate-300 ml-0.5">›</span>}
+                    <span className="text-[9px] font-bold text-slate-500 font-mono">{step}</span>
+                    {i < mode.steps.length - 1 && <span className="text-[9px] text-slate-300 ml-0.5 font-mono">›</span>}
                   </div>
                 ))}
               </div>
@@ -216,20 +217,20 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
       </div>
 
       {/* Auto-Accept Automation */}
-      <div className={`pt-4 border-t border-slate-100 space-y-4 transition-all ${orderingPaymentPolicy === 'PREPAID' ? 'opacity-40 filter blur-[0.5px] pointer-events-none' : ''}`}>
+      <div className={`pt-3 border-t border-slate-100 space-y-3 transition ${orderingPaymentPolicy === 'PREPAID' ? 'opacity-40 filter blur-[0.5px] pointer-events-none' : ''}`}>
         <div className="flex items-center justify-between">
-          <h5 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-            <Timer className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+          <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
+            <Timer className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
             <span>Auto-Accept Orders</span>
           </h5>
           {orderingPaymentPolicy === 'PREPAID' && (
-            <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
+            <span className="text-[9px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full">
               Available only in Postpaid Mode
             </span>
           )}
         </div>
 
-        <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition">
+        <label className="flex items-start gap-2.5 p-3 border border-slate-200/80 rounded-xl cursor-pointer hover:bg-slate-50 transition shadow-2xs">
           <div className="mt-0.5">
             <input
               type="checkbox"
@@ -240,27 +241,27 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
             />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800">Automatically accept new incoming orders</p>
-            <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+            <p className="text-xs font-bold text-slate-900">Automatically accept new incoming orders</p>
+            <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
               New orders will be auto-accepted and moved to{' '}
-              <strong>{orderWorkflowMode === 'FIVE_STEP' ? 'Accepted' : 'Preparing'}</strong> after delay.
+              <strong className="text-slate-700">{orderWorkflowMode === 'FIVE_STEP' ? 'Accepted' : 'Preparing'}</strong> after delay.
             </p>
           </div>
         </label>
 
         {autoAcceptEnabled && (
-          <div className="ml-1 space-y-3">
-            <label className="block text-xs font-semibold text-slate-600">Auto-accept timer delay</label>
-            <div className="flex flex-wrap gap-2">
+          <div className="ml-1 space-y-2">
+            <label className="block text-[11px] font-semibold text-slate-600 font-mono">Auto-accept timer delay</label>
+            <div className="flex flex-wrap gap-1.5">
               {[5, 10, 15, 30, 60, 120].map((sec) => (
                 <button
                   key={sec}
                   type="button"
                   disabled={hasActiveOrders}
                   onClick={() => !hasActiveOrders && setAutoAcceptDelay(sec)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                  className={`h-7 px-3 rounded-lg text-xs font-bold border transition cursor-pointer font-mono ${
                     autoAcceptDelay === sec
-                      ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                      ? 'bg-amber-500 border-amber-500 text-slate-950 shadow-2xs font-black'
                       : hasActiveOrders
                       ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed'
                       : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300'
@@ -275,22 +276,14 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
       </div>
 
       <div className="pt-2 flex justify-end">
-        <button
+        <Button
           type="submit"
-          disabled={updateMutation.isPending || hasActiveOrders}
-          className={`px-6 py-3 font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md cursor-pointer ${
-            hasActiveOrders
-              ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-              : 'bg-slate-950 hover:bg-slate-800 text-white disabled:bg-slate-400'
-          }`}
+          disabled={hasActiveOrders}
+          isLoading={updateMutation.isPending}
+          leftIcon={<Save className="w-3.5 h-3.5" />}
         >
-          {updateMutation.isPending ? (
-            <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-          ) : (
-            <Save className="w-4 h-4" strokeWidth={1.75} />
-          )}
-          <span>Save Workflow Settings</span>
-        </button>
+          Save Workflow Settings
+        </Button>
       </div>
     </form>
   );

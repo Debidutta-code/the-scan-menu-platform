@@ -20,6 +20,7 @@ import {
   Clock,
   AlertTriangle,
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 import apiClient from '../lib/api';
 
 interface StaffAttribution {
@@ -160,26 +161,26 @@ export const ManagerWaiterCalls: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-4 font-sans select-none pb-12">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
       {/* Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
         <div>
-          <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight leading-tight">
             Floor Service Assistance
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5 font-medium">
+          </h1>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             Live customer calls, staff attendance tracking, and 5-minute auto-resolved audit logs.
           </p>
         </div>
 
         {/* View Switcher Tabs & Font Controller */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* Global UI Text Size / Font Scale Switcher */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+          <div className="bg-slate-100 p-0.5 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
             <button
               type="button"
               onClick={() => setFontScale('SMALL')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+              className={`h-7 px-2 rounded-lg text-[10px] font-black transition cursor-pointer ${
                 fontScale === 'SMALL'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -191,7 +192,7 @@ export const ManagerWaiterCalls: React.FC = () => {
             <button
               type="button"
               onClick={() => setFontScale('NORMAL')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+              className={`h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
                 fontScale === 'NORMAL'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -203,7 +204,7 @@ export const ManagerWaiterCalls: React.FC = () => {
             <button
               type="button"
               onClick={() => setFontScale('LARGE')}
-              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+              className={`h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
                 fontScale === 'LARGE'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -214,19 +215,19 @@ export const ManagerWaiterCalls: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/70 shrink-0">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shrink-0">
             <button
               onClick={() => setActiveTab('active')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'active'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
+                  ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <BellRing className={`w-3.5 h-3.5 ${activeWaiterCalls.length > 0 ? 'text-amber-500 animate-bounce' : ''}`} />
               <span>Active Queue</span>
               {activeWaiterCalls.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
                   {activeWaiterCalls.length}
                 </span>
               )}
@@ -234,15 +235,15 @@ export const ManagerWaiterCalls: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'history'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
+                  ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <History className="w-3.5 h-3.5 text-slate-600" />
               <span>Call History</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700 text-[10px] font-black">
+              <span className="px-1.5 py-0.2 rounded-full bg-slate-200/70 text-slate-700 text-[10px] font-black">
                 {historyWaiterCalls.length}
               </span>
             </button>
@@ -280,38 +281,38 @@ export const ManagerWaiterCalls: React.FC = () => {
                   <motion.div
                     key={call._id}
                     layout
-                    initial={{ scale: 0.95, opacity: 0 }}
+                    initial={{ scale: 0.96, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    className={`p-5 rounded-2xl border flex flex-col justify-between gap-4 shadow-sm transition-all duration-200 ${
+                    exit={{ scale: 0.96, opacity: 0 }}
+                    className={`p-3 rounded-xl border flex flex-col justify-between gap-3 shadow-2xs transition-all duration-200 ${
                       isPending
-                        ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300'
-                        : 'bg-indigo-50/40 border-indigo-200/80 shadow-indigo-500/5'
+                        ? 'bg-amber-50/70 border-amber-300 hover:border-amber-400'
+                        : 'bg-indigo-50/40 border-indigo-200/80'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <div
-                          className={`p-2.5 rounded-xl shrink-0 flex items-center justify-center ${
+                          className={`p-2 rounded-lg shrink-0 flex items-center justify-center ${
                             isPending ? 'bg-amber-100 animate-pulse' : 'bg-indigo-100 text-indigo-700'
                           }`}
                         >
                           {details.icon}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
                             <span>Table {call.tableNumberSnapshot}</span>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${details.badgeClass}`}>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[9px] font-black border ${details.badgeClass}`}>
                               <span>{details.label}</span>
                             </span>
                           </h4>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono mt-0.5">
-                            <Clock className="w-3 h-3 text-slate-400" />
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono mt-0.5">
+                            <Clock className="w-2.5 h-2.5 text-slate-400" />
                             <span>
                               {callAgeMinutes < 1 ? 'Just now' : `${callAgeMinutes}m ago`}
                             </span>
                             {callAgeMinutes >= 3 && isPending && (
-                              <span className="px-1.5 py-0.2 bg-rose-100 text-rose-700 font-bold rounded flex items-center gap-0.5">
+                              <span className="px-1.5 py-0.2 bg-rose-100 text-rose-700 font-bold rounded text-[9px] flex items-center gap-0.5">
                                 <AlertTriangle className="w-2.5 h-2.5" /> Urgent
                               </span>
                             )}
@@ -320,9 +321,9 @@ export const ManagerWaiterCalls: React.FC = () => {
                       </div>
 
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold font-mono tracking-wider uppercase shrink-0 ${
+                        className={`px-2 py-0.2 rounded-full text-[9px] font-black font-mono tracking-wider uppercase shrink-0 ${
                           isPending
-                            ? 'bg-amber-200 text-amber-800 border border-amber-300'
+                            ? 'bg-amber-200 text-amber-900 border border-amber-300'
                             : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
                         }`}
                       >
@@ -332,8 +333,8 @@ export const ManagerWaiterCalls: React.FC = () => {
 
                     {/* Attending Staff Banner */}
                     {call.status === 'ACKNOWLEDGED' && call.acknowledgedBy && (
-                      <div className="p-2.5 bg-white/80 rounded-xl border border-indigo-100 flex items-center gap-2 text-xs text-indigo-900">
-                        <UserCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="p-2 bg-white/90 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[11px] text-indigo-900">
+                        <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                         <span className="truncate">
                           Attending: <strong className="font-bold text-slate-950">{call.acknowledgedBy.name}</strong> ({call.acknowledgedBy.role})
                         </span>
@@ -343,23 +344,27 @@ export const ManagerWaiterCalls: React.FC = () => {
                     {/* Progressive Action Button */}
                     <div className="flex gap-2 shrink-0">
                       {isPending ? (
-                        <button
+                        <Button
+                          type="button"
+                          variant="amber"
+                          fullWidth
                           onClick={() => ackWaiterCallMutation.mutate(call._id)}
-                          disabled={ackWaiterCallMutation.isPending}
-                          className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                          isLoading={ackWaiterCallMutation.isPending}
+                          leftIcon={<UserCheck className="w-3.5 h-3.5" />}
                         >
-                          <UserCheck className="w-4 h-4" />
-                          <span>Acknowledge (I'm On It)</span>
-                        </button>
+                          Acknowledge (I&apos;m On It)
+                        </Button>
                       ) : (
-                        <button
+                        <Button
+                          type="button"
+                          variant="emerald"
+                          fullWidth
                           onClick={() => resolveWaiterCallMutation.mutate(call._id)}
-                          disabled={resolveWaiterCallMutation.isPending}
-                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                          isLoading={resolveWaiterCallMutation.isPending}
+                          leftIcon={<CheckCheck className="w-3.5 h-3.5" />}
                         >
-                          <CheckCheck className="w-4 h-4" />
-                          <span>Mark Resolved (Done)</span>
-                        </button>
+                          Mark Resolved (Done)
+                        </Button>
                       )}
                     </div>
                   </motion.div>

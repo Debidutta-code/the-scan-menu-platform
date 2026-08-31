@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { useToast } from '../hooks/useToast';
+import { Button } from '../components/ui/Button';
 
 export const ManagerProfile: React.FC = () => {
   const { user, activeRestaurantId, logout } = useAuth();
@@ -135,51 +136,51 @@ export const ManagerProfile: React.FC = () => {
     : 'M';
 
   return (
-    <div className="w-full space-y-6 font-sans select-none">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
       {/* ── HEADER ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-slate-950 flex items-center justify-center text-amber-400 font-mono text-xs font-black shadow-2xs shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 md:px-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-slate-950 flex items-center justify-center text-amber-400 font-mono text-xs font-black shadow-2xs shrink-0">
             {initials}
           </div>
           <div>
-            <h1 className="text-xl font-bold font-display text-slate-900 tracking-tight">Manager Account</h1>
-            <p className="text-xs text-slate-500 font-medium">Personal profile, credentials, and restaurant association</p>
+            <h1 className="text-lg sm:text-xl font-bold font-display text-slate-900 tracking-tight leading-tight">Manager Account</h1>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">Personal profile, credentials, and restaurant association</p>
           </div>
         </div>
 
         <button
           onClick={logout}
-          className="px-4 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 text-rose-700 text-xs font-bold rounded-2xl transition flex items-center gap-2 shadow-2xs active:scale-95 shrink-0"
+          className="h-8.5 px-3.5 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 text-rose-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs active:scale-95 shrink-0 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" strokeWidth={2} />
-          Log Out Session
+          <span>Log Out Session</span>
         </button>
       </div>
 
       {/* ── 2-COLUMN PROFILE LAYOUT ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 items-start">
         {/* LEFT COLUMN: HERO USER CARD & QUICK STATS (5 Cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-slate-950 text-white rounded-3xl p-6 shadow-xl border border-slate-800 space-y-6 relative overflow-hidden">
+        <div className="lg:col-span-5 space-y-3">
+          <div className="bg-slate-950 text-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-800 space-y-4 relative overflow-hidden">
             {/* Ambient Background Blur Circle */}
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="flex flex-col items-center text-center space-y-3 relative z-10">
-              <div className="w-20 h-20 rounded-3xl bg-amber-500 text-slate-950 flex items-center justify-center font-mono font-black text-2xl shadow-lg ring-4 ring-white/10">
+            <div className="flex flex-col items-center text-center space-y-2.5 relative z-10">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-mono font-black text-xl shadow-md ring-4 ring-white/10">
                 {initials}
               </div>
               <div>
-                <h2 className="text-2xl font-bold font-display text-white tracking-tight">{user?.name}</h2>
+                <h2 className="text-lg sm:text-xl font-bold font-display text-white tracking-tight">{user?.name}</h2>
                 <p className="text-xs text-slate-400 font-mono mt-0.5">{user?.email}</p>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 border border-white/15 rounded-full text-[10px] font-black uppercase tracking-wider text-amber-400 font-mono">
-                  <Shield className="w-3.5 h-3.5" strokeWidth={2} />
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/10 border border-white/15 rounded-full text-[10px] font-black uppercase tracking-wider text-amber-400 font-mono">
+                  <Shield className="w-3 h-3" strokeWidth={2} />
                   {user?.role || 'MANAGER'}
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-300">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-300">
                   <ShieldCheck className="w-3 h-3 text-emerald-400" strokeWidth={2} />
                   Verified Session
                 </span>
@@ -187,7 +188,7 @@ export const ManagerProfile: React.FC = () => {
             </div>
 
             {/* Quick Meta List */}
-            <div className="border-t border-slate-800 pt-4 space-y-2.5 text-xs text-slate-300 relative z-10">
+            <div className="border-t border-slate-800 pt-3 space-y-2 text-xs text-slate-300 relative z-10">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Account Role</span>
                 <span className="font-bold text-white uppercase">{user?.role}</span>
@@ -207,16 +208,16 @@ export const ManagerProfile: React.FC = () => {
 
           {/* Active Outlet Card */}
           {restaurantData?.success && (
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-2xs space-y-3">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-                  <Building2 className="w-4 h-4" strokeWidth={1.75} />
+            <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                  <Building2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider font-mono">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-wider font-mono">
                     Associated Outlet
                   </h3>
-                  <h4 className="font-bold text-sm text-slate-900 leading-tight">
+                  <h4 className="font-bold text-xs text-slate-900 leading-tight">
                     {restaurantData.data.name}
                   </h4>
                 </div>
@@ -284,29 +285,26 @@ export const ManagerProfile: React.FC = () => {
                       className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/80"
                       autoFocus
                     />
-                    <button
+                    <Button
+                      type="button"
+                      variant="primary"
                       onClick={handleSaveName}
-                      disabled={updateNameMutation.isPending}
-                      className="px-3.5 py-2 bg-slate-950 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition disabled:opacity-50 flex items-center gap-1.5"
+                      isLoading={updateNameMutation.isPending}
+                      leftIcon={<Save className="w-3.5 h-3.5 text-amber-400" />}
                     >
-                      {updateNameMutation.isPending ? (
-                        <Loader className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                      ) : (
-                        <>
-                          <Save className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
-                          Save
-                        </>
-                      )}
-                    </button>
-                    <button
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon-md"
                       onClick={() => {
                         setIsEditingName(false);
                         setNewName(user?.name || '');
                       }}
-                      className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
                     >
-                      <X className="w-3.5 h-3.5" strokeWidth={2} />
-                    </button>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 ) : (
                   <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl font-bold text-slate-900">
@@ -428,31 +426,28 @@ export const ManagerProfile: React.FC = () => {
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  <button
+                  <Button
+                    type="button"
+                    variant="primary"
+                    fullWidth
                     onClick={handleChangePassword}
-                    disabled={changePasswordMutation.isPending}
-                    className="flex-1 py-3 bg-slate-950 text-white rounded-xl text-xs font-extrabold hover:bg-slate-900 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
+                    isLoading={changePasswordMutation.isPending}
+                    leftIcon={<Lock className="w-3.5 h-3.5 text-amber-400" />}
                   >
-                    {changePasswordMutation.isPending ? (
-                      <Loader className="w-4 h-4 animate-spin text-amber-400" />
-                    ) : (
-                      <>
-                        <Lock className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
-                        Update Password
-                      </>
-                    )}
-                  </button>
-                  <button
+                    Update Password
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => {
                       setIsChangingPw(false);
                       setCurrentPassword('');
                       setNewPassword('');
                       setConfirmPassword('');
                     }}
-                    className="px-4 py-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (

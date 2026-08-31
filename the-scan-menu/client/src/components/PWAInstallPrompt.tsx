@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Share, PlusSquare, WifiOff, CheckCircle2 } from 'lucide-react';
 import usePWAInstall from '../hooks/usePWAInstall';
 import { ScanMenuLogo } from './ScanMenuLogo';
+import { Button } from './ui/Button';
 
 interface PWAInstallPromptProps {
   showBannerOnly?: boolean;
@@ -54,46 +55,52 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:w-96 z-50 bg-slate-950 text-white p-4 rounded-3xl shadow-2xl border border-slate-800 backdrop-blur-md"
+            className="fixed bottom-16 md:bottom-5 right-3 left-3 md:left-auto md:w-88 z-50 bg-slate-950 text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border border-slate-800 backdrop-blur-md select-none font-sans"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-                  <ScanMenuLogo size={28} variant="white" />
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center shadow-2xs shrink-0">
+                  <ScanMenuLogo size={20} variant="white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-white tracking-tight flex items-center gap-1.5 font-display">
                     Install The Scan Menu
-                    <span className="text-[10px] bg-amber-500/20 text-amber-400 font-mono px-2 py-0.5 rounded-full font-bold">PWA</span>
+                    <span className="text-[9px] bg-amber-500/20 text-amber-400 font-mono px-1.5 py-0.2 rounded font-bold">PWA</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-snug">
-                    Install on home screen for quick order alerts and full screen management.
+                  <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                    Install on workstation for quick alerts and standalone POS mode.
                   </p>
                 </div>
               </div>
               <button
                 onClick={dismissInstall}
-                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition shrink-0"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition shrink-0 cursor-pointer"
                 aria-label="Dismiss install prompt"
               >
-                <X className="w-4 h-4" strokeWidth={2} />
+                <X className="w-3.5 h-3.5" strokeWidth={2} />
               </button>
             </div>
 
-            <div className="mt-4 flex items-center gap-2">
-              <button
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="amber"
+                size="sm"
+                fullWidth
                 onClick={handleInstallClick}
-                className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs py-2.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                leftIcon={<Download className="w-3.5 h-3.5" strokeWidth={2} />}
               >
-                <Download className="w-4 h-4" strokeWidth={2} />
-                <span>Install App</span>
-              </button>
-              <button
+                Install App
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800"
                 onClick={dismissInstall}
-                className="bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold text-xs py-2.5 px-3 rounded-2xl transition"
               >
                 Maybe Later
-              </button>
+              </Button>
             </div>
           </motion.div>
         )}
@@ -102,14 +109,14 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
       {/* ----------------- IOS INSTALLATION MODAL GUIDE ----------------- */}
       <AnimatePresence>
         {showIOSModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 select-none font-sans">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowIOSModal(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs"
             />
 
             {/* Dialog Card */}
@@ -118,78 +125,80 @@ export const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 border border-slate-150 z-10 text-slate-900"
+              className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4 sm:p-5 border border-slate-200/80 z-10 text-slate-900"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs">
-                    <ScanMenuLogo size={22} variant="white" />
+              <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 bg-slate-900 rounded-xl flex items-center justify-center shadow-2xs">
+                    <ScanMenuLogo size={18} variant="white" />
                   </div>
                   <div>
-                    <h2 className="font-display tracking-tight text-xl font-semibold text-slate-900">
+                    <h2 className="font-display tracking-tight text-xs sm:text-sm font-bold text-slate-900">
                       Install The Scan Menu
                     </h2>
-                    <p className="text-xs text-slate-500 font-sans">iOS Safari Web App Setup</p>
+                    <p className="text-[11px] text-slate-500 font-sans">iOS Safari Web App Setup</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowIOSModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                 >
-                  <X className="w-5 h-5" strokeWidth={2} />
+                  <X className="w-4 h-4" strokeWidth={2} />
                 </button>
               </div>
 
-              <div className="space-y-4 my-6">
-                <div className="flex items-start gap-3.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-150">
-                  <div className="w-7 h-7 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+              <div className="space-y-2.5 my-4">
+                <div className="flex items-start gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <div className="w-5 h-5 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">
                     1
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      Tap Share Button <Share className="w-3.5 h-3.5 text-sky-600" strokeWidth={2} />
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                      Tap Share Button <Share className="w-3 h-3 text-sky-600" strokeWidth={2} />
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[10px] text-slate-500 mt-0.2">
                       Tap the Share icon in the Safari bottom toolbar menu.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-150">
-                  <div className="w-7 h-7 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+                <div className="flex items-start gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <div className="w-5 h-5 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">
                     2
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      Select Add to Home Screen <PlusSquare className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                      Select Add to Home Screen <PlusSquare className="w-3 h-3 text-amber-600" strokeWidth={2} />
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[10px] text-slate-500 mt-0.2">
                       Scroll down in the action list and select <strong>"Add to Home Screen"</strong>.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-150">
-                  <div className="w-7 h-7 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+                <div className="flex items-start gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <div className="w-5 h-5 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-[10px] shrink-0 font-mono">
                     3
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      Confirm Installation <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                      Confirm Installation <CheckCircle2 className="w-3 h-3 text-emerald-600" strokeWidth={2} />
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[10px] text-slate-500 mt-0.2">
                       Tap <strong>"Add"</strong> in the top right to launch directly from your home screen.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <button
+              <Button
+                type="button"
+                variant="primary"
+                fullWidth
                 onClick={() => setShowIOSModal(false)}
-                className="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs py-3 rounded-2xl transition"
               >
                 Got It
-              </button>
+              </Button>
             </motion.div>
           </div>
         )}

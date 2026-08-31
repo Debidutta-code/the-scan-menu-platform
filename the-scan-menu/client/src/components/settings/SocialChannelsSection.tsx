@@ -8,6 +8,7 @@ import {
   Save,
   Loader,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export interface SocialChannelsSectionProps {
   restaurantId?: string;
@@ -85,64 +86,61 @@ export const SocialChannelsSection: React.FC<SocialChannelsSectionProps> = ({
   }
 
   return (
-    <form onSubmit={handleSaveSocial} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-      <div className="border-b border-slate-100 pb-3">
-        <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Globe className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+    <form onSubmit={handleSaveSocial} className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3.5 font-sans select-none">
+      <div className="border-b border-slate-100 pb-2.5">
+        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+          <Globe className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
           <span>Social Media Channels</span>
         </h4>
-        <p className="text-xs text-slate-500 mt-0.5">Links displayed on customer digital menus.</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">Links displayed on customer digital menus.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Facebook Profile</label>
+          <label className="block text-[11px] font-semibold text-slate-600 mb-1">Facebook Profile</label>
           <input
             type="text"
             value={facebook}
             onChange={(e) => setFacebook(e.target.value)}
             placeholder="https://facebook.com/mybistro"
-            className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+            className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Instagram Handle</label>
+          <label className="block text-[11px] font-semibold text-slate-600 mb-1">Instagram Handle</label>
           <input
             type="text"
             value={instagram}
             onChange={(e) => setInstagram(e.target.value)}
             placeholder="https://instagram.com/mybistro"
-            className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+            className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Twitter / X Channel</label>
+          <label className="block text-[11px] font-semibold text-slate-600 mb-1">Twitter / X Channel</label>
           <input
             type="text"
             value={twitter}
             onChange={(e) => setTwitter(e.target.value)}
             placeholder="https://twitter.com/mybistro"
-            className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+            className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono"
           />
         </div>
       </div>
 
       <div className="pt-2 flex justify-end">
-        <button
+        <Button
           type="submit"
-          disabled={updateMutation.isPending}
-          className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+          isLoading={updateMutation.isPending}
+          leftIcon={<Save className="w-3.5 h-3.5" />}
         >
-          {updateMutation.isPending ? (
-            <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-          ) : (
-            <Save className="w-4 h-4" strokeWidth={1.75} />
-          )}
-          <span>Save Social Channels</span>
-        </button>
+          Save Social Channels
+        </Button>
       </div>
     </form>
   );
 };
+
+export default SocialChannelsSection;

@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   Check,
 } from 'lucide-react';
+import { Button } from './ui/Button';
 
 export interface PaymentVerificationModalProps {
   isOpen: boolean;
@@ -180,51 +181,51 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-lg bg-white border border-slate-200 text-slate-900 rounded-3xl shadow-2xl overflow-hidden text-left my-auto z-10"
+          className="relative w-full max-w-lg bg-white border border-slate-200/80 text-slate-900 rounded-2xl shadow-xl overflow-hidden text-left my-auto z-10 font-sans select-none"
         >
           {/* Header */}
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
-                <CreditCard className="w-5 h-5" strokeWidth={2} />
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/70">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
+                <CreditCard className="w-4 h-4" strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm sm:text-base font-extrabold text-slate-900 truncate tracking-tight">{displayTitle}</h4>
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate tracking-tight">{displayTitle}</h4>
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-mono shrink-0">
                     {step}/2
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 truncate mt-0.5">{displaySubtitle}</p>
+                <p className="text-[10px] text-slate-500 truncate mt-0.5">{displaySubtitle}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={onCancel}
-              className="p-1.5 rounded-xl hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer shrink-0"
+              className="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition cursor-pointer shrink-0"
               title="Close modal"
             >
-              <X className="w-5 h-5" strokeWidth={2} />
+              <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
 
           {/* Body Content */}
-          <div className="p-4 sm:p-5 space-y-3.5 max-h-[75vh] overflow-y-auto custom-scrollbar">
+          <div className="p-3.5 sm:p-4 space-y-3 max-h-[75vh] overflow-y-auto custom-scrollbar">
             {/* Compact Order Summary Ribbon */}
-            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3">
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-2xs">
               <div>
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold block">
+                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-mono font-bold block">
                   Total Order Amount
                 </span>
-                <span className="text-2xl sm:text-3xl font-black font-mono text-amber-600 mt-0.5 block leading-none">
+                <span className="text-xl sm:text-2xl font-black font-mono text-amber-600 mt-0.5 block leading-none">
                   {formattedAmount}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-xs sm:text-sm font-extrabold text-slate-900 block truncate max-w-[160px]">
+                <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px]">
                   {tableName}
                 </span>
-                <span className="text-[11px] font-mono text-slate-500 mt-0.5 block">
+                <span className="text-[10px] font-mono text-slate-500 mt-0.5 block">
                   {order.customerName ? `${order.customerName} • ` : ''}{order.items?.length || 0} items
                 </span>
               </div>
@@ -232,12 +233,12 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
 
             {/* Step 1: Select Payment Mode */}
             {step === 1 && (
-              <div className="space-y-2.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400 block">
                   1. Choose Payment Method
                 </label>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   {availableMethods.map((m, idx) => {
                     const MethodIcon = m.icon;
                     const isSelected = selectedMethodIdx === idx;
@@ -246,28 +247,28 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
                         key={m.id}
                         type="button"
                         onClick={() => setSelectedMethodIdx(idx)}
-                        className={`p-3 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between min-h-[85px] cursor-pointer ${
+                        className={`p-2.5 rounded-xl border text-left transition relative flex flex-col justify-between min-h-[75px] cursor-pointer shadow-2xs ${
                           isSelected
-                            ? 'bg-amber-50/90 border-amber-500 shadow-xs text-slate-900'
+                            ? 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-400/20 text-slate-900'
                             : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div
-                            className={`p-2 rounded-xl ${
+                            className={`p-1.5 rounded-lg ${
                               isSelected ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
                             }`}
                           >
-                            <MethodIcon className="w-4 h-4" strokeWidth={2} />
+                            <MethodIcon className="w-3.5 h-3.5" strokeWidth={2} />
                           </div>
                           {isSelected && (
-                            <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                              <Check className="w-3 h-3" strokeWidth={3} />
+                            <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                              <Check className="w-2.5 h-2.5" strokeWidth={3} />
                             </span>
                           )}
                         </div>
-                        <div className="mt-2">
-                          <span className="text-xs sm:text-sm font-extrabold text-slate-900 block leading-tight">{m.name}</span>
+                        <div className="mt-1.5">
+                          <span className="text-xs font-bold text-slate-900 block leading-tight">{m.name}</span>
                           <span className="text-[10px] text-slate-500 font-medium block truncate mt-0.5">{m.description}</span>
                         </div>
                       </button>
@@ -279,44 +280,44 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
 
             {/* Step 2: Confirm Payment Received vs Not Paid */}
             {step === 2 && (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
+                  <label className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400 block">
                     2. Confirm Payment Status
                   </label>
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="text-[11px] font-extrabold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
+                    className="text-[10px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer font-mono"
                   >
                     <ArrowLeft className="w-3 h-3" /> Change ({activeMethod.name})
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   {/* Option 0: NOT PAID YET */}
                   <button
                     type="button"
                     onClick={() => setSelectedStatusIdx(0)}
-                    className={`p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between min-h-[105px] cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition relative flex flex-col justify-between min-h-[90px] cursor-pointer shadow-2xs ${
                       !isPaidSelected
-                        ? 'bg-rose-50/90 border-rose-500 shadow-xs text-slate-900'
+                        ? 'bg-rose-50/90 border-rose-400 ring-2 ring-rose-400/20 text-slate-900'
                         : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <XCircle
-                        className={`w-6 h-6 ${!isPaidSelected ? 'text-rose-600' : 'text-slate-400'}`}
+                        className={`w-5 h-5 ${!isPaidSelected ? 'text-rose-600' : 'text-slate-400'}`}
                         strokeWidth={2}
                       />
                       {!isPaidSelected && (
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-600 text-white">
+                        <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded-full bg-rose-600 text-white">
                           Selected
                         </span>
                       )}
                     </div>
-                    <div className="mt-2">
-                      <span className="text-xs sm:text-sm font-extrabold text-slate-900 block leading-tight">Not Paid Yet</span>
+                    <div className="mt-1.5">
+                      <span className="text-xs font-bold text-slate-900 block leading-tight">Not Paid Yet</span>
                       <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
                         {mode === 'PREPAID' ? 'Keep in Pending' : 'Keep Table Occupied'}
                       </span>
@@ -327,25 +328,25 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
                   <button
                     type="button"
                     onClick={() => setSelectedStatusIdx(1)}
-                    className={`p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between min-h-[105px] cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition relative flex flex-col justify-between min-h-[90px] cursor-pointer shadow-2xs ${
                       isPaidSelected
-                        ? 'bg-emerald-50/90 border-emerald-500 shadow-xs text-slate-900'
+                        ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/20 text-slate-900'
                         : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <CheckCircle2
-                        className={`w-6 h-6 ${isPaidSelected ? 'text-emerald-600' : 'text-slate-400'}`}
+                        className={`w-5 h-5 ${isPaidSelected ? 'text-emerald-600' : 'text-slate-400'}`}
                         strokeWidth={2}
                       />
                       {isPaidSelected && (
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                        <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded-full bg-emerald-600 text-white">
                           Selected
                         </span>
                       )}
                     </div>
-                    <div className="mt-2">
-                      <span className="text-xs sm:text-sm font-extrabold text-slate-900 block leading-tight">Payment Received</span>
+                    <div className="mt-1.5">
+                      <span className="text-xs font-bold text-slate-900 block leading-tight">Payment Received</span>
                       <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
                         Mark Paid ({activeMethod.name})
                       </span>
@@ -357,51 +358,48 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
           </div>
 
           {/* Modal Footer Actions */}
-          <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+          <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2.5">
             {step === 2 ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setStep(1)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 transition cursor-pointer flex items-center gap-1.5 active:scale-95"
+                leftIcon={<ArrowLeft className="w-3 h-3" />}
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </button>
+                Back
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={onCancel}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 transition cursor-pointer active:scale-95"
               >
                 Cancel
-              </button>
+              </Button>
             )}
 
             {step === 1 ? (
-              <button
+              <Button
                 type="button"
+                variant="amber"
                 onClick={() => setStep(2)}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                rightIcon={<ArrowRight className="w-3 h-3" strokeWidth={2.5} />}
               >
-                <span>Next: Confirm Status</span>
-                <ArrowRight className="w-3.5 h-3.5" strokeWidth={2.5} />
-              </button>
+                Next: Confirm Status
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant={isPaidSelected ? 'emerald' : 'danger'}
                 onClick={() => onConfirmPayment(isPaidSelected, activeMethod.id)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer ${
-                  isPaidSelected
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                    : 'bg-rose-600 hover:bg-rose-500 text-white'
-                }`}
+                rightIcon={<Check className="w-3 h-3" strokeWidth={2.5} />}
               >
-                <span>
-                  {isPaidSelected
-                    ? `Confirm Paid (${activeMethod.name})`
-                    : 'Confirm Not Paid'}
-                </span>
-                <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
-              </button>
+                {isPaidSelected
+                  ? `Confirm Paid (${activeMethod.name})`
+                  : 'Confirm Not Paid'}
+              </Button>
             )}
           </div>
         </motion.div>

@@ -25,6 +25,7 @@ import {
   Lock,
   Shield,
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 
 const staffSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -223,67 +224,68 @@ export const ManagerStaff: React.FC<ManagerStaffProps> = ({ restaurantId }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
       {/* ── HEADER & KPI CARDS ────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-150 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold shadow-sm shrink-0">
-            <Users className="w-5 h-5" />
+      <div className="bg-white rounded-2xl p-3 md:px-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-slate-950 text-white flex items-center justify-center font-extrabold shadow-xs shrink-0">
+            <Users className="w-4 h-4 text-amber-400" />
           </div>
           <div>
-            <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 leading-tight">
-              Staff & Manager Accounts
-            </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <h1 className="font-display text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+              Staff &amp; Manager Accounts
+            </h1>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
               Manage store managers, floor waitstaff credentials, POS terminal PINs, and permissions
             </p>
           </div>
         </div>
 
-        <button
+        <Button
+          type="button"
+          variant="primary"
           onClick={handleOpenCreate}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl font-bold text-xs shadow-md transition cursor-pointer self-start md:self-auto"
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
         >
-          <Plus className="w-4 h-4" />
-          <span>Add Account (Manager / Staff)</span>
-        </button>
+          Add Account (Manager / Staff)
+        </Button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white rounded-2xl p-4 border border-slate-150 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Team</span>
-          <span className="text-2xl font-black text-slate-900 mt-1 block">{totalCount}</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Total Team</span>
+          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 block">{totalCount}</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-150 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Store Managers</span>
-          <span className="text-2xl font-black text-amber-600 mt-1 block">{managerCount}</span>
+        <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Store Managers</span>
+          <span className="text-lg sm:text-xl font-black font-mono text-amber-600 block">{managerCount}</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-150 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active Members</span>
-          <span className="text-2xl font-black text-emerald-600 mt-1 block">{activeCount}</span>
+        <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Active Members</span>
+          <span className="text-lg sm:text-xl font-black font-mono text-emerald-600 block">{activeCount}</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-150 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Suspended</span>
-          <span className="text-2xl font-black text-rose-600 mt-1 block">{suspendedCount}</span>
+        <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Suspended</span>
+          <span className="text-lg sm:text-xl font-black font-mono text-rose-600 block">{suspendedCount}</span>
         </div>
       </div>
 
       {/* ── SEARCH & FILTER CONTROLS ────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-150">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name or email..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8.5 pr-8 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-400 focus:bg-white"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -615,24 +617,23 @@ export const ManagerStaff: React.FC<ManagerStaffProps> = ({ restaurantId }) => {
                 </div>
 
                 {/* Submit Buttons */}
-                <div className="pt-3 flex gap-3">
-                  <button
+                <div className="pt-3 flex gap-2">
+                  <Button
                     type="button"
+                    variant="outline"
+                    fullWidth
                     onClick={handleCloseForm}
-                    className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                    className="flex-1 py-3 px-4 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-400"
+                    variant="primary"
+                    fullWidth
+                    isLoading={createMutation.isPending || updateMutation.isPending}
                   >
-                    {(createMutation.isPending || updateMutation.isPending) && (
-                      <Loader className="w-3.5 h-3.5 animate-spin" />
-                    )}
-                    <span>{editingStaff ? 'Update Account' : 'Create Account'}</span>
-                  </button>
+                    {editingStaff ? 'Update Account' : 'Create Account'}
+                  </Button>
                 </div>
               </form>
             </div>

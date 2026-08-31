@@ -29,6 +29,7 @@ import {
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
 import { printOrderTicket } from '../utils/printReceipt';
+import { Button } from '../components/ui/Button';
 
 interface Transaction {
   _id: string;
@@ -295,51 +296,54 @@ export const ManagerTransactions: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-6 font-sans">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
         <div>
-          <h1 className="font-display tracking-tight text-xl sm:text-2xl font-bold text-slate-900">
+          <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight">
             Payment Transactions
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             Audit-grade financial ledger, settlement verification, and payment mode analytics
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin text-amber-500' : ''}`} strokeWidth={1.75} />}
             title="Refresh transactions"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-500' : ''}`} strokeWidth={1.75} />
             <span className="hidden sm:inline">Refresh</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="primary"
             onClick={handleExportCsv}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-950 text-white rounded-2xl text-xs font-bold hover:bg-slate-900 transition disabled:opacity-50 shadow-sm cursor-pointer"
+            isLoading={isExporting}
+            leftIcon={<Download className="w-3.5 h-3.5 text-amber-400" />}
           >
-            {isExporting ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-amber-400" strokeWidth={1.75} />}
-            <span>Export CSV</span>
-          </button>
+            Export CSV
+          </Button>
         </div>
       </div>
 
       {/* ── SUMMARY KPI CARDS ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-5 space-y-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
               Total Revenue
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <TrendingUp className="w-4.5 h-4.5" strokeWidth={2} />
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <TrendingUp className="w-3.5 h-3.5" strokeWidth={2} />
             </div>
           </div>
-          <p className="text-2xl font-black font-mono text-slate-950">
+          <p className="text-lg sm:text-xl font-black font-mono text-slate-950">
             {formatINR(summary.totalRevenue)}
           </p>
           <p className="text-[10px] text-emerald-700 font-medium">
@@ -347,46 +351,46 @@ export const ManagerTransactions: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-5 space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
               Successful / Paid
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4.5 h-4.5" strokeWidth={2} />
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
             </div>
           </div>
-          <p className="text-2xl font-black font-mono text-slate-950">
+          <p className="text-lg sm:text-xl font-black font-mono text-slate-950">
             {summary.capturedCount}
           </p>
           <p className="text-[10px] text-slate-400 font-medium">Settled to register</p>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-5 space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
               Pending Due
             </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Clock className="w-4.5 h-4.5" strokeWidth={2} />
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Clock className="w-3.5 h-3.5" strokeWidth={2} />
             </div>
           </div>
-          <p className="text-2xl font-black font-mono text-amber-700">
+          <p className="text-lg sm:text-xl font-black font-mono text-amber-700">
             {summary.pendingCount}
           </p>
           <p className="text-[10px] text-amber-600 font-medium">Awaiting payment collection</p>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-5 space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-3 sm:p-3.5 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
               Failed / Cancelled
             </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <XCircle className="w-4.5 h-4.5" strokeWidth={2} />
+            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <XCircle className="w-3.5 h-3.5" strokeWidth={2} />
             </div>
           </div>
-          <p className="text-2xl font-black font-mono text-slate-950">
+          <p className="text-lg sm:text-xl font-black font-mono text-slate-950">
             {summary.failedCount}
           </p>
           <p className="text-[10px] text-slate-400 font-medium">Voided attempts</p>
@@ -394,12 +398,12 @@ export const ManagerTransactions: React.FC = () => {
       </div>
 
       {/* ── FILTER TOOLBAR ──────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-2.5 sm:p-3 space-y-2.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           {/* Date range buttons */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             <div className="flex items-center gap-1 text-slate-400 text-xs font-bold font-mono mr-1">
-              <Calendar className="w-4 h-4" strokeWidth={1.75} />
+              <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>Range:</span>
             </div>
             {(['today', '7d', '30d', 'all', 'custom'] as const).map((r) => (
@@ -409,7 +413,7 @@ export const ManagerTransactions: React.FC = () => {
                   setDateRange(r);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition cursor-pointer ${
                   dateRange === r
                     ? 'bg-slate-950 text-white border-transparent shadow-2xs'
                     : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
@@ -430,7 +434,7 @@ export const ManagerTransactions: React.FC = () => {
 
           {/* Custom Date Pickers */}
           {dateRange === 'custom' && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <input
                 type="date"
                 value={customStart}
@@ -438,7 +442,7 @@ export const ManagerTransactions: React.FC = () => {
                   setCustomStart(e.target.value);
                   setPage(1);
                 }}
-                className="border border-slate-200 rounded-xl text-xs px-3 py-1.5 focus:outline-none focus:border-amber-500 font-mono"
+                className="border border-slate-200 rounded-xl text-xs px-2.5 py-1 focus:outline-none focus:border-amber-500 font-mono"
               />
               <span className="text-xs text-slate-400">to</span>
               <input

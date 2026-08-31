@@ -21,6 +21,7 @@ import {
   Award,
 } from 'lucide-react';
 import { QuickOnboardModal } from './admin/QuickOnboardModal';
+import { Button } from './ui/Button';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -398,7 +399,7 @@ export const AdminLayout: React.FC = () => {
               <button onClick={() => { navigate('/admin/feature-flags'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Feature Flags</button>
               <button onClick={() => { navigate('/admin/profile'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Profile</button>
             </div>
-            <button onClick={logout} className="w-full py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-xs">Log Out</button>
+            <Button variant="danger" fullWidth onClick={logout}>Log Out</Button>
           </div>
         </div>
       )}

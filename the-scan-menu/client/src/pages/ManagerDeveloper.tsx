@@ -17,6 +17,7 @@ import {
   Send,
   Eye,
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 import apiClient from '../lib/api';
 
 interface ApiKeyItem {
@@ -186,38 +187,39 @@ export const ManagerDeveloper: React.FC = () => {
   const webhooks: WebhookItem[] = webhooksResponse?.data || [];
 
   return (
-    <div className="w-full space-y-4 font-sans select-none pb-12">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs shrink-0">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Code className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-            <span>Developer Portal & Webhooks</span>
+          <h1 className="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight leading-tight flex items-center gap-2">
+            <Code className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <span>Developer Portal &amp; Webhooks</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             Manage third-party API keys and configure HMAC-SHA256 signed event webhooks.
           </p>
         </div>
       </div>
 
       {/* API Keys Section */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3 sm:p-4 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-2">
-            <Key className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-            <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">API Keys</h3>
+            <Key className="w-4 h-4 text-amber-500" strokeWidth={1.75} />
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">API Keys</h3>
           </div>
-          <button
+          <Button
+            type="button"
+            variant="primary"
             onClick={() => {
               setKeyName('');
               setCreatedRawKey(null);
               setShowKeyModal(true);
             }}
-            className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
           >
-            <Plus className="w-4 h-4" strokeWidth={1.75} />
-            <span>Generate New API Key</span>
-          </button>
+            Generate New API Key
+          </Button>
         </div>
 
         {isLoadingKeys ? (
@@ -229,20 +231,20 @@ export const ManagerDeveloper: React.FC = () => {
         ) : (
           <div className="divide-y divide-slate-100">
             {apiKeys.map((key) => (
-              <div key={key._id} className="py-4 flex items-center justify-between gap-4">
-                <div className="space-y-1">
+              <div key={key._id} className="py-3 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-800">{key.name}</span>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-mono text-[10px] rounded-md">
+                    <span className="text-xs font-bold text-slate-900">{key.name}</span>
+                    <span className="px-1.5 py-0.2 bg-slate-100 text-slate-600 font-mono text-[10px] rounded-md font-bold">
                       {key.keyPrefix}
                     </span>
                     {!key.isActive && (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-md">
+                      <span className="px-1.5 py-0.2 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-md font-mono">
                         Revoked
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                     <span>Scopes: {key.scopes.join(', ')}</span>
                     <span>•</span>
                     <span>Created: {new Date(key.createdAt).toLocaleDateString()}</span>
@@ -253,7 +255,7 @@ export const ManagerDeveloper: React.FC = () => {
                   <button
                     onClick={() => revokeKeyMutation.mutate(key._id)}
                     disabled={revokeKeyMutation.isPending}
-                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-lg transition"
+                    className="h-7 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg transition cursor-pointer"
                   >
                     Revoke
                   </button>
@@ -271,13 +273,15 @@ export const ManagerDeveloper: React.FC = () => {
             <Webhook className="w-5 h-5 text-indigo-500" strokeWidth={1.75} />
             <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Outgoing Webhooks</h3>
           </div>
-          <button
+          <Button
+            type="button"
+            variant="primary"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
             onClick={() => setShowWebhookModal(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
           >
-            <Plus className="w-4 h-4" strokeWidth={1.75} />
-            <span>Add Webhook Subscription</span>
-          </button>
+            Add Webhook Subscription
+          </Button>
         </div>
 
         {isLoadingWebhooks ? (

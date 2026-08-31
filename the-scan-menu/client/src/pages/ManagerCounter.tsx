@@ -43,6 +43,7 @@ import { ItemModifierModal } from '../components/pos/ItemModifierModal';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import { offlineStorage } from '../lib/offlineStorage';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
+import { Button } from '../components/ui/Button';
 
 interface SelectedCounterItem {
   itemId: string;
@@ -552,32 +553,35 @@ export const ManagerCounter: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col min-h-0 space-y-2.5 sm:space-y-3 font-sans select-none overflow-hidden">
       {/* ── TOP HEADER & MODE SELECTOR ────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 bg-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-slate-200 shadow-xs shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs">
-            <Receipt className="w-5 h-5" strokeWidth={2} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-3 md:px-5 py-2.5 sm:py-3 rounded-2xl border border-slate-200/80 shadow-xs shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-amber-400 shadow-xs shrink-0">
+            <Receipt className="w-4 h-4" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none flex items-center gap-2">
-              <span>Counter POS</span>
-              <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-lg md:text-xl font-bold text-slate-900 tracking-tight leading-none">
+                Counter POS
+              </h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Ready
               </span>
-            </h1>
-            <span className="text-xs text-slate-500 font-medium mt-0.5 block">
-              Mouse selection & high-speed checkout wizard
+            </div>
+            <span className="text-[11px] text-slate-500 font-medium mt-0.5 block">
+              Direct checkout, fast bill printing &amp; live kitchen sync
             </span>
           </div>
         </div>
 
         {/* Header Right: Shift Chip + Mode Toggle + Recent Orders */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* Global UI Text Size / Font Scale Switcher */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
+          <div className="bg-slate-100 p-0.5 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
             <button
               type="button"
               onClick={() => setFontScale('SMALL')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
+              className={`h-7 px-2 rounded-lg text-[10px] font-black transition cursor-pointer ${
                 fontScale === 'SMALL'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -589,7 +593,7 @@ export const ManagerCounter: React.FC = () => {
             <button
               type="button"
               onClick={() => setFontScale('NORMAL')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
+              className={`h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
                 fontScale === 'NORMAL'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -601,7 +605,7 @@ export const ManagerCounter: React.FC = () => {
             <button
               type="button"
               onClick={() => setFontScale('LARGE')}
-              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
+              className={`h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
                 fontScale === 'LARGE'
                   ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
                   : 'text-slate-500 hover:text-slate-900'
@@ -690,11 +694,11 @@ export const ManagerCounter: React.FC = () => {
       {/* ── MAIN WORKSPACE GRID ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4.5 flex-1 min-h-0 overflow-hidden items-stretch">
         {/* LEFT COLUMN: LARGE SEARCH BAR + CATEGORY PILLS + DISH CARDS */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col h-full min-h-0 space-y-2.5 sm:space-y-3">
+        <div className="lg:col-span-7 xl:col-span-8 flex flex-col h-full min-h-0 space-y-2 sm:space-y-2.5">
           {/* FULL-WIDTH POS SEARCH BAR */}
           <div className="relative group shrink-0">
             <Search
-              className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-amber-500 pointer-events-none"
+              className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-amber-500 pointer-events-none"
               strokeWidth={2}
             />
             <input
@@ -703,9 +707,9 @@ export const ManagerCounter: React.FC = () => {
               placeholder="Search dishes by name or code... (Press / to search)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white pl-12 pr-24 py-3 rounded-2xl border-2 border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 shadow-xs transition-all"
+              className="w-full bg-white pl-10 pr-20 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all"
             />
-            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {searchQuery ? (
                 <button
                   type="button"
@@ -716,10 +720,10 @@ export const ManagerCounter: React.FC = () => {
                   className="p-1 rounded-lg text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
                   title="Clear search (Esc)"
                 >
-                  <X className="w-4 h-4" strokeWidth={2} />
+                  <X className="w-3.5 h-3.5" strokeWidth={2} />
                 </button>
               ) : (
-                <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[11px] font-mono font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-md">
+                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-md">
                   /
                 </kbd>
               )}
@@ -728,17 +732,17 @@ export const ManagerCounter: React.FC = () => {
 
           {/* TALL HORIZONTAL CATEGORY CHIPS BAR */}
           {categories.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none shrink-0">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedCategoryFilter('ALL')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
                   selectedCategoryFilter === 'ALL'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                All Categories ({allMenuItems.filter((i: any) => i.isAvailable).length})
+                All ({allMenuItems.filter((i: any) => i.isAvailable).length})
               </button>
               {categories.map((cat: any) => {
                 const catCount = allMenuItems.filter((item: any) => {
@@ -752,15 +756,15 @@ export const ManagerCounter: React.FC = () => {
                     key={cat._id}
                     type="button"
                     onClick={() => setSelectedCategoryFilter(cat._id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-2 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-1.5 ${
                       selectedCategoryFilter === cat._id
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <span>{cat.name}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
                         selectedCategoryFilter === cat._id
                           ? 'bg-slate-800 text-amber-300'
                           : 'bg-slate-100 text-slate-500'
@@ -775,9 +779,9 @@ export const ManagerCounter: React.FC = () => {
           )}
 
           {/* DISHES GRID */}
-          <div className="space-y-3.5 flex-1 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
+          <div className="space-y-2.5 flex-1 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
             {allMenuItems.length === 0 ? (
-              <div className="p-12 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 text-sm text-slate-500">
+              <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
                 No menu items found. Add items under Menu Management.
               </div>
             ) : (
@@ -813,14 +817,14 @@ export const ManagerCounter: React.FC = () => {
                   hasAnyItems = true;
 
                   return (
-                    <div key={cat._id} className="space-y-2.5">
-                      <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase font-mono flex items-center gap-2">
+                    <div key={cat._id} className="space-y-1.5">
+                      <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase font-mono flex items-center gap-1.5">
                         <span>{cat.name}</span>
-                        <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-mono font-bold">
-                          {catItems.length} items
+                        <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded-md font-mono font-bold">
+                          {catItems.length}
                         </span>
                       </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
                         {catItems.map((item: any) => {
                           const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
                           const selectedPortions = cartItems.filter(i => i.baseItemId === item._id);
@@ -845,12 +849,12 @@ export const ManagerCounter: React.FC = () => {
                                   addItemToCart(item);
                                 }
                               }}
-                              className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col justify-between gap-3 select-none active:scale-[0.98] shadow-2xs relative ${
+                              className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between gap-2 select-none active:scale-[0.98] shadow-2xs relative ${
                                 isOut
-                                  ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
+                                   ? 'bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed'
                                   : isSelected
-                                  ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-sm cursor-pointer'
-                                  : 'bg-white border-slate-200/90 hover:border-amber-300 hover:shadow-md cursor-pointer'
+                                  ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-xs cursor-pointer'
+                                  : 'bg-white border-slate-200/80 hover:border-amber-300 hover:shadow-xs cursor-pointer'
                               }`}
                             >
                               <div className="min-w-0">
@@ -891,41 +895,41 @@ export const ManagerCounter: React.FC = () => {
                               </div>
 
                               {isPortion ? (
-                                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                                <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
                                   <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-amber-700' : 'text-slate-500'}`}>
-                                    Multiple Options
+                                    Options
                                   </span>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1.5">
                                     {isSelected && totalPortionQty > 0 && (
-                                      <span className="w-5 h-5 rounded-full bg-amber-400 text-amber-950 font-mono text-[10px] flex items-center justify-center font-bold shadow-sm">
+                                      <span className="w-4.5 h-4.5 rounded-full bg-amber-400 text-amber-950 font-mono text-[10px] flex items-center justify-center font-bold shadow-2xs">
                                         {totalPortionQty}
                                       </span>
                                     )}
-                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${isSelected ? 'text-amber-800 bg-amber-200 border-amber-300' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
+                                    <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-md border ${isSelected ? 'text-amber-800 bg-amber-200 border-amber-300' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
                                       {isSelected ? 'EDIT' : '+ ADD'}
                                     </span>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                                <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
                                   {isOut ? (
-                                    <span className="text-[10px] font-bold text-rose-600 font-mono w-full text-center py-1">
+                                    <span className="text-[10px] font-bold text-rose-600 font-mono w-full text-center py-0.5">
                                       Out of Stock
                                     </span>
                                   ) : selectedItem ? (
-                                    <div className="flex items-center gap-1.5 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-xl shadow-2xs w-full justify-between">
+                                    <div className="flex items-center gap-1 bg-amber-100/90 border border-amber-300/80 p-0.5 rounded-lg shadow-2xs w-full justify-between">
                                       <button
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           updateQuantity(item._id, selectedItem.quantity - 1);
                                         }}
-                                        className="w-7 h-7 rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs cursor-pointer"
+                                        className="w-6 h-6 rounded-md bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 flex items-center justify-center transition active:scale-95 border border-amber-200/80 shadow-2xs cursor-pointer"
                                         title="Decrease quantity"
                                       >
-                                        <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                        <Minus className="w-3 h-3" strokeWidth={2.5} />
                                       </button>
-                                      <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[20px] text-center">
+                                      <span className="font-mono font-black text-xs px-1 text-slate-900 min-w-[18px] text-center">
                                         {selectedItem.quantity}
                                       </span>
                                       <button
@@ -934,17 +938,17 @@ export const ManagerCounter: React.FC = () => {
                                           e.stopPropagation();
                                           updateQuantity(item._id, selectedItem.quantity + 1);
                                         }}
-                                        className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer"
+                                        className="w-6 h-6 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer"
                                         title="Increase quantity"
                                       >
-                                        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                        <Plus className="w-3 h-3" strokeWidth={2.5} />
                                       </button>
                                     </div>
                                   ) : (
                                     <>
-                                      <span className="text-[10px] font-bold text-slate-400">Click to add</span>
-                                      <span className="w-7 h-7 rounded-xl bg-slate-100 hover:bg-amber-100 hover:text-amber-700 flex items-center justify-center text-slate-600 transition shadow-2xs">
-                                        <Plus className="w-4 h-4" strokeWidth={2.5} />
+                                      <span className="text-[10px] font-medium text-slate-400">Click to add</span>
+                                      <span className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-amber-100 hover:text-amber-700 flex items-center justify-center text-slate-600 transition shadow-2xs">
+                                        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                                       </span>
                                     </>
                                   )}
@@ -960,7 +964,7 @@ export const ManagerCounter: React.FC = () => {
 
                 if (!hasAnyItems) {
                   return (
-                    <div className="p-12 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 text-xs text-slate-400">
+                    <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
                       No matching dishes found.
                     </div>
                   );
@@ -973,14 +977,14 @@ export const ManagerCounter: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: ORDER DETAILS SUMMARY (NO CLUTTER) */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full min-h-0">
-          <div className="flex items-center justify-between border-b pb-2.5 shrink-0">
+        <div className="lg:col-span-5 xl:col-span-4 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col h-full min-h-0">
+          <div className="flex items-center justify-between border-b pb-2 shrink-0">
             <div>
-              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 font-mono uppercase tracking-wider">
-                <Receipt className="w-4 h-4 text-amber-500" strokeWidth={2} />
+              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 font-mono uppercase tracking-wider">
+                <Receipt className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
                 <span>Order Summary ({totalItemCount})</span>
               </h3>
-              <span className="text-[11px] text-slate-400 font-medium">
+              <span className="text-[10px] text-slate-400 font-medium">
                 {orderMode === 'DINE_IN' ? '🍽️ Dine-In Table' : '🛍️ Takeaway'}
               </span>
             </div>
@@ -988,61 +992,61 @@ export const ManagerCounter: React.FC = () => {
               <button
                 type="button"
                 onClick={clearCart}
-                className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-1 bg-rose-50 px-2.5 py-1 rounded-lg"
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-lg"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3 h-3" />
                 <span>Clear All</span>
               </button>
             )}
           </div>
 
           {/* Selected Items List */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none space-y-2 pr-0.5 my-2.5">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none space-y-1.5 pr-0.5 my-2">
             {cartItems.length === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-400 space-y-2">
-                <ShoppingBag className="w-8 h-8 mx-auto text-slate-300 stroke-1" />
-                <p className="font-medium">No dishes added yet.</p>
-                <p className="text-[11px] text-slate-400">Click any dish on the left to add to this ticket.</p>
+              <div className="py-8 text-center text-xs text-slate-400 space-y-1.5">
+                <ShoppingBag className="w-6 h-6 mx-auto text-slate-300 stroke-1" />
+                <p className="font-semibold text-xs">No dishes added yet.</p>
+                <p className="text-[10px] text-slate-400">Click any dish on the left to add to this ticket.</p>
               </div>
             ) : (
               cartItems.map((item) => (
                 <div
                   key={item.itemId}
-                  className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between text-xs hover:border-slate-300 transition"
+                  className="p-2 bg-slate-50/80 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs hover:border-slate-300 transition"
                 >
-                  <div className="min-w-0 flex-1 pr-3">
+                  <div className="min-w-0 flex-1 pr-2">
                     <h5 className="font-bold text-slate-900 truncate leading-tight text-xs">{item.name}</h5>
-                    <span className="font-mono text-[11px] text-slate-500 font-medium block mt-0.5">
+                    <span className="font-mono text-[10px] text-slate-500 font-medium block mt-0.5">
                       ₹{(item.price / 100).toFixed(2)} × {item.quantity} = ₹{((item.price * item.quantity) / 100).toFixed(2)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 bg-white border border-slate-200 p-0.5 rounded-xl shadow-2xs">
+                  <div className="flex items-center gap-1 shrink-0 bg-white border border-slate-200 p-0.5 rounded-lg shadow-2xs">
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.itemId, item.quantity - 1)}
-                      className="w-7 h-7 rounded-lg hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center text-slate-600 transition cursor-pointer"
+                      className="w-6 h-6 rounded-md hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center text-slate-600 transition cursor-pointer"
                       title="Decrease"
                     >
-                      <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      <Minus className="w-3 h-3" strokeWidth={2.5} />
                     </button>
-                    <span className="font-mono font-bold text-xs min-w-[20px] text-center text-slate-900">
+                    <span className="font-mono font-bold text-xs min-w-[18px] text-center text-slate-900">
                       {item.quantity}
                     </span>
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.itemId, item.quantity + 1)}
-                      className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition cursor-pointer"
+                      className="w-6 h-6 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center transition cursor-pointer"
                       title="Increase"
                     >
-                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      <Plus className="w-3 h-3" strokeWidth={2.5} />
                     </button>
                     <button
                       type="button"
                       onClick={() => removeItemFromCart(item.itemId)}
-                      className="w-7 h-7 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition ml-0.5 cursor-pointer"
+                      className="w-6 h-6 rounded-md hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition ml-0.5 cursor-pointer"
                       title="Remove item"
                     >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+                      <Trash2 className="w-3 h-3" strokeWidth={2} />
                     </button>
                   </div>
                 </div>
@@ -1051,21 +1055,21 @@ export const ManagerCounter: React.FC = () => {
           </div>
 
           {/* Action Footer & Financials */}
-          <div className="border-t pt-2.5 space-y-2.5 shrink-0 mt-auto">
-            <div className="space-y-1 text-xs bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
-              <div className="flex justify-between text-slate-600">
+          <div className="border-t pt-2 space-y-2 shrink-0 mt-auto">
+            <div className="space-y-1 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div className="flex justify-between text-slate-600 text-[11px]">
                 <span>Subtotal ({totalItemCount} items)</span>
                 <span className="font-mono font-bold text-slate-800">₹{(cartSubtotal / 100).toFixed(2)}</span>
               </div>
               {taxRatePercent > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-slate-600 text-[11px]">
                   <span>GST ({taxRatePercent}%)</span>
                   <span className="font-mono font-bold text-slate-700">₹{(taxAmount / 100).toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center font-bold text-slate-900 border-t border-slate-200/80 pt-1.5">
-                <span className="text-sm">Payable Total</span>
-                <span className="font-mono text-xl text-emerald-600 font-black">
+              <div className="flex justify-between items-center font-bold text-slate-900 border-t border-slate-200/80 pt-1">
+                <span className="text-xs font-bold">Payable Total</span>
+                <span className="font-mono text-lg text-emerald-600 font-black">
                   ₹{(grandTotal / 100).toFixed(2)}
                 </span>
               </div>
@@ -1076,15 +1080,15 @@ export const ManagerCounter: React.FC = () => {
               type="button"
               onClick={handleOpenCheckoutModal}
               disabled={isSubmitting || cartItems.length === 0}
-              className="w-full py-3.5 bg-slate-950 hover:bg-slate-900 text-white font-bold text-sm rounded-2xl transition shadow-md disabled:opacity-40 flex items-center justify-between px-5 cursor-pointer active:scale-[0.99]"
+              className="w-full h-9 bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition shadow-xs disabled:opacity-40 flex items-center justify-between px-3.5 cursor-pointer active:scale-[0.99]"
             >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>Punch Order</span>
               </div>
-              <div className="flex items-center gap-2 text-xs font-mono text-slate-300 bg-slate-800/90 px-2.5 py-1 rounded-lg border border-slate-700">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded-md border border-slate-700">
                 <span>Enter</span>
-                <CornerDownLeft className="w-3.5 h-3.5 text-amber-400" />
+                <CornerDownLeft className="w-3 h-3 text-amber-400" />
               </div>
             </button>
           </div>
@@ -1187,21 +1191,25 @@ export const ManagerCounter: React.FC = () => {
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="lg"
+                      className="w-1/3"
                       onClick={() => setShowCheckoutModal(false)}
-                      className="w-1/3 py-3.5 border-2 border-slate-200 text-slate-700 text-xs font-bold rounded-2xl hover:bg-slate-50 transition cursor-pointer"
                     >
                       Cancel (Esc)
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="lg"
+                      className="w-2/3"
                       onClick={handleProceedToPayment}
-                      className="w-2/3 py-3.5 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                      rightIcon={<ArrowRight className="w-4 h-4 text-amber-400" />}
                     >
-                      <span>Proceed to Payment (Enter ↵)</span>
-                      <ArrowRight className="w-4 h-4 text-amber-400" />
-                    </button>
+                      Proceed to Payment (Enter ↵)
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1355,32 +1363,28 @@ export const ManagerCounter: React.FC = () => {
 
                   {/* CONFIRM & PRINT BUTTON */}
                   <div className="flex gap-3 pt-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="lg"
+                      className="w-1/3"
                       onClick={() => setCheckoutStep('CUSTOMER_INFO')}
                       disabled={isSubmitting}
-                      className="w-1/3 py-3.5 border-2 border-slate-200 text-slate-700 text-xs font-bold rounded-2xl hover:bg-slate-50 transition cursor-pointer"
                     >
                       ← Back
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="lg"
+                      className="w-2/3"
                       onClick={handleConfirmAndPunchOrder}
                       disabled={isSubmitting}
-                      className="w-2/3 py-3.5 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl transition shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                      isLoading={isSubmitting}
+                      leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader className="w-4 h-4 animate-spin text-amber-400" strokeWidth={2} />
-                          <span>Placing Order & Printing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={2} />
-                          <span>Confirm & Print Bill (Enter ↵)</span>
-                        </>
-                      )}
-                    </button>
+                      Confirm &amp; Print Bill (Enter ↵)
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1575,7 +1579,7 @@ export const ManagerCounter: React.FC = () => {
         isOpen={!!selectedItemForVariants}
         onClose={() => setSelectedItemForVariants(null)}
         item={selectedItemForVariants}
-        onAddToCart={(customizedItem) => {
+        onAddToCart={(customizedItem: any) => {
           setCartItems((prev) => {
             const existingIndex = prev.findIndex((i) => i.itemId === customizedItem.itemId);
             if (existingIndex > -1) {

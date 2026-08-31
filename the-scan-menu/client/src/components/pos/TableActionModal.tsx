@@ -6,7 +6,6 @@ import {
   GitMerge,
   CheckCircle2,
   AlertCircle,
-  Loader,
   Receipt,
   User,
   MapPin,
@@ -15,6 +14,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Table, TableZone } from '../../services/restaurant.service';
+import { Button } from '../ui/Button';
 
 interface TableActionModalProps {
   isOpen: boolean;
@@ -287,32 +287,32 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
   const isBusy = isTransferring || isMerging || isProcessingCombined;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 bg-slate-900/65 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs select-none font-sans">
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        className="bg-white w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white w-full max-w-4xl lg:max-w-5xl rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh]"
       >
         {/* Modal Header */}
-        <div className="px-6 py-4.5 border-b border-slate-150 flex items-center justify-between bg-slate-50/80">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-black text-lg border border-amber-500/20 shadow-xs shrink-0">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center font-black text-sm border border-amber-500/20 shadow-2xs shrink-0 font-mono">
               {currentSourceTable?.tableNumber || '#'}
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
                   {getCleanDisplayName(currentSourceTable)}
                 </h3>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-100/70 text-amber-900 text-xs font-bold border border-amber-200/60">
-                  <MapPin className="w-3 h-3 text-amber-600" />
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md bg-amber-100/70 text-amber-900 text-[10px] font-bold border border-amber-200/60 font-mono">
+                  <MapPin className="w-2.5 h-2.5 text-amber-600" />
                   {getZoneName(currentSourceTable)}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5 font-medium">
+              <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5 font-medium">
                 <span
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-1.5 h-1.5 rounded-full ${
                     isTableOccupied(currentSourceTable)
                       ? 'bg-emerald-500 animate-pulse'
                       : 'bg-slate-300'
@@ -328,14 +328,14 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-150 px-6 bg-white gap-3 pt-2">
+        <div className="flex border-b border-slate-150 px-4 bg-white gap-2 pt-1.5">
           {session && (
             <button
               onClick={() => setActiveTab('OVERVIEW')}
@@ -601,26 +601,25 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
                     className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium bg-slate-50/50"
                   />
                 </div>
-                <div className="flex gap-3 w-full md:w-auto md:min-w-[280px] self-end">
-                  <button
+                <div className="flex gap-2 w-full md:w-auto md:min-w-[280px] self-end">
+                  <Button
                     type="button"
+                    variant="outline"
+                    fullWidth
                     onClick={onClose}
-                    className="flex-1 py-3 px-4 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={!sourceTableId || !targetTableId || isBusy}
-                    className="flex-1 py-3 px-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer transition-all whitespace-nowrap"
+                    variant="amber"
+                    fullWidth
+                    disabled={!sourceTableId || !targetTableId}
+                    isLoading={isBusy}
+                    leftIcon={<ArrowRightLeft className="w-3.5 h-3.5" />}
                   >
-                    {isBusy ? (
-                      <Loader className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <ArrowRightLeft className="w-4 h-4" />
-                    )}
                     Confirm Transfer
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
@@ -869,26 +868,26 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
                   )}
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-1">
-                    <button
+                  <div className="flex gap-2 pt-1">
+                    <Button
                       type="button"
+                      variant="outline"
+                      fullWidth
                       onClick={onClose}
-                      className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
                     >
                       Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="submit"
-                      disabled={mergeSelectedIds.length === 0 || !mergeDestinationId || isBusy}
-                      className="flex-1 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                      variant="primary"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                      fullWidth
+                      disabled={mergeSelectedIds.length === 0 || !mergeDestinationId}
+                      isLoading={isBusy}
+                      leftIcon={<GitMerge className="w-3.5 h-3.5" />}
                     >
-                      {isBusy ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <GitMerge className="w-4 h-4" />
-                      )}
-                      Confirm Merge & Seating
-                    </button>
+                      Confirm Merge &amp; Seating
+                    </Button>
                   </div>
                 </div>
               </div>

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   FileText,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 import { ThemeBrandingSection } from './ThemeBrandingSection';
 
 export interface StoreProfileSectionProps {
@@ -167,22 +168,22 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
   }
 
   return (
-    <div className="space-y-5 font-sans">
+    <div className="space-y-3 sm:space-y-4 font-sans select-none">
       {/* Sub-Tab Navigation Header with Completion Badges */}
-      <div className="bg-white border border-slate-150 rounded-2xl p-2 shadow-sm flex flex-wrap items-center gap-1.5">
+      <div className="bg-white border border-slate-200/80 rounded-xl p-1 shadow-2xs flex flex-wrap items-center gap-1">
         <button
           type="button"
           onClick={() => setActiveSubTab('identity')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
             activeSubTab === 'identity'
               ? 'bg-slate-950 text-white shadow-xs'
               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>1. Store Identity & Overview</span>
+          <span>1. Store Identity &amp; Overview</span>
           {identityStatus.isComplete ? (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Completed" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Completed" />
           ) : (
             <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 font-mono font-bold">
               {identityStatus.missing.length} pending
@@ -193,16 +194,16 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
         <button
           type="button"
           onClick={() => setActiveSubTab('contact')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
             activeSubTab === 'contact'
               ? 'bg-slate-950 text-white shadow-xs'
               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }`}
         >
           <MapPin className="w-3.5 h-3.5" />
-          <span>2. Location, Contacts & Timings</span>
+          <span>2. Location, Contacts &amp; Timings</span>
           {contactStatus.isComplete ? (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Completed" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Completed" />
           ) : (
             <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 font-mono font-bold">
               {contactStatus.missing.length} pending
@@ -213,15 +214,15 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
         <button
           type="button"
           onClick={() => setActiveSubTab('theme')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
             activeSubTab === 'theme'
               ? 'bg-slate-950 text-white shadow-xs'
               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }`}
         >
           <Palette className="w-3.5 h-3.5 text-amber-400" />
-          <span>3. Theme & Customer UI</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span>3. Theme &amp; Customer UI</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
         </button>
       </div>
 
@@ -229,23 +230,23 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
       {/* SUB-TAB 1: STORE IDENTITY & OVERVIEW                      */}
       {/* ========================================================= */}
       {activeSubTab === 'identity' && (
-        <form onSubmit={handleSaveIdentity} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <form onSubmit={handleSaveIdentity} className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-4">
+          <div className="border-b border-slate-100 pb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Store className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
-                <span>Restaurant Identity & Brand Assets</span>
+              <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+                <Store className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
+                <span>Restaurant Identity &amp; Brand Assets</span>
               </h4>
-              <p className="text-xs text-slate-500 mt-0.5">Outlet name, slug link, brand tagline, logo, and cover visual.</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Outlet name, slug link, brand tagline, logo, and cover visual.</p>
             </div>
             {identityStatus.isComplete ? (
-              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold flex items-center gap-1 self-start sm:self-auto font-mono">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 <span>Section Complete</span>
               </span>
             ) : (
-              <span className="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full text-[10px] font-bold flex items-center gap-1 self-start sm:self-auto font-mono">
+                <AlertCircle className="w-3 h-3 text-amber-600" />
                 <span>Missing: {identityStatus.missing.join(', ')}</span>
               </span>
             )}
@@ -346,18 +347,13 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
 
           {isEditable && (
             <div className="pt-2 flex justify-end">
-              <button
+              <Button
                 type="submit"
-                disabled={updateMutation.isPending}
-                className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+                isLoading={updateMutation.isPending}
+                leftIcon={<Save className="w-3.5 h-3.5" />}
               >
-                {updateMutation.isPending ? (
-                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-                ) : (
-                  <Save className="w-4 h-4" strokeWidth={1.75} />
-                )}
-                <span>Save Store Identity</span>
-              </button>
+                Save Store Identity
+              </Button>
             </div>
           )}
         </form>
@@ -367,31 +363,31 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
       {/* SUB-TAB 2: LOCATION, CONTACTS & OPERATING HOURS           */}
       {/* ========================================================= */}
       {activeSubTab === 'contact' && (
-        <form onSubmit={handleSaveContact} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <form onSubmit={handleSaveContact} className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-4">
+          <div className="border-b border-slate-100 pb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-indigo-600" strokeWidth={1.75} />
-                <span>Location, Contacts & Operating Hours</span>
+              <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+                <MapPin className="w-3.5 h-3.5 text-indigo-600" strokeWidth={1.75} />
+                <span>Location, Contacts &amp; Operating Hours</span>
               </h4>
-              <p className="text-xs text-slate-500 mt-0.5">Physical address, support contacts, operating schedule, and tax registration.</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Physical address, support contacts, operating schedule, and tax registration.</p>
             </div>
             {contactStatus.isComplete ? (
-              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold flex items-center gap-1 self-start sm:self-auto font-mono">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 <span>Section Complete</span>
               </span>
             ) : (
-              <span className="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full text-[10px] font-bold flex items-center gap-1 self-start sm:self-auto font-mono">
+                <AlertCircle className="w-3 h-3 text-amber-600" />
                 <span>Missing: {contactStatus.missing.join(', ')}</span>
               </span>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
             <div className="sm:col-span-2 md:col-span-3">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 Physical Outlet Address <span className="text-amber-500">*</span>
               </label>
               <input
@@ -400,12 +396,12 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="e.g. 123 Gourmet Boulevard, Indiranagar, Bengaluru, 560038"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 Contact Phone <span className="text-amber-500">*</span>
               </label>
               <input
@@ -414,12 +410,12 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 98765 43210"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 Support Email <span className="text-amber-500">*</span>
               </label>
               <input
@@ -428,95 +424,90 @@ export const StoreProfileSection: React.FC<StoreProfileSectionProps> = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="contact@woodfiredbistro.com"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">WhatsApp Orders Contact</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">WhatsApp Orders Contact</label>
               <input
                 type="text"
                 disabled={!isEditable}
                 value={whatsapp}
                 onChange={(e) => setWhatsapp(e.target.value)}
                 placeholder="+919876543210"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">GST Registration (GSTIN)</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">GST Registration (GSTIN)</label>
               <input
                 type="text"
                 disabled={!isEditable}
                 value={gstNumber}
                 onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
                 placeholder="29ABCDE1234F1Z5"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono font-bold disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">FSSAI Food License Number</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">FSSAI Food License Number</label>
               <input
                 type="text"
                 disabled={!isEditable}
                 value={fssaiNumber}
                 onChange={(e) => setFssaiNumber(e.target.value)}
                 placeholder="e.g. 12345678901234"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono font-bold disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono font-bold disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Daily Opening Time</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Daily Opening Time</label>
               <input
                 type="time"
                 disabled={!isEditable}
                 value={openTime}
                 onChange={(e) => setOpenTime(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono disabled:bg-slate-50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Daily Closing Time</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Daily Closing Time</label>
               <input
                 type="time"
                 disabled={!isEditable}
                 value={closeTime}
                 onChange={(e) => setCloseTime(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono disabled:bg-slate-50"
               />
             </div>
 
             <div className="sm:col-span-2 md:col-span-3">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Google Review Page URL</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Google Review Page URL</label>
               <input
                 type="url"
                 disabled={!isEditable}
                 value={googleReviewUrl}
                 onChange={(e) => setGoogleReviewUrl(e.target.value)}
                 placeholder="https://g.page/r/woodfiredbistro-reviews"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono disabled:bg-slate-50"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono disabled:bg-slate-50"
               />
             </div>
           </div>
 
           {isEditable && (
             <div className="pt-2 flex justify-end">
-              <button
+              <Button
                 type="submit"
-                disabled={updateMutation.isPending}
-                className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+                isLoading={updateMutation.isPending}
+                leftIcon={<Save className="w-3.5 h-3.5" />}
               >
-                {updateMutation.isPending ? (
-                  <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-                ) : (
-                  <Save className="w-4 h-4" strokeWidth={1.75} />
-                )}
-                <span>Save Contact & Location</span>
-              </button>
+                Save Contact &amp; Location
+              </Button>
             </div>
           )}
         </form>

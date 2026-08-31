@@ -11,6 +11,7 @@ import {
   Palette,
   Settings,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 import { PrintOrderModal } from '../PrintOrderModal';
 import { PrintOrderData } from '../../utils/printReceipt';
 
@@ -233,37 +234,36 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
 
   return (
     <>
-      <form onSubmit={handleSavePrinterSettings} className="space-y-6">
+      <form onSubmit={handleSavePrinterSettings} className="space-y-3 sm:space-y-4 font-sans select-none">
         {/* Header Ribbon */}
-        <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2.5">
-              <Printer className="w-5 h-5 text-amber-500" />
-              <span>Thermal Printer & Receipt Design Studio</span>
+            <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+              <Printer className="w-3.5 h-3.5 text-amber-500" />
+              <span>Thermal Printer &amp; Receipt Design Studio</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               Customize customer bills, counter receipts, kitchen KOT tickets, logo branding, and tax layouts.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
+          <div className="flex items-center gap-2">
+            <Button
               type="button"
+              variant="secondary"
               onClick={handleTriggerTestPrint}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              leftIcon={<Printer className="w-3.5 h-3.5 text-slate-600" />}
             >
-              <Printer className="w-3.5 h-3.5 text-slate-600" />
-              <span>Test Print</span>
-            </button>
+              Test Print
+            </Button>
 
-            <button
+            <Button
               type="submit"
-              disabled={updateMutation.isPending}
-              className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm disabled:bg-slate-400 cursor-pointer"
+              isLoading={updateMutation.isPending}
+              leftIcon={<Save className="w-3.5 h-3.5 text-amber-400" />}
             >
-              {updateMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-amber-400" />}
-              <span>Save Printer Config</span>
-            </button>
+              Save Printer Config
+            </Button>
           </div>
         </div>
 

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
+import { Button } from '../components/ui/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -460,19 +461,19 @@ export const ManagerKDS: React.FC = () => {
   return (
     <div
       ref={kdsContainerRef}
-      className="w-full space-y-5 font-sans select-none pb-12 transition-colors duration-200"
+      className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8 transition-colors duration-200"
     >
       {/* ── Top Kitchen Navigation & Controls ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 md:px-6 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 md:px-5 rounded-2xl border border-slate-200/80 bg-white shadow-xs">
         {/* Title and View Tabs */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-inner">
-              <ChefHat className="w-5 h-5 text-amber-400" strokeWidth={2} />
+            <div className="h-8 w-8 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-inner shrink-0">
+              <ChefHat className="w-4 h-4 text-amber-400" strokeWidth={2} />
             </div>
             <div>
-              <h1 className="font-display tracking-tight text-lg font-bold leading-tight">Kitchen Operations (KDS)</h1>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+              <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold leading-tight text-slate-900">Kitchen Operations (KDS)</h1>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>{tickets.length} active ticket{tickets.length === 1 ? '' : 's'}</span>
               </div>
@@ -480,8 +481,8 @@ export const ManagerKDS: React.FC = () => {
           </div>
 
           {/* Screen Tabs & Kiosk Mode */}
-          <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-4">
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-bold">
+          <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-2">
+            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 text-xs font-bold">
               <button
                 onClick={() => setActiveTab('STATION')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
@@ -847,23 +848,27 @@ export const ManagerKDS: React.FC = () => {
 
                     {/* Bump Ticket Footer Button */}
                     <div className="pt-4 border-t border-slate-150 mt-4 flex items-center gap-2">
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="icon-lg"
                         onClick={() => setPrintModalOrder(ticket)}
-                        className="p-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-2xl transition flex items-center justify-center active:scale-98"
                         title="Print Kitchen Ticket or Bill"
                       >
-                        <Printer className="w-4 h-4 text-amber-600" strokeWidth={2} />
-                      </button>
-                      <button
+                        <Printer className="w-4 h-4 text-amber-600" />
+                      </Button>
+                      <Button
                         type="button"
+                        variant="primary"
+                        size="lg"
+                        fullWidth
                         onClick={() => bumpTicketMutation.mutate(ticket._id)}
-                        disabled={allServed || bumpTicketMutation.isPending}
-                        className="flex-1 py-3 bg-slate-950 hover:bg-slate-900 text-white text-xs font-black rounded-2xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-40 active:scale-98"
+                        disabled={allServed}
+                        isLoading={bumpTicketMutation.isPending}
+                        leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                       >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={2} />
-                        <span>Bump Entire Ticket</span>
-                      </button>
+                        Bump Entire Ticket
+                      </Button>
                     </div>
                   </motion.div>
                 );

@@ -15,6 +15,7 @@ import {
   TableFormValues,
   BulkTableFormValues,
 } from '../hooks/useManagerTables';
+import { Button } from '../components/ui/Button';
 import {
   Plus,
   Edit2,
@@ -548,42 +549,43 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               {/* Refresh button */}
               <button
                 onClick={() => refetchTables()}
                 title="Refresh tables"
-                className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-xs cursor-pointer active:scale-95"
+                className="h-8.5 w-8.5 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-2xs cursor-pointer active:scale-95"
               >
-                <RefreshCw className="w-4 h-4" strokeWidth={1.75} />
+                <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
               </button>
 
               {/* Transfer / Merge Button (Operational) */}
               {isEnabled('ordering') && (
-                <button
+                <Button
+                  type="button"
+                  variant="secondary"
                   onClick={() => navigate('/manager/tables/operations')}
-                  className="h-10 flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100 text-indigo-900 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  leftIcon={<ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" />}
                   title="Transfer guest sessions or merge multiple tables"
                 >
-                  <ArrowRightLeft className="w-4 h-4 text-indigo-600" strokeWidth={2} />
-                  <span>Transfer / Merge</span>
-                </button>
+                  Transfer / Merge
+                </Button>
               )}
 
               {/* Add Table Dropdown */}
               <div className="relative z-50" ref={addMenuRef}>
-                <button
+                <Button
                   type="button"
+                  variant="amber"
                   onClick={() => {
                     setIsAddMenuOpen(!isAddMenuOpen);
                     setIsMoreMenuOpen(false);
                   }}
-                  className="h-10 flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  rightIcon={<ChevronDown className={`w-3 h-3 transition-transform duration-150 ${isAddMenuOpen ? 'rotate-180' : ''}`} />}
                 >
-                  <Plus className="w-4 h-4" strokeWidth={2.5} />
-                  <span>Add Table</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${isAddMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
+                  Add Table
+                </Button>
 
                 {isAddMenuOpen && (
                   <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl border border-slate-200 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
@@ -595,9 +597,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                         tableForm.reset({ tableNumber: '', displayName: '', zoneId: activeZoneFilter || undefined });
                         setIsCreateOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
                     >
-                      <Plus className="w-4 h-4 text-amber-500" strokeWidth={2} />
+                      <Plus className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
                       <span>Add Single Table</span>
                     </button>
 
@@ -609,9 +611,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                         bulkForm.reset({ count: 10, prefix: '', zoneId: activeZoneFilter || undefined });
                         setIsBulkFormOpen(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
                     >
-                      <LayoutGrid className="w-4 h-4 text-slate-600" strokeWidth={1.75} />
+                      <LayoutGrid className="w-3.5 h-3.5 text-slate-600" strokeWidth={1.75} />
                       <span>Bulk Create Tables</span>
                     </button>
 
@@ -623,9 +625,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                         setIsAddMenuOpen(false);
                         setShowZoneManager(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition text-left cursor-pointer"
                     >
-                      <MapPin className="w-4 h-4 text-amber-600" strokeWidth={1.75} />
+                      <MapPin className="w-3.5 h-3.5 text-amber-600" strokeWidth={1.75} />
                       <span>Manage Zones</span>
                     </button>
                   </div>
@@ -641,9 +643,9 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                     setIsAddMenuOpen(false);
                   }}
                   title="More options"
-                  className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-xs cursor-pointer active:scale-95"
+                  className="h-8.5 w-8.5 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition shadow-2xs cursor-pointer active:scale-95"
                 >
-                  <MoreVertical className="w-4 h-4" strokeWidth={2} />
+                  <MoreVertical className="w-3.5 h-3.5" strokeWidth={2} />
                 </button>
 
                 {isMoreMenuOpen && (
@@ -877,12 +879,8 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                     )}
                   </div>
 
-                  {/* Table cards grid: Reflows dynamically when right panel is open */}
-                  <div className={`p-3.5 sm:p-4 grid gap-2.5 sm:gap-3 ${
-                    activeTableAction
-                      ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-                      : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
-                  }`}>
+                  {/* Table cards grid: Compact, high-density auto-fill grid */}
+                  <div className="p-3 sm:p-3.5 grid gap-2 sm:gap-2.5 grid-cols-[repeat(auto-fill,minmax(100px,120px))]">
                     {zoneTables.map((table) => {
                       const status = getTableStatus(table);
                       const isOccupied = status === 'OCCUPIED';
@@ -913,32 +911,32 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                             }
                           }}
                           className={`
-                            relative flex flex-col items-center text-center rounded-2xl border-2 p-2.5 sm:p-3 gap-1.5
+                            relative flex flex-col items-center justify-between text-center rounded-xl border p-2 h-24
                             transition-all duration-150 group cursor-pointer select-none active:scale-95
                             ${
                               isInDeleteMode
-                                ? 'bg-rose-50/70 border-rose-400 hover:border-rose-600 hover:bg-rose-100/80 hover:shadow-md hover:shadow-rose-100 ring-2 ring-rose-400/20'
+                                ? 'bg-rose-50/70 border-rose-400 hover:border-rose-600 hover:bg-rose-100/80 hover:shadow-sm hover:shadow-rose-100 ring-1 ring-rose-400/20'
                                 : isInEditMode
-                                ? 'bg-amber-50/70 border-amber-400 hover:border-amber-600 hover:bg-amber-100/80 hover:shadow-md hover:shadow-amber-100 ring-2 ring-amber-400/20'
+                                ? 'bg-amber-50/70 border-amber-400 hover:border-amber-600 hover:bg-amber-100/80 hover:shadow-sm hover:shadow-amber-100 ring-1 ring-amber-400/20'
                                 : isSelected
-                                ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/30 shadow-md scale-[1.02]'
+                                ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/30 shadow-sm scale-[1.02]'
                                 : isOccupied && isEnabled('ordering')
-                                ? 'bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-400 hover:border-amber-500 hover:shadow-md hover:shadow-amber-100'
+                                ? 'bg-gradient-to-b from-amber-50 to-amber-100/50 border-amber-400 hover:border-amber-500 hover:shadow-sm hover:shadow-amber-100'
                                 : isReserved
-                                ? 'bg-gradient-to-b from-violet-50 to-violet-100/50 border-violet-400 hover:border-violet-500 hover:shadow-md hover:shadow-violet-100'
-                                : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md hover:shadow-slate-100'
+                                ? 'bg-gradient-to-b from-violet-50 to-violet-100/50 border-violet-400 hover:border-violet-500 hover:shadow-sm hover:shadow-violet-100'
+                                : 'bg-white border-slate-200/90 hover:border-amber-300 hover:shadow-xs hover:shadow-slate-100'
                             }
                           `}
                         >
                           {/* Selection Mode Icon Badge */}
                           {isInDeleteMode && (
-                            <div className="absolute -top-1.5 -right-1.5 w-5.5 h-5.5 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs z-10">
-                              <Trash2 className="w-3 h-3" />
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xs z-10">
+                              <Trash2 className="w-2.5 h-2.5" />
                             </div>
                           )}
                           {isInEditMode && (
-                            <div className="absolute -top-1.5 -right-1.5 w-5.5 h-5.5 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-xs z-10">
-                              <Edit2 className="w-3 h-3" />
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-xs z-10">
+                              <Edit2 className="w-2.5 h-2.5" />
                             </div>
                           )}
 
@@ -951,10 +949,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                                   e.stopPropagation();
                                   navigate(`/manager/tables/operations?sourceTableId=${table._id}`);
                                 }}
-                                className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-200 transition shadow-2xs cursor-pointer z-10"
+                                className="absolute top-1 left-1 p-0.5 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-200 transition shadow-2xs cursor-pointer z-10"
                                 title={`Transfer or Merge Table (${table.displayName})`}
                               >
-                                <ArrowRightLeft className="w-3 h-3" strokeWidth={2} />
+                                <ArrowRightLeft className="w-2.5 h-2.5" strokeWidth={2} />
                               </button>
 
                               <button
@@ -965,17 +963,17 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                                   printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
                                   toast(`Printed Customer Bill for ${table.displayName}`, 'success');
                                 }}
-                                className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
+                                className="absolute top-1 right-1 p-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 transition shadow-2xs cursor-pointer z-10"
                                 title={`1-Click Print Customer Bill (${table.displayName})`}
                               >
-                                <Receipt className="w-3 h-3" strokeWidth={2} />
+                                <Receipt className="w-2.5 h-2.5" strokeWidth={2} />
                               </button>
                             </>
                           )}
 
                           {/* Table number badge */}
                           <div
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shadow-sm transition-colors
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-extrabold text-xs shadow-2xs transition-colors
                               ${
                                 isSelected
                                   ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-500/20'
@@ -990,23 +988,23 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                           </div>
 
                           {/* Display name */}
-                          <span className="text-[11px] font-bold text-slate-800 truncate w-full leading-tight" title={table.displayName}>
+                          <span className="text-[10px] font-bold text-slate-800 truncate w-full leading-none" title={table.displayName}>
                             {table.displayName}
                           </span>
 
                           {/* Status badge */}
                           {isOccupied && isEnabled('ordering') ? (
-                            <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.5 rounded-md leading-none">
+                            <span className="flex items-center gap-0.5 text-[8.5px] font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.2 rounded leading-none">
                               <span className="w-1 h-1 rounded-full bg-amber-600 animate-ping inline-block mr-0.5" />
-                              {table.activeOrderCount ? `${table.activeOrderCount} ORDER${table.activeOrderCount > 1 ? 'S' : ''}` : 'OCCUPIED'}
+                              {table.activeOrderCount ? `${table.activeOrderCount} ORD` : 'BUSY'}
                             </span>
                           ) : isReserved ? (
-                            <span className="flex items-center gap-0.5 text-[9px] font-extrabold text-violet-900 bg-violet-200/60 px-1.5 py-0.5 rounded-md leading-none">
+                            <span className="flex items-center gap-0.5 text-[8.5px] font-extrabold text-violet-900 bg-violet-200/60 px-1.5 py-0.2 rounded leading-none">
                               <Bookmark className="w-2 h-2" strokeWidth={2.5} />
-                              RESERVED
+                              RSVD
                             </span>
                           ) : isEnabled('ordering') ? (
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md leading-none">
+                            <span className="text-[8.5px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded leading-none">
                               FREE
                             </span>
                           ) : null}
@@ -1032,11 +1030,11 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
             return (
               <motion.div
                 key={t._id}
-                initial={{ opacity: 0, x: 50, width: 0 }}
-                animate={{ opacity: 1, x: 0, width: 'auto' }}
-                exit={{ opacity: 0, x: 50, width: 0 }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full lg:w-96 shrink-0 sticky top-0 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col max-h-[calc(100vh-10rem)] overflow-hidden"
+                className="w-full lg:w-96 lg:min-w-[24rem] lg:max-w-[24rem] shrink-0 sticky top-0 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col max-h-[calc(100vh-10rem)] overflow-hidden"
               >
                 {/* Header */}
                 <div className={`p-4 border-b border-slate-100 shrink-0 ${
@@ -1127,33 +1125,37 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                   {sidePanelTab === 'ACTIONS' ? (
                     <div className="space-y-2.5">
                       {/* Primary View QR Button */}
-                      <button
+                      <Button
                         type="button"
+                        variant="amber"
+                        fullWidth
                         onClick={() => setSidePanelTab('QR')}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                        leftIcon={<QrCode className="w-4 h-4" />}
                       >
-                        <QrCode className="w-4 h-4" strokeWidth={2} />
-                        <span>View QR Code &amp; Standee</span>
-                      </button>
+                        View QR Code &amp; Standee
+                      </Button>
 
                       {/* Occupied Actions */}
                       {isOccupied && isEnabled('ordering') && (
                         <div className="space-y-2 pt-1">
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
+                            fullWidth
                             onClick={async () => {
                               const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
                               printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
                               toast(`Printing Customer Bill for ${t.displayName}`, 'success');
                             }}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                            leftIcon={<Receipt className="w-4 h-4 text-blue-600" />}
                           >
-                            <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
-                            <span>Print Customer Bill</span>
-                          </button>
+                            Print Customer Bill
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="emerald"
+                            fullWidth
                             onClick={async () => {
                               const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
                               printOrderTicket(tableOrder, restaurantInfo, 'CUSTOMER');
@@ -1164,75 +1166,78 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                                 },
                               });
                             }}
-                            disabled={clearTablesMutation.isPending}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                            isLoading={clearTablesMutation.isPending}
+                            leftIcon={<CheckCircle2 className="w-4 h-4" />}
                           >
-                            {clearTablesMutation.isPending ? (
-                              <Loader className="w-4 h-4 animate-spin text-white" />
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 text-white" strokeWidth={2} />
-                                <span>Print Bill &amp; Free Table</span>
-                              </>
-                            )}
-                          </button>
+                            Print Bill &amp; Free Table
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
+                            fullWidth
                             onClick={() => {
                               navigate(`/manager/tables/operations?sourceTableId=${t._id}`);
                             }}
-                            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition active:scale-95 cursor-pointer"
+                            leftIcon={<ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" />}
                           >
-                            <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600" strokeWidth={2} />
-                            <span>Transfer / Merge Session</span>
-                          </button>
+                            Transfer / Merge Session
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            fullWidth
                             onClick={async () => {
                               const tableOrder = await fetchTableConsolidatedOrder(t._id, t.tableNumber, t.displayName);
                               setPrintModalOrder(tableOrder);
                             }}
-                            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition active:scale-95 cursor-pointer"
+                            leftIcon={<Printer className="w-3.5 h-3.5 text-slate-500" />}
                           >
-                            <Printer className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
-                            <span>More Print Options (KOT / Counter)</span>
-                          </button>
+                            More Print Options (KOT / Counter)
+                          </Button>
 
-                          <button
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            fullWidth
                             onClick={() => {
                               if (confirm(`Clear Table ${t.tableNumber}? This will close the active session.`)) {
                                 clearTablesMutation.mutate([t._id]);
                               }
                             }}
-                            disabled={clearTablesMutation.isPending}
-                            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer"
+                            isLoading={clearTablesMutation.isPending}
+                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5 text-slate-600" />}
                           >
-                            {clearTablesMutation.isPending ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 text-slate-600" /> Quick Clear Session</>}
-                          </button>
+                            Quick Clear Session
+                          </Button>
                         </div>
                       )}
 
                       {/* Reserve / Unreserve */}
                       {isReserved ? (
-                        <button
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          fullWidth
+                          className="bg-violet-100 hover:bg-violet-200 text-violet-900 border-violet-200"
                           onClick={() => reserveTablesMutation.mutate({ tableIds: [t._id], reserved: false })}
-                          disabled={reserveTablesMutation.isPending}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-900 text-xs font-bold transition cursor-pointer"
+                          isLoading={reserveTablesMutation.isPending}
+                          leftIcon={<Bookmark className="w-4 h-4 text-violet-700" />}
                         >
-                          <Bookmark className="w-4 h-4 text-violet-700" />
-                          <span>Unreserve Table</span>
-                        </button>
+                          Unreserve Table
+                        </Button>
                       ) : !isOccupied ? (
-                        <button
+                        <Button
+                          type="button"
+                          variant="outline"
+                          fullWidth
                           onClick={() => reserveTablesMutation.mutate({ tableIds: [t._id], reserved: true })}
-                          disabled={reserveTablesMutation.isPending}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer border border-slate-200"
+                          isLoading={reserveTablesMutation.isPending}
+                          leftIcon={<Bookmark className="w-4 h-4 text-amber-500" />}
                         >
-                          <Bookmark className="w-4 h-4 text-amber-500" />
-                          <span>Reserve Table</span>
-                        </button>
+                          Reserve Table
+                        </Button>
                       ) : null}
                     </div>
                   ) : (
@@ -1893,12 +1898,12 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsBulkFormOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200 cursor-pointer">
+                <Button type="button" variant="outline" fullWidth onClick={() => setIsBulkFormOpen(false)}>
                   Cancel
-                </button>
-                <button type="submit" disabled={bulkCreateMutation.isPending} className="w-1/2 py-3 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition flex items-center justify-center gap-2 cursor-pointer">
-                  {bulkCreateMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : 'Generate Tables'}
-                </button>
+                </Button>
+                <Button type="submit" variant="primary" fullWidth isLoading={bulkCreateMutation.isPending}>
+                  Generate Tables
+                </Button>
               </div>
             </form>
           </div>
@@ -1945,10 +1950,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
               )}
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="w-1/2 py-3 text-slate-600 font-semibold hover:bg-slate-50 rounded-2xl transition border border-slate-200 cursor-pointer">Cancel</button>
-                <button type="submit" disabled={createTableMutation.isPending || editTableMutation.isPending} className="w-1/2 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl transition flex items-center justify-center gap-2 cursor-pointer">
-                  {createTableMutation.isPending || editTableMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : editingTable ? 'Save Changes' : 'Auto-Generate Table'}
-                </button>
+                <Button type="button" variant="outline" fullWidth onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                <Button type="submit" variant="amber" fullWidth isLoading={createTableMutation.isPending || editTableMutation.isPending}>
+                  {editingTable ? 'Save Changes' : 'Auto-Generate Table'}
+                </Button>
               </div>
             </form>
           </div>

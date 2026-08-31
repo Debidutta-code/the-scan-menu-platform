@@ -12,6 +12,7 @@ import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
 import { MenuManagementSkeleton } from '../components/menu/MenuManagementSkeleton';
+import { Button } from '../components/ui/Button';
 import {
   Plus,
   Edit2,
@@ -1050,13 +1051,15 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   </div>
                 </div>
               </div>
-              <button
+              <Button
+                type="button"
+                variant="primary"
+                fullWidth
                 onClick={() => { setEditingCat(null); catForm.reset(); setIsCatOpen(true); }}
-                className="w-full h-9 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer active:scale-95 shadow-xs"
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
               >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                 Add New Category
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1149,44 +1152,44 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               <div className="flex items-center gap-1.5 shrink-0">
                 {activeItemInspector ? (
                   <>
-                    <button
+                    <Button
                       type="button"
+                      variant={bulkMode ? 'amber' : 'outline'}
+                      size="icon-md"
                       onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
-                      title={bulkMode ? "Cancel Bulk Edit" : "Bulk Edit"}
-                      className={`h-8 w-8 flex items-center justify-center rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
-                        bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                      }`}
+                      title={bulkMode ? 'Cancel Bulk Edit' : 'Bulk Edit'}
                     >
-                      <Edit2 className="w-3.5 h-3.5" strokeWidth={2} />
-                    </button>
-                    <button
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="amber"
+                      size="icon-md"
                       onClick={handleNewItemClick}
                       disabled={!selectedCatId && !isSearching}
                       title="New Item"
-                      className="h-8 w-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
                     >
-                      <Plus className="w-4 h-4" strokeWidth={2.5} />
-                    </button>
+                      <Plus className="w-4 h-4" />
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <button
+                    <Button
                       type="button"
+                      variant={bulkMode ? 'amber' : 'outline'}
                       onClick={() => { setBulkMode(!bulkMode); setSelectedItemIds([]); }}
-                      className={`h-8 px-3 rounded-xl text-xs font-bold border transition cursor-pointer shrink-0 ${
-                        bulkMode ? 'bg-amber-50 border-amber-300 text-amber-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
                     >
                       {bulkMode ? 'Cancel' : 'Bulk Edit'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="amber"
                       onClick={handleNewItemClick}
                       disabled={!selectedCatId && !isSearching}
-                      className="h-8 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
                     >
-                      <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                       New Item
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
@@ -1206,29 +1209,34 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     Select All
                   </button>
                   {selectedItemIds.length >= 2 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleCreateComboFromSelected}
-                      className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs text-xs"
+                      leftIcon={<Package className="w-3.5 h-3.5 text-indigo-600" />}
                     >
-                      <Package className="w-3.5 h-3.5" />
                       Create Combo Bundle ({selectedItemIds.length})
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
+                    type="button"
+                    variant="emerald"
+                    size="sm"
                     onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: true }); }}
                     disabled={selectedItemIds.length === 0}
-                    className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-2xs"
                   >
                     Make Available
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
                     onClick={() => { if (selectedItemIds.length > 0) bulkAvailableMutation.mutate({ ids: selectedItemIds, isAvailable: false }); }}
                     disabled={selectedItemIds.length === 0}
-                    className="h-7 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold disabled:opacity-40 cursor-pointer shadow-2xs"
                   >
                     Mark 86&apos;d
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -1306,7 +1314,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     <>
                       <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
                       <p>No draft dishes found. Any unfinished dishes will appear here.</p>
-                      <button onClick={handleNewItemClick} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer hover:bg-slate-800 transition">Create New Dish</button>
+                      <Button variant="primary" onClick={handleNewItemClick}>Create New Dish</Button>
                     </>
                   ) : isSearching ? (
                     <>
@@ -1317,7 +1325,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     <>
                       <Sparkles className="w-10 h-10 mx-auto text-slate-200 mb-2" />
                       <p>No dishes in this category yet.</p>
-                      <button onClick={handleNewItemClick} className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer hover:bg-slate-800 transition">Create First Dish</button>
+                      <Button variant="primary" onClick={handleNewItemClick}>Create First Dish</Button>
                     </>
                   )}
                 </div>
@@ -2121,10 +2129,10 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 <ImageUploader restaurantId={activeRestaurantId!} value={catForm.watch('imageUrl')} onChange={(url: string) => catForm.setValue('imageUrl', url)} />
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsCatOpen(false)} className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition cursor-pointer">Cancel</button>
-                <button type="submit" className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-semibold rounded-xl transition cursor-pointer">
+                <Button type="button" variant="outline" fullWidth onClick={() => setIsCatOpen(false)}>Cancel</Button>
+                <Button type="submit" variant="primary" fullWidth>
                   {editingCat ? 'Save Changes' : 'Create Category'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -2147,7 +2155,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               <button onClick={() => setPreviewDish(null)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"><X className="w-5 h-5" strokeWidth={1.75} /></button>
             </div>
             <CustomerDishPreview item={previewDish} previewMode={previewMode} setPreviewMode={setPreviewMode} />
-            <button type="button" onClick={() => setPreviewDish(null)} className="w-full py-2.5 bg-slate-950 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition cursor-pointer">Close Preview</button>
+            <Button type="button" variant="primary" fullWidth onClick={() => setPreviewDish(null)}>Close Preview</Button>
           </div>
         </div>,
         document.body
@@ -2180,8 +2188,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                 </div>
               </div>
               <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsGroupModalOpen(false)} className="w-1/2 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl cursor-pointer hover:bg-slate-50 transition">Cancel</button>
-                <button type="submit" className="w-1/2 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-sm font-bold rounded-xl shadow-md cursor-pointer">Save Template</button>
+                <Button type="button" variant="outline" fullWidth onClick={() => setIsGroupModalOpen(false)}>Cancel</Button>
+                <Button type="submit" variant="primary" fullWidth>Save Template</Button>
               </div>
             </form>
           </div>

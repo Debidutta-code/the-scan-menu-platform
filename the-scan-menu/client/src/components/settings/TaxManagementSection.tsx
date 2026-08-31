@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,8 +15,11 @@ import {
   Calculator,
   Layers,
   Tag,
-  Sparkles,
+  ShieldCheck,
+  AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 const taxSchema = z.object({
   type: z.enum(['GROUP', 'TAX']),
@@ -45,6 +48,19 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTax, setEditingTax] = useState<Tax | null>(null);
+  const [taxToDelete, setTaxToDelete] = useState<Tax | null>(null);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const { data: taxesData, isLoading } = useQuery({
     queryKey: ['managerTaxes', targetRestaurantId],
@@ -101,86 +117,13 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
       queryClient.invalidateQueries({ queryKey: ['adminTaxes', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
       toast('Tax configuration deleted successfully', 'success');
+      setTaxToDelete(null);
       if (onSaved) onSaved();
     },
     onError: (err: any) => {
       toast(err.response?.data?.error?.message || 'Failed to delete tax config', 'error');
     },
   });
-
-  // Preset Applicator
-  const handleApplyPreset = async (preset: 'GST_5' | 'GST_18' | 'VAT_10' | 'NONE') => {
-    if (!targetRestaurantId) return;
-
-    try {
-      // Clear existing taxes
-      for (const t of taxes) {
-        await managerService.deleteTax(targetRestaurantId, t._id);
-      }
-
-      if (preset === 'GST_5') {
-        const grp = await managerService.createTax(targetRestaurantId, {
-          name: 'GST 5%',
-          type: 'GROUP',
-          percentage: 5,
-          isActive: true,
-        });
-        const gid = grp.data._id;
-        await managerService.createTax(targetRestaurantId, {
-          name: 'CGST 2.5%',
-          type: 'TAX',
-          percentage: 2.5,
-          groupId: gid,
-          isActive: true,
-        });
-        await managerService.createTax(targetRestaurantId, {
-          name: 'SGST 2.5%',
-          type: 'TAX',
-          percentage: 2.5,
-          groupId: gid,
-          isActive: true,
-        });
-      } else if (preset === 'GST_18') {
-        const grp = await managerService.createTax(targetRestaurantId, {
-          name: 'GST 18%',
-          type: 'GROUP',
-          percentage: 18,
-          isActive: true,
-        });
-        const gid = grp.data._id;
-        await managerService.createTax(targetRestaurantId, {
-          name: 'CGST 9%',
-          type: 'TAX',
-          percentage: 9,
-          groupId: gid,
-          isActive: true,
-        });
-        await managerService.createTax(targetRestaurantId, {
-          name: 'SGST 9%',
-          type: 'TAX',
-          percentage: 9,
-          groupId: gid,
-          isActive: true,
-        });
-      } else if (preset === 'VAT_10') {
-        await managerService.createTax(targetRestaurantId, {
-          name: 'VAT 10%',
-          type: 'TAX',
-          percentage: 10,
-          groupId: null,
-          isActive: true,
-        });
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['managerTaxes', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminTaxes', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
-      toast(`Tax Preset applied successfully!`, 'success');
-      if (onSaved) onSaved();
-    } catch (err: any) {
-      toast(err.response?.data?.error?.message || 'Failed to apply tax preset', 'error');
-    }
-  };
 
   const {
     register,
@@ -222,12 +165,6 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
     setIsFormOpen(true);
   };
 
-  const handleDelete = (tax: Tax) => {
-    if (window.confirm(`Are you sure you want to delete ${tax.name}?`)) {
-      deleteMutation.mutate(tax._id);
-    }
-  };
-
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingTax(null);
@@ -249,100 +186,121 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
   }
 
   return (
-    <div className="bg-white border border-slate-150 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+    <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4 select-none font-sans">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
-          <h3 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-amber-500" />
-            <span>Tax Rates & GST Rules</span>
+          <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-amber-500" />
+            <span>Taxes &amp; Statutory GST Rules</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Configure individual tax rates or grouped tax brackets (CGST/SGST breakdowns).
+            Configure grouped tax brackets (e.g. CGST + SGST) or standalone fiscal tax percentages applied to customer bills.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => {
-              reset({ type: 'GROUP', name: '', percentage: 0, groupId: null, isActive: true });
-              setIsFormOpen(true);
-            }}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Layers className="w-3.5 h-3.5 text-indigo-600" />
-            <span>+ Add Tax Group</span>
-          </button>
+        {/* Add Tax Actions (Side-by-Side & Dropdown on Mobile/Compact) */}
+        <div className="relative shrink-0 flex items-center gap-2" ref={addMenuRef}>
+          {/* Direct Actions on Wide Screens */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                reset({ type: 'GROUP', name: '', percentage: 0, groupId: null, isActive: true });
+                setIsFormOpen(true);
+              }}
+              leftIcon={<Layers className="w-3.5 h-3.5 text-indigo-600" />}
+            >
+              Add Tax Group
+            </Button>
 
-          <button
-            type="button"
-            onClick={() => {
-              reset({ type: 'TAX', name: '', percentage: 0, groupId: null, isActive: true });
-              setIsFormOpen(true);
-            }}
-            className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 text-amber-400" />
-            <span>+ Add Tax Rate</span>
-          </button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => {
+                reset({ type: 'TAX', name: '', percentage: 0, groupId: null, isActive: true });
+                setIsFormOpen(true);
+              }}
+              leftIcon={<Plus className="w-3.5 h-3.5 text-amber-400" />}
+            >
+              Add Tax Rate
+            </Button>
+          </div>
+
+          {/* Unified Dropdown Action */}
+          <div className="sm:hidden relative">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => setIsAddMenuOpen((prev) => !prev)}
+              leftIcon={<Plus className="w-3.5 h-3.5 text-amber-400" />}
+              rightIcon={<ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAddMenuOpen ? 'rotate-180' : ''}`} />}
+            >
+              Add Tax Rule
+            </Button>
+
+            {isAddMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-slate-200 p-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddMenuOpen(false);
+                    reset({ type: 'TAX', name: '', percentage: 0, groupId: null, isActive: true });
+                    setIsFormOpen(true);
+                  }}
+                  className="w-full text-left p-2 rounded-lg hover:bg-slate-50 transition flex items-center gap-2.5 cursor-pointer group"
+                >
+                  <div className="p-1.5 bg-amber-50 text-amber-600 rounded-md group-hover:bg-amber-100 transition">
+                    <Tag className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Add Tax Rate</span>
+                    <span className="text-[10px] text-slate-400 block">Single percentage rate</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddMenuOpen(false);
+                    reset({ type: 'GROUP', name: '', percentage: 0, groupId: null, isActive: true });
+                    setIsFormOpen(true);
+                  }}
+                  className="w-full text-left p-2 rounded-lg hover:bg-slate-50 transition flex items-center gap-2.5 cursor-pointer group border-t border-slate-100 mt-1"
+                >
+                  <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md group-hover:bg-indigo-100 transition">
+                    <Layers className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Add Tax Group</span>
+                    <span className="text-[10px] text-slate-400 block">GST / CGST + SGST</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 1-Click Tax Presets Bar */}
-      <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-[10px] font-mono uppercase font-bold text-slate-400">1-Click Presets</span>
-            <p className="text-xs font-bold text-slate-900 mt-0.5">Quickly apply standard national tax rules</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => handleApplyPreset('GST_5')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-800 font-bold text-xs rounded-xl transition shadow-2xs cursor-pointer"
-          >
-            GST 5% (Restaurant Std)
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleApplyPreset('GST_18')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-800 font-bold text-xs rounded-xl transition shadow-2xs cursor-pointer"
-          >
-            GST 18% (AC/Bar)
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleApplyPreset('VAT_10')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-800 font-bold text-xs rounded-xl transition shadow-2xs cursor-pointer"
-          >
-            VAT 10%
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleApplyPreset('NONE')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 text-slate-600 font-bold text-xs rounded-xl transition shadow-2xs cursor-pointer"
-          >
-            Clear (0%)
-          </button>
+      {/* Security & Compliance Advisory Banner */}
+      <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex items-start gap-2.5 text-xs">
+        <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <span className="font-bold text-amber-950 block">Fiscal &amp; Statutory Configuration</span>
+          <p className="text-amber-900/80 text-[11px] leading-relaxed">
+            Tax rates directly govern billing calculations, invoice generation, and financial accounting reports. All updates are logged and restricted to authorized managers.
+          </p>
         </div>
       </div>
 
       {/* Tax List */}
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         {groups.length === 0 && standaloneTaxes.length === 0 && (
           <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
             <Calculator className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-slate-600 font-medium text-xs">No taxes configured</p>
-            <p className="text-slate-400 text-[11px] mt-0.5">Click a preset above or add custom taxes.</p>
+            <p className="text-slate-600 font-bold text-xs">No active tax rules configured</p>
+            <p className="text-slate-400 text-[11px] mt-0.5">Click <strong>+ Add Tax Group</strong> or <strong>+ Add Tax Rate</strong> above to configure your regional tax rules.</p>
           </div>
         )}
 
@@ -352,15 +310,15 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
           const totalPercentage = subTaxes.reduce((sum, t) => sum + t.percentage, 0);
           return (
             <div key={group._id} className={`bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden ${!group.isActive ? 'opacity-75' : ''}`}>
-              <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="bg-slate-50 p-3.5 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
                     <Layers className="w-4 h-4" strokeWidth={1.75} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-slate-900 text-sm">{group.name}</h4>
-                      <span className="text-[9px] font-mono px-2 py-0.5 bg-amber-100 text-amber-900 font-bold rounded-full">
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">{group.name}</h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 bg-amber-100 text-amber-900 font-bold rounded-md">
                         TAX GROUP ({totalPercentage > 0 ? totalPercentage.toFixed(2) : group.percentage}%)
                       </span>
                     </div>
@@ -368,62 +326,81 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold ${group.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${group.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                     {group.isActive ? 'Active' : 'Inactive'}
                   </span>
                   <div className="flex gap-1 border-l border-slate-200 pl-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleEdit(group)}
-                      className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition"
+                      title="Edit Group"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
+                      <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                    </Button>
+                    <Button
                       type="button"
-                      onClick={() => handleDelete(group)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setTaxToDelete(group)}
+                      title="Delete Group"
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
 
               <div className="p-3 space-y-2 bg-white">
                 {subTaxes.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic px-2">No individual taxes added to this group yet.</p>
+                  <p className="text-xs text-slate-400 italic px-2 py-1">No individual sub-taxes assigned to this group yet.</p>
                 ) : (
                   subTaxes.map((tax) => (
                     <div key={tax._id} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-xs">
                       <div className="flex items-center gap-2.5">
                         <Tag className="w-3.5 h-3.5 text-slate-400" />
                         <span className="font-semibold text-slate-700">{tax.name}</span>
-                        <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.2 rounded-full font-bold font-mono">
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold font-mono">
                           {tax.percentage}%
                         </span>
                       </div>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => handleEdit(tax)} className="text-[11px] font-semibold text-slate-500 hover:text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(tax)}
+                        >
                           Edit
-                        </button>
-                        <button type="button" onClick={() => handleDelete(tax)} className="text-[11px] font-semibold text-red-500 hover:text-red-700">
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setTaxToDelete(tax)}
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                        >
                           Remove
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))
                 )}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     reset({ type: 'TAX', name: '', percentage: 0, groupId: group._id, isActive: true });
                     setIsFormOpen(true);
                   }}
-                  className="mt-1 text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 px-2 cursor-pointer"
+                  leftIcon={<Plus className="w-3 h-3 text-amber-600" />}
+                  className="mt-1 text-amber-700 hover:text-amber-800"
                 >
-                  <Plus className="w-3 h-3" strokeWidth={2} /> Add sub-tax
-                </button>
+                  Add sub-tax to {group.name}
+                </Button>
               </div>
             </div>
           );
@@ -432,14 +409,14 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
         {/* Standalone Taxes */}
         {standaloneTaxes.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-slate-50 p-3.5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-amber-100 text-amber-800 rounded-lg">
                   <Tag className="w-4 h-4" strokeWidth={1.75} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Standalone Tax Rates</h4>
-                  <p className="text-[11px] text-slate-500">Individual taxes applied directly to orders</p>
+                  <h4 className="font-bold text-slate-900 text-xs sm:text-sm">Standalone Tax Rates</h4>
+                  <p className="text-[11px] text-slate-500">Individual tax percentages applied directly to orders without group breakdown</p>
                 </div>
               </div>
               <span className="text-[11px] font-bold font-mono bg-slate-200/70 text-slate-700 px-2.5 py-0.5 rounded-lg">
@@ -447,11 +424,11 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
               </span>
             </div>
 
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="p-3.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {standaloneTaxes.map((tax) => (
                 <div
                   key={tax._id}
-                  className={`bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between gap-3 transition-all ${
+                  className={`bg-slate-50/70 border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 transition-all ${
                     !tax.isActive ? 'opacity-65 grayscale-[0.2]' : 'hover:border-slate-300'
                   }`}
                 >
@@ -470,22 +447,25 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleEdit(tax)}
-                      className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition"
                       title="Edit Tax"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
+                      <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                    </Button>
+                    <Button
                       type="button"
-                      onClick={() => handleDelete(tax)}
-                      className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg transition"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setTaxToDelete(tax)}
                       title="Delete Tax"
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -496,41 +476,42 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
 
       {/* Tax Create/Edit Modal */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-xl border border-slate-100">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <h4 className="text-base font-bold text-slate-900">
-                {editingTax ? 'Edit Configuration' : (selectedType === 'GROUP' ? 'New Tax Group' : 'New Tax Rate')}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs select-none font-sans">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-slate-200/80">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                {editingTax ? 'Edit Tax Configuration' : (selectedType === 'GROUP' ? 'New Tax Group' : 'New Tax Rate')}
               </h4>
               <button
                 type="button"
                 onClick={handleCloseForm}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition"
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-3.5 text-xs">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-3 text-xs">
               {!editingTax && (
                 <div>
-                  <label className="block font-semibold text-slate-600 mb-1">Configuration Type</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Configuration Type</label>
                   <select
                     {...register('type')}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-400"
                   >
                     <option value="TAX">Individual Tax Rate</option>
-                    <option value="GROUP">Tax Group (e.g. GST)</option>
+                    <option value="GROUP">Tax Group (Composite e.g. GST)</option>
                   </select>
                 </div>
               )}
 
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">Name (e.g. CGST or Service Charge)</label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Name (e.g. CGST 2.5% or Service Tax)</label>
                 <input
                   type="text"
+                  placeholder="e.g. CGST 2.5%"
                   {...register('name')}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-400 font-semibold"
                 />
                 {errors.name && <p className="text-red-500 text-[10px] mt-1">{errors.name.message}</p>}
               </div>
@@ -538,21 +519,22 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
               {selectedType === 'TAX' && (
                 <>
                   <div>
-                    <label className="block font-semibold text-slate-600 mb-1">Percentage (%)</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Percentage (%)</label>
                     <input
                       type="number"
                       step="0.01"
+                      placeholder="e.g. 2.5"
                       {...register('percentage', { valueAsNumber: true })}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-400 font-mono font-bold"
                     />
                     {errors.percentage && <p className="text-red-500 text-[10px] mt-1">{errors.percentage.message}</p>}
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-600 mb-1">Parent Group (Optional)</label>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Parent Group (Optional)</label>
                     <select
                       {...register('groupId')}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-amber-400"
                     >
                       <option value="">None (Standalone Tax)</option>
                       {groups.map((g) => (
@@ -565,41 +547,84 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
                 </>
               )}
 
-              <div className="flex items-center gap-2.5 pt-1">
+              <div className="flex items-center gap-2 pt-1">
                 <input
                   type="checkbox"
                   id="isActiveTax"
                   {...register('isActive')}
-                  className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500"
+                  className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
                 />
-                <label htmlFor="isActiveTax" className="font-semibold text-slate-700 cursor-pointer">
-                  {selectedType === 'GROUP' ? 'Group is Active' : 'Tax is Active'}
+                <label htmlFor="isActiveTax" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  {selectedType === 'GROUP' ? 'Group is Active' : 'Tax Rate is Active'}
                 </label>
               </div>
 
-              <div className="pt-3 flex gap-2.5">
-                <button
+              <div className="pt-2 flex gap-2">
+                <Button
                   type="button"
+                  variant="outline"
+                  fullWidth
                   onClick={handleCloseForm}
-                  className="flex-1 py-2 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold transition"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={isSubmitting || createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 py-2 px-3 bg-slate-950 hover:bg-slate-800 disabled:opacity-70 text-white rounded-xl font-semibold transition flex items-center justify-center gap-1.5"
+                  variant="primary"
+                  fullWidth
+                  isLoading={isSubmitting || createMutation.isPending || updateMutation.isPending}
                 >
-                  {(isSubmitting || createMutation.isPending || updateMutation.isPending) && (
-                    <Loader className="w-3.5 h-3.5 animate-spin" />
-                  )}
-                  Save
-                </button>
+                  {editingTax ? 'Save Changes' : 'Create Tax Rule'}
+                </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Explicit Deletion Confirmation Modal */}
+      {taxToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs select-none font-sans">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-slate-200/80 space-y-4 p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Delete Tax Rule?</h4>
+                <p className="text-xs text-slate-500 font-medium">This affects future customer invoice calculations</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-150">
+              Are you sure you want to delete <strong className="text-slate-950">{taxToDelete.name}</strong> ({taxToDelete.percentage}%)? 
+              {taxToDelete.type === 'GROUP' ? ' Any sub-taxes attached to this group will also be affected.' : ''}
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                fullWidth
+                onClick={() => setTaxToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                fullWidth
+                onClick={() => deleteMutation.mutate(taxToDelete._id)}
+                isLoading={deleteMutation.isPending}
+              >
+                Confirm Delete
+              </Button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+export default TaxManagementSection;

@@ -11,6 +11,7 @@ import { ImageUploader } from '../components/ImageUploader';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
 import { MenuItemEditorSkeleton } from '../components/menu/MenuItemEditorSkeleton';
 import { useFieldChangeTracker } from '../hooks/useFieldChangeTracker';
+import { Button } from '../components/ui/Button';
 import {
   ArrowLeft,
   Check,
@@ -741,35 +742,34 @@ export const ManagerMenuItemEditor: React.FC = () => {
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => navigate('/manager/menu')}
-              className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={handleSaveAsDraft}
               disabled={saveMutation.isPending}
-              className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+              leftIcon={<Save className="w-3.5 h-3.5 text-slate-500" />}
             >
-              <Save className="w-3.5 h-3.5 text-slate-500" />
               <span className="hidden sm:inline">Save Draft</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={handleSaveAndPublish}
-              disabled={saveMutation.isPending}
-              className="px-3 py-1 sm:px-3.5 sm:py-1.5 text-xs font-bold text-white bg-slate-950 hover:bg-slate-900 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
+              isLoading={saveMutation.isPending}
+              leftIcon={<Send className="w-3.5 h-3.5 text-amber-400" />}
             >
-              {saveMutation.isPending ? (
-                <Loader className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Send className="w-3.5 h-3.5 text-amber-400" />
-              )}
-              <span>{isEditMode ? 'Save Changes' : 'Save & Publish'}</span>
-            </button>
+              {isEditMode ? 'Save Changes' : 'Save & Publish'}
+            </Button>
           </div>
         </div>
       </header>
@@ -1901,21 +1901,25 @@ export const ManagerMenuItemEditor: React.FC = () => {
               />
             </div>
             <div className="flex gap-2 pt-1">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                fullWidth
+                size="sm"
                 onClick={() => setIsCustomComboModalOpen(false)}
-                className="w-1/2 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="primary"
+                fullWidth
+                size="sm"
                 onClick={handleAddCustomComboItem}
                 disabled={!customComboItemName.trim()}
-                className="w-1/2 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer"
               >
                 Add Item
-              </button>
+              </Button>
             </div>
           </div>
         </div>

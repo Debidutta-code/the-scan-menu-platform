@@ -379,23 +379,23 @@ export const ManagerAnalytics: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-4 font-sans select-none pb-12">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
 
       {/* 1. Header Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-150 pb-4 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs shrink-0">
         <div>
-          <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-900 leading-none">
-            Business Analytics & Insights
-          </h3>
-          <p className="text-xs text-slate-500 mt-1">
+          <h1 className="font-display text-lg sm:text-xl font-bold text-slate-900 leading-tight">
+            Business Analytics &amp; Insights
+          </h1>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
             Summarize sales volume, menu preferences, table turnovers, and service metrics.
           </p>
         </div>
 
         {/* Date Filters Row */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* Selection pills */}
-          <div className="flex border border-slate-200 rounded-xl bg-white p-1 shadow-sm shrink-0">
+          <div className="flex border border-slate-200 rounded-xl bg-slate-100 p-0.5 shadow-2xs shrink-0">
             {([
               { key: 'today', label: 'Today' },
               { key: '7d', label: '7 Days' },
@@ -405,8 +405,8 @@ export const ManagerAnalytics: React.FC = () => {
               <button
                 key={r.key}
                 onClick={() => setDateRange(r.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  dateRange === r.key ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  dateRange === r.key ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 {r.label}
@@ -418,9 +418,9 @@ export const ManagerAnalytics: React.FC = () => {
           <button
             onClick={handleExportCsv}
             disabled={isLoading || isError}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm border border-slate-900 disabled:bg-slate-300"
+            className="h-8.5 flex items-center justify-center gap-1.5 px-3 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs border border-slate-900 disabled:bg-slate-300 cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" strokeWidth={2} />
+            <Download className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
             <span>Export CSV</span>
           </button>
         </div>
@@ -428,28 +428,28 @@ export const ManagerAnalytics: React.FC = () => {
 
       {/* 2. Custom Date Range Pickers (Rendered if 'custom' is active) */}
       {dateRange === 'custom' && (
-        <div className="bg-white border border-slate-150 p-4 rounded-2xl flex flex-wrap gap-4 items-center shadow-sm max-w-xl">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 uppercase font-mono">From</span>
+        <div className="bg-white border border-slate-200/80 p-2.5 sm:p-3 rounded-2xl flex flex-wrap gap-2.5 items-center shadow-xs max-w-xl">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">From</span>
             <input
               type="date"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
-              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-amber-500"
+              className="border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-none focus:border-amber-400 font-mono"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 uppercase font-mono">To</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">To</span>
             <input
               type="date"
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
-              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-amber-500"
+              className="border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-none focus:border-amber-400 font-mono"
             />
           </div>
           <button
             onClick={() => refetch()}
-            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shrink-0"
+            className="h-7.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shrink-0 cursor-pointer"
           >
             Apply Range
           </button>
@@ -460,84 +460,93 @@ export const ManagerAnalytics: React.FC = () => {
         <div className="min-h-[40vh] flex items-center justify-center">
           <Loader className="w-8 h-8 animate-spin text-amber-500" strokeWidth={1.75} />
         </div>
-      ) : isError ? (
-        <div className="p-6 text-center bg-red-50 border border-red-100 rounded-2xl max-w-lg mx-auto text-red-600 text-xs font-semibold flex items-center gap-2 justify-center">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-          <span>Error loading aggregated analytics. Please review database connection and try again.</span>
+      ) : isError || !analytics ? (
+        <div className="min-h-[40vh] flex flex-col items-center justify-center text-center p-8 bg-white border border-dashed border-slate-200 rounded-3xl">
+          <AlertCircle className="w-12 h-12 text-rose-500 mb-3" strokeWidth={1.5} />
+          <h3 className="font-display text-lg font-bold text-slate-800">Failed to load analytics metrics</h3>
+          <p className="text-xs text-slate-400 max-w-xs mt-1">
+            There was a problem syncing your restaurant analytics. Please check your connectivity and try again.
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition"
+          >
+            Retry Sync
+          </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
 
           {/* ==================== 3. SUMMARY METRICS ROW ==================== */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
 
             {/* Revenue card */}
-            <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-2 flex flex-col justify-between">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-1 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Revenue</span>
-                <div className="h-8 w-8 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
-                  <DollarSign className="w-4 h-4" strokeWidth={1.75} />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Revenue</span>
+                <div className="h-7 w-7 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500">
+                  <DollarSign className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl md:text-2xl font-black font-mono tracking-tight text-slate-900">
+                <h3 className="text-lg sm:text-xl font-black font-mono tracking-tight text-slate-900">
                   {formatCurrency(analytics.summary.current.revenue)}
                 </h3>
-                <div className="mt-1">
+                <div className="mt-0.5">
                   {renderTrend(analytics.summary.current.revenue, analytics.summary.prior.revenue)}
                 </div>
               </div>
             </div>
 
             {/* Order counts */}
-            <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-2 flex flex-col justify-between">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-1 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Orders</span>
-                <div className="h-8 w-8 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600">
-                  <ShoppingBag className="w-4 h-4" strokeWidth={1.75} />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Orders</span>
+                <div className="h-7 w-7 bg-slate-50 rounded-lg flex items-center justify-center text-slate-600">
+                  <ShoppingBag className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl md:text-2xl font-black font-mono tracking-tight text-slate-900">
+                <h3 className="text-lg sm:text-xl font-black font-mono tracking-tight text-slate-900">
                   {analytics.summary.current.orderCount}
                 </h3>
-                <div className="mt-1">
+                <div className="mt-0.5">
                   {renderTrend(analytics.summary.current.orderCount, analytics.summary.prior.orderCount)}
                 </div>
               </div>
             </div>
 
             {/* AOV */}
-            <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-2 flex flex-col justify-between">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-1 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Average Bill</span>
-                <div className="h-8 w-8 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600">
-                  <Calendar className="w-4 h-4" strokeWidth={1.75} />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Average Bill</span>
+                <div className="h-7 w-7 bg-slate-50 rounded-lg flex items-center justify-center text-slate-600">
+                  <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl md:text-2xl font-black font-mono tracking-tight text-slate-900">
+                <h3 className="text-lg sm:text-xl font-black font-mono tracking-tight text-slate-900">
                   {formatCurrency(analytics.summary.current.averageOrderValue)}
                 </h3>
-                <div className="mt-1">
+                <div className="mt-0.5">
                   {renderTrend(analytics.summary.current.averageOrderValue, analytics.summary.prior.averageOrderValue)}
                 </div>
               </div>
             </div>
 
             {/* Avg Fulfillment */}
-            <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm space-y-2 flex flex-col justify-between">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-1 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Avg Prep Time</span>
-                <div className="h-8 w-8 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600">
-                  <Clock className="w-4 h-4" strokeWidth={1.75} />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Avg Prep Time</span>
+                <div className="h-7 w-7 bg-slate-50 rounded-lg flex items-center justify-center text-slate-600">
+                  <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
               </div>
               <div>
-                <h3 className="text-xl md:text-2xl font-black font-mono tracking-tight text-slate-900">
+                <h3 className="text-lg sm:text-xl font-black font-mono tracking-tight text-slate-900">
                   {formatMinutes(analytics.summary.current.avgFulfillmentTimeMinutes)}
                 </h3>
-                <div className="mt-1">
+                <div className="mt-0.5">
                   {renderTrend(analytics.summary.current.avgFulfillmentTimeMinutes, analytics.summary.prior.avgFulfillmentTimeMinutes, true)}
                 </div>
               </div>

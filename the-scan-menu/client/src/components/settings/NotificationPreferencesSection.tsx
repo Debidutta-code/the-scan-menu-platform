@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export interface NotificationPreferencesSectionProps {
   restaurantId?: string;
@@ -171,173 +172,163 @@ export const NotificationPreferencesSection: React.FC<NotificationPreferencesSec
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 font-sans select-none">
       {/* ── 1. Live Browser Audio Chimes ── */}
-      <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-5">
-        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+        <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
           <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Volume2 className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+              <Volume2 className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
               <span>Live Order Audio Chimes</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               Play sound chimes on incoming orders, status updates, and waiter calls.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50/70 border border-slate-200 rounded-2xl">
-          <div className="flex items-center gap-3.5">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${soundEnabled ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
-              {soundEnabled ? <Volume2 className="w-5 h-5" strokeWidth={2} /> : <VolumeX className="w-5 h-5" strokeWidth={2} />}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${soundEnabled ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
+              {soundEnabled ? <Volume2 className="w-4 h-4" strokeWidth={2} /> : <VolumeX className="w-4 h-4" strokeWidth={2} />}
             </div>
             <div>
               <p className="text-xs font-bold text-slate-900">Audio Chimes on Live Events</p>
-              <p className="text-[11px] text-slate-500">Alerts kitchen and floor staff immediately when orders arrive</p>
+              <p className="text-[10px] text-slate-500">Alerts kitchen and floor staff immediately when orders arrive</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
+          <div className="flex items-center gap-1.5">
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={playTestChime}
-              className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition flex items-center gap-1.5 active:scale-95"
+              leftIcon={<Play className="w-3 h-3 text-amber-500 fill-amber-500" />}
             >
-              <Play className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <span>Test Chime</span>
-            </button>
+              Test Chime
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant={soundEnabled ? 'amber' : 'secondary'}
+              size="sm"
               onClick={() => handleToggleSound(!soundEnabled)}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition shadow-xs active:scale-95 ${
-                soundEnabled
-                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black'
-                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
-              }`}
             >
               {soundEnabled ? 'Enabled' : 'Muted'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* ── 2. Browser Desktop Push Notifications ── */}
-      <div className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-5">
-        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+        <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
           <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <BellRing className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+              <BellRing className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
               <span>Desktop Browser Push Notifications</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               Receive native OS desktop popup alerts even when the browser tab is in the background.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50/70 border border-slate-200 rounded-2xl">
-          <div className="flex items-center gap-3.5">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${pushPermission === 'granted' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
-              <Bell className="w-5 h-5" strokeWidth={2} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${pushPermission === 'granted' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+              <Bell className="w-4 h-4" strokeWidth={2} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <p className="text-xs font-bold text-slate-900">Desktop Push Notifications</p>
                 {pushPermission === 'granted' ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.2 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-full">
                     <CheckCircle2 className="w-2.5 h-2.5" />
                     Active
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-200 px-2 py-0.2 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold text-slate-600 bg-slate-200 px-1.5 py-0.2 rounded-full">
                     <XCircle className="w-2.5 h-2.5" />
-                    {pushPermission === 'denied' ? 'Blocked in Browser' : 'Not Enabled'}
+                    {pushPermission === 'denied' ? 'Blocked' : 'Not Enabled'}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500">Instant desktop popups for order tickets and waiter call alerts</p>
+              <p className="text-[10px] text-slate-500">Instant desktop popups for order tickets and waiter call alerts</p>
             </div>
           </div>
 
-          <button
+          <Button
             type="button"
+            variant={pushPermission === 'granted' ? 'secondary' : 'primary'}
+            size="sm"
             onClick={handleRequestPushPermission}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition shadow-xs active:scale-95 ${
-              pushPermission === 'granted'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-slate-950 hover:bg-slate-800 text-white'
-            }`}
           >
             {pushPermission === 'granted' ? 'Active' : 'Enable Desktop Alerts'}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* ── 3. Customer & Manager Dispatch Channels ── */}
-      <form onSubmit={handleSaveNotifications} className="bg-white rounded-3xl border border-slate-150 p-6 md:p-8 shadow-sm space-y-6">
-        <div className="border-b border-slate-100 pb-3">
-          <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-amber-500" strokeWidth={1.75} />
+      <form onSubmit={handleSaveNotifications} className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3.5">
+        <div className="border-b border-slate-100 pb-2.5">
+          <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+            <Bell className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
             <span>Store Dispatch Notification Channels</span>
           </h4>
-          <p className="text-xs text-slate-500 mt-0.5">Toggle external alert channels for daily summaries, shifts, and receipts.</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Toggle external alert channels for daily summaries, shifts, and receipts.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <label className="flex items-center gap-2.5 p-3 border border-slate-200/80 rounded-xl cursor-pointer hover:bg-slate-50 transition shadow-2xs">
             <input
               type="checkbox"
               checked={emailNotifications}
               onChange={(e) => setEmailNotifications(e.target.checked)}
-              className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500"
+              className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400 accent-amber-500"
             />
             <div>
               <p className="text-xs font-bold text-slate-900">Email Alerts</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Order summaries & daily shift reports</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Order summaries &amp; daily shifts</p>
             </div>
           </label>
 
-          <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition">
+          <label className="flex items-center gap-2.5 p-3 border border-slate-200/80 rounded-xl cursor-pointer hover:bg-slate-50 transition shadow-2xs">
             <input
               type="checkbox"
               checked={smsNotifications}
               onChange={(e) => setSmsNotifications(e.target.checked)}
-              className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500"
+              className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400 accent-amber-500"
             />
             <div>
               <p className="text-xs font-bold text-slate-900">SMS Alerts</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Instant SMS dispatch notifications</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Instant SMS notifications</p>
             </div>
           </label>
 
-          <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition">
+          <label className="flex items-center gap-2.5 p-3 border border-slate-200/80 rounded-xl cursor-pointer hover:bg-slate-50 transition shadow-2xs">
             <input
               type="checkbox"
               checked={whatsappNotifications}
               onChange={(e) => setWhatsappNotifications(e.target.checked)}
-              className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500"
+              className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400 accent-amber-500"
             />
             <div>
               <p className="text-xs font-bold text-slate-900">WhatsApp Alerts</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Real-time WhatsApp customer alerts</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Real-time WhatsApp alerts</p>
             </div>
           </label>
         </div>
 
         <div className="pt-2 flex justify-end">
-          <button
+          <Button
             type="submit"
-            disabled={updateMutation.isPending}
-            className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition flex items-center gap-2 shadow-md disabled:bg-slate-400 cursor-pointer"
+            isLoading={updateMutation.isPending}
+            leftIcon={<Save className="w-3.5 h-3.5" />}
           >
-            {updateMutation.isPending ? (
-              <Loader className="w-4 h-4 animate-spin" strokeWidth={1.75} />
-            ) : (
-              <Save className="w-4 h-4" strokeWidth={1.75} />
-            )}
-            <span>Save Channel Settings</span>
-          </button>
+            Save Channel Settings
+          </Button>
         </div>
       </form>
     </div>

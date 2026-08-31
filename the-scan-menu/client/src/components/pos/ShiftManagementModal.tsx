@@ -12,6 +12,7 @@ import {
   Loader,
   Plus,
 } from 'lucide-react';
+import { Button } from '../ui/Button';
 import apiClient from '../../lib/api';
 import { useToast } from '../../hooks/useToast';
 import { printShiftReport, formatINR } from '../../utils/printShiftReport';
@@ -155,62 +156,62 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
   const discrepancy = countedCash ? countedNum - expectedInDrawer : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs select-none font-sans">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold shadow-2xs ${
               currentShift ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
             }`}>
-              <Banknote className="w-6 h-6" strokeWidth={1.75} />
+              <Banknote className="w-4 h-4" strokeWidth={1.75} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
                 {currentShift ? `Shift #${currentShift.shiftNumber}` : 'Cash Drawer / Shift'}
               </h3>
-              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <span className={`w-2 h-2 rounded-full ${currentShift ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+              <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5 font-mono">
+                <span className={`w-1.5 h-1.5 rounded-full ${currentShift ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                 {currentShift ? `Active since ${new Date(currentShift.openedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : 'No active shift open'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-3">
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400 text-xs">
-              <Loader className="w-6 h-6 animate-spin text-amber-500" />
-              Loading shift status…
+            <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+              <Loader className="w-5 h-5 animate-spin text-amber-500" />
+              <span>Loading shift status…</span>
             </div>
           ) : !currentShift ? (
             /* NO ACTIVE SHIFT: OPEN SHIFT VIEW */
-            <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                <span>
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-800 text-xs flex items-start gap-2 shadow-2xs">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                <span className="text-[11px] leading-relaxed">
                   The cash drawer is currently closed. Opening a shift tracks initial cash float, sales tenders, and cash expenses for the day.
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Opening Cash Float (₹)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs font-mono">₹</span>
                   <input
                     type="number"
                     min="0"
@@ -218,13 +219,13 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                     value={openingFloat}
                     onChange={(e) => setOpeningFloat(e.target.value)}
                     placeholder="1000"
-                    className="w-full pl-8 pr-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="w-full pl-7 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold font-mono text-slate-900 focus:outline-none focus:border-amber-400 shadow-2xs"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Opening Note (Optional)
                 </label>
                 <input
@@ -232,41 +233,42 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                   placeholder="e.g. Morning Shift Cashier Float"
                   value={openNotes}
                   onChange={(e) => setOpenNotes(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-amber-400 shadow-2xs"
                 />
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="emerald"
+                fullWidth
                 onClick={() => openShiftMutation.mutate()}
-                disabled={openShiftMutation.isPending}
-                className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition cursor-pointer"
+                isLoading={openShiftMutation.isPending}
+                leftIcon={<Unlock className="w-3.5 h-3.5" />}
               >
-                {openShiftMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
-                Start Shift & Open Drawer
-              </button>
+                Start Shift &amp; Open Drawer
+              </Button>
             </div>
           ) : view === 'DASHBOARD' ? (
             /* VIEW 1: ACTIVE SHIFT DASHBOARD */
-            <div className="space-y-5">
+            <div className="space-y-3">
               {/* Primary Drawer Cash Metric */}
-              <div className="p-5 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Live Cash In Drawer</span>
-                <div className="text-3xl font-black mt-1 font-display tracking-tight text-emerald-400">
+              <div className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xs">
+                <span className="text-[10px] font-bold text-slate-300 uppercase font-mono tracking-wider">Live Cash In Drawer</span>
+                <div className="text-2xl sm:text-3xl font-black mt-0.5 font-mono tracking-tight text-emerald-400">
                   {formatINR(currentShift.expectedCashInDrawer)}
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-700/60 text-xs">
+                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-700/60 text-xs">
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Opening Float</span>
-                    <span className="font-bold">{formatINR(currentShift.openingFloat)}</span>
+                    <span className="text-slate-400 block text-[9px] font-mono">Opening Float</span>
+                    <span className="font-bold font-mono text-xs">{formatINR(currentShift.openingFloat)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px]">(+) Cash Sales</span>
-                    <span className="font-bold text-emerald-400">+{formatINR(currentShift.cashSales)}</span>
+                    <span className="text-slate-400 block text-[9px] font-mono">(+) Cash Sales</span>
+                    <span className="font-bold font-mono text-xs text-emerald-400">+{formatINR(currentShift.cashSales)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Net Petty Move</span>
-                    <span className="font-bold text-amber-400">
+                    <span className="text-slate-400 block text-[9px] font-mono">Net Petty Move</span>
+                    <span className="font-bold font-mono text-xs text-amber-400">
                       {currentShift.cashIn - currentShift.cashOut >= 0 ? '+' : ''}
                       {formatINR(currentShift.cashIn - currentShift.cashOut)}
                     </span>
@@ -275,64 +277,64 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
               </div>
 
               {/* Tender Breakdown */}
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="p-3 bg-slate-50 border border-slate-150 rounded-2xl text-center">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Cash</span>
-                  <div className="font-bold text-slate-900 text-sm mt-0.5">{formatINR(currentShift.cashSales)}</div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-center shadow-2xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Cash</span>
+                  <div className="font-bold font-mono text-slate-900 text-xs mt-0.5">{formatINR(currentShift.cashSales)}</div>
                 </div>
-                <div className="p-3 bg-slate-50 border border-slate-150 rounded-2xl text-center">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Card</span>
-                  <div className="font-bold text-slate-900 text-sm mt-0.5">{formatINR(currentShift.cardSales)}</div>
+                <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-center shadow-2xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Card</span>
+                  <div className="font-bold font-mono text-slate-900 text-xs mt-0.5">{formatINR(currentShift.cardSales)}</div>
                 </div>
-                <div className="p-3 bg-slate-50 border border-slate-150 rounded-2xl text-center">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">UPI / QR</span>
-                  <div className="font-bold text-slate-900 text-sm mt-0.5">{formatINR(currentShift.upiSales)}</div>
+                <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-center shadow-2xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">UPI / QR</span>
+                  <div className="font-bold font-mono text-slate-900 text-xs mt-0.5">{formatINR(currentShift.upiSales)}</div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setView('PETTY_CASH')}
-                  className="w-full py-3 px-4 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs border border-amber-200/80 flex items-center justify-between transition cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Plus className="w-4 h-4" /> Add / Drop Petty Cash
-                  </span>
-                  <span className="text-[11px] text-amber-600 font-normal">Petty Expenses, Float Top-up</span>
-                </button>
+              <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="amber"
+                    onClick={() => setView('PETTY_CASH')}
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  >
+                    Petty Cash Entry
+                  </Button>
 
-                <button
-                  type="button"
-                  onClick={handlePrintXReport}
-                  className="w-full py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs border border-slate-200 flex items-center justify-between transition cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Printer className="w-4 h-4" /> Print X-Report
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-normal">Mid-shift audit receipt</span>
-                </button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handlePrintXReport}
+                    leftIcon={<Printer className="w-3.5 h-3.5 text-slate-600" />}
+                  >
+                    Print X-Report
+                  </Button>
+                </div>
 
-                <button
+                <Button
                   type="button"
+                  variant="danger"
+                  fullWidth
                   onClick={() => setView('CLOSE_SHIFT')}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 transition cursor-pointer"
+                  leftIcon={<Lock className="w-3.5 h-3.5" />}
                 >
-                  <Lock className="w-4 h-4" /> End Shift & Reconcile Day (Z-Report)
-                </button>
+                  End Shift &amp; Close Drawer (Z-Report)
+                </Button>
               </div>
             </div>
           ) : view === 'PETTY_CASH' ? (
             /* VIEW 2: PETTY CASH FORM */
-            <div className="space-y-4">
-              <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+            <div className="space-y-3">
+              <div className="flex gap-1.5 p-0.5 bg-slate-100 rounded-xl border border-slate-200/80">
                 <button
                   type="button"
                   onClick={() => setPettyType('CASH_OUT')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     pettyType === 'CASH_OUT'
-                      ? 'bg-rose-600 text-white shadow-xs'
+                      ? 'bg-rose-600 text-white shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -341,9 +343,9 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPettyType('CASH_IN')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                     pettyType === 'CASH_IN'
-                      ? 'bg-emerald-600 text-white shadow-xs'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -352,7 +354,7 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Amount (₹)
                 </label>
                 <input
@@ -361,23 +363,22 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                   step="10"
                   value={pettyAmount}
                   onChange={(e) => setPettyAmount(e.target.value)}
-                  placeholder="e.g. 250"
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  placeholder="250"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold font-mono text-slate-900 focus:outline-none focus:border-amber-400 shadow-2xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Category
                 </label>
                 <select
                   value={pettyCategory}
                   onChange={(e) => setPettyCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-amber-400 bg-white shadow-2xs"
                 >
-                  <option value="SUPPLIES">Emergency Supplies / Groceries</option>
-                  <option value="VENDOR_PAYOUT">Vendor / Delivery Payout</option>
-                  <option value="REFUND">Customer Cash Refund</option>
+                  <option value="GROCERY_DAIRY">Grocery / Dairy / Urgent Supplies</option>
+                  <option value="MAINTENANCE">Repairs &amp; Maintenance</option>
                   <option value="STAFF_ADVANCE">Staff Meal / Advance</option>
                   <option value="FLOAT_TOPUP">Float Top-Up</option>
                   <option value="OTHER">Other Expense</option>
@@ -385,7 +386,7 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Reason / Description
                 </label>
                 <input
@@ -393,41 +394,44 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                   value={pettyReason}
                   onChange={(e) => setPettyReason(e.target.value)}
                   placeholder="e.g. Purchased 2 packets of milk from local dairy"
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-amber-400 shadow-2xs"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
+              <div className="flex gap-2 pt-1">
+                <Button
                   type="button"
+                  variant="outline"
+                  fullWidth
                   onClick={() => setView('DASHBOARD')}
-                  className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50"
                 >
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="amber"
+                  fullWidth
                   onClick={() => pettyCashMutation.mutate()}
-                  disabled={!pettyAmount || !pettyReason || pettyCashMutation.isPending}
-                  className="flex-1 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                  disabled={!pettyAmount || !pettyReason}
+                  isLoading={pettyCashMutation.isPending}
+                  leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
                 >
-                  {pettyCashMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                   Save Movement
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
             /* VIEW 3: CLOSE SHIFT & RECONCILE */
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-150 text-xs space-y-2">
-                <div className="flex justify-between text-slate-600">
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1 shadow-2xs">
+                <div className="flex justify-between text-slate-600 font-mono">
                   <span>Expected Cash In Drawer:</span>
                   <span className="font-bold text-slate-900">{formatINR(currentShift.expectedCashInDrawer)}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Physical Cash Counted (₹)
                 </label>
                 <input
@@ -437,29 +441,29 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                   value={countedCash}
                   onChange={(e) => setCountedCash(e.target.value)}
                   placeholder="Enter total counted notes & coins"
-                  className="w-full px-3.5 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold font-mono text-slate-900 focus:outline-none focus:border-amber-400 shadow-2xs"
                 />
               </div>
 
               {countedCash && (
-                <div className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between ${
+                <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between font-mono shadow-2xs ${
                   discrepancy === 0
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                     : discrepancy > 0
                     ? 'bg-blue-50 border-blue-200 text-blue-800'
                     : 'bg-rose-50 border-rose-200 text-rose-800'
                 }`}>
-                  <span className="font-semibold">
+                  <span className="font-bold text-[11px]">
                     {discrepancy === 0 ? 'Exact Match (No Discrepancy)' : discrepancy > 0 ? 'Over Cash (Excess)' : 'Short Cash (Deficit)'}
                   </span>
-                  <span className="font-bold text-sm">
+                  <span className="font-black text-xs">
                     {discrepancy >= 0 ? '+' : ''}₹{discrepancy.toFixed(2)}
                   </span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1 font-mono">
                   Closing Notes (Optional)
                 </label>
                 <input
@@ -467,27 +471,30 @@ export const ShiftManagementModal: React.FC<ShiftManagementModalProps> = ({
                   value={closeNotes}
                   onChange={(e) => setCloseNotes(e.target.value)}
                   placeholder="e.g. ₹50 short due to rounding off change"
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-amber-400 shadow-2xs"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
+              <div className="flex gap-2 pt-1">
+                <Button
                   type="button"
+                  variant="outline"
+                  fullWidth
                   onClick={() => setView('DASHBOARD')}
-                  className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50"
                 >
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="danger"
+                  fullWidth
                   onClick={() => closeShiftMutation.mutate()}
-                  disabled={!countedCash || closeShiftMutation.isPending}
-                  className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                  disabled={!countedCash}
+                  isLoading={closeShiftMutation.isPending}
+                  leftIcon={<Lock className="w-3.5 h-3.5" />}
                 >
-                  {closeShiftMutation.isPending ? <Loader className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                  Close & Print Z-Report
-                </button>
+                  Close &amp; Print Z-Report
+                </Button>
               </div>
             </div>
           )}

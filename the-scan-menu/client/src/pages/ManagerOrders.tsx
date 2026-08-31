@@ -71,15 +71,15 @@ const getNextActionLabel = (currentStatus: string, workflowMode: WorkflowMode): 
   const nextStatus = getNextStatus(currentStatus, workflowMode);
   switch (nextStatus) {
     case 'ACCEPTED':
-      return { label: 'Accept Order', gradient: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500', icon: Check };
+      return { label: 'Accept Order', gradient: 'bg-emerald-600 hover:bg-emerald-700 text-white', icon: Check };
     case 'PREPARING':
-      return { label: 'Start Kitchen Prep', gradient: 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500', icon: ChefHat };
+      return { label: 'Start Kitchen Prep', gradient: 'bg-indigo-600 hover:bg-indigo-700 text-white', icon: ChefHat };
     case 'READY':
-      return { label: 'Mark Ready for Pickup', gradient: 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500', icon: Sparkles };
+      return { label: 'Mark Ready for Pickup', gradient: 'bg-amber-600 hover:bg-amber-700 text-white', icon: Sparkles };
     case 'SERVED':
-      return { label: 'Mark as Served', gradient: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500', icon: Utensils };
+      return { label: 'Mark as Served', gradient: 'bg-blue-600 hover:bg-blue-700 text-white', icon: Utensils };
     default:
-      return { label: 'Advance Order', gradient: 'bg-slate-900 hover:bg-slate-800', icon: ArrowRight };
+      return { label: 'Advance Order', gradient: 'bg-slate-900 hover:bg-slate-800 text-white', icon: ArrowRight };
   }
 };
 
@@ -105,7 +105,26 @@ const getPreviousActionLabel = (previousStatus: string): { label: string; icon: 
   }
 };
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'PENDING':
+      return { label: 'New Order', bg: 'bg-amber-50 text-amber-800 border-amber-200/80', dot: 'bg-amber-500' };
+    case 'ACCEPTED':
+      return { label: 'Accepted', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200/80', dot: 'bg-emerald-500' };
+    case 'PREPARING':
+      return { label: 'Kitchen Prep', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200/80', dot: 'bg-indigo-500' };
+    case 'READY':
+      return { label: 'Ready for Pickup', bg: 'bg-purple-50 text-purple-800 border-purple-200/80', dot: 'bg-purple-500' };
+    case 'SERVED':
+      return { label: 'Served', bg: 'bg-blue-50 text-blue-800 border-blue-200/80', dot: 'bg-blue-500' };
+    case 'CANCELLED':
+      return { label: 'Cancelled', bg: 'bg-rose-50 text-rose-800 border-rose-200/80', dot: 'bg-rose-500' };
+    default:
+      return { label: status, bg: 'bg-slate-100 text-slate-800 border-slate-200', dot: 'bg-slate-500' };
+  }
+};
 
 const getElapsedTimeLabel = (createdAt: string, now: Date) => {
   const diffMs = now.getTime() - new Date(createdAt).getTime();
@@ -134,7 +153,7 @@ const getOrderModeInfo = (mode?: string) => {
   }
 };
 
-// â”€â”€â”€ Premium Order Stepper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Minimal Segmented Order Stepper ──────────────────────────────────────────
 
 const ModernOrderStepper: React.FC<{ currentStatus: string; workflowMode: WorkflowMode }> = ({
   currentStatus,
@@ -142,9 +161,9 @@ const ModernOrderStepper: React.FC<{ currentStatus: string; workflowMode: Workfl
 }) => {
   if (currentStatus === 'CANCELLED') {
     return (
-      <div className="flex items-center gap-2.5 py-2.5 px-4 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
-        <XCircle className="w-4 h-4 text-rose-500" strokeWidth={2} />
-        Order was cancelled
+      <div className="flex items-center gap-2 py-2 px-3 bg-rose-50 border border-rose-200/80 rounded-xl text-xs font-semibold text-rose-700">
+        <XCircle className="w-4 h-4 text-rose-500 shrink-0" strokeWidth={2} />
+        <span>Order was cancelled</span>
       </div>
     );
   }
@@ -154,34 +173,39 @@ const ModernOrderStepper: React.FC<{ currentStatus: string; workflowMode: Workfl
   const currentStep = currentIdx !== -1 ? currentIdx + 1 : 1;
 
   return (
-    <div className="relative flex items-start justify-between gap-0">
-      {/* Background connector line */}
-      <div className="absolute top-4 left-4 right-4 h-px bg-slate-200 z-0" />
-      {/* Filled connector */}
-      <div
-        className="absolute top-4 left-4 h-px bg-amber-500 z-0 transition-all duration-500"
-        style={{ width: `${Math.max(0, ((currentStep - 1) / Math.max(1, steps.length - 1)) * (100 - (8 / steps.length * 100 / 100)))}%` }}
-      />
-      {steps.map((step, idx) => {
-        const stepNum = idx + 1;
-        const isPassed = stepNum < currentStep;
-        const isCurrent = stepNum === currentStep;
-        const StepIcon = step.icon;
-        return (
-          <div key={step.status} className="relative z-10 flex flex-col items-center gap-1.5 flex-1">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm ${
-              isCurrent ? 'bg-amber-500 text-white ring-2 ring-amber-200 scale-110' :
-              isPassed ? 'bg-slate-900 text-white' :
-              'bg-white border-2 border-slate-200 text-slate-400'
-            }`}>
-              {isPassed ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <StepIcon className="w-3.5 h-3.5" strokeWidth={2} />}
+    <div className="w-full space-y-1.5">
+      <div className="flex items-center gap-1.5 w-full">
+        {steps.map((step, idx) => {
+          const stepNum = idx + 1;
+          const isPassed = stepNum < currentStep;
+          const isCurrent = stepNum === currentStep;
+
+          return (
+            <div key={step.status} className="flex-1 flex flex-col gap-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  isCurrent
+                    ? 'bg-amber-500 shadow-xs'
+                    : isPassed
+                    ? 'bg-slate-900'
+                    : 'bg-slate-200'
+                }`}
+              />
+              <span
+                className={`text-[10px] text-center tracking-tight truncate leading-none ${
+                  isCurrent
+                    ? 'text-amber-800 font-bold'
+                    : isPassed
+                    ? 'text-slate-700 font-medium'
+                    : 'text-slate-400'
+                }`}
+              >
+                {step.shortLabel}
+              </span>
             </div>
-            <span className={`text-[10px] font-bold text-center leading-tight whitespace-nowrap ${
-              isCurrent ? 'text-amber-700' : isPassed ? 'text-slate-600' : 'text-slate-400'
-            }`}>{step.shortLabel}</span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -1346,14 +1370,14 @@ export const ManagerOrders: React.FC = () => {
           document.body
         )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          ORDER DETAIL MODAL
-          â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* =================================================================================================
+          ORDER DETAIL MODAL (Minimalist & High-Clarity)
+          ================================================================================================= */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>
             {liveDetailOrder && (
-              <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto select-none">
+              <div className="fixed inset-0 z-[9999] bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto select-none">
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -1362,215 +1386,239 @@ export const ManagerOrders: React.FC = () => {
                   className="fixed inset-0 cursor-pointer"
                 />
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.96, y: 20 }}
+                  initial={{ opacity: 0, scale: 0.97, y: 12 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96, y: 20 }}
-                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  className="relative bg-white rounded-3xl w-full max-w-lg max-h-[88vh] shadow-[0_32px_64px_rgba(0,0,0,0.28)] flex flex-col overflow-hidden z-10 my-auto"
+                  exit={{ opacity: 0, scale: 0.97, y: 12 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative bg-white rounded-3xl w-full max-w-lg max-h-[90vh] shadow-[0_24px_50px_-12px_rgba(0,0,0,0.25)] border border-slate-100 flex flex-col overflow-hidden z-10 my-auto"
                 >
-                  {/* Dark status-tinted header */}
-                  <div className={`shrink-0 px-6 pt-5 pb-4 ${
-                    liveDetailOrder.status === 'CANCELLED' ? 'bg-rose-900' :
-                    liveDetailOrder.status === 'SERVED'    ? 'bg-slate-800' :
-                    liveDetailOrder.status === 'READY'     ? 'bg-purple-900' :
-                    liveDetailOrder.status === 'PREPARING' ? 'bg-indigo-900' :
-                    'bg-slate-900'
-                  }`}>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1.5">
+                  {/* Header: Clean, Crisp, Minimalist */}
+                  <div className="shrink-0 px-6 pt-5 pb-4 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className="font-mono text-lg font-black text-white">
+                          <h2 className="font-mono text-xl font-black text-slate-900 tracking-tight">
                             Order #{liveDetailOrder.orderNumber}
-                          </span>
+                          </h2>
                           {pendingOrderIds.has(liveDetailOrder._id) ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 animate-pulse">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
                               <Loader className="w-3 h-3 animate-spin" strokeWidth={2} />
                               Updating…
                             </span>
-                          ) : (
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                              liveDetailOrder.status === 'CANCELLED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
-                              liveDetailOrder.status === 'SERVED'    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-                              'bg-amber-400/20 text-amber-300 border-amber-400/30'
-                            }`}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                              {liveDetailOrder.status}
-                            </span>
-                          )}
+                          ) : (() => {
+                            const badgeInfo = getStatusBadge(liveDetailOrder.status);
+                            return (
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badgeInfo.bg}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${badgeInfo.dot} animate-pulse`} />
+                                {badgeInfo.label}
+                              </span>
+                            );
+                          })()}
                         </div>
-                        {/* Table / context meta */}
+
+                        {/* Context Metadata */}
                         {(() => {
                           const ctx = getOrderContextDetails(liveDetailOrder);
                           const CtxIcon = ctx.icon;
                           return (
-                            <div className="flex items-center gap-1.5 text-white/55 text-xs font-medium flex-wrap">
-                              <CtxIcon className="w-3.5 h-3.5" strokeWidth={2} />
-                              <span>{ctx.title}</span>
-                              <span className="opacity-50">·</span>
+                            <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium flex-wrap mt-1.5">
+                              <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                                <CtxIcon className={`w-3.5 h-3.5 ${ctx.iconColor}`} strokeWidth={2} />
+                                {ctx.title}
+                              </span>
+                              <span className="text-slate-300">•</span>
                               <span>{ctx.badge}</span>
                               {liveDetailOrder.roundNumber && (
-                                <><span className="opacity-50">·</span><span>Round {liveDetailOrder.roundNumber}</span></>
+                                <>
+                                  <span className="text-slate-300">•</span>
+                                  <span>Round {liveDetailOrder.roundNumber}</span>
+                                </>
                               )}
-                              <span className="opacity-50">·</span>
+                              <span className="text-slate-300">•</span>
                               <span className="font-mono">
                                 {new Date(liveDetailOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
+                              {liveDetailOrder.customerName && (
+                                <>
+                                  <span className="text-slate-300">•</span>
+                                  <span className="text-slate-700 font-medium">Guest: {liveDetailOrder.customerName}</span>
+                                </>
+                              )}
                             </div>
                           );
                         })()}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setPrintModalOrder(liveDetailOrder)}
-                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center gap-1.5 border border-white/10 active:scale-95"
-                          title="Print Kitchen Ticket or Counter Bill"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-amber-400" strokeWidth={2} />
-                          <span>Print</span>
-                        </button>
-                        <button
-                          onClick={() => setDetailModalOrder(null)}
-                          className="p-1.5 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition -mt-0.5 -mr-1"
-                        >
-                          <X className="w-5 h-5" strokeWidth={2} />
-                        </button>
-                      </div>
+
+                      {/* Close Button */}
+                      <button
+                        type="button"
+                        onClick={() => setDetailModalOrder(null)}
+                        className="p-1.5 -mr-1 -mt-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                        title="Close modal"
+                      >
+                        <X className="w-5 h-5" strokeWidth={2} />
+                      </button>
                     </div>
 
-                    {/* Stepper embedded in header */}
-                    <div className="mt-4 bg-white/[0.08] rounded-2xl px-4 py-3">
+                    {/* Minimalist Stepper */}
+                    <div className="mt-4 pt-3.5 border-t border-slate-200/60">
                       <ModernOrderStepper currentStatus={liveDetailOrder.status} workflowMode={workflowMode} />
                     </div>
                   </div>
 
-                  {/* Scrollable body */}
+                  {/* Scrollable Body */}
                   <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-
-                    {/* Items */}
-                    <div className="px-5 py-4">
+                    {/* Order Items */}
+                    <div className="px-6 py-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
-                          Items · {liveDetailOrder.items.length}
-                        </h3>
-                        <span className="text-[11px] text-slate-400">Prepared fresh</span>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          Ordered Items ({liveDetailOrder.items.length})
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">Freshly prepared</span>
                       </div>
-                      <div className="space-y-0.5">
+
+                      <div className="space-y-3">
                         {liveDetailOrder.items.map((item, idx) => (
-                          <div key={idx} className="py-2.5 first:pt-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3 min-w-0">
-                                <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-900 text-white font-mono font-black text-xs flex items-center justify-center mt-0.5">
-                                  {item.quantity}×
-                                </span>
-                                <div className="min-w-0">
-                                  <span className="text-sm font-bold text-slate-900 leading-snug block">{item.nameSnapshot}</span>
+                          <div key={idx} className="flex items-start justify-between gap-3 py-1">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <span className="flex-shrink-0 min-w-[26px] h-6 px-1.5 rounded-lg bg-slate-100 text-slate-800 font-mono font-bold text-xs flex items-center justify-center mt-0.5">
+                                {item.quantity}×
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                  <span className="text-sm font-semibold text-slate-900 leading-snug">
+                                    {item.nameSnapshot}
+                                  </span>
                                   {item.prepTimeMinutesSnapshot && (
-                                    <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-semibold text-slate-400 font-mono">
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 font-mono">
                                       <Clock className="w-2.5 h-2.5" strokeWidth={2} />
-                                      ~{item.prepTimeMinutesSnapshot}m prep
+                                      ~{item.prepTimeMinutesSnapshot}m
                                     </span>
                                   )}
-                                  {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1.5">
-                                      {item.selectedAddOns.map((addon, aIdx) => (
-                                        <span key={aIdx} className="text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800 px-1.5 py-0.5 rounded-md">
-                                          + {addon.name} ({formatAmount(addon.priceDelta)})
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {item.specialInstructions && (
-                                    <div className="mt-1.5 flex items-start gap-1.5 bg-amber-50 border border-amber-100 px-2.5 py-1.5 rounded-xl text-[11px] text-amber-900 italic">
-                                      <FileText className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" strokeWidth={2} />
-                                      "{item.specialInstructions}"
-                                    </div>
-                                  )}
                                 </div>
+
+                                {/* Addons */}
+                                {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {item.selectedAddOns.map((addon, aIdx) => (
+                                      <span
+                                        key={aIdx}
+                                        className="text-[11px] font-medium bg-slate-50 border border-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md"
+                                      >
+                                        + {addon.name} ({formatAmount(addon.priceDelta)})
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Cooking Instructions */}
+                                {item.specialInstructions && (
+                                  <div className="mt-1.5 flex items-start gap-1.5 bg-amber-50/70 border-l-2 border-amber-400 px-2.5 py-1 rounded-r-lg text-xs text-amber-900">
+                                    <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" strokeWidth={2} />
+                                    <span className="italic">"{item.specialInstructions}"</span>
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-mono text-sm font-black text-slate-900 shrink-0">
-                                {formatAmount(item.unitPriceSnapshot * item.quantity)}
-                              </span>
                             </div>
+
+                            {/* Item Total */}
+                            <span className="font-mono text-sm font-bold text-slate-900 shrink-0">
+                              {formatAmount(item.unitPriceSnapshot * item.quantity)}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Customer note */}
+                    {/* Customer Note */}
                     {liveDetailOrder.customerNote && (
-                      <div className="px-5 py-4">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Customer Note</p>
-                        <p className="text-xs text-slate-700 italic font-medium leading-relaxed bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                      <div className="px-6 py-3.5 bg-amber-50/40">
+                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1">
+                          Special Customer Note
+                        </p>
+                        <p className="text-xs text-amber-950 font-medium italic leading-relaxed">
                           "{liveDetailOrder.customerNote}"
                         </p>
                       </div>
                     )}
 
-                    {/* POS sync row */}
-                    <div className="px-5 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="font-semibold">POS Integration</span>
-                        <span className="text-slate-400 text-[11px]">· Petpooja Sync</span>
-                      </div>
-                      <button
-                        onClick={() => retryPosMutation.mutate(liveDetailOrder._id)}
-                        disabled={retryPosMutation.isPending}
-                        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl transition shadow-sm disabled:opacity-50"
-                      >
-                        {retryPosMutation.isPending
-                          ? <Loader className="w-3 h-3 animate-spin" strokeWidth={2} />
-                          : <RefreshCw className="w-3 h-3" strokeWidth={2} />}
-                        Sync POS
-                      </button>
-                    </div>
+                    {/* Bill & Payment Card */}
+                    <div className="px-6 py-4">
+                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2">
+                        <div className="flex justify-between text-xs text-slate-500 font-medium">
+                          <span>Subtotal</span>
+                          <span className="font-mono text-slate-700 font-semibold">{formatAmount(liveDetailOrder.subtotal)}</span>
+                        </div>
 
-                    {/* Bill breakdown */}
-                    <div className="px-5 py-4 space-y-2">
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>Subtotal</span>
-                        <span className="font-mono font-bold text-slate-700">{formatAmount(liveDetailOrder.subtotal)}</span>
-                      </div>
-                      {liveDetailOrder.taxBreakdown && liveDetailOrder.taxBreakdown.length > 0
-                        ? liveDetailOrder.taxBreakdown.map((t, i) => (
+                        {liveDetailOrder.taxBreakdown && liveDetailOrder.taxBreakdown.length > 0 ? (
+                          liveDetailOrder.taxBreakdown.map((t, i) => (
                             <div key={i} className="flex justify-between text-xs text-slate-400">
                               <span>{t.name} ({t.percentage}%)</span>
                               <span className="font-mono">{formatAmount(t.amount)}</span>
                             </div>
                           ))
-                        : (
-                            <div className="flex justify-between text-xs text-slate-400">
-                              <span>Taxes &amp; GST</span>
-                              <span className="font-mono">{formatAmount(liveDetailOrder.tax)}</span>
-                            </div>
-                          )
-                      }
-                      {Boolean(liveDetailOrder.loyaltyDiscount && liveDetailOrder.loyaltyDiscount > 0) && (
-                        <div className="flex justify-between text-xs text-emerald-700 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-200">
-                          <span className="flex items-center gap-1">
-                            <span>Loyalty Points Discount</span>
-                            <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full font-mono font-black">
-                              -{liveDetailOrder.loyaltyPointsRedeemed || 0} pts
+                        ) : (
+                          <div className="flex justify-between text-xs text-slate-400">
+                            <span>Taxes &amp; GST</span>
+                            <span className="font-mono">{formatAmount(liveDetailOrder.tax)}</span>
+                          </div>
+                        )}
+
+                        {Boolean(liveDetailOrder.loyaltyDiscount && liveDetailOrder.loyaltyDiscount > 0) && (
+                          <div className="flex justify-between text-xs text-emerald-700 font-semibold bg-emerald-50/80 px-2 py-1 rounded-lg border border-emerald-200/60">
+                            <span className="flex items-center gap-1">
+                              <span>Loyalty Discount</span>
+                              <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 rounded-full font-mono font-bold">
+                                -{liveDetailOrder.loyaltyPointsRedeemed || 0} pts
+                              </span>
                             </span>
+                            <span className="font-mono font-bold">-{formatAmount(liveDetailOrder.loyaltyDiscount || 0)}</span>
+                          </div>
+                        )}
+
+                        {/* Total line */}
+                        <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 uppercase tracking-wide block">Total</span>
+                            <span className={`inline-block text-[10px] font-bold ${
+                              liveDetailOrder.paymentStatus === 'PAID' ? 'text-emerald-700' : 'text-amber-700'
+                            }`}>
+                              {liveDetailOrder.paymentStatus === 'PAID' ? '✓ Paid' : 'Payment Pending'}
+                            </span>
+                          </div>
+                          <span className="font-mono text-xl font-black text-slate-950">
+                            {formatAmount(liveDetailOrder.total)}
                           </span>
-                          <span className="font-mono text-emerald-700 font-black">-{formatAmount(liveDetailOrder.loyaltyDiscount || 0)}</span>
                         </div>
-                      )}
-                      <div className="pt-3 border-t border-dashed border-slate-200 flex items-end justify-between">
-                        <div>
-                          <p className="text-xs font-black text-slate-900 uppercase tracking-wide">Total</p>
-                          <span className={`text-[10px] font-bold ${liveDetailOrder.paymentStatus === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                            {liveDetailOrder.paymentStatus === 'PAID' ? '✓ Paid' : 'Payment Pending'}
-                          </span>
+                      </div>
+
+                      {/* POS Sync Status (Clean subtle inline bar) */}
+                      <div className="mt-3 flex items-center justify-between text-xs text-slate-500 px-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="font-medium text-slate-600">POS Integration</span>
+                          <span className="text-slate-400 text-[11px]">· Petpooja</span>
                         </div>
-                        <span className="font-mono text-2xl font-black text-slate-950">{formatAmount(liveDetailOrder.total)}</span>
+                        <button
+                          type="button"
+                          onClick={() => retryPosMutation.mutate(liveDetailOrder._id)}
+                          disabled={retryPosMutation.isPending}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-2.5 py-1 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                        >
+                          {retryPosMutation.isPending ? (
+                            <Loader className="w-3 h-3 animate-spin text-slate-500" strokeWidth={2} />
+                          ) : (
+                            <RefreshCw className="w-3 h-3 text-slate-500" strokeWidth={2} />
+                          )}
+                          <span>Sync POS</span>
+                        </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Footer */}
-                  <div className="shrink-0 px-5 py-4 bg-white border-t border-slate-100 space-y-2.5">
-                    {/* Primary advance CTA */}
+                  {/* Footer Actions */}
+                  <div className="shrink-0 px-6 py-4 bg-white border-t border-slate-100 space-y-2.5">
+                    {/* Primary Workflow Advance CTA */}
                     {(() => {
                       const nextStatus = getNextStatus(liveDetailOrder.status, workflowMode);
                       if (nextStatus) {
@@ -1578,108 +1626,112 @@ export const ManagerOrders: React.FC = () => {
                         const ActionIcon = nextAction.icon;
                         return (
                           <button
+                            type="button"
                             onClick={() => handleAdvanceOrder(liveDetailOrder, nextStatus)}
-                            className={`w-full py-3.5 text-white text-sm font-black rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-[0.98] ${nextAction.gradient}`}
+                            className={`w-full py-3 text-white text-sm font-bold rounded-2xl transition shadow-sm hover:shadow flex items-center justify-center gap-2 active:scale-[0.99] cursor-pointer ${nextAction.gradient}`}
                           >
-                            <ActionIcon className="w-4 h-4" strokeWidth={2} />
-                            {nextAction.label}
-                            <ArrowRight className="w-4 h-4 ml-1" strokeWidth={2.5} />
+                            <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
+                            <span>{nextAction.label}</span>
+                            <ArrowRight className="w-4 h-4 ml-0.5" strokeWidth={2.5} />
                           </button>
                         );
                       }
+
+                      if (liveDetailOrder.status === 'SERVED') {
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setFreeTableOrder(liveDetailOrder)}
+                            disabled={pendingOrderIds.has(liveDetailOrder._id)}
+                            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                          >
+                            <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
+                            <span>Free Table &amp; Print Bill (Enter ↵)</span>
+                          </button>
+                        );
+                      }
+
                       return (
-                        <div className="w-full py-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-bold rounded-2xl flex items-center justify-center gap-2">
+                        <div className="w-full py-2.5 bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" strokeWidth={2} />
-                          Order Complete &amp; Served
+                          <span>Order Completed &amp; Served</span>
                         </div>
                       );
                     })()}
 
-                    {/* Print ticket action row */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase font-mono">
-                        <span>Print Receipts &amp; Tickets</span>
-                        <button
-                          type="button"
-                          onClick={() => setPrintModalOrder(liveDetailOrder)}
-                          className="text-amber-600 hover:text-amber-700 font-bold lowercase flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>options &amp; preview →</span>
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
+                    {/* Secondary Actions: Quick Print Row + Revert/Cancel */}
+                    <div className="flex items-center gap-2">
+                      {/* Print Segmented Group */}
+                      <div className="flex-1 flex items-center gap-1.5 p-1 bg-slate-50 border border-slate-200/70 rounded-xl">
                         <button
                           type="button"
                           onClick={() => printOrderTicket(liveDetailOrder, restaurantInfo, 'CUSTOMER')}
-                          className="py-2.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
-                          title="Print Customer Tax Invoice / Proforma Bill with UPI QR"
+                          className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5 shadow-2xs border border-slate-200/50 cursor-pointer"
+                          title="Print Customer Bill"
                         >
                           <Receipt className="w-3.5 h-3.5 text-blue-600" strokeWidth={2} />
-                          <span>Customer Bill</span>
+                          <span>Bill</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => printOrderTicket(liveDetailOrder, restaurantInfo, 'KITCHEN')}
-                          className="py-2.5 px-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
-                          title="Print Kitchen Order Ticket"
+                          className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5 shadow-2xs border border-slate-200/50 cursor-pointer"
+                          title="Print Kitchen KOT Ticket"
                         >
                           <ChefHat className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-                          <span>Kitchen KOT</span>
+                          <span>KOT</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => printOrderTicket(liveDetailOrder, restaurantInfo, 'COUNTER')}
-                          className="py-2.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
-                          title="Print Counter / Cashier Audit Copy"
+                          className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5 shadow-2xs border border-slate-200/50 cursor-pointer"
+                          title="Print Counter / Cashier Copy"
                         >
                           <FileText className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
-                          <span>Counter Copy</span>
+                          <span>Counter</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrintModalOrder(liveDetailOrder)}
+                          className="p-1.5 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition shadow-2xs border border-slate-200/50 cursor-pointer"
+                          title="More print options & preview"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-slate-600" strokeWidth={2} />
                         </button>
                       </div>
-                    </div>
 
-                    {/* Revert + Cancel row */}
-                    <div className="grid grid-cols-2 gap-2">
+                      {/* Revert Button if available */}
                       {(() => {
                         const prevStatus = getPreviousStatus(liveDetailOrder.status, workflowMode);
-                        if (!prevStatus) return <div />;
+                        if (!prevStatus) return null;
                         const prevAction = getPreviousActionLabel(prevStatus);
-                        const PrevIcon = prevAction.icon;
                         return (
                           <button
+                            type="button"
                             onClick={() => updateStatusMutation.mutate({ orderId: liveDetailOrder._id, nextStatus: prevStatus })}
-                            className="flex items-center justify-center gap-1.5 py-3 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold rounded-2xl transition active:scale-[0.98]"
+                            className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                            title={prevAction.label}
                           >
-                            <PrevIcon className="w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
-                            {prevAction.label}
+                            <RotateCcw className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+                            <span className="hidden sm:inline">Back</span>
                           </button>
                         );
                       })()}
-                      {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(liveDetailOrder.status) ? (
+
+                      {/* Cancel Button if eligible */}
+                      {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(liveDetailOrder.status) && (
                         <button
+                          type="button"
                           onClick={() => setOrderToCancel(liveDetailOrder)}
                           disabled={pendingOrderIds.has(liveDetailOrder._id)}
-                          className="flex items-center justify-center gap-1.5 py-3 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-2xl transition active:scale-[0.98] disabled:opacity-50"
+                          className="px-3 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          title="Cancel Order Ticket"
                         >
-                          <XCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                          Cancel Ticket
+                          <XCircle className="w-3.5 h-3.5 text-rose-500" strokeWidth={2} />
+                          <span className="hidden sm:inline">Cancel</span>
                         </button>
-                      ) : <div />}
+                      )}
                     </div>
-
-                    {/* Settle served table */}
-                    {liveDetailOrder.status === 'SERVED' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setFreeTableOrder(liveDetailOrder)}
-                          disabled={pendingOrderIds.has(liveDetailOrder._id)}
-                          className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-                        >
-                          <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
-                          <span>Free Table &amp; Print Bill (Enter ↵)</span>
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </motion.div>
               </div>

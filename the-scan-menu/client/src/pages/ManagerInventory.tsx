@@ -24,6 +24,7 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 
 interface MenuItemType {
   _id: string;
@@ -482,23 +483,23 @@ export const ManagerInventory: React.FC = () => {
   }
 
   return (
-    <div className="w-full space-y-5 font-sans select-none pb-16">
+    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
       {/* ── TOP HERO CARD ── */}
-      <div className="bg-slate-950 text-white rounded-2xl p-4 md:p-5 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative overflow-hidden border border-slate-800">
+      <div className="bg-slate-950 text-white rounded-2xl p-3 md:px-5 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 relative overflow-hidden border border-slate-800">
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] font-mono uppercase font-black text-amber-400 tracking-wider bg-amber-400/10 border border-amber-400/20 px-2.5 py-0.5 rounded-full">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-mono uppercase font-black text-amber-400 tracking-wider bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
               Kitchen &amp; Floor Operations
             </span>
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Live Socket Sync
             </span>
           </div>
-          <h1 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight">
+          <h1 className="font-display text-lg sm:text-xl font-bold text-white tracking-tight leading-tight">
             Inventory &amp; Stock Hub
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5 max-w-xl leading-relaxed">
+          <p className="text-[11px] text-slate-400 mt-0.5 max-w-xl leading-relaxed">
             Real-time portion reserves, instant 1-tap 86ing, physical stocktake audits, and waste tracking synchronized across Counter POS, QR Menus, and KDS.
           </p>
         </div>
@@ -507,75 +508,80 @@ export const ManagerInventory: React.FC = () => {
         <div className="relative z-10 flex items-center gap-2 flex-wrap shrink-0">
           {/* Stocktake Audit Sheet Button (Manager only) */}
           {!isStaff && (
-            <button
+            <Button
+              type="button"
+              variant="amber"
               onClick={handleOpenStocktakeModal}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition active:scale-95 shadow-sm"
+              leftIcon={<ClipboardList className="w-3.5 h-3.5" />}
               title="Perform daily opening/closing physical count audit"
             >
-              <ClipboardList className="w-4 h-4" strokeWidth={2.2} />
-              <span>Stocktake Sheet</span>
-            </button>
+              Stocktake Sheet
+            </Button>
           )}
 
           {/* Log Waste Button */}
-          <button
+          <Button
+            type="button"
+            variant="danger"
             onClick={() => handleOpenWasteModal()}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-200 text-xs font-bold rounded-xl transition active:scale-95 shadow-sm"
+            leftIcon={<TrendingDown className="w-3.5 h-3.5" />}
             title="Record dropped plates, spoilage, or kitchen waste"
           >
-            <TrendingDown className="w-4 h-4 text-rose-400" strokeWidth={2} />
-            <span>Log Waste {summary?.totalWasteValuePaise ? `(${formatAmount(summary.totalWasteValuePaise)})` : ''}</span>
-          </button>
+            Log Waste {summary?.totalWasteValuePaise ? `(${formatAmount(summary.totalWasteValuePaise)})` : ''}
+          </Button>
 
           {/* Audit History Drawer Button */}
-          <button
+          <Button
+            type="button"
+            variant="secondary"
             onClick={() => setShowHistoryDrawer(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold rounded-xl transition active:scale-95 shadow-sm"
+            leftIcon={<HistoryIcon className="w-3.5 h-3.5 text-amber-400" />}
             title="View complete audit trail of who changed stock and order deductions"
           >
-            <HistoryIcon className="w-4 h-4 text-amber-400" strokeWidth={2} />
             <span className="hidden sm:inline">Movement Log</span>
-          </button>
+          </Button>
 
           {/* Refresh Button */}
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-md"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-xl transition active:scale-95"
             title="Force refresh catalog"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin text-amber-400' : 'text-slate-400'}`} />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* ── KPI METRICS CARDS ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Catalog Items */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4.5 shadow-2xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-1">
           <div className="flex justify-between items-center text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Catalog Recipes</span>
-            <div className="p-1.5 rounded-xl bg-slate-100 text-slate-700">
-              <Package className="w-4 h-4" strokeWidth={2} />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">Catalog Recipes</span>
+            <div className="p-1 rounded-lg bg-slate-100 text-slate-700">
+              <Package className="w-3.5 h-3.5" strokeWidth={2} />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <h3 className="text-2xl font-black font-mono text-slate-900">{totalItems}</h3>
-            <span className="text-[10px] text-slate-400 font-medium">total dishes</span>
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="text-lg sm:text-xl font-black font-mono text-slate-900">{totalItems}</h3>
+            <span className="text-[10px] text-slate-400 font-medium font-mono">dishes</span>
           </div>
         </div>
 
         {/* In Stock */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4.5 shadow-2xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-1">
           <div className="flex justify-between items-center text-emerald-600">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">In-Stock Portions</span>
-            <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600">
-              <CheckCircle2 className="w-4 h-4" strokeWidth={2} />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">In-Stock</span>
+            <div className="p-1 rounded-lg bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <h3 className="text-2xl font-black font-mono text-emerald-600">{inStockCount}</h3>
-            <span className="text-[10px] text-emerald-700/70 font-medium">active for ordering</span>
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="text-lg sm:text-xl font-black font-mono text-emerald-600">{inStockCount}</h3>
+            <span className="text-[10px] text-emerald-700/70 font-medium font-mono">active</span>
           </div>
         </div>
 
