@@ -35,7 +35,7 @@ export interface Order {
   customerNote?: string;
   customerName?: string;
   customerPhone?: string;
-  status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
+  status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'COMPLETED' | 'CANCELLED';
   source: string;
   integrationMetadata?: Record<string, any>;
   hasEarnedLoyaltyPoints?: boolean;

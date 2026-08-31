@@ -17,6 +17,7 @@ import {
   Minus,
   Trophy,
   Crown,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -60,6 +61,19 @@ export const ManagerCustomers: React.FC = () => {
     return () => clearTimeout(timer);
   }, [search]);
 
+  // Fetch Loyalty Config to check if loyalty is active for this outlet
+  const { data: loyaltyConfigData } = useQuery({
+    queryKey: ['restaurantLoyaltyConfig', activeRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/loyalty/config`);
+      return res.data;
+    },
+    enabled: !!activeRestaurantId,
+  });
+
+  const isLoyaltyEnabled = loyaltyConfigData?.success ? Boolean(loyaltyConfigData.data?.enabled) : true;
+  const pointValuePaise = loyaltyConfigData?.data?.pointValuePaise || 50;
+
   // Fetch Customers Query
   const { data: customersData, isLoading } = useQuery({
     queryKey: ['managerCustomers', activeRestaurantId, debouncedSearch, page],
@@ -82,7 +96,7 @@ export const ManagerCustomers: React.FC = () => {
       );
       return res.data;
     },
-    enabled: !!activeRestaurantId && activeTab === 'LEADERBOARD',
+    enabled: !!activeRestaurantId && isLoyaltyEnabled && activeTab === 'LEADERBOARD',
   });
 
   // Fetch Selected Customer Details Modal
@@ -106,7 +120,7 @@ export const ManagerCustomers: React.FC = () => {
       );
       return res.data;
     },
-    enabled: !!activeRestaurantId && !!selectedCustomerId,
+    enabled: !!activeRestaurantId && !!selectedCustomerId && isLoyaltyEnabled,
   });
 
   // Adjust Points Mutation
@@ -136,17 +150,17 @@ export const ManagerCustomers: React.FC = () => {
   const totalRevenue = customers.reduce((sum: number, c: any) => sum + (c.totalSpent || 0), 0);
 
   return (
-    <div className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8">
+    <div className="w-full space-y-3 font-sans select-none pb-10">
       <Helmet>
-        <title>Customer Directory - Pixora QR</title>
+        <title>{isLoyaltyEnabled ? 'Customer Directory & Loyalty' : 'Customer Directory'} - Pixora QR</title>
       </Helmet>
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3.5 md:px-5 shadow-xs">
         <div>
           <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold text-slate-900 leading-tight flex items-center gap-2">
-            <span>Customer Directory & Loyalty</span>
-            {activeTab === 'LEADERBOARD' && (
+            <span>{isLoyaltyEnabled ? 'Customer Directory & Loyalty' : 'Customer Directory'}</span>
+            {isLoyaltyEnabled && activeTab === 'LEADERBOARD' && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 font-mono uppercase">
                 <Crown className="w-3 h-3 text-amber-600" />
                 <span>VIP Leaderboard</span>
@@ -154,38 +168,42 @@ export const ManagerCustomers: React.FC = () => {
             )}
           </h1>
           <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-            Track diner visit frequency, loyalty points, VIP rankings, and order history.
+            {isLoyaltyEnabled
+              ? 'Track diner visit frequency, loyalty points, VIP rankings, and order history.'
+              : 'Track diner visit frequency, contact details, lifetime spend, and order history.'}
           </p>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
-          <button
-            onClick={() => setActiveTab('DIRECTORY')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'DIRECTORY' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Customer Directory</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('LEADERBOARD')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'LEADERBOARD' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Trophy className="w-3.5 h-3.5 text-amber-400" />
-            <span>VIP Leaderboard</span>
-          </button>
-        </div>
+        {/* Tab Toggle (Only shown if loyalty is active) */}
+        {isLoyaltyEnabled && (
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+            <button
+              onClick={() => setActiveTab('DIRECTORY')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'DIRECTORY' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Customer Directory</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('LEADERBOARD')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'LEADERBOARD' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>VIP Leaderboard</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
-            <Users className="w-4 h-4" strokeWidth={1.75} />
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
+            <Users className="w-4 h-4" strokeWidth={2} />
           </div>
           <div>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Total Diners</span>
@@ -193,9 +211,9 @@ export const ManagerCustomers: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
-            <TrendingUp className="w-4 h-4" strokeWidth={1.75} />
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+            <TrendingUp className="w-4 h-4" strokeWidth={2} />
           </div>
           <div>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Repeat Diners</span>
@@ -203,9 +221,9 @@ export const ManagerCustomers: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
-            <Receipt className="w-4 h-4" strokeWidth={1.75} />
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+            <Receipt className="w-4 h-4" strokeWidth={2} />
           </div>
           <div>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Diner Volume</span>
@@ -214,20 +232,20 @@ export const ManagerCustomers: React.FC = () => {
         </div>
       </div>
 
-      {activeTab === 'DIRECTORY' && (
+      {(!isLoyaltyEnabled || activeTab === 'DIRECTORY') && (
         <>
           {/* Search Input */}
           <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs flex items-center gap-2.5">
-            <Search className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={1.75} />
+            <Search className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={2} />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by diner name, mobile number, or email..."
-              className="w-full text-sm font-medium placeholder-slate-400 focus:outline-none bg-transparent"
+              className="w-full text-xs sm:text-sm font-medium placeholder-slate-400 focus:outline-none bg-transparent"
             />
             {search && (
-              <button onClick={() => setSearch('')} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSearch('')} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -252,21 +270,21 @@ export const ManagerCustomers: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-150 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-6">Diner</th>
+                      <th className="py-3.5 px-5">Diner</th>
                       <th className="py-3.5 px-4">Contact</th>
                       <th className="py-3.5 px-4 text-center">Visits</th>
-                      <th className="py-3.5 px-4 text-center">Loyalty Tier & Points</th>
+                      {isLoyaltyEnabled && <th className="py-3.5 px-4 text-center">Loyalty Tier & Points</th>}
                       <th className="py-3.5 px-4 text-right">Total Spent</th>
                       <th className="py-3.5 px-4">Last Order</th>
-                      <th className="py-3.5 px-6 text-right">Actions</th>
+                      <th className="py-3.5 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {customers.map((c: any) => (
                       <tr key={c._id} className="hover:bg-slate-50/50 transition">
-                        <td className="py-4 px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold flex items-center justify-center text-xs">
+                        <td className="py-3.5 px-5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white font-bold flex items-center justify-center text-xs shrink-0">
                               {c.name?.charAt(0) || 'D'}
                             </div>
                             <div>
@@ -278,7 +296,7 @@ export const ManagerCustomers: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-4 px-4 font-mono text-slate-600">
+                        <td className="py-3.5 px-4 font-mono text-slate-600">
                           <div className="flex items-center gap-1.5">
                             <Phone className="w-3.5 h-3.5 text-slate-400" />
                             <span>{c.phone}</span>
@@ -286,12 +304,12 @@ export const ManagerCustomers: React.FC = () => {
                           {c.email && (
                             <div className="flex items-center gap-1.5 text-slate-400 text-[10px] mt-0.5">
                               <Mail className="w-3 h-3" />
-                              <span>{c.email}</span>
+                              <span className="truncate max-w-[140px]">{c.email}</span>
                             </div>
                           )}
                         </td>
 
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-3.5 px-4 text-center">
                           <span className={`inline-block px-2.5 py-1 rounded-xl text-xs font-mono font-bold ${
                             c.totalOrdersCount > 1
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
@@ -301,30 +319,32 @@ export const ManagerCustomers: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-4 px-4 text-center">
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              c.tier === 'PLATINUM'
-                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                : c.tier === 'GOLD'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : c.tier === 'SILVER'
-                                ? 'bg-slate-200 text-slate-800 border border-slate-300'
-                                : 'bg-orange-50 text-orange-700 border border-orange-200'
-                            }`}>
-                              ⭐ {c.tier || 'BRONZE'}
-                            </span>
-                            <span className="font-mono font-bold text-xs text-slate-900">
-                              {c.loyaltyPoints || 0} pts (₹{(((c.loyaltyPoints || 0) * 50) / 100).toFixed(0)})
-                            </span>
-                          </div>
-                        </td>
+                        {isLoyaltyEnabled && (
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                c.tier === 'PLATINUM'
+                                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                  : c.tier === 'GOLD'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : c.tier === 'SILVER'
+                                  ? 'bg-slate-200 text-slate-800 border border-slate-300'
+                                  : 'bg-orange-50 text-orange-700 border border-orange-200'
+                              }`}>
+                                ⭐ {c.tier || 'BRONZE'}
+                              </span>
+                              <span className="font-mono font-bold text-xs text-slate-900">
+                                {c.loyaltyPoints || 0} pts (₹{(((c.loyaltyPoints || 0) * pointValuePaise) / 100).toFixed(0)})
+                              </span>
+                            </div>
+                          </td>
+                        )}
 
-                        <td className="py-4 px-4 text-right font-mono font-bold text-slate-900">
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
                           {formatPrice(c.totalSpent)}
                         </td>
 
-                        <td className="py-4 px-4 text-slate-500">
+                        <td className="py-3.5 px-4 text-slate-500">
                           {c.lastOrderAt ? (
                             <div>
                               <span className="block">{new Date(c.lastOrderAt).toLocaleDateString()}</span>
@@ -337,10 +357,10 @@ export const ManagerCustomers: React.FC = () => {
                           )}
                         </td>
 
-                        <td className="py-4 px-6 text-right">
+                        <td className="py-3.5 px-5 text-right">
                           <button
                             onClick={() => setSelectedCustomerId(c._id)}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl transition inline-flex items-center gap-1.5"
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl transition inline-flex items-center gap-1.5 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>History</span>
@@ -355,7 +375,7 @@ export const ManagerCustomers: React.FC = () => {
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-150 flex items-center justify-between">
+              <div className="p-3.5 border-t border-slate-150 flex items-center justify-between">
                 <span className="text-xs text-slate-500 font-mono">
                   Page {page} of {pagination.totalPages}
                 </span>
@@ -363,14 +383,14 @@ export const ManagerCustomers: React.FC = () => {
                   <button
                     disabled={page <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-xs font-bold rounded-xl transition"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-xs font-bold rounded-xl transition cursor-pointer"
                   >
                     Previous
                   </button>
                   <button
                     disabled={page >= pagination.totalPages}
                     onClick={() => setPage((p) => p + 1)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-xs font-bold rounded-xl transition"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-xs font-bold rounded-xl transition cursor-pointer"
                   >
                     Next
                   </button>
@@ -381,51 +401,50 @@ export const ManagerCustomers: React.FC = () => {
         </>
       )}
 
-      {activeTab === 'LEADERBOARD' && (
+      {isLoyaltyEnabled && activeTab === 'LEADERBOARD' && (
         /* LEADERBOARD VIEW */
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Controls Bar */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-slate-900 text-white rounded-3xl p-5 border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold border border-amber-500/30">
-                <Trophy className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold border border-amber-500/30">
+                <Trophy className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-display text-xl font-bold">Top Diners Leaderboard</h3>
+                <h3 className="font-display text-lg font-bold">Top Diners Leaderboard</h3>
                 <p className="text-xs text-slate-400">Rankings based on overall customer engagement and loyalty points</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
-              <span className="text-xs text-slate-400 font-mono pl-2 font-bold uppercase">Sort By:</span>
+              <span className="text-[11px] text-slate-400 font-mono pl-2 font-bold uppercase">Sort By:</span>
               <button
                 onClick={() => setLeaderboardSortBy('points')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                  leaderboardSortBy === 'points' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  leaderboardSortBy === 'points' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-300 hover:text-white'
                 }`}
               >
-                Points Balance
+                Points
               </button>
               <button
                 onClick={() => setLeaderboardSortBy('spend')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                  leaderboardSortBy === 'spend' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  leaderboardSortBy === 'spend' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-300 hover:text-white'
                 }`}
               >
-                Total Spend
+                Spend
               </button>
               <button
                 onClick={() => setLeaderboardSortBy('visits')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                  leaderboardSortBy === 'visits' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  leaderboardSortBy === 'visits' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-300 hover:text-white'
                 }`}
               >
-                Visits Count
+                Visits
               </button>
             </div>
           </div>
 
-          {/* Leaderboard Grid / Table */}
           <div className="bg-white rounded-3xl border border-slate-150 shadow-xs overflow-hidden">
             {isLeaderboardLoading ? (
               <div className="py-16 flex items-center justify-center">
@@ -433,22 +452,22 @@ export const ManagerCustomers: React.FC = () => {
               </div>
             ) : (!leaderboardData?.data || leaderboardData.data.length === 0) ? (
               <div className="py-16 text-center space-y-2">
-                <Trophy className="w-10 h-10 text-slate-300 mx-auto" />
-                <p className="text-sm font-bold text-slate-700">No leaderboard rankings available yet</p>
-                <p className="text-xs text-slate-400">Customer rankings will appear as diners earn loyalty points.</p>
+                <Trophy className="w-10 h-10 text-slate-300 mx-auto" strokeWidth={1.5} />
+                <p className="text-sm font-bold text-slate-700">No VIP Diner Rankings Yet</p>
+                <p className="text-xs text-slate-400">Leaderboard will automatically populate as customer points are credited.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-150 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-6 text-center">Rank</th>
-                      <th className="py-3.5 px-6">Diner</th>
-                      <th className="py-3.5 px-4 text-center">Reward Tier</th>
-                      <th className="py-3.5 px-4 text-center">Loyalty Points</th>
-                      <th className="py-3.5 px-4 text-center">Total Visits</th>
+                      <th className="py-3.5 px-5 text-center">Rank</th>
+                      <th className="py-3.5 px-5">Diner</th>
+                      <th className="py-3.5 px-4 text-center">Loyalty Tier</th>
+                      <th className="py-3.5 px-4 text-center">Points Balance</th>
+                      <th className="py-3.5 px-4 text-center">Visits</th>
                       <th className="py-3.5 px-4 text-right">Lifetime Spend</th>
-                      <th className="py-3.5 px-6 text-right">Actions</th>
+                      <th className="py-3.5 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -457,17 +476,17 @@ export const ManagerCustomers: React.FC = () => {
                       const isTop3 = rank <= 3;
                       return (
                         <tr key={lb.customerId} className={`hover:bg-slate-50/50 transition ${isTop3 ? 'bg-amber-50/20' : ''}`}>
-                          <td className="py-4 px-6 text-center">
+                          <td className="py-3.5 px-5 text-center">
                             {rank === 1 ? (
-                              <span className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-400 to-amber-300 text-slate-950 font-black text-sm inline-flex items-center justify-center shadow-sm">
+                              <span className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400 to-amber-300 text-slate-950 font-black text-xs inline-flex items-center justify-center shadow-xs">
                                 🥇 1
                               </span>
                             ) : rank === 2 ? (
-                              <span className="w-8 h-8 rounded-full bg-slate-200 text-slate-800 font-black text-sm inline-flex items-center justify-center border border-slate-300">
+                              <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 font-black text-xs inline-flex items-center justify-center border border-slate-300">
                                 🥈 2
                               </span>
                             ) : rank === 3 ? (
-                              <span className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 font-black text-sm inline-flex items-center justify-center border border-amber-300">
+                              <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-900 font-black text-xs inline-flex items-center justify-center border border-amber-300">
                                 🥉 3
                               </span>
                             ) : (
@@ -477,9 +496,9 @@ export const ManagerCustomers: React.FC = () => {
                             )}
                           </td>
 
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-9 h-9 rounded-xl font-bold flex items-center justify-center text-xs ${
+                          <td className="py-3.5 px-5">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-xl font-bold flex items-center justify-center text-xs shrink-0 ${
                                 rank === 1 ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-slate-900 text-white'
                               }`}>
                                 {lb.name?.charAt(0) || 'D'}
@@ -491,8 +510,8 @@ export const ManagerCustomers: React.FC = () => {
                             </div>
                           </td>
 
-                          <td className="py-4 px-4 text-center">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                               lb.tier === 'PLATINUM'
                                 ? 'bg-purple-100 text-purple-800 border border-purple-200'
                                 : lb.tier === 'GOLD'
@@ -505,8 +524,8 @@ export const ManagerCustomers: React.FC = () => {
                             </span>
                           </td>
 
-                          <td className="py-4 px-4 text-center">
-                            <span className="font-mono font-extrabold text-sm text-slate-900 block">
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="font-mono font-extrabold text-xs text-slate-900 block">
                               {lb.loyaltyPoints || 0} pts
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono block">
@@ -514,18 +533,18 @@ export const ManagerCustomers: React.FC = () => {
                             </span>
                           </td>
 
-                          <td className="py-4 px-4 text-center font-mono font-bold text-slate-700">
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-700">
                             {lb.totalOrdersCount || 0} visits
                           </td>
 
-                          <td className="py-4 px-4 text-right font-mono font-bold text-emerald-600">
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600">
                             {formatPrice(lb.totalSpent)}
                           </td>
 
-                          <td className="py-4 px-6 text-right">
+                          <td className="py-3.5 px-5 text-right">
                             <button
                               onClick={() => setSelectedCustomerId(lb.customerId)}
-                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-xl transition inline-flex items-center gap-1.5 shadow-xs"
+                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-xl transition inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
                             >
                               <Eye className="w-3.5 h-3.5 text-amber-400" />
                               <span>Inspect</span>
@@ -542,7 +561,7 @@ export const ManagerCustomers: React.FC = () => {
         </div>
       )}
 
-      {/* Customer Order History Modal */}
+      {/* Customer Order History & Profile Modal */}
       <AnimatePresence>
         {selectedCustomerId && (
           <motion.div
@@ -555,11 +574,11 @@ export const ManagerCustomers: React.FC = () => {
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="w-full max-w-2xl bg-white rounded-3xl border border-slate-150 shadow-2xl p-6 space-y-6 max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-2xl bg-white rounded-3xl border border-slate-150 shadow-2xl p-5 sm:p-6 space-y-5 max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-150">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -574,7 +593,7 @@ export const ManagerCustomers: React.FC = () => {
 
                 <button
                   onClick={() => setSelectedCustomerId(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -587,62 +606,74 @@ export const ManagerCustomers: React.FC = () => {
               ) : (
                 <div className="space-y-4">
                   {/* Summary Stat bar */}
-                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total Visits</span>
-                      <span className="text-lg font-black font-mono text-slate-900 mt-0.5 block">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-mono">Total Visits</span>
+                      <span className="text-base font-black font-mono text-slate-900 mt-0.5 block">
                         {customerDetailsData?.data?.customer?.totalOrdersCount || 0}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Cumulative Spend</span>
-                      <span className="text-lg font-black font-mono text-emerald-600 mt-0.5 block">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-mono">Cumulative Spend</span>
+                      <span className="text-base font-black font-mono text-emerald-600 mt-0.5 block">
                         {formatPrice(customerDetailsData?.data?.customer?.totalSpent)}
+                      </span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-mono">Avg Order Value</span>
+                      <span className="text-base font-black font-mono text-slate-800 mt-0.5 block">
+                        {formatPrice(
+                          (customerDetailsData?.data?.customer?.totalOrdersCount || 0) > 0
+                            ? Math.round((customerDetailsData?.data?.customer?.totalSpent || 0) / (customerDetailsData?.data?.customer?.totalOrdersCount || 1))
+                            : 0
+                        )}
                       </span>
                     </div>
                   </div>
 
-                  {/* Loyalty Points & Reward Tier Card */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                        <Award className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm text-slate-900">
-                            {customerDetailsData?.data?.customer?.loyaltyPoints || 0} Loyalty Points
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
-                            {customerDetailsData?.data?.customer?.tier || 'BRONZE'} TIER
-                          </span>
+                  {/* Loyalty Points & Reward Tier Card (Only if loyalty is enabled) */}
+                  {isLoyaltyEnabled && (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                          <Award className="w-5 h-5" />
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Worth ₹{(((customerDetailsData?.data?.customer?.loyaltyPoints || 0) * 50) / 100).toFixed(2)} in direct redemption discounts
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-sm text-slate-900">
+                              {customerDetailsData?.data?.customer?.loyaltyPoints || 0} Loyalty Points
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                              {customerDetailsData?.data?.customer?.tier || 'BRONZE'} TIER
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Worth ₹{(((customerDetailsData?.data?.customer?.loyaltyPoints || 0) * pointValuePaise) / 100).toFixed(2)} in direct redemption discounts
+                          </p>
+                        </div>
                       </div>
+
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => setShowAdjustPoints(!showAdjustPoints)}
+                        leftIcon={<Award className="w-3.5 h-3.5 text-amber-400" />}
+                      >
+                        {showAdjustPoints ? 'Cancel Adjustment' : 'Adjust Points'}
+                      </Button>
                     </div>
+                  )}
 
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => setShowAdjustPoints(!showAdjustPoints)}
-                      leftIcon={<Award className="w-3.5 h-3.5 text-amber-400" />}
-                    >
-                      {showAdjustPoints ? 'Cancel Adjustment' : 'Adjust Points'}
-                    </Button>
-                  </div>
-
-                  {/* Adjust Points Inline Form */}
-                  {showAdjustPoints && (
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                  {/* Adjust Points Inline Form (Only if loyalty is enabled) */}
+                  {isLoyaltyEnabled && showAdjustPoints && (
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                       <span className="text-xs font-bold text-slate-900 block">Manual Points Adjustment</span>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div className="flex bg-white rounded-xl border border-slate-200 p-1">
                           <button
                             type="button"
                             onClick={() => setAdjustType('CREDIT')}
-                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
                               adjustType === 'CREDIT' ? 'bg-emerald-600 text-white' : 'text-slate-600'
                             }`}
                           >
@@ -652,7 +683,7 @@ export const ManagerCustomers: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setAdjustType('DEBIT')}
-                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                            className={`flex-1 py-1 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
                               adjustType === 'DEBIT' ? 'bg-rose-600 text-white' : 'text-slate-600'
                             }`}
                           >
@@ -704,89 +735,101 @@ export const ManagerCustomers: React.FC = () => {
                     </div>
                   )}
 
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Recent Orders
-                  </h4>
-
-                  {(!customerDetailsData?.data?.recentOrders || customerDetailsData.data.recentOrders.length === 0) ? (
-                    <p className="text-xs text-slate-400 italic py-4 text-center">No order records found for this customer.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {customerDetailsData.data.recentOrders.map((ord: any) => (
-                        <div
-                          key={ord._id}
-                          className="bg-white border border-slate-150 rounded-2xl p-4 space-y-2 shadow-xs"
-                        >
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold font-mono text-slate-900">
-                              Order #{ord.orderNumber}
-                            </span>
-                            <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
-                              {ord.status}
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] text-slate-500 flex justify-between">
-                            <span>{new Date(ord.createdAt).toLocaleString()}</span>
-                            {ord.tableId?.displayName && (
-                              <span className="font-bold text-slate-700">{ord.tableId.displayName}</span>
-                            )}
-                          </div>
-
-                          <div className="space-y-1 pt-1 border-t border-slate-50">
-                            {ord.items?.map((it: any, i: number) => (
-                              <div key={i} className="flex justify-between text-xs text-slate-600">
-                                <span>{it.quantity}x {it.nameSnapshot}</span>
-                                <span className="font-mono">{formatPrice(it.itemTotal || it.itemSubtotal)}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs font-bold">
-                            <span className="text-slate-500">Order Total</span>
-                            <span className="font-mono text-slate-900">{formatPrice(ord.total)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Points History Ledger */}
-                  <div className="pt-2">
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
-                      Loyalty Points History
+                  <div className="pt-1">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Recent Orders</span>
                     </h4>
-                    {isLedgerLoading ? (
-                      <div className="py-4 text-center">
-                        <Loader className="w-4 h-4 animate-spin text-amber-500 mx-auto" />
-                      </div>
-                    ) : (!loyaltyLedgerData?.data || loyaltyLedgerData.data.length === 0) ? (
-                      <p className="text-xs text-slate-400 italic py-2 text-center">No points history transactions yet.</p>
+
+                    {(!customerDetailsData?.data?.recentOrders || customerDetailsData.data.recentOrders.length === 0) ? (
+                      <p className="text-xs text-slate-400 italic py-4 text-center">No order records found for this customer.</p>
                     ) : (
-                      <div className="space-y-2">
-                        {loyaltyLedgerData.data.map((tx: any) => (
-                          <div key={tx._id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
-                            <div>
-                              <span className="font-bold text-slate-900 block">{tx.reason || tx.type}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                {new Date(tx.createdAt).toLocaleString()}
+                      <div className="space-y-2.5">
+                        {customerDetailsData.data.recentOrders.map((ord: any) => (
+                          <div
+                            key={ord._id}
+                            className="bg-white border border-slate-150 rounded-2xl p-3.5 space-y-2 shadow-2xs"
+                          >
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold font-mono text-slate-900">
+                                Order #{ord.orderNumber}
+                              </span>
+                              <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
+                                ord.status === 'SERVED' || ord.status === 'COMPLETED'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : ord.status === 'CANCELLED'
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                {ord.status}
                               </span>
                             </div>
-                            <div className="text-right">
-                              <span className={`font-mono font-extrabold ${
-                                (tx.points ?? tx.pointsChange ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                              }`}>
-                                {(tx.points ?? tx.pointsChange ?? 0) >= 0 ? `+${tx.points ?? tx.pointsChange}` : (tx.points ?? tx.pointsChange)} pts
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono block">
-                                Bal: {tx.balanceAfter}
-                              </span>
+
+                            <div className="text-[11px] text-slate-500 flex justify-between">
+                              <span>{new Date(ord.createdAt).toLocaleString()}</span>
+                              {ord.tableId?.displayName && (
+                                <span className="font-bold text-slate-700">{ord.tableId.displayName}</span>
+                              )}
+                            </div>
+
+                            <div className="space-y-1 pt-1.5 border-t border-slate-100">
+                              {ord.items?.map((it: any, i: number) => (
+                                <div key={i} className="flex justify-between text-xs text-slate-600">
+                                  <span>{it.quantity}× {it.nameSnapshot}</span>
+                                  <span className="font-mono">{formatPrice(it.itemTotal || it.itemSubtotal)}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs font-bold">
+                              <span className="text-slate-500">Order Total</span>
+                              <span className="font-mono text-slate-900">{formatPrice(ord.total)}</span>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
+
+                  {/* Points History Ledger (Only if loyalty is enabled) */}
+                  {isLoyaltyEnabled && (
+                    <div className="pt-2">
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Loyalty Points History</span>
+                      </h4>
+                      {isLedgerLoading ? (
+                        <div className="py-4 text-center">
+                          <Loader className="w-4 h-4 animate-spin text-amber-500 mx-auto" />
+                        </div>
+                      ) : (!loyaltyLedgerData?.data || loyaltyLedgerData.data.length === 0) ? (
+                        <p className="text-xs text-slate-400 italic py-2 text-center">No points history transactions yet.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {loyaltyLedgerData.data.map((tx: any) => (
+                            <div key={tx._id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                              <div>
+                                <span className="font-bold text-slate-900 block">{tx.reason || tx.type}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {new Date(tx.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className={`font-mono font-extrabold ${
+                                  (tx.points ?? tx.pointsChange ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                                }`}>
+                                  {(tx.points ?? tx.pointsChange ?? 0) >= 0 ? `+${tx.points ?? tx.pointsChange}` : (tx.points ?? tx.pointsChange)} pts
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono block">
+                                  Bal: {tx.balanceAfter}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

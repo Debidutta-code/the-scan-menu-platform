@@ -41,7 +41,7 @@ export interface ItemDetailSheetProps {
 
 export interface OtpModalProps {
   isOpen: boolean;
-  isPlacingOrder: boolean;
+  isPlacingOrder?: boolean;
   isVerifyingOtp: boolean;
   isSendingOtp: boolean;
   otpSent: boolean;
@@ -55,7 +55,8 @@ export interface OtpModalProps {
   onNameChange: (name: string) => void;
   onPhoneChange: (phone: string) => void;
   onSendOtp: () => void;
-  onVerifyOtpAndPlaceOrder: () => void;
+  onVerifyOtpAndPlaceOrder?: () => void;
+  onVerifyOtp: () => void;
   onOtpDigitsChange: (digits: string[]) => void;
   onResetOtpSent: () => void;
 }
@@ -158,6 +159,8 @@ export interface CartOrdersTabProps {
   customerNote: string;
   useLoyaltyPoints?: boolean;
   onToggleLoyaltyPoints?: () => void;
+  isLoyaltyEnabled?: boolean;
+  loyaltyConfig?: any;
   cartSubtotal: number;
   cartTaxBreakdown: any[];
   cartGrandTotal: number;

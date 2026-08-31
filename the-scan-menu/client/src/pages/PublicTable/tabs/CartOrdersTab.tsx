@@ -31,6 +31,8 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
   customerNote,
   useLoyaltyPoints = false,
   onToggleLoyaltyPoints,
+  isLoyaltyEnabled = true,
+  loyaltyConfig,
   cartSubtotal,
   cartTaxBreakdown,
   cartGrandTotal,
@@ -47,13 +49,16 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
   onBrowseMenu,
   onSwitchCustomer,
 }) => {
-  const availablePoints = customer?.loyaltyPoints || 0;
-  const pointValueRupees = 0.50; // 50 paise = ₹0.50 per point
+  const loyaltyActive = Boolean(isLoyaltyEnabled && (loyaltyConfig ? loyaltyConfig.enabled : true));
+  const availablePoints = loyaltyActive ? (customer?.loyaltyPoints || 0) : 0;
+  const pointValueRupees = (loyaltyConfig?.pointValuePaise || 50) / 100;
   const maxRedeemableRupees = Math.min((cartSubtotal / 100) * 0.5, availablePoints * pointValueRupees);
   const pointsToUse = Math.min(availablePoints, Math.ceil(maxRedeemableRupees / pointValueRupees));
   const actualDiscountRupees = pointsToUse * pointValueRupees;
   const discountPaise = Math.round(actualDiscountRupees * 100);
-  const finalPayableTotal = useLoyaltyPoints && availablePoints > 0 ? Math.max(0, cartGrandTotal - discountPaise) : cartGrandTotal;
+  const finalPayableTotal = useLoyaltyPoints && availablePoints > 0 && loyaltyActive
+    ? Math.max(0, cartGrandTotal - discountPaise)
+    : cartGrandTotal;
   return (
     <motion.div
       key="cart-orders"
@@ -242,7 +247,7 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                         <span className="font-mono text-slate-700">{formatPrice(tb.amount, currency)}</span>
                       </div>
                     ))}
-                    {useLoyaltyPoints && pointsToUse > 0 && (
+                    {loyaltyActive && useLoyaltyPoints && pointsToUse > 0 && (
                       <div className="flex justify-between text-emerald-700 font-bold px-1 py-1 bg-emerald-50 rounded-lg border border-emerald-200/70 text-xs">
                         <span className="flex items-center gap-1">
                           <span>Loyalty Points Discount</span>
@@ -261,7 +266,7 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-2 border-t border-slate-200 pt-3 mt-1">
-                    {useLoyaltyPoints && pointsToUse > 0 && (
+                    {loyaltyActive && useLoyaltyPoints && pointsToUse > 0 && (
                       <div className="flex justify-between text-emerald-700 font-bold px-2 py-1 bg-emerald-50 rounded-lg border border-emerald-200/70 text-xs">
                         <span className="flex items-center gap-1">
                           <span>Loyalty Points Discount</span>
@@ -277,8 +282,8 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                   </div>
                 )}
 
-                {/* Optional Loyalty Points Redemption Checkbox Box */}
-                {isCustomerAuthenticated && availablePoints > 0 && pointsToUse > 0 ? (
+                {/* Optional Loyalty Points Redemption Checkbox Box (Only if outlet loyalty is active) */}
+                {loyaltyActive && isCustomerAuthenticated && availablePoints > 0 && pointsToUse > 0 ? (
                   <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-sm space-y-3 border border-slate-800">
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-3 cursor-pointer select-none">
@@ -317,8 +322,8 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                   </div>
                 ) : null}
 
-                {/* Psychological Points Earn Banner */}
-                {cartGrandTotal > 0 && (
+                {/* Points Earn Banner (Only if outlet loyalty is active) */}
+                {loyaltyActive && cartGrandTotal > 0 && (
                   <div className="bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-amber-500/5 border border-amber-300/80 rounded-2xl p-3 flex items-center justify-between gap-3 text-amber-950 shadow-xs">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
@@ -336,7 +341,7 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                   </div>
                 )}
 
-                {/* Ordering Identity Display for returning diners with Loyalty Status */}
+                {/* Ordering Identity Display for verified diners */}
                 {isCustomerAuthenticated && customer ? (
                   <div className="bg-slate-900 text-white rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-sm">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -348,18 +353,26 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                           <p className="text-xs font-bold text-white truncate">
                             {customer.name}
                           </p>
-                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 uppercase tracking-wider">
-                            ⭐ {customer.tier || 'BRONZE'}
-                          </span>
+                          {loyaltyActive && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 uppercase tracking-wider">
+                              ⭐ {customer.tier || 'BRONZE'}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-[10px] text-amber-300 font-mono font-bold mt-0.5">
-                          {customer.loyaltyPoints || 0} Pts (Worth ₹{(((customer.loyaltyPoints || 0) * 50) / 100).toFixed(0)} off)
-                        </p>
+                        {loyaltyActive ? (
+                          <p className="text-[10px] text-amber-300 font-mono font-bold mt-0.5">
+                            {customer.loyaltyPoints || 0} Pts (Worth ₹{(((customer.loyaltyPoints || 0) * 50) / 100).toFixed(0)} off)
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {customer.phone}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button
                       onClick={onSwitchCustomer}
-                      className="text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-xl shrink-0 transition"
+                      className="text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-xl shrink-0 transition cursor-pointer"
                     >
                       Switch
                     </button>
@@ -391,10 +404,19 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                   <Loader className="w-4 h-4 animate-spin text-amber-400" />
                   <span>Submitting Order...</span>
                 </div>
+              ) : !isCustomerAuthenticated ? (
+                <>
+                  <span className="font-extrabold text-sm tracking-wide flex items-center gap-1.5">
+                    <span>Verify Phone to Order</span>
+                  </span>
+                  <span className="font-mono font-black text-amber-400 text-base">
+                    {formatPrice(finalPayableTotal, currency)}
+                  </span>
+                </>
               ) : (
                 <>
                   <span className="font-extrabold text-sm tracking-wide">
-                    {isCustomerAuthenticated && customer?.name ? `Checkout • ${customer.name}` : 'Checkout'}
+                    {customer?.name ? `Proceed to Place Order • ${customer.name}` : 'Proceed to Place Order'}
                   </span>
                   <span className="font-mono font-black text-amber-400 text-base">
                     {formatPrice(finalPayableTotal, currency)}

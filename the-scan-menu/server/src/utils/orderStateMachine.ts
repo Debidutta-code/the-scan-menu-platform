@@ -5,7 +5,8 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ACCEPTED: ['PREPARING', 'PENDING', 'CANCELLED'],
   PREPARING: ['READY', 'SERVED', 'ACCEPTED', 'PENDING', 'CANCELLED'],
   READY: ['SERVED', 'PREPARING'],
-  SERVED: ['READY', 'PREPARING'],
+  SERVED: ['COMPLETED', 'READY', 'PREPARING'],
+  COMPLETED: [],
   CANCELLED: ['PENDING'],
 };
 
@@ -18,7 +19,8 @@ export function getWorkflowTransitions(
       ACCEPTED: ['PREPARING', 'CANCELLED'],
       PREPARING: ['SERVED', 'PENDING', 'CANCELLED'],
       READY: ['SERVED', 'PREPARING'],
-      SERVED: ['PREPARING'],
+      SERVED: ['COMPLETED', 'PREPARING'],
+      COMPLETED: [],
       CANCELLED: ['PENDING'],
     };
   } else if (workflowMode === 'FOUR_STEP') {
@@ -27,7 +29,8 @@ export function getWorkflowTransitions(
       ACCEPTED: ['PREPARING', 'CANCELLED'],
       PREPARING: ['READY', 'PENDING', 'CANCELLED'],
       READY: ['SERVED', 'PREPARING'],
-      SERVED: ['READY', 'PREPARING'],
+      SERVED: ['COMPLETED', 'READY', 'PREPARING'],
+      COMPLETED: [],
       CANCELLED: ['PENDING'],
     };
   } else {
@@ -36,7 +39,8 @@ export function getWorkflowTransitions(
       ACCEPTED: ['PREPARING', 'PENDING', 'CANCELLED'],
       PREPARING: ['READY', 'ACCEPTED', 'PENDING', 'CANCELLED'],
       READY: ['SERVED', 'PREPARING'],
-      SERVED: ['READY', 'PREPARING'],
+      SERVED: ['COMPLETED', 'READY', 'PREPARING'],
+      COMPLETED: [],
       CANCELLED: ['PENDING'],
     };
   }

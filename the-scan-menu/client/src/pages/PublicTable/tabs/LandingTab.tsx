@@ -78,36 +78,45 @@ export const LandingTab: React.FC<LandingTabProps> = ({
 
       <div className="max-w-md mx-auto px-4 space-y-6 pb-6">
         {/* Diner Profile & Sign In Banner */}
-        <div className="bg-white rounded-3xl p-4 border border-slate-150 shadow-xs flex items-center justify-between gap-3 animate-fade-in">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 flex items-center justify-center font-bold font-display text-sm shrink-0 shadow-xs">
-              {isCustomerAuthenticated && customer?.name ? customer.name.charAt(0).toUpperCase() : <UserIcon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />}
-            </div>
-            <div className="text-left min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h4 className="text-xs font-bold text-slate-900 truncate">
-                  {isCustomerAuthenticated && customer?.name ? customer.name : 'Diner Account'}
-                </h4>
-                {isCustomerAuthenticated && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
-                    ⭐ {customer?.tier || 'BRONZE'}
-                  </span>
-                )}
+        {(() => {
+          const loyaltyActive = Boolean(restaurant?.loyaltyConfig?.enabled !== false);
+          return (
+            <div className="bg-white rounded-3xl p-4 border border-slate-150 shadow-xs flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 flex items-center justify-center font-bold font-display text-sm shrink-0 shadow-xs">
+                  {isCustomerAuthenticated && customer?.name ? customer.name.charAt(0).toUpperCase() : <UserIcon className="w-5 h-5 text-slate-900" strokeWidth={1.75} />}
+                </div>
+                <div className="text-left min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-slate-900 truncate">
+                      {isCustomerAuthenticated && customer?.name ? customer.name : 'Diner Account'}
+                    </h4>
+                    {isCustomerAuthenticated && loyaltyActive && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
+                        ⭐ {customer?.tier || 'BRONZE'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                    {isCustomerAuthenticated
+                      ? loyaltyActive
+                        ? `${customer?.loyaltyPoints || 0} Pts (Worth ₹${(((customer?.loyaltyPoints || 0) * (restaurant?.loyaltyConfig?.pointValuePaise || 50)) / 10000).toFixed(0)})`
+                        : (customer?.phone || 'Verified Diner')
+                      : loyaltyActive
+                        ? 'Sign in to earn points & view order history'
+                        : 'Sign in to track orders & view history'}
+                  </p>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                {isCustomerAuthenticated
-                  ? `${customer?.loyaltyPoints || 0} Pts (Worth ₹${(((customer?.loyaltyPoints || 0) * 50) / 100).toFixed(0)})`
-                  : 'Sign in to earn points & view order history'}
-              </p>
+              <Link
+                to={isCustomerAuthenticated ? (restaurantSlug ? `/r/${restaurantSlug}/portal?from=${encodeURIComponent(window.location.pathname + window.location.search)}` : `/customer-portal?from=${encodeURIComponent(window.location.pathname + window.location.search)}`) : (restaurantSlug ? `/r/${restaurantSlug}/login?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}` : '/customer-login')}
+                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white text-[11px] font-bold rounded-xl transition shadow-xs shrink-0 active:scale-95"
+              >
+                {isCustomerAuthenticated ? 'Dashboard' : 'Sign In'}
+              </Link>
             </div>
-          </div>
-          <Link
-            to={isCustomerAuthenticated ? (restaurantSlug ? `/r/${restaurantSlug}/portal?from=${encodeURIComponent(window.location.pathname + window.location.search)}` : `/customer-portal?from=${encodeURIComponent(window.location.pathname + window.location.search)}`) : (restaurantSlug ? `/r/${restaurantSlug}/login?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}` : '/customer-login')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-white text-[11px] font-bold rounded-xl transition shadow-xs shrink-0 active:scale-95"
-          >
-            {isCustomerAuthenticated ? 'Dashboard' : 'Sign In'}
-          </Link>
-        </div>
+          );
+        })()}
 
         {/* Active Table spot info */}
         <div className="bg-white rounded-3xl p-5 border border-slate-150 shadow-sm space-y-3 animate-fade-in">

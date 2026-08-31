@@ -27,7 +27,7 @@ export const OrderCounter =
 // ORDER MODEL
 // ==========================================
 
-export type OrderStatus = 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
+export type OrderStatus = 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'COMPLETED' | 'CANCELLED';
 export type OrderSource = 'QR' | 'POS' | 'WAITER' | 'MANUAL' | 'API';
 export type OrderMode = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY' | 'COUNTER';
 export type PosSyncStatus = 'NOT_APPLICABLE' | 'PENDING' | 'SYNCED' | 'FAILED';
@@ -190,7 +190,7 @@ const orderSchema = new Schema<IOrder>(
     status: {
       type: String,
       required: true,
-      enum: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'],
+      enum: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'],
       default: 'PENDING',
       index: true,
     },

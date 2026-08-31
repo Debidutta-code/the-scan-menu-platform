@@ -714,6 +714,7 @@ export class RestaurantController {
         },
         {
           $set: {
+            status: 'COMPLETED',
             isCleared: true,
             clearedAt: new Date(),
             paymentStatus: 'PAID',

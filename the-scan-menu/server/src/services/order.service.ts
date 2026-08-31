@@ -717,6 +717,9 @@ export class OrderService {
 
     order.isCleared = true;
     order.clearedAt = new Date();
+    if (order.status !== 'CANCELLED') {
+      order.status = 'COMPLETED';
+    }
     if (order.paymentStatus === 'PENDING') {
       order.paymentStatus = 'PAID';
     }
@@ -745,6 +748,7 @@ export class OrderService {
         },
         {
           $set: {
+            status: 'COMPLETED',
             isCleared: true,
             clearedAt: new Date(),
             paymentStatus: 'PAID',

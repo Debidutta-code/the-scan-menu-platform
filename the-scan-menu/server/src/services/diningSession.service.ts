@@ -340,7 +340,7 @@ export class DiningSessionService {
         $or: [{ diningSessionId: session._id }, { sessionId: session._id }],
         status: { $ne: 'CANCELLED' },
       },
-      { $set: { paymentStatus: 'PAID', isCleared: true, clearedAt: new Date() } }
+      { $set: { status: 'COMPLETED', paymentStatus: 'PAID', isCleared: true, clearedAt: new Date() } }
     );
 
     // Accrue loyalty points for all completed session orders

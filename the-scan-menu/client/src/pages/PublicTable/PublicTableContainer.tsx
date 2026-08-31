@@ -911,8 +911,8 @@ export const PublicTable: React.FC = () => {
     }
   };
 
-  // Verify 4-digit PIN and automatically submit order in one continuous action
-  const handleVerifyOtpAndPlaceOrder = async () => {
+  // Verify 4-digit PIN to authenticate customer profile and enable loyalty points in cart
+  const handleVerifyOtp = async () => {
     const otpCode = otpDigits.join('');
     if (otpCode.length !== 4) return;
 
@@ -921,8 +921,10 @@ export const PublicTable: React.FC = () => {
       const res = await verifyOtp(phoneNumber, otpCode, restaurantSlug, restaurantId, customerName);
       if (res?.success && res.data?.customerToken) {
         setIsVerifyingOtp(false);
-        // Seamlessly place the order with the freshly minted customer token
-        await submitOrderPayload(customerName, phoneNumber, res.data.customerToken);
+        setIsOtpModalOpen(false);
+        setOtpSent(false);
+        setOtpDigits(['', '', '', '']);
+        // Customer is now authenticated; they can review loyalty points & click proceed in cart
       } else {
         setIsVerifyingOtp(false);
       }
@@ -1122,6 +1124,8 @@ export const PublicTable: React.FC = () => {
           customerNote={customerNote}
           useLoyaltyPoints={useLoyaltyPoints}
           onToggleLoyaltyPoints={toggleUseLoyaltyPoints}
+          isLoyaltyEnabled={Boolean(restaurant.loyaltyConfig?.enabled)}
+          loyaltyConfig={restaurant.loyaltyConfig}
           cartSubtotal={cartSubtotal}
           cartTaxBreakdown={cartTaxBreakdown}
           cartGrandTotal={cartGrandTotal}
@@ -1186,9 +1190,9 @@ export const PublicTable: React.FC = () => {
 
       <ConfirmModal
         isOpen={isClearCartModalOpen}
-        title="Clear Basket?"
-        message="Remove all items from your review list?"
-        confirmText="Clear Basket"
+        title="Clear Entire Cart?"
+        message="Are you sure you want to remove all selected items from your basket?"
+        confirmText="Clear Cart"
         cancelText="Keep Items"
         onConfirm={() => {
           clearCart();
@@ -1232,7 +1236,7 @@ export const PublicTable: React.FC = () => {
         onNameChange={setCustomerName}
         onPhoneChange={setPhoneNumber}
         onSendOtp={handleSendOtp}
-        onVerifyOtpAndPlaceOrder={handleVerifyOtpAndPlaceOrder}
+        onVerifyOtp={handleVerifyOtp}
         onOtpDigitsChange={setOtpDigits}
         onResetOtpSent={() => {
           setOtpSent(false);

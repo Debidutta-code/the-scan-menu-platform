@@ -69,6 +69,7 @@ export class PublicController {
       const resolution = await diningSessionService.resolveTable(restaurantIdentifier, token, guestToken);
       const settings = await RestaurantSettings.findOne({ restaurantId: resolution.restaurant._id });
       const featureFlags = await FeatureFlag.find({ restaurantId: resolution.restaurant._id }).select('key enabled -_id').lean();
+      const loyaltyConfig = await loyaltyService.getLoyaltyConfig(resolution.restaurant._id);
 
       const responseData = {
         restaurant: {
@@ -93,6 +94,7 @@ export class PublicController {
           paymentConfig: settings?.paymentConfig || { activeProvider: 'CASH', activeMode: 'POSTPAID' },
           orderWorkflowMode: settings?.workflow?.orderWorkflowMode || 'FIVE_STEP',
           autoAcceptConfig: settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+          loyaltyConfig: loyaltyConfig || { enabled: false },
           featureFlags: featureFlags || [],
         },
         table: {

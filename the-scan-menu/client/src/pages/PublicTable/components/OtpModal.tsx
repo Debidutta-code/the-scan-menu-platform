@@ -5,7 +5,7 @@ import { OtpModalProps } from '../types';
 
 export const OtpModal: React.FC<OtpModalProps> = ({
   isOpen,
-  isPlacingOrder,
+  isPlacingOrder = false,
   isVerifyingOtp,
   isSendingOtp,
   otpSent,
@@ -20,9 +20,11 @@ export const OtpModal: React.FC<OtpModalProps> = ({
   onPhoneChange,
   onSendOtp,
   onVerifyOtpAndPlaceOrder,
+  onVerifyOtp,
   onOtpDigitsChange,
   onResetOtpSent,
 }) => {
+  const handleVerify = onVerifyOtp || onVerifyOtpAndPlaceOrder;
   return (
     <AnimatePresence>
       {isOpen && (
@@ -51,7 +53,7 @@ export const OtpModal: React.FC<OtpModalProps> = ({
               <div className="flex justify-between items-center pb-2 border-b border-slate-50">
                 <h3 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
                   <Lock className="w-5 h-5 text-amber-500" strokeWidth={2} />
-                  <span>Verify to Order</span>
+                  <span>Verify Phone to Order</span>
                 </h3>
                 <button
                   onClick={onClose}
@@ -65,7 +67,7 @@ export const OtpModal: React.FC<OtpModalProps> = ({
               {!otpSent ? (
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500 leading-normal">
-                    Enter your name and mobile number to place your kitchen order at {tableDisplayName}.
+                    Enter your name and mobile number to unlock your loyalty points and order at {tableDisplayName}.
                   </p>
 
                   <div className="space-y-1.5">
@@ -102,7 +104,7 @@ export const OtpModal: React.FC<OtpModalProps> = ({
                   <button
                     onClick={onSendOtp}
                     disabled={isSendingOtp || phoneNumber.length < 10 || !customerName.trim()}
-                    className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 uppercase tracking-wider"
+                    className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer"
                   >
                     {isSendingOtp && <Loader className="w-4 h-4 animate-spin text-amber-400" />}
                     <span>Get 4-Digit PIN</span>
@@ -116,69 +118,47 @@ export const OtpModal: React.FC<OtpModalProps> = ({
                     </p>
                   </div>
 
-                  {/* Premium 4-Box PIN Input */}
+                  {/* 4-Box PIN Input */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono text-center">Enter PIN</label>
                     <div className="flex justify-center gap-3">
                       {otpDigits.map((digit, idx) => (
                         <input
                           key={idx}
-                          ref={(el) => { otpInputRefs.current[idx] = el; }}
+                          ref={(el) => {
+                            otpInputRefs.current[idx] = el;
+                          }}
                           type="text"
                           inputMode="numeric"
+                          pattern="[0-9]*"
                           maxLength={1}
                           value={digit}
-                          autoFocus={idx === 0 && otpSent}
-                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '').slice(-1);
+                            const val = e.target.value.replace(/[^0-9]/g, '');
                             const newDigits = [...otpDigits];
-                            newDigits[idx] = val;
+                            newDigits[idx] = val ? val[val.length - 1] : '';
                             onOtpDigitsChange(newDigits);
                             if (val && idx < 3) {
                               otpInputRefs.current[idx + 1]?.focus();
                             }
-                            if (val && idx === 3) {
-                              const fullCode = newDigits.join('');
-                              if (fullCode.length === 4) {
-                                setTimeout(() => onVerifyOtpAndPlaceOrder(), 80);
-                              }
-                            }
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Backspace' && !digit && idx > 0) {
-                              const newDigits = [...otpDigits];
-                              newDigits[idx - 1] = '';
-                              onOtpDigitsChange(newDigits);
+                            if (e.key === 'Backspace' && !otpDigits[idx] && idx > 0) {
                               otpInputRefs.current[idx - 1]?.focus();
                             }
                           }}
-                          onPaste={(e) => {
-                            e.preventDefault();
-                            const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 4);
-                            if (pasted) {
-                              const newDigits = ['', '', '', ''];
-                              for (let i = 0; i < pasted.length && i < 4; i++) newDigits[i] = pasted[i];
-                              onOtpDigitsChange(newDigits);
-                              const focusIdx = Math.min(pasted.length, 3);
-                              otpInputRefs.current[focusIdx]?.focus();
-                              if (pasted.length === 4) setTimeout(() => onVerifyOtpAndPlaceOrder(), 80);
-                            }
-                          }}
-                          className={`w-14 h-16 text-center text-2xl font-black font-mono rounded-2xl border-2 outline-none transition-all duration-150 ${
+                          className={`w-12 h-14 text-center text-xl font-bold font-mono border rounded-2xl focus:outline-none transition-all ${
                             digit
-                              ? 'bg-amber-50 border-amber-400 text-slate-900 shadow-md shadow-amber-100'
-                              : 'bg-slate-50 border-slate-200 text-slate-400'
-                          } focus:border-[var(--theme-accent)] focus:ring-4 focus:ring-[var(--theme-accent)]/15 focus:bg-white focus:shadow-lg`}
+                              ? 'border-amber-500 bg-amber-50/20 text-slate-900 ring-2 ring-amber-500/20'
+                              : 'border-slate-200 bg-slate-50/50 text-slate-400 focus:border-amber-500 focus:bg-white'
+                          }`}
                         />
                       ))}
                     </div>
 
-                    {/* Demo PIN hint badge */}
-                    <div className="flex justify-center pt-1">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
+                    <div className="flex items-center justify-center gap-1.5 pt-1">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full">
                         <span className="text-[11px] text-amber-700">Demo PIN:</span>
-                        <span className="text-[11px] font-black font-mono text-amber-700 tracking-widest">0&nbsp;0&nbsp;0&nbsp;0</span>
+                        <span className="text-[11px] font-black font-mono text-amber-700 tracking-widest">0 0 0 0</span>
                       </div>
                     </div>
                   </div>
@@ -192,14 +172,14 @@ export const OtpModal: React.FC<OtpModalProps> = ({
                       <button
                         onClick={onSendOtp}
                         disabled={isSendingOtp}
-                        className="text-[11px] text-amber-600 hover:text-amber-800 font-bold underline transition"
+                        className="text-[11px] text-amber-600 hover:text-amber-800 font-bold underline transition cursor-pointer"
                       >
                         Resend PIN
                       </button>
                     )}
                     <button
                       onClick={onResetOtpSent}
-                      className="text-[11px] text-slate-500 hover:text-slate-800 font-medium"
+                      className="text-[11px] text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
                     >
                       Change Phone
                     </button>
@@ -209,17 +189,17 @@ export const OtpModal: React.FC<OtpModalProps> = ({
                     <button
                       onClick={onResetOtpSent}
                       disabled={isPlacingOrder || isVerifyingOtp}
-                      className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl transition hover:bg-slate-50 disabled:opacity-50"
+                      className="w-1/3 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-xl transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                     >
                       Back
                     </button>
                     <button
-                      onClick={onVerifyOtpAndPlaceOrder}
+                      onClick={handleVerify}
                       disabled={isPlacingOrder || isVerifyingOtp || otpDigits.join('').length !== 4}
-                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 uppercase tracking-wide"
+                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 uppercase tracking-wide cursor-pointer"
                     >
-                      {(isPlacingOrder || isVerifyingOtp) && <Loader className="w-4 h-4 animate-spin text-slate-950" />}
-                      <span>Verify & Place Order</span>
+                      {isVerifyingOtp && <Loader className="w-4 h-4 animate-spin text-slate-950" />}
+                      <span>Verify & Continue to Cart</span>
                     </button>
                   </div>
                 </div>
