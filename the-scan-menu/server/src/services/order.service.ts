@@ -10,6 +10,7 @@ import { Payment } from '../models/Payment';
 import { MenuItem } from '../models/MenuItem';
 import { Category } from '../models/Category';
 import { Tax } from '../models/Tax';
+import { Restaurant } from '../models/Restaurant';
 import { RestaurantSettings } from '../models/RestaurantSettings';
 import { inventoryService } from './inventory.service';
 import { getNextOrderNumber } from '../utils/orderCounter';
@@ -560,9 +561,20 @@ export class OrderService {
       throw new CustomError(validation.errorCode || 'INVALID_TRANSITION', validation.errorMessage || 'Invalid status transition', statusCode);
     }
 
-    // Prepaid Mode Guard: Cannot move to ACCEPTED unless payment is PAID
-    const paymentMode = settings?.paymentConfig?.activeMode || 'POSTPAID';
-    if (paymentMode === 'PREPAID' && nextStatus === 'ACCEPTED' && order.paymentStatus !== 'PAID') {
+    // Prepaid Mode Guard: Cannot move past PENDING into kitchen preparation/fulfillment unless payment is PAID
+    const restaurant = await Restaurant.findById(restaurantId);
+    const paymentMode =
+      settings?.paymentConfig?.activeMode ||
+      (restaurant as any)?.paymentConfig?.activeMode ||
+      (restaurant as any)?.activeMode ||
+      'POSTPAID';
+
+    if (
+      paymentMode === 'PREPAID' &&
+      order.status === 'PENDING' &&
+      nextStatus !== 'CANCELLED' &&
+      order.paymentStatus !== 'PAID'
+    ) {
       throw new CustomError('PAYMENT_REQUIRED', 'Prepaid orders require payment before moving to kitchen preparation.', 400);
     }
 
