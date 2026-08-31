@@ -27,6 +27,9 @@ export interface PrintOrderData {
   subtotal?: number;
   tax?: number;
   taxBreakdown?: { name: string; percentage?: number; amount: number }[];
+  roundOff?: number;
+  discount?: number;
+  serviceCharge?: number;
   total?: number;
   paymentStatus?: 'PENDING' | 'PAID' | string;
   paymentMethod?: string;
@@ -410,6 +413,27 @@ export function generateCounterBillHtml(
         </div>
 
         ${taxBreakdownHtml}
+
+        ${order.discount ? `
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#15803d;margin-top:2px;">
+            <span>Discount</span>
+            <span style="font-family:monospace;">-${formatPrintCurrency(order.discount, currency)}</span>
+          </div>
+        ` : ''}
+
+        ${order.serviceCharge ? `
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#333;margin-top:2px;">
+            <span>Service Charge</span>
+            <span style="font-family:monospace;">${formatPrintCurrency(order.serviceCharge, currency)}</span>
+          </div>
+        ` : ''}
+
+        ${order.roundOff && order.roundOff !== 0 ? `
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#333;margin-top:2px;">
+            <span>Round Off</span>
+            <span style="font-family:monospace;">${order.roundOff > 0 ? '+' : '-'}${formatPrintCurrency(Math.abs(order.roundOff), currency)}</span>
+          </div>
+        ` : ''}
 
         <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:900;border-top:2px solid #000;border-bottom:2px solid #000;margin-top:5px;padding:5px 0;">
           <span>${isPaid ? 'TOTAL PAID' : 'PAYABLE AMOUNT'}</span>

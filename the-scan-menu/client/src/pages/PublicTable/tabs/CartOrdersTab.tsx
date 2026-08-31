@@ -35,6 +35,7 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
   loyaltyConfig,
   cartSubtotal,
   cartTaxBreakdown,
+  cartRoundOff = 0,
   cartGrandTotal,
   expandedRounds,
   tableDisplayName,
@@ -256,6 +257,15 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                         <span className="font-mono text-emerald-700 font-extrabold">-₹{actualDiscountRupees.toFixed(2)}</span>
                       </div>
                     )}
+                    {cartRoundOff !== 0 && (
+                      <div className="flex justify-between text-slate-500 font-medium px-1 text-[11px]">
+                        <span>Round Off</span>
+                        <span className="font-mono text-slate-700">
+                          {cartRoundOff > 0 ? '+' : '-'}
+                          {formatPrice(Math.abs(cartRoundOff), currency)}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-amber-950 font-bold bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80 shadow-xs">
                       <span className="flex items-center gap-1.5 font-sans">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -273,6 +283,15 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                           <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1 rounded font-mono">-{pointsToUse} pts</span>
                         </span>
                         <span className="font-mono text-emerald-700 font-extrabold">-₹{actualDiscountRupees.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {cartRoundOff !== 0 && (
+                      <div className="flex justify-between text-slate-500 font-medium px-1 text-xs">
+                        <span>Round Off</span>
+                        <span className="font-mono text-slate-700">
+                          {cartRoundOff > 0 ? '+' : '-'}
+                          {formatPrice(Math.abs(cartRoundOff), currency)}
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center justify-between bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80">

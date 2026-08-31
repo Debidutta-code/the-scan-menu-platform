@@ -21,6 +21,7 @@ import { restaurantStatsService } from './restaurantStats.service';
 import { customerService } from './customer.service';
 import { loyaltyService } from './loyalty.service';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
+import { calculateRoundOff } from '../utils/rounding.util';
 import { AuditLog } from '../models/AuditLog';
 
 class CustomError extends Error {
@@ -219,7 +220,9 @@ export class OrderService {
       });
     }
 
-    const total = subtotal + tax;
+    const restaurantSettings = await RestaurantSettings.findOne({ restaurantId: new Types.ObjectId(restaurantId) });
+    const unroundedTotal = subtotal + tax;
+    const { roundedTotal: total, roundOff } = calculateRoundOff(unroundedTotal, restaurantSettings?.roundingConfig);
 
     // Normalize customer phone if provided
     let normalizedPhone: string | undefined = undefined;
@@ -427,6 +430,7 @@ export class OrderService {
       subtotal,
       tax,
       taxBreakdown,
+      roundOff,
       total,
       customerNote: customerNote || '',
       customerName: customerName ? customerName.trim() : undefined,
@@ -492,7 +496,7 @@ export class OrderService {
     }
 
     // 8. Auto-Accept Workflow Trigger
-    const settings = await RestaurantSettings.findOne({ restaurantId });
+    const settings = restaurantSettings;
     const autoAcceptConfig = settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 };
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
     const isPrepaid = (settings?.paymentConfig?.activeMode || 'POSTPAID') === 'PREPAID';

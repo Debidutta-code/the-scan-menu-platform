@@ -200,6 +200,7 @@ export class AdminController {
       if (updateData.socialLinks) settings.branding.socialLinks = { ...settings.branding.socialLinks, ...updateData.socialLinks };
       if (updateData.printerConfig) settings.printerConfig = { ...(settings.printerConfig || {}), ...updateData.printerConfig };
       if (updateData.qrCodeStyle) settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
+      if (updateData.roundingConfig) settings.roundingConfig = { ...(settings.roundingConfig || { enabled: true, strategy: 'NEAREST' }), ...updateData.roundingConfig };
 
       await settings.save();
 

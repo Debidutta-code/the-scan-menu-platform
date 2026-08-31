@@ -16,8 +16,10 @@ import {
   AlertCircle,
   Award,
   Users,
+  Banknote,
 } from 'lucide-react';
 import apiClient from '../lib/api';
+import { ShiftManagementModal } from '../components/pos/ShiftManagementModal';
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
@@ -61,6 +63,8 @@ export const ManagerAnalytics: React.FC = () => {
   const { isEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { activeRestaurantId, user } = useAuth();
   const { toast } = useToast();
+
+  const [showShiftModal, setShowShiftModal] = useState(false);
 
   const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'custom'>('today');
   const [customStart, setCustomStart] = useState('');
@@ -413,6 +417,16 @@ export const ManagerAnalytics: React.FC = () => {
               </button>
             ))}
           </div>
+
+          {/* Shift Report Button */}
+          <button
+            onClick={() => setShowShiftModal(true)}
+            className="h-8.5 flex items-center justify-center gap-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs border border-emerald-700 cursor-pointer"
+            title="View shift reports, cash drawer, petty cash & day close"
+          >
+            <Banknote className="w-3.5 h-3.5" strokeWidth={2} />
+            <span>Shift Report</span>
+          </button>
 
           {/* CSV Export Button */}
           <button
@@ -788,9 +802,15 @@ export const ManagerAnalytics: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       )}
+
+      {/* Shift Report Modal */}
+      <ShiftManagementModal
+        isOpen={showShiftModal}
+        onClose={() => setShowShiftModal(false)}
+        restaurantId={activeRestaurantId || ''}
+      />
 
     </div>
   );

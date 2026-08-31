@@ -32,13 +32,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useFontScale } from '../hooks/useFontScale';
 import { useToast } from '../hooks/useToast';
 import { useSocket } from '../hooks/useSocket';
 import apiClient from '../lib/api';
 import { printOrderTicket, TicketPrintType } from '../utils/printReceipt';
 import { PrintOrderModal } from '../components/PrintOrderModal';
-import { ShiftManagementModal } from '../components/pos/ShiftManagementModal';
 import { ItemModifierModal } from '../components/pos/ItemModifierModal';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import { offlineStorage } from '../lib/offlineStorage';
@@ -90,7 +88,6 @@ const orderModeOptions: { key: OrderMode; label: string; icon: React.ReactNode }
 
 export const ManagerCounter: React.FC = () => {
   const { user, activeRestaurantId, impersonatedOutlet } = useAuth();
-  const { fontScale, setFontScale } = useFontScale();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -112,20 +109,6 @@ export const ManagerCounter: React.FC = () => {
   const [checkoutStep, setCheckoutStep] = useState<'CUSTOMER_INFO' | 'PAYMENT_CONFIRM'>('CUSTOMER_INFO');
   const [selectedPrintTarget, setSelectedPrintTarget] = useState<TicketPrintType>('BOTH');
 
-  // Shift Management State
-  const [showShiftModal, setShowShiftModal] = useState(false);
-
-  const { data: currentShiftData } = useQuery({
-    queryKey: ['currentShift', restaurantId],
-    queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${restaurantId}/shifts/current`);
-      return res.data;
-    },
-    enabled: !!restaurantId,
-    refetchInterval: 15000,
-  });
-
-  const activeShift = currentShiftData?.data || null;
 
   // Recent Orders Drawer & Quick Reprint Modal State
   const [showRecentOrdersModal, setShowRecentOrdersModal] = useState(false);
@@ -304,7 +287,24 @@ export const ManagerCounter: React.FC = () => {
 
   const cartSubtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const taxAmount = Math.round((cartSubtotal * taxRatePercent) / 100);
-  const grandTotal = cartSubtotal + taxAmount;
+  const unroundedTotal = cartSubtotal + taxAmount;
+  const roundingConfig =
+    settingsData?.data?.roundingConfig ||
+    settingsData?.data?.settings?.roundingConfig;
+
+  let roundOffAmount = 0;
+  let grandTotal = unroundedTotal;
+  if (roundingConfig?.enabled !== false) {
+    const strategy = roundingConfig?.strategy || 'NEAREST';
+    if (strategy === 'UP') {
+      grandTotal = Math.ceil(unroundedTotal / 100) * 100;
+    } else if (strategy === 'DOWN') {
+      grandTotal = Math.floor(unroundedTotal / 100) * 100;
+    } else {
+      grandTotal = Math.round(unroundedTotal / 100) * 100;
+    }
+    roundOffAmount = grandTotal - unroundedTotal;
+  }
   const totalItemCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
 
   // Open Checkout Wizard Modal
@@ -347,7 +347,10 @@ export const ManagerCounter: React.FC = () => {
       paymentMethod,
       orderMode,
       items: cartItems.map((item) => ({
-        itemId: item.itemId,
+        // For variant items, itemId is a composite "mongoId_variantName" used only for cart deduplication.
+        // baseItemId always holds the real MongoDB MenuItem _id — use it for the API.
+        itemId: item.baseItemId || item.itemId,
+        variantName: item.variantName,
         quantity: item.quantity,
         selectedAddOns: item.selectedAddOns || [],
         specialInstructions: item.specialInstructions || '',
@@ -574,47 +577,8 @@ export const ManagerCounter: React.FC = () => {
           </div>
         </div>
 
-        {/* Header Right: Shift Chip + Mode Toggle + Recent Orders */}
+        {/* Header Right: Mode Toggle + Recent Orders */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Global UI Text Size / Font Scale Switcher */}
-          <div className="bg-slate-100 p-0.5 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
-            <button
-              type="button"
-              onClick={() => setFontScale('SMALL')}
-              className={`h-7 px-2 rounded-lg text-[10px] font-black transition cursor-pointer ${
-                fontScale === 'SMALL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Small Text (81.25% - 13px Base)"
-            >
-              A⁻
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('NORMAL')}
-              className={`h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
-                fontScale === 'NORMAL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Normal Text (87.5% - 14px Base)"
-            >
-              A
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('LARGE')}
-              className={`h-7 px-2 rounded-lg text-xs font-black transition cursor-pointer ${
-                fontScale === 'LARGE'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Large Text (100% - 16px Base)"
-            >
-              A⁺
-            </button>
-          </div>
           {/* Offline Sync Status Chip */}
           {(!isOnline || queuedCount > 0) && (
             <button
@@ -627,24 +591,6 @@ export const ManagerCounter: React.FC = () => {
               <span>{!isOnline ? 'Offline' : 'Syncing'} ({queuedCount} queued)</span>
             </button>
           )}
-
-          {/* Shift Drawer Button */}
-          <button
-            type="button"
-            onClick={() => setShowShiftModal(true)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer active:scale-95 shadow-2xs ${
-              activeShift
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-            }`}
-            title="Manage Cash Drawer, Petty Cash, X-Report & Day Close"
-          >
-            <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <Banknote className="w-4 h-4" />
-            <span className="hidden sm:inline">
-              {activeShift ? `Shift #${activeShift.shiftNumber} (₹${(activeShift.expectedCashInDrawer / 100).toFixed(0)})` : 'Open Shift'}
-            </span>
-          </button>
 
           <a
             href={`/r/${(user?.role === 'SUPER_ADMIN' ? impersonatedOutlet?.slug : (user as any)?.restaurants?.[0]?.slug) || 'demo-cafe'}/display`}
@@ -1065,6 +1011,14 @@ export const ManagerCounter: React.FC = () => {
                 <div className="flex justify-between text-slate-600 text-[11px]">
                   <span>GST ({taxRatePercent}%)</span>
                   <span className="font-mono font-bold text-slate-700">₹{(taxAmount / 100).toFixed(2)}</span>
+                </div>
+              )}
+              {roundOffAmount !== 0 && (
+                <div className="flex justify-between text-slate-600 text-[11px]">
+                  <span>Round Off</span>
+                  <span className="font-mono font-bold text-slate-700">
+                    {roundOffAmount > 0 ? '+' : '-'}₹{(Math.abs(roundOffAmount) / 100).toFixed(2)}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between items-center font-bold text-slate-900 border-t border-slate-200/80 pt-1">
@@ -1606,13 +1560,6 @@ export const ManagerCounter: React.FC = () => {
         }}
       />
 
-      {/* ── Shift Management & Day Close Modal ────────────────────────────── */}
-      <ShiftManagementModal
-        isOpen={showShiftModal}
-        onClose={() => setShowShiftModal(false)}
-        restaurantId={restaurantId!}
-        restaurantInfo={settingsData?.data}
-      />
     </div>
   );
 };

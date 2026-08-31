@@ -306,13 +306,15 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     const combinedItems: any[] = [];
     let combinedSubtotal = 0;
     let combinedTax = 0;
+    let combinedRoundOff = 0;
     let combinedTotal = 0;
 
     tableOrders.forEach((ord) => {
       ord.items?.forEach((it: any) => combinedItems.push(it));
       combinedSubtotal += ord.subtotal || 0;
       combinedTax += ord.tax || 0;
-      combinedTotal += ord.total || (ord.subtotal || 0) + (ord.tax || 0);
+      combinedRoundOff += ord.roundOff || 0;
+      combinedTotal += ord.total || (ord.subtotal || 0) + (ord.tax || 0) + (ord.roundOff || 0);
     });
 
     const allPaid = tableOrders.every((o) => o.paymentStatus === 'PAID') && tableOrders.length > 0;
@@ -329,6 +331,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       ],
       subtotal: combinedSubtotal,
       tax: combinedTax,
+      roundOff: combinedRoundOff,
       total: combinedTotal,
       paymentStatus: allPaid ? 'PAID' : 'PENDING',
     };

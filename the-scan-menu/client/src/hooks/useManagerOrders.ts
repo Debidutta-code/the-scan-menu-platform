@@ -32,6 +32,7 @@ export interface Order {
   taxBreakdown?: { name: string; percentage: number; amount: number; subTaxes?: { name: string; percentage: number; amount: number }[] }[];
   total: number;
   paymentStatus?: 'PENDING' | 'PAID';
+  paymentMethod?: string;
   customerNote?: string;
   customerName?: string;
   customerPhone?: string;

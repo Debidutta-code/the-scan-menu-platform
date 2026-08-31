@@ -15,6 +15,7 @@ import { posIntegrationService } from './posIntegration.service';
 import { restaurantStatsService } from './restaurantStats.service';
 import { customerService } from './customer.service';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
+import { calculateRoundOff } from '../utils/rounding.util';
 
 class CustomError extends Error {
   status: number;
@@ -201,7 +202,9 @@ export class CheckoutService {
       });
     }
 
-    const total = subtotal + tax;
+    const settings = await RestaurantSettings.findOne({ restaurantId });
+    const unroundedTotal = subtotal + tax;
+    const { roundedTotal: total, roundOff } = calculateRoundOff(unroundedTotal, settings?.roundingConfig);
 
     // 4. Resolve or create dining session if dine-in
     let resolvedDiningSessionId = diningSessionId ? new Types.ObjectId(diningSessionId) : undefined;
@@ -237,7 +240,6 @@ export class CheckoutService {
     }
 
     // 5. Create Payment Intent with Payment Provider
-    const settings = await RestaurantSettings.findOne({ restaurantId });
     const provider = settings?.paymentConfig?.activeProvider || 'RAZORPAY';
 
     let gatewayOrderId: string | undefined;
@@ -266,6 +268,7 @@ export class CheckoutService {
       subtotal,
       tax,
       taxBreakdown,
+      roundOff,
       total,
       status: 'PAYMENT_PENDING',
       gatewayProvider: provider,
@@ -367,6 +370,7 @@ export class CheckoutService {
         subtotal: attempt.subtotal,
         tax: attempt.tax,
         taxBreakdown: attempt.taxBreakdown,
+        roundOff: attempt.roundOff || 0,
         total: attempt.total,
         customerNote: attempt.customerNote,
         customerName: attempt.customerName,

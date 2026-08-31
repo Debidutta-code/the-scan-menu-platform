@@ -36,6 +36,7 @@ export interface ICheckoutAttempt extends Document {
   subtotal: number; // in paise/cents
   tax: number; // in paise/cents
   taxBreakdown: IOrderTaxBreakdown[];
+  roundOff?: number; // in paise/cents
   total: number; // in paise/cents
   status: CheckoutAttemptStatus;
   gatewayProvider: 'CASH' | 'RAZORPAY' | 'STRIPE' | 'SQUARE';
@@ -101,6 +102,7 @@ const checkoutAttemptSchema = new Schema<ICheckoutAttempt>(
         ],
       },
     ],
+    roundOff: { type: Number, required: true, default: 0 },
     total: { type: Number, required: true },
     status: {
       type: String,

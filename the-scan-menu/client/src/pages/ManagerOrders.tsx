@@ -24,6 +24,7 @@ import {
   Banknote,
   QrCode,
   CheckCircle,
+  MoreVertical,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
@@ -109,12 +110,18 @@ const getStatusBadge = (status: string) => {
 
 const getElapsedTimeLabel = (createdAt: string, now: Date) => {
   const diffMs = now.getTime() - new Date(createdAt).getTime();
-  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHrs = Math.floor(diffMin / 60);
-  return `${diffHrs}h ${diffMin % 60}m ago`;
+  const diffSecTotal = Math.max(0, Math.floor(diffMs / 1000));
+  const hrs = Math.floor(diffSecTotal / 3600);
+  const mins = Math.floor((diffSecTotal % 3600) / 60);
+  const secs = diffSecTotal % 60;
+
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m ${secs}s ago`;
+  }
+  if (mins > 0) {
+    return `${mins}m ${secs}s ago`;
+  }
+  return `${secs}s ago`;
 };
 
 const formatAmount = (amt: number) =>
@@ -144,8 +151,14 @@ export const ManagerOrders: React.FC = () => {
   // Selected Order for the dedicated Right Details Panel
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  // Inline cancel confirmation state (zero modals!)
+  // 3-dot dropdown menu and cancel confirmation state
+  const [showOrderMenu, setShowOrderMenu] = useState(false);
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
+
+  useEffect(() => {
+    setShowOrderMenu(false);
+    setIsConfirmingCancel(false);
+  }, [selectedOrderId]);
 
   // All Orders History States
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
@@ -178,7 +191,6 @@ export const ManagerOrders: React.FC = () => {
     updatePaymentStatusMutation,
     cancelOrderMutation,
     clearOrderMutation,
-    retryPosMutation,
   } = useManagerOrders({
     historyPage,
     debouncedSearch,
@@ -279,9 +291,9 @@ export const ManagerOrders: React.FC = () => {
     }
   }, [historyOrdersData, historyPage]);
 
-  // Live clock timer
+  // Live clock timer (1s interval for real-time seconds)
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 10000);
+    const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -742,59 +754,120 @@ export const ManagerOrders: React.FC = () => {
         <div className="w-72 lg:w-[300px] xl:w-[315px] shrink-0 bg-white border border-slate-200/80 rounded-2xl flex flex-col min-h-0 shadow-xs overflow-hidden">
           {selectedOrder ? (
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              {/* Header */}
-              <div className="p-3.5 border-b border-slate-150 bg-slate-50/60 shrink-0 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-mono text-lg font-black text-slate-900">
+              {/* Header (Clean 2-Liner) */}
+              <div className="p-3 border-b border-slate-150 bg-slate-50/70 shrink-0 space-y-1.5">
+                {/* Line 1: Order # + Mode & Table (Left) | Status Badge + 3-Dot Menu (Right) */}
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-mono text-base font-black text-slate-900 shrink-0">
                       #{selectedOrder.orderNumber}
                     </span>
-                    {/* Payment Badge */}
-                    {selectedOrder.paymentStatus === 'PAID' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>PAID</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200">
-                        <CreditCard className="w-3 h-3 text-rose-600" />
-                        <span>PAYMENT PENDING</span>
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setSelectedOrderId(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
-                    title="Close Details"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
-                  <div className="flex items-center gap-1 truncate">
-                    <span className="font-bold text-slate-900">
+                    <span className="text-slate-300 font-normal shrink-0">•</span>
+                    <span className="font-bold text-xs text-slate-800 truncate">
                       {selectedOrder.orderMode || 'Dine-In'} • {selectedOrder.tableId?.displayName || selectedOrder.tableId?.tableNumber || 'Table'}
                     </span>
                   </div>
-                  <span className="text-slate-500 font-mono text-[11px] shrink-0">
-                    {getElapsedTimeLabel(selectedOrder.createdAt, now)}
-                  </span>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(() => {
+                      const badge = getStatusBadge(selectedOrder.status);
+                      return (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badge.bg}`}>
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
+
+                    {/* 3-dot Menu */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOrderMenu((prev) => !prev);
+                          setIsConfirmingCancel(false);
+                        }}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+                        title="More options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {showOrderMenu && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => {
+                              setShowOrderMenu(false);
+                              setIsConfirmingCancel(false);
+                            }}
+                          />
+                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-1 space-y-1">
+                            {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(selectedOrder.status) ? (
+                              isConfirmingCancel ? (
+                                <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg space-y-2">
+                                  <p className="text-[11px] font-bold text-rose-800 leading-tight">
+                                    Cancel order #{selectedOrder.orderNumber}?
+                                  </p>
+                                  <div className="flex items-center gap-1.5 justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsConfirmingCancel(false);
+                                      }}
+                                      className="px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-white rounded transition cursor-pointer"
+                                    >
+                                      Back
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleConfirmCancel(selectedOrder);
+                                        setShowOrderMenu(false);
+                                        setIsConfirmingCancel(false);
+                                      }}
+                                      className="px-2 py-1 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded transition cursor-pointer shadow-xs"
+                                    >
+                                      Yes, Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsConfirmingCancel(true);
+                                  }}
+                                  className="w-full px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Cancel Order</span>
+                                </button>
+                              )
+                            ) : (
+                              <div className="px-2.5 py-1.5 text-xs text-slate-400 italic">
+                                No actions available
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span className="flex items-center gap-1 truncate">
+                {/* Line 2: Customer Name (Left) | Elapsed Time with Seconds (Right) */}
+                <div className="flex items-center justify-between text-xs text-slate-500 gap-2">
+                  <span className="flex items-center gap-1 truncate text-[11px]">
                     <User className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>{selectedOrder.customerName || 'Guest Diner'} {selectedOrder.customerPhone ? `(${selectedOrder.customerPhone})` : ''}</span>
+                    <span className="truncate">{selectedOrder.customerName || 'Guest Diner'} {selectedOrder.customerPhone ? `(${selectedOrder.customerPhone})` : ''}</span>
                   </span>
-                  {(() => {
-                    const badge = getStatusBadge(selectedOrder.status);
-                    return (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${badge.bg}`}>
-                        {badge.label}
-                      </span>
-                    );
-                  })()}
+                  <span className="text-slate-500 font-mono text-[11px] shrink-0 font-medium flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5 text-slate-400" />
+                    {getElapsedTimeLabel(selectedOrder.createdAt, now)}
+                  </span>
                 </div>
               </div>
 
@@ -810,14 +883,14 @@ export const ManagerOrders: React.FC = () => {
                     {selectedOrder.items?.map((item, idx) => (
                       <div key={idx} className="space-y-1">
                         <div className="flex items-start justify-between gap-2 text-xs">
-                          <div className="flex items-start gap-2 min-w-0">
-                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] shrink-0">
+                          <div className="flex items-start gap-1.5 min-w-0">
+                            <span className="font-mono font-bold text-slate-400 shrink-0">
                               {item.quantity}x
                             </span>
                             <div className="min-w-0">
-                              <div className="font-semibold text-slate-900 leading-snug">
-                                {item.nameSnapshot}
-                              </div>
+                              <span className="font-semibold text-slate-800 block truncate">
+                                {item.nameSnapshot || (item as any).name}
+                              </span>
                               {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                                 <div className="text-[11px] text-slate-500">
                                   + {item.selectedAddOns.map((a) => a.name).join(', ')}
@@ -847,74 +920,6 @@ export const ManagerOrders: React.FC = () => {
                   )}
                 </div>
 
-                {/* Inline Payment Status with Always-Visible Payment Modes (Zero Modals!) */}
-                <div className="pt-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    <span>Payment Status</span>
-                    {selectedOrder.paymentStatus === 'PAID' ? (
-                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>PAID</span>
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-black text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <CreditCard className="w-3 h-3 text-rose-600" />
-                        <span>PENDING</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {selectedOrder.paymentStatus === 'PAID' ? (
-                    <div className="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-semibold">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>Payment Completed</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePaymentStatus(selectedOrder)}
-                        className="px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100/80 border border-rose-200/80 bg-white rounded-lg transition cursor-pointer"
-                        title="Revert payment status to unpaid"
-                      >
-                        Set Unpaid
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                      <div className="text-[11px] font-semibold text-slate-600 flex items-center justify-between">
-                        <span>Mark as Paid via:</span>
-                        <span className="text-[10px] text-amber-700 font-bold">1-click confirm</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePaymentStatus(selectedOrder, 'cash')}
-                          className="p-2 bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 flex flex-col items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
-                        >
-                          <Banknote className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition" />
-                          <span>Cash</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePaymentStatus(selectedOrder, 'upi')}
-                          className="p-2 bg-white hover:bg-purple-50 hover:border-purple-300 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 flex flex-col items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
-                        >
-                          <QrCode className="w-4 h-4 text-purple-600 group-hover:scale-110 transition" />
-                          <span>UPI QR</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePaymentStatus(selectedOrder, 'card')}
-                          className="p-2 bg-white hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 flex flex-col items-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
-                        >
-                          <CreditCard className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition" />
-                          <span>Card / POS</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {/* Order Summary Section */}
                 <div className="pt-3.5 space-y-2">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -939,34 +944,81 @@ export const ManagerOrders: React.FC = () => {
                       </div>
                     )}
 
+                    {Boolean((selectedOrder as any).roundOff && (selectedOrder as any).roundOff !== 0) && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>Round Off</span>
+                        <span className="font-mono font-medium">
+                          {(selectedOrder as any).roundOff > 0 ? '+' : '-'}
+                          {formatAmount(Math.abs((selectedOrder as any).roundOff))}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-bold text-slate-900">
                       <span className="text-xs uppercase">Total Amount</span>
                       <span className="font-mono text-base font-black">{formatAmount(selectedOrder.total)}</span>
-                    </div>
-
-                    {/* POS Sync Status */}
-                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>POS Sync</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => retryPosMutation.mutate(selectedOrder._id)}
-                        disabled={retryPosMutation.isPending}
-                        className="flex items-center gap-1 font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer disabled:opacity-50"
-                      >
-                        <RefreshCw className={`w-3 h-3 text-slate-500 ${retryPosMutation.isPending ? 'animate-spin' : ''}`} />
-                        <span>Sync</span>
-                      </button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons Section (Stacked at Bottom) */}
-              <div className="p-3 bg-slate-50/80 border-t border-slate-200 space-y-1.5 shrink-0">
-                {/* 1. Primary Workflow Action Button */}
+              {/* Action & Payment Section (Stacked at Sticky Bottom) */}
+              <div className="p-3 bg-slate-50/90 border-t border-slate-200 space-y-2 shrink-0">
+                {/* 1. Payment Status & Quick 1-Click Pay Modes */}
+                {selectedOrder.paymentStatus === 'PAID' ? (
+                  <div className="p-2 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Paid {selectedOrder.paymentMethod ? `(${selectedOrder.paymentMethod})` : ''}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePaymentStatus(selectedOrder)}
+                      className="px-2 py-0.5 text-[10px] font-bold text-rose-700 hover:bg-rose-100/80 border border-rose-200 bg-white rounded-md transition cursor-pointer"
+                      title="Revert payment status to unpaid"
+                    >
+                      Set Unpaid
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-white border border-slate-200/90 rounded-xl space-y-1.5 shadow-2xs">
+                    <div className="text-[11px] font-bold text-slate-600 flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-rose-700 font-semibold">
+                        <CreditCard className="w-3 h-3 text-rose-600" />
+                        <span>Payment Pending</span>
+                      </span>
+                      <span className="text-[10px] text-amber-700 font-bold">1-click pay</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePaymentStatus(selectedOrder, 'cash')}
+                        className="py-1.5 px-1 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
+                      >
+                        <Banknote className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition" />
+                        <span>Cash</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePaymentStatus(selectedOrder, 'upi')}
+                        className="py-1.5 px-1 bg-slate-50 hover:bg-purple-50 hover:border-purple-300 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-purple-600 group-hover:scale-110 transition" />
+                        <span>UPI</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePaymentStatus(selectedOrder, 'card')}
+                        className="py-1.5 px-1 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
+                      >
+                        <CreditCard className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition" />
+                        <span>Card</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Primary Workflow Action Button */}
                 {(() => {
                   const isPrepaid = orderingPaymentPolicy === 'PREPAID';
                   const isUnpaidPrepaidPending = isPrepaid && selectedOrder.paymentStatus !== 'PAID' && selectedOrder.status === 'PENDING';
@@ -1023,8 +1075,18 @@ export const ManagerOrders: React.FC = () => {
                   );
                 })()}
 
-                {/* 2. Secondary Row: Print Bill & Print KOT */}
+                {/* 3. Secondary Actions: Kitchen Token + Bill + Revert */}
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => printOrderTicket(selectedOrder, restaurantInfo, 'KITCHEN')}
+                    className="flex-1 py-2 px-2 bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                    title="Print Kitchen Token (KOT)"
+                  >
+                    <ChefHat className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+                    <span>Kitchen Token</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => printOrderTicket(selectedOrder, restaurantInfo, 'CUSTOMER')}
@@ -1032,69 +1094,20 @@ export const ManagerOrders: React.FC = () => {
                     title="Print Customer Bill"
                   >
                     <Receipt className="w-3.5 h-3.5 text-blue-600" strokeWidth={2} />
-                    <span>Print Bill</span>
+                    <span>Bill</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => printOrderTicket(selectedOrder, restaurantInfo, 'KITCHEN')}
-                    className="flex-1 py-2 px-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                    title="Print Kitchen Ticket (KOT)"
-                  >
-                    <ChefHat className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
-                    <span>Print KOT</span>
-                  </button>
-
-                  {/* Revert Button if available */}
-                  {(() => {
-                    const prevStatus = getPreviousStatus(selectedOrder.status, workflowMode);
-                    if (!prevStatus) return null;
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => handleRevertStatus(selectedOrder)}
-                        className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition cursor-pointer"
-                        title={`Revert to ${prevStatus}`}
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
-                      </button>
-                    );
-                  })()}
-                </div>
-
-                {/* 3. Inline Cancel Action (Zero Modals!) */}
-                {['PENDING', 'ACCEPTED', 'PREPARING', 'READY'].includes(selectedOrder.status) && (
-                  isConfirmingCancel ? (
-                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-rose-800">Confirm cancel?</span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setIsConfirmingCancel(false)}
-                          className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-white rounded-lg transition cursor-pointer"
-                        >
-                          No
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleConfirmCancel(selectedOrder)}
-                          className="px-2.5 py-1 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition cursor-pointer shadow-xs"
-                        >
-                          Yes, Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+                  {getPreviousStatus(selectedOrder.status, workflowMode) && (
                     <button
                       type="button"
-                      onClick={() => setIsConfirmingCancel(true)}
-                      className="w-full py-1.5 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      onClick={() => handleRevertStatus(selectedOrder)}
+                      className="p-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl transition cursor-pointer"
+                      title="Revert to previous stage"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                      <span>Mark as Cancelled</span>
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
                     </button>
-                  )
-                )}
+                  )}
+                </div>
               </div>
             </div>
           ) : (

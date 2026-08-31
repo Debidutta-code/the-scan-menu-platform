@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
+import apiClient from '../../lib/api';
 import { managerService, Tax } from '../../services/restaurant.service';
 import {
   Plus,
@@ -18,6 +19,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   ChevronDown,
+  Coins,
+  Check,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -66,6 +69,47 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
     queryKey: ['managerTaxes', targetRestaurantId],
     queryFn: () => managerService.listTaxes(targetRestaurantId!),
     enabled: !!targetRestaurantId,
+  });
+
+  const { data: restaurantData } = useQuery({
+    queryKey: ['restaurantProfile', targetRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get('/manager/restaurant');
+      return res.data?.data;
+    },
+    enabled: !!targetRestaurantId,
+  });
+
+  const [roundingEnabled, setRoundingEnabled] = useState(true);
+  const [roundingStrategy, setRoundingStrategy] = useState<'NEAREST' | 'UP' | 'DOWN'>('NEAREST');
+
+  useEffect(() => {
+    if (restaurantData?.roundingConfig) {
+      setRoundingEnabled(restaurantData.roundingConfig.enabled !== false);
+      setRoundingStrategy(restaurantData.roundingConfig.strategy || 'NEAREST');
+    }
+  }, [restaurantData]);
+
+  const updateRoundingMutation = useMutation({
+    mutationFn: async (config: { enabled: boolean; strategy: 'NEAREST' | 'UP' | 'DOWN' }) => {
+      const res = await apiClient.put('/manager/restaurant', {
+        roundingConfig: config,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['restaurantProfile', targetRestaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['managerRestaurant', targetRestaurantId] });
+      toast('Bill Rounding configuration updated successfully', 'success');
+      if (onSaved) onSaved();
+    },
+    onError: (err: any) => {
+      toast(
+        err.response?.data?.error?.message ||
+          'Failed to update rounding config. Cannot change while active orders exist.',
+        'error'
+      );
+    },
   });
 
   const taxes: Tax[] = useMemo(() => taxesData?.data || [], [taxesData?.data]);
@@ -292,6 +336,162 @@ export const TaxManagementSection: React.FC<TaxManagementSectionProps> = ({
             Tax rates directly govern billing calculations, invoice generation, and financial accounting reports. All updates are logged and restricted to authorized managers.
           </p>
         </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* BILL ROUND OFF & PRICING RULES (HOSPITALITY STANDARD) */}
+      {/* ---------------------------------------------------- */}
+      <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
+              <Coins className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-display text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>Bill Round Off &amp; Cash Rounding</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  Hospitality Standard
+                </span>
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Automatically eliminate decimal/paise fractions on customer bills, POS registers, and printed tax invoices.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setRoundingEnabled(!roundingEnabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                roundingEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  roundingEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+            <span className="text-xs font-bold text-slate-700">
+              {roundingEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+
+        {roundingEnabled ? (
+          <div className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">Rounding Strategy</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setRoundingStrategy('NEAREST')}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    roundingStrategy === 'NEAREST'
+                      ? 'border-amber-500 bg-amber-50/50 shadow-xs ring-1 ring-amber-400'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900">Nearest Whole Unit</span>
+                    {roundingStrategy === 'NEAREST' && <Check className="w-4 h-4 text-amber-600" />}
+                  </div>
+                  <span className="text-[10px] text-slate-500 leading-snug">
+                    Standard Half-Up. ₹477.40 &rarr; ₹477.00, ₹477.50 &rarr; ₹478.00. Balanced accounting.
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRoundingStrategy('UP')}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    roundingStrategy === 'UP'
+                      ? 'border-amber-500 bg-amber-50/50 shadow-xs ring-1 ring-amber-400'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900">Always Round Up (Ceil)</span>
+                    {roundingStrategy === 'UP' && <Check className="w-4 h-4 text-amber-600" />}
+                  </div>
+                  <span className="text-[10px] text-slate-500 leading-snug">
+                    Always rounds up coin decimals to protect margin. ₹477.10 &rarr; ₹478.00 (+₹0.90).
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRoundingStrategy('DOWN')}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    roundingStrategy === 'DOWN'
+                      ? 'border-amber-500 bg-amber-50/50 shadow-xs ring-1 ring-amber-400'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900">Always Round Down (Floor)</span>
+                    {roundingStrategy === 'DOWN' && <Check className="w-4 h-4 text-amber-600" />}
+                  </div>
+                  <span className="text-[10px] text-slate-500 leading-snug">
+                    Drops decimal fractions for guest delight. ₹477.90 &rarr; ₹477.00 (-₹0.90).
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live Interactive Preview Box */}
+            <div className="p-3 bg-white border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-slate-600">Sample Calculation:</span>
+                <span className="text-slate-500 font-mono">₹455.00 + 5% GST (₹22.75) = ₹477.75</span>
+                <span className="text-slate-400">&rarr;</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {roundingStrategy === 'DOWN' ? '₹477.00' : '₹478.00'}
+                </span>
+                <span className="font-mono text-[11px] text-amber-600 font-bold">
+                  (Round off: {roundingStrategy === 'DOWN' ? '-₹0.75' : '+₹0.25'})
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  updateRoundingMutation.mutate({
+                    enabled: roundingEnabled,
+                    strategy: roundingStrategy,
+                  })
+                }
+                isLoading={updateRoundingMutation.isPending}
+              >
+                Save Rounding Rules
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+            <span className="text-slate-500">
+              Bill rounding is disabled. Exact decimal numbers (e.g. ₹477.75) will be charged and printed on receipts.
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                updateRoundingMutation.mutate({
+                  enabled: false,
+                  strategy: roundingStrategy,
+                })
+              }
+              isLoading={updateRoundingMutation.isPending}
+            >
+              Save Changes
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tax List */}

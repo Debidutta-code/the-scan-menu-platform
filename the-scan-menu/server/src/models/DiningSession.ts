@@ -20,7 +20,8 @@ export interface IDiningSession extends Document {
   discount: number; // In paise/cents
   discountReason?: string;
   serviceCharge: number; // In paise/cents
-  total: number; // (subtotal + tax + serviceCharge - discount) in paise/cents
+  roundOff?: number; // In paise/cents (+/-)
+  total: number; // (subtotal + tax + serviceCharge - discount + roundOff) in paise/cents
   paidAmount: number; // In paise/cents
   balanceDue: number; // (total - paidAmount) in paise/cents
   openedAt: Date;
@@ -75,6 +76,7 @@ const diningSessionSchema = new Schema<IDiningSession>(
     discount: { type: Number, required: true, default: 0 },
     discountReason: { type: String, trim: true },
     serviceCharge: { type: Number, required: true, default: 0 },
+    roundOff: { type: Number, required: true, default: 0 },
     total: { type: Number, required: true, default: 0 },
     paidAmount: { type: Number, required: true, default: 0 },
     balanceDue: { type: Number, required: true, default: 0 },

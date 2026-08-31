@@ -1017,11 +1017,26 @@ export const PublicTable: React.FC = () => {
       name: st.name,
       percentage: st.percentage,
       amount,
-      subTaxes: []
+      subTaxes: [],
     });
   }
 
-  const cartGrandTotal = cartSubtotal + cartTaxTotal;
+  const unroundedCartTotal = cartSubtotal + cartTaxTotal;
+  const roundingConfig = restaurant.roundingConfig || (restaurant as any).settings?.roundingConfig;
+  let cartRoundOff = 0;
+  let cartGrandTotal = unroundedCartTotal;
+
+  if (roundingConfig?.enabled !== false) {
+    const strategy = roundingConfig?.strategy || 'NEAREST';
+    if (strategy === 'UP') {
+      cartGrandTotal = Math.ceil(unroundedCartTotal / 100) * 100;
+    } else if (strategy === 'DOWN') {
+      cartGrandTotal = Math.floor(unroundedCartTotal / 100) * 100;
+    } else {
+      cartGrandTotal = Math.round(unroundedCartTotal / 100) * 100;
+    }
+    cartRoundOff = cartGrandTotal - unroundedCartTotal;
+  }
 
   const activeOrderCount = sessionDetailsData?.data?.orders?.length || 0;
   const activeOrdersIds = (sessionDetailsData?.data?.orders || []).map((o: any) => o._id);
@@ -1128,6 +1143,7 @@ export const PublicTable: React.FC = () => {
           loyaltyConfig={restaurant.loyaltyConfig}
           cartSubtotal={cartSubtotal}
           cartTaxBreakdown={cartTaxBreakdown}
+          cartRoundOff={cartRoundOff}
           cartGrandTotal={cartGrandTotal}
           expandedRounds={expandedRounds}
           tableDisplayName={table.displayName}

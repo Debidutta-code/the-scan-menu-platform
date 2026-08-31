@@ -448,6 +448,7 @@ export class RestaurantController {
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
         printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
         paymentConfig: settings.paymentConfig,
+        roundingConfig: settings.roundingConfig || { enabled: true, strategy: 'NEAREST' },
         activeMode: settings.paymentConfig?.activeMode || 'POSTPAID',
         qrCodeStyle: settings.qrCodeStyle,
         featureFlags: activeFlags,
@@ -502,6 +503,29 @@ export class RestaurantController {
         }
       }
 
+      // Validate active orders/sessions before allowing rounding configuration changes
+      if (updateData.roundingConfig !== undefined) {
+        const activeOrdersCount = await Order.countDocuments({
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
+        });
+        const activeSessionsCount = await DiningSession.countDocuments({
+          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+          status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+        });
+
+        if (activeOrdersCount > 0 || activeSessionsCount > 0) {
+          sendError(
+            res,
+            'ACTIVE_ORDERS_EXIST',
+            'Cannot modify bill rounding configuration while active dining sessions or open orders exist. Please settle or complete active orders first.',
+            { activeOrdersCount, activeSessionsCount },
+            400
+          );
+          return;
+        }
+      }
+
       const restaurant = await Restaurant.findByIdAndUpdate(restaurantId, updateData, { new: true });
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
@@ -523,6 +547,7 @@ export class RestaurantController {
       if (updateData.activeMode) settings.paymentConfig.activeMode = updateData.activeMode;
       if (updateData.activeProvider) settings.paymentConfig.activeProvider = updateData.activeProvider;
       if (updateData.paymentConfig) settings.paymentConfig = { ...settings.paymentConfig, ...updateData.paymentConfig };
+      if (updateData.roundingConfig) settings.roundingConfig = { ...(settings.roundingConfig || { enabled: true, strategy: 'NEAREST' }), ...updateData.roundingConfig };
       if (updateData.preferredMethodOrder) settings.paymentConfig.preferredMethodOrder = updateData.preferredMethodOrder;
       if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
       if (updateData.fssaiNumber !== undefined) settings.paymentConfig.fssaiNumber = updateData.fssaiNumber;
@@ -564,6 +589,7 @@ export class RestaurantController {
         socialLinks: settings.branding?.socialLinks || { facebook: '', instagram: '', twitter: '' },
         printerConfig: settings.printerConfig || { paperWidth: '80mm', receiptHeader: '', receiptFooter: '', defaultPrintTarget: 'BOTH' },
         paymentConfig: settings.paymentConfig,
+        roundingConfig: settings.roundingConfig || { enabled: true, strategy: 'NEAREST' },
         activeMode: settings.paymentConfig?.activeMode || 'POSTPAID',
         activeProvider: settings.paymentConfig?.activeProvider || 'CASH',
         qrCodeStyle: settings.qrCodeStyle,

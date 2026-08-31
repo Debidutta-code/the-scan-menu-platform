@@ -9,6 +9,11 @@ export interface RestaurantTheme {
   coverImageUrl?: string;
 }
 
+export interface RoundingConfig {
+  enabled: boolean;
+  strategy: 'NEAREST' | 'UP' | 'DOWN';
+}
+
 export interface Restaurant {
   _id: string;
   name: string;
@@ -23,6 +28,7 @@ export interface Restaurant {
   currency: string;
   timezone: string;
   theme: RestaurantTheme;
+  roundingConfig?: RoundingConfig;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

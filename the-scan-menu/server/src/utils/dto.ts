@@ -37,6 +37,7 @@ export interface CustomerSafeOrderDTO {
   subtotal: number;
   tax: number;
   taxBreakdown: any[];
+  roundOff?: number;
   total: number;
   loyaltyPointsRedeemed?: number;
   loyaltyDiscount?: number;
@@ -63,6 +64,7 @@ export interface CustomerSafeDiningSessionDTO {
   tax: number;
   discount: number;
   serviceCharge: number;
+  roundOff?: number;
   total: number;
   paidAmount: number;
   balanceDue: number;
@@ -75,6 +77,7 @@ export interface CustomerSafeDiningSessionDTO {
     tax: number;
     discount: number;
     serviceCharge: number;
+    roundOff?: number;
     total: number;
     status: string;
   } | null;
@@ -148,6 +151,7 @@ export function toCustomerSafeOrderDTO(
     subtotal: raw.subtotal || 0,
     tax: raw.tax || 0,
     taxBreakdown: raw.taxBreakdown || [],
+    roundOff: raw.roundOff || 0,
     total: raw.total || 0,
     loyaltyPointsRedeemed: raw.loyaltyPointsRedeemed || 0,
     loyaltyDiscount: raw.loyaltyDiscount || 0,
@@ -190,11 +194,12 @@ export function toCustomerSafeDiningSessionDTO(
       id: billIdStr,
       _id: billIdStr,
       billNumber: rawBill.billNumber || '',
-      subtotal: rawBill.subtotal || 0,
-      tax: rawBill.tax || 0,
-      discount: rawBill.discount || 0,
+      subtotal: rawBill.subtotal || rawBill.grossAmount || 0,
+      tax: rawBill.tax || rawBill.taxAmount || 0,
+      discount: rawBill.discount || rawBill.discountAmount || 0,
       serviceCharge: rawBill.serviceCharge || 0,
-      total: rawBill.total || 0,
+      roundOff: rawBill.roundOff || 0,
+      total: rawBill.total || rawBill.netAmount || 0,
       status: rawBill.status || 'PENDING',
     };
   }
@@ -213,6 +218,7 @@ export function toCustomerSafeDiningSessionDTO(
     tax: rawSession.tax || 0,
     discount: rawSession.discount || 0,
     serviceCharge: rawSession.serviceCharge || 0,
+    roundOff: rawSession.roundOff || 0,
     total: rawSession.total || 0,
     paidAmount: rawSession.paidAmount || 0,
     balanceDue: rawSession.balanceDue || 0,

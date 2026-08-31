@@ -15,6 +15,7 @@ export interface IBill extends Document {
   discountAmount: number; // In paise/cents
   discountReason?: string;
   serviceCharge: number; // In paise/cents
+  roundOff?: number; // In paise/cents (+/-)
   netAmount: number; // In paise/cents
   paidAmount: number; // In paise/cents
   balanceDue: number; // In paise/cents
@@ -53,6 +54,7 @@ const billSchema = new Schema<IBill>(
     discountAmount: { type: Number, required: true, default: 0 },
     discountReason: { type: String, trim: true },
     serviceCharge: { type: Number, required: true, default: 0 },
+    roundOff: { type: Number, required: true, default: 0 },
     netAmount: { type: Number, required: true, default: 0 },
     paidAmount: { type: Number, required: true, default: 0 },
     balanceDue: { type: Number, required: true, default: 0 },

@@ -163,6 +163,7 @@ export interface CartOrdersTabProps {
   loyaltyConfig?: any;
   cartSubtotal: number;
   cartTaxBreakdown: any[];
+  cartRoundOff?: number;
   cartGrandTotal: number;
   expandedRounds: Record<string, boolean>;
   tableDisplayName: string;

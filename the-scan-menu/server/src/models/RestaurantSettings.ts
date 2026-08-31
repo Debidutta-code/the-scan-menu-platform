@@ -128,6 +128,11 @@ export interface IRestaurantSettingsLoyalty {
   minPointsToRedeem: number; // e.g. 50 minimum points threshold
 }
 
+export interface IRestaurantSettingsRounding {
+  enabled: boolean;
+  strategy: 'NEAREST' | 'UP' | 'DOWN';
+}
+
 export interface IRestaurantSettings extends Document {
   restaurantId: Types.ObjectId;
   currency: string;
@@ -136,6 +141,7 @@ export interface IRestaurantSettings extends Document {
   branding: IRestaurantSettingsBranding;
   workflow: IRestaurantSettingsWorkflow;
   paymentConfig: IRestaurantSettingsPayment;
+  roundingConfig?: IRestaurantSettingsRounding;
   notificationPreferences: IRestaurantSettingsNotification;
   orderConfig: IRestaurantSettingsOrderConfig;
   inventoryConfig: IRestaurantSettingsInventory;
@@ -216,6 +222,10 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       fssaiNumber: { type: String },
       upiId: { type: String },
       preferredMethodOrder: { type: [String], default: ['UPI', 'CASH', 'CARD', 'RAZORPAY'] },
+    },
+    roundingConfig: {
+      enabled: { type: Boolean, default: true },
+      strategy: { type: String, enum: ['NEAREST', 'UP', 'DOWN'], default: 'NEAREST' },
     },
     notificationPreferences: {
       emailNotifications: { type: Boolean, default: true },

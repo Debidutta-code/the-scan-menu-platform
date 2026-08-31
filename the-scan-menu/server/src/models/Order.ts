@@ -89,6 +89,7 @@ export interface IOrder extends Document {
   subtotal: number; // in cents/paise
   tax: number; // in cents/paise
   taxBreakdown: IOrderTaxBreakdown[]; // Snapshot of taxes applied
+  roundOff?: number; // in cents/paise (+/-)
   total: number; // in cents/paise
   customerNote?: string;
   status: OrderStatus;
@@ -185,6 +186,7 @@ const orderSchema = new Schema<IOrder>(
         ],
       },
     ],
+    roundOff: { type: Number, required: true, default: 0 },
     total: { type: Number, required: true },
     customerNote: { type: String, trim: true },
     status: {

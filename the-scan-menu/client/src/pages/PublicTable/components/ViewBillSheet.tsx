@@ -139,6 +139,17 @@ export const ViewBillSheet: React.FC<ViewBillSheetProps> = ({
                     );
                   })()}
 
+                  {/* Round Off line item if non-zero */}
+                  {Boolean(sessionDetailsData.data.session.roundOff && sessionDetailsData.data.session.roundOff !== 0) && (
+                    <div className="flex justify-between text-slate-600 font-medium">
+                      <span>Round Off</span>
+                      <span className="font-mono">
+                        {sessionDetailsData.data.session.roundOff > 0 ? '+' : '-'}
+                        {formatPrice(Math.abs(sessionDetailsData.data.session.roundOff), currency)}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Total spent so far */}
                   <div className="flex justify-between items-center text-slate-900 font-black text-sm pt-2 border-t border-slate-200">
                     <span>Table Total So Far</span>

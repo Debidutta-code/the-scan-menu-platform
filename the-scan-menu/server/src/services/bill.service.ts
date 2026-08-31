@@ -4,6 +4,8 @@ import { DiningSession, IDiningSession } from '../models/DiningSession';
 import { Order } from '../models/Order';
 import { Payment } from '../models/Payment';
 import { Tax } from '../models/Tax';
+import { RestaurantSettings } from '../models/RestaurantSettings';
+import { calculateRoundOff } from '../utils/rounding.util';
 import { AuditLog } from '../models/AuditLog';
 import { NotificationService } from './notification.service';
 
@@ -142,7 +144,10 @@ export class BillService {
 
     const discountAmount = Math.max(0, manualDiscountAmount || session.discount || 0);
     const serviceCharge = session.serviceCharge || 0;
-    const netAmount = Math.max(0, grossAmount + taxAmount + serviceCharge - discountAmount);
+    const unroundedNetAmount = Math.max(0, grossAmount + taxAmount + serviceCharge - discountAmount);
+
+    const settings = await RestaurantSettings.findOne({ restaurantId: session.restaurantId });
+    const { roundedTotal: netAmount, roundOff } = calculateRoundOff(unroundedNetAmount, settings?.roundingConfig);
 
     // Sum already captured payments for this session (e.g. partial cash deposits or prepaid rounds)
     const capturedPayments = await Payment.find({
@@ -184,6 +189,7 @@ export class BillService {
       discountAmount,
       discountReason: discountReason || session.discountReason,
       serviceCharge,
+      roundOff,
       netAmount,
       paidAmount,
       balanceDue,
@@ -202,6 +208,7 @@ export class BillService {
     session.taxBreakdown = taxBreakdown;
     session.discount = discountAmount;
     session.discountReason = discountReason || session.discountReason;
+    session.roundOff = roundOff;
     session.total = netAmount;
     session.paidAmount = paidAmount;
     session.balanceDue = balanceDue;
