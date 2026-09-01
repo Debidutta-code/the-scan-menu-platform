@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   Armchair,
   Check,
+  PauseCircle,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -45,7 +46,7 @@ import { offlineStorage } from '../lib/offlineStorage';
 import { MenuBadge } from './PublicTable/components/MenuBadge';
 import { Button } from '../components/ui/Button';
 
-interface SelectedCounterItem {
+export interface SelectedCounterItem {
   itemId: string;
   baseItemId?: string;
   variantName?: string;
@@ -56,8 +57,23 @@ interface SelectedCounterItem {
   specialInstructions?: string;
 }
 
-type PaymentMethod = 'UPI' | 'CASH' | 'CARD';
-type OrderMode = 'DINE_IN' | 'TAKEAWAY';
+export type PaymentMethod = 'UPI' | 'CASH' | 'CARD';
+export type OrderMode = 'DINE_IN' | 'TAKEAWAY';
+
+export interface CounterOrderTab {
+  id: string;
+  name: string;
+  createdAt: number;
+  isHeld: boolean;
+  cartItems: SelectedCounterItem[];
+  customerName: string;
+  customerPhone: string;
+  customerNote: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: 'PAID' | 'PENDING';
+  orderMode: OrderMode;
+  selectedTable: any | null;
+}
 
 const paymentMethodOptions: { key: PaymentMethod; label: string; sub: string; shortcut: string; icon: React.ReactNode }[] = [
   {
@@ -95,6 +111,56 @@ export const ManagerCounter: React.FC = () => {
 
   const restaurantId = activeRestaurantId;
 
+  // Multi-Tab Order & Hold State Initialization
+  const [tabs, setTabs] = useState<CounterOrderTab[]>(() => {
+    if (restaurantId) {
+      try {
+        const saved = localStorage.getItem(`pos_active_tabs_${restaurantId}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse cached POS tabs:', err);
+      }
+    }
+    return [
+      {
+        id: `tab_${Date.now()}`,
+        name: 'Order #1',
+        createdAt: Date.now(),
+        isHeld: false,
+        cartItems: [],
+        customerName: '',
+        customerPhone: '',
+        customerNote: '',
+        paymentMethod: 'UPI',
+        paymentStatus: 'PAID',
+        orderMode: 'DINE_IN',
+        selectedTable: null,
+      },
+    ];
+  });
+
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    if (restaurantId) {
+      try {
+        const savedActiveId = localStorage.getItem(`pos_active_tab_id_${restaurantId}`);
+        if (savedActiveId && tabs.some((t) => t.id === savedActiveId)) {
+          return savedActiveId;
+        }
+      } catch (err) {
+        console.warn('Failed to get cached POS active tab ID:', err);
+      }
+    }
+    return tabs[0]?.id || `tab_${Date.now()}`;
+  });
+
+  const initialTabLoadedRef = useRef(false);
+
+  // Active Working Form State
   const [cartItems, setCartItems] = useState<SelectedCounterItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -111,6 +177,67 @@ export const ManagerCounter: React.FC = () => {
   const [showTablePickerModal, setShowTablePickerModal] = useState(false);
   const [tableSearchQuery, setTableSearchQuery] = useState('');
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('ALL');
+
+  // Initialize Working State from Active Tab on initial mount
+  useEffect(() => {
+    if (initialTabLoadedRef.current) return;
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    if (currentTab) {
+      setCartItems(currentTab.cartItems || []);
+      setCustomerName(currentTab.customerName || '');
+      setCustomerPhone(currentTab.customerPhone || '');
+      setCustomerNote(currentTab.customerNote || '');
+      setPaymentMethod(currentTab.paymentMethod || 'UPI');
+      setPaymentStatus(currentTab.paymentStatus || 'PAID');
+      setOrderMode(currentTab.orderMode || 'DINE_IN');
+      setSelectedTable(currentTab.selectedTable || null);
+    }
+    initialTabLoadedRef.current = true;
+  }, [activeTabId, tabs]);
+
+  // Continuously synchronize active working state back into the active tab in `tabs` and `localStorage`
+  useEffect(() => {
+    if (!initialTabLoadedRef.current) return;
+    setTabs((prevTabs) => {
+      const updated = prevTabs.map((tab) => {
+        if (tab.id === activeTabId) {
+          return {
+            ...tab,
+            cartItems,
+            customerName,
+            customerPhone,
+            customerNote,
+            paymentMethod,
+            paymentStatus,
+            orderMode,
+            selectedTable,
+          };
+        }
+        return tab;
+      });
+
+      if (restaurantId) {
+        try {
+          localStorage.setItem(`pos_active_tabs_${restaurantId}`, JSON.stringify(updated));
+          localStorage.setItem(`pos_active_tab_id_${restaurantId}`, activeTabId);
+        } catch (err) {
+          console.warn('Failed to sync POS tabs to localStorage:', err);
+        }
+      }
+      return updated;
+    });
+  }, [
+    activeTabId,
+    cartItems,
+    customerName,
+    customerPhone,
+    customerNote,
+    paymentMethod,
+    paymentStatus,
+    orderMode,
+    selectedTable,
+    restaurantId,
+  ]);
 
   // Inline Note Editor State for Cart Items
   const [editingNoteItem, setEditingNoteItem] = useState<{ itemId: string; name: string; note: string } | null>(null);
@@ -317,6 +444,152 @@ export const ManagerCounter: React.FC = () => {
     setSelectedTable(null);
   }, []);
 
+  // Multi-Tab Actions
+  const switchTab = useCallback((targetTabId: string) => {
+    if (targetTabId === activeTabId) return;
+    const target = tabs.find((t) => t.id === targetTabId);
+    if (!target) return;
+
+    setActiveTabId(targetTabId);
+    setCartItems(target.cartItems || []);
+    setCustomerName(target.customerName || '');
+    setCustomerPhone(target.customerPhone || '');
+    setCustomerNote(target.customerNote || '');
+    setPaymentMethod(target.paymentMethod || 'UPI');
+    setPaymentStatus(target.paymentStatus || 'PAID');
+    setOrderMode(target.orderMode || 'DINE_IN');
+    setSelectedTable(target.selectedTable || null);
+
+    setShowCheckoutModal(false);
+    setEditingNoteItem(null);
+  }, [activeTabId, tabs]);
+
+  const createNewTab = useCallback((customName?: string) => {
+    const nextIndex = tabs.length + 1;
+    const newTab: CounterOrderTab = {
+      id: `tab_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: customName || `Order #${nextIndex}`,
+      createdAt: Date.now(),
+      isHeld: false,
+      cartItems: [],
+      customerName: '',
+      customerPhone: '',
+      customerNote: '',
+      paymentMethod: 'UPI',
+      paymentStatus: 'PAID',
+      orderMode: 'DINE_IN',
+      selectedTable: null,
+    };
+
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+    setCartItems([]);
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerNote('');
+    setPaymentMethod('UPI');
+    setPaymentStatus('PAID');
+    setOrderMode('DINE_IN');
+    setSelectedTable(null);
+    setShowCheckoutModal(false);
+    setEditingNoteItem(null);
+  }, [tabs.length]);
+
+  const holdCurrentTab = useCallback(() => {
+    if (cartItems.length === 0) {
+      toast('Add items to order before parking on hold', 'info');
+      return;
+    }
+
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTabId ? { ...t, isHeld: true } : t))
+    );
+
+    const currentTab = tabs.find((t) => t.id === activeTabId);
+    const label = currentTab?.selectedTable
+      ? (currentTab.selectedTable.displayName || `Table ${currentTab.selectedTable.tableNumber}`)
+      : currentTab?.customerName?.trim() || currentTab?.name || 'Order';
+
+    toast(`Order parked on hold: ${label}`, 'info');
+    createNewTab();
+  }, [cartItems.length, activeTabId, tabs, createNewTab, toast]);
+
+  const closeTab = useCallback((targetTabId: string) => {
+    if (tabs.length <= 1) {
+      clearCart();
+      const freshTab: CounterOrderTab = {
+        id: `tab_${Date.now()}`,
+        name: 'Order #1',
+        createdAt: Date.now(),
+        isHeld: false,
+        cartItems: [],
+        customerName: '',
+        customerPhone: '',
+        customerNote: '',
+        paymentMethod: 'UPI',
+        paymentStatus: 'PAID',
+        orderMode: 'DINE_IN',
+        selectedTable: null,
+      };
+      setTabs([freshTab]);
+      setActiveTabId(freshTab.id);
+      toast('Tab cleared', 'info');
+      return;
+    }
+
+    const remainingTabs = tabs.filter((t) => t.id !== targetTabId);
+    setTabs(remainingTabs);
+
+    if (activeTabId === targetTabId) {
+      const nextTab = remainingTabs[remainingTabs.length - 1];
+      setActiveTabId(nextTab.id);
+      setCartItems(nextTab.cartItems || []);
+      setCustomerName(nextTab.customerName || '');
+      setCustomerPhone(nextTab.customerPhone || '');
+      setCustomerNote(nextTab.customerNote || '');
+      setPaymentMethod(nextTab.paymentMethod || 'UPI');
+      setPaymentStatus(nextTab.paymentStatus || 'PAID');
+      setOrderMode(nextTab.orderMode || 'DINE_IN');
+      setSelectedTable(nextTab.selectedTable || null);
+    }
+  }, [tabs, activeTabId, clearCart, toast]);
+
+  const completeActiveTab = useCallback(() => {
+    setShowCheckoutModal(false);
+    if (tabs.length <= 1) {
+      clearCart();
+      const freshTab: CounterOrderTab = {
+        id: `tab_${Date.now()}`,
+        name: 'Order #1',
+        createdAt: Date.now(),
+        isHeld: false,
+        cartItems: [],
+        customerName: '',
+        customerPhone: '',
+        customerNote: '',
+        paymentMethod: 'UPI',
+        paymentStatus: 'PAID',
+        orderMode: 'DINE_IN',
+        selectedTable: null,
+      };
+      setTabs([freshTab]);
+      setActiveTabId(freshTab.id);
+    } else {
+      const remainingTabs = tabs.filter((t) => t.id !== activeTabId);
+      setTabs(remainingTabs);
+      const nextTab = remainingTabs[0];
+      setActiveTabId(nextTab.id);
+      setCartItems(nextTab.cartItems || []);
+      setCustomerName(nextTab.customerName || '');
+      setCustomerPhone(nextTab.customerPhone || '');
+      setCustomerNote(nextTab.customerNote || '');
+      setPaymentMethod(nextTab.paymentMethod || 'UPI');
+      setPaymentStatus(nextTab.paymentStatus || 'PAID');
+      setOrderMode(nextTab.orderMode || 'DINE_IN');
+      setSelectedTable(nextTab.selectedTable || null);
+    }
+  }, [tabs, activeTabId, clearCart]);
+
   const cartSubtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const taxAmount = Math.round((cartSubtotal * taxRatePercent) / 100);
   const unroundedTotal = cartSubtotal + taxAmount;
@@ -414,8 +687,7 @@ export const ManagerCounter: React.FC = () => {
         printOrderTicket(offlineOrder, settingsData?.data, selectedPrintTarget);
       }
       toast(`⚠️ Offline Order #${offlineOrder.orderNumber} queued locally & printed! Will sync when online.`, 'info');
-      setShowCheckoutModal(false);
-      clearCart();
+      completeActiveTab();
       setIsSubmitting(false);
       return;
     }
@@ -441,8 +713,7 @@ export const ManagerCounter: React.FC = () => {
 
         const tableLabel = selectedTable ? ` for ${selectedTable.displayName || 'Table ' + selectedTable.tableNumber}` : '';
         toast(`Order #${createdOrder.orderNumber}${tableLabel} placed & printed successfully!`, 'success');
-        setShowCheckoutModal(false);
-        clearCart();
+        completeActiveTab();
         queryClient.invalidateQueries({ queryKey: ['orders', restaurantId] });
         queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', restaurantId] });
         queryClient.invalidateQueries({ queryKey: ['managerCounterTables', restaurantId] });
@@ -468,8 +739,7 @@ export const ManagerCounter: React.FC = () => {
           printOrderTicket(offlineOrder, settingsData?.data, selectedPrintTarget);
         }
         toast(`⚠️ Network disconnected: Order queued locally & printed! Will auto-sync.`, 'error');
-        setShowCheckoutModal(false);
-        clearCart();
+        completeActiveTab();
       } else {
         toast(err.response?.data?.error?.message || 'Failed to place order. No bill printed.', 'error');
       }
@@ -489,7 +759,7 @@ export const ManagerCounter: React.FC = () => {
     selectedPrintTarget,
     settingsData?.data,
     toast,
-    clearCart,
+    completeActiveTab,
     queryClient,
   ]);
 
@@ -552,6 +822,34 @@ export const ManagerCounter: React.FC = () => {
         }
       }
 
+      // Tab management shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        createNewTab();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        holdCurrentTab();
+        return;
+      }
+
+      if (e.altKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        closeTab(activeTabId);
+        return;
+      }
+
+      if (e.altKey && e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key, 10) - 1;
+        if (tabs[idx]) {
+          e.preventDefault();
+          switchTab(tabs[idx].id);
+          return;
+        }
+      }
+
       // Modal is CLOSED (Main Screen)
       if (e.key === 'Enter') {
         const target = e.target as HTMLElement;
@@ -584,6 +882,12 @@ export const ManagerCounter: React.FC = () => {
     handleProceedToPayment,
     handleConfirmAndPunchOrder,
     handleOpenCheckoutModal,
+    createNewTab,
+    holdCurrentTab,
+    closeTab,
+    switchTab,
+    activeTabId,
+    tabs,
     toast,
   ]);
 
@@ -714,6 +1018,114 @@ export const ManagerCounter: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* ── MULTI-TAB ORDER & HOLD BAR ────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none shrink-0 select-none">
+        <div className="flex items-center gap-1.5 flex-nowrap">
+          {tabs.map((tab, index) => {
+            const isActive = tab.id === activeTabId;
+            const tabItemCount = (tab.cartItems || []).reduce((s, i) => s + i.quantity, 0);
+            const tabSubtotal = (tab.cartItems || []).reduce((s, i) => s + i.price * i.quantity, 0);
+
+            // Dynamic display label: Table Name, Customer Name, or Tab Default
+            const displayName = tab.selectedTable
+              ? (tab.selectedTable.displayName || `Table ${tab.selectedTable.tableNumber}`)
+              : tab.customerName?.trim()
+              ? `${tab.orderMode === 'TAKEAWAY' ? 'Takeaway • ' : ''}${tab.customerName.trim()}`
+              : tab.name;
+
+            return (
+              <div
+                key={tab.id}
+                onClick={() => switchTab(tab.id)}
+                className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium cursor-pointer transition-all shrink-0 ${
+                  isActive
+                    ? 'bg-slate-900 text-white border-slate-800 shadow-sm ring-2 ring-amber-500/20'
+                    : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 shadow-2xs'
+                }`}
+              >
+                {/* Shortcut Index Pill */}
+                <span
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                    isActive ? 'bg-slate-800 text-amber-400' : 'bg-slate-100 text-slate-500'
+                  }`}
+                  title={`Press Alt+${index + 1} to switch`}
+                >
+                  {index + 1}
+                </span>
+
+                {/* Tab Name */}
+                <span className="font-bold truncate max-w-[110px] sm:max-w-[140px]">
+                  {displayName}
+                </span>
+
+                {/* Held Badge */}
+                {tab.isHeld && (
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 tracking-wider">
+                    HELD
+                  </span>
+                )}
+
+                {/* Item Count & Subtotal Pill */}
+                {tabItemCount > 0 && (
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                      isActive ? 'bg-amber-400/20 text-amber-300' : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {tabItemCount} • ₹{tabSubtotal}
+                  </span>
+                )}
+
+                {/* Close Tab Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                  }}
+                  className={`p-0.5 rounded-md transition opacity-60 hover:opacity-100 ${
+                    isActive ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-200 text-slate-500'
+                  }`}
+                  title="Close Tab"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 pl-1">
+          {/* Action: + New Tab */}
+          <button
+            type="button"
+            onClick={() => createNewTab()}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-dashed border-slate-300 hover:border-amber-400 bg-white hover:bg-amber-50/50 text-slate-700 hover:text-amber-900 text-xs font-bold transition cursor-pointer active:scale-95 shadow-2xs"
+            title="Create a new order tab (Ctrl+T / Alt+N)"
+          >
+            <Plus className="w-3.5 h-3.5 text-amber-600" strokeWidth={2.5} />
+            <span>New Tab</span>
+          </button>
+
+          {/* Action: Hold & New */}
+          <button
+            type="button"
+            onClick={holdCurrentTab}
+            disabled={cartItems.length === 0}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer active:scale-95 shadow-2xs ${
+              cartItems.length > 0
+                ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-950'
+                : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+            }`}
+            title="Hold current order and open a new blank tab (Ctrl+H)"
+          >
+            <PauseCircle className="w-3.5 h-3.5 text-amber-600" strokeWidth={2.5} />
+            <span>Hold &amp; New</span>
+            <span className="text-[10px] opacity-70 font-mono hidden md:inline">(Ctrl+H)</span>
+          </button>
         </div>
       </div>
 

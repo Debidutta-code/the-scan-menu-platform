@@ -328,6 +328,25 @@ class OrderDetailScreen extends ConsumerWidget {
                               color: AppColors.textPrimary)),
                     ],
                   ),
+                  if (currentOrder.roundOff != 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Round Off',
+                            style: GoogleFonts.inter(
+                                fontSize: 14, color: AppColors.textSecondary)),
+                        Text(
+                            '${currentOrder.roundOff > 0 ? '+' : ''}${Formatters.formatCurrency(currentOrder.roundOff)}',
+                            style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: currentOrder.roundOff > 0
+                                    ? AppColors.warning
+                                    : AppColors.success)),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Divider(),
                   const SizedBox(height: 6),

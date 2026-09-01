@@ -41,6 +41,7 @@ class OrderModel {
   final String paymentStatus;
   final int subtotal;
   final int tax;
+  final int roundOff;
   final int total;
   final List<OrderItemSnapshot> items;
   final String? customerName;
@@ -59,6 +60,7 @@ class OrderModel {
     required this.paymentStatus,
     required this.subtotal,
     required this.tax,
+    this.roundOff = 0,
     required this.total,
     required this.items,
     this.customerName,
@@ -90,6 +92,7 @@ class OrderModel {
       paymentStatus: json['paymentStatus'] ?? 'PENDING',
       subtotal: json['subtotal'] ?? 0,
       tax: json['tax'] ?? 0,
+      roundOff: json['roundOff'] ?? 0,
       total: json['total'] ?? 0,
       items: (json['items'] as List<dynamic>?)
               ?.map((e) => OrderItemSnapshot.fromJson(e))
@@ -119,6 +122,7 @@ class OrderModel {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       subtotal: subtotal,
       tax: tax,
+      roundOff: roundOff,
       total: total,
       items: items,
       customerName: customerName,

@@ -42,8 +42,33 @@ class CartState {
     return ((subtotalInPaise * taxRatePercent) / 100).round();
   }
 
-  int calculateGrandTotalInPaise(num taxRatePercent) {
+  int calculateUnroundedTotalInPaise(num taxRatePercent) {
     return subtotalInPaise + calculateTaxInPaise(taxRatePercent);
+  }
+
+  int calculateRoundOffInPaise(num taxRatePercent,
+      {bool roundingEnabled = true, String roundingStrategy = 'NEAREST'}) {
+    final unrounded = calculateUnroundedTotalInPaise(taxRatePercent);
+    if (!roundingEnabled) return 0;
+
+    int rounded = unrounded;
+    if (roundingStrategy == 'UP') {
+      rounded = ((unrounded / 100).ceil()) * 100;
+    } else if (roundingStrategy == 'DOWN') {
+      rounded = ((unrounded / 100).floor()) * 100;
+    } else {
+      // Default: NEAREST
+      rounded = ((unrounded / 100).round()) * 100;
+    }
+    return rounded - unrounded;
+  }
+
+  int calculateGrandTotalInPaise(num taxRatePercent,
+      {bool roundingEnabled = true, String roundingStrategy = 'NEAREST'}) {
+    final unrounded = calculateUnroundedTotalInPaise(taxRatePercent);
+    final roundOff = calculateRoundOffInPaise(taxRatePercent,
+        roundingEnabled: roundingEnabled, roundingStrategy: roundingStrategy);
+    return unrounded + roundOff;
   }
 
   bool get isEmpty => items.isEmpty;

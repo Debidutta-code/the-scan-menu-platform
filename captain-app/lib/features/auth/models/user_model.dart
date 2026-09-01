@@ -50,6 +50,8 @@ class RestaurantProfile {
   final String activePaymentMode; // 'PREPAID' | 'POSTPAID' | 'HYBRID'
   final String? upiId;
   final num taxRatePercent;
+  final bool roundingEnabled;
+  final String roundingStrategy; // 'NEAREST' | 'UP' | 'DOWN'
   final List<String> featureFlags;
 
   RestaurantProfile({
@@ -63,6 +65,8 @@ class RestaurantProfile {
     this.activePaymentMode = 'POSTPAID',
     this.upiId,
     this.taxRatePercent = 0,
+    this.roundingEnabled = true,
+    this.roundingStrategy = 'NEAREST',
     this.featureFlags = const [],
   });
 
@@ -90,6 +94,14 @@ class RestaurantProfile {
         settings['paymentConfig']?['taxRatePercent'] ??
         0;
 
+    final roundingCfg = settings['roundingConfig'] is Map
+        ? settings['roundingConfig']
+        : json['roundingConfig'] is Map
+            ? json['roundingConfig']
+            : {};
+    final roundingEnabled = roundingCfg['enabled'] != false;
+    final roundingStrategy = roundingCfg['strategy']?.toString() ?? 'NEAREST';
+
     List<String> parsedFlags = [];
     if (json['featureFlags'] is List) {
       parsedFlags = (json['featureFlags'] as List)
@@ -111,6 +123,8 @@ class RestaurantProfile {
           ? upiId.toString().trim()
           : null,
       taxRatePercent: taxRate is num ? taxRate : 0,
+      roundingEnabled: roundingEnabled,
+      roundingStrategy: roundingStrategy,
       featureFlags: parsedFlags,
     );
   }

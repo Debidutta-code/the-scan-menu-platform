@@ -394,10 +394,21 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                     final isPrepaid = restaurant?.isPrepaid ?? false;
                     final upiId = restaurant?.upiId;
                     final taxRate = restaurant?.taxRatePercent ?? 0;
+                    final roundingEnabled = restaurant?.roundingEnabled ?? true;
+                    final roundingStrategy = restaurant?.roundingStrategy ?? 'NEAREST';
 
                     final subtotalInPaise = cartState.subtotalInPaise;
                     final taxInPaise = cartState.calculateTaxInPaise(taxRate);
-                    final grandTotalInPaise = cartState.calculateGrandTotalInPaise(taxRate);
+                    final roundOffInPaise = cartState.calculateRoundOffInPaise(
+                      taxRate,
+                      roundingEnabled: roundingEnabled,
+                      roundingStrategy: roundingStrategy,
+                    );
+                    final grandTotalInPaise = cartState.calculateGrandTotalInPaise(
+                      taxRate,
+                      roundingEnabled: roundingEnabled,
+                      roundingStrategy: roundingStrategy,
+                    );
                     final grandTotalInRupees = (grandTotalInPaise / 100).toStringAsFixed(2);
                     final tableDisplayName = cartState.selectedTable != null
                         ? (cartState.selectedTable!.displayName.isNotEmpty
@@ -878,6 +889,31 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                         color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (roundOffInPaise != 0) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Round Off',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${roundOffInPaise > 0 ? '+' : ''}${Formatters.formatCurrency(roundOffInPaise)}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: roundOffInPaise > 0
+                                            ? AppColors.warning
+                                            : AppColors.success,
                                       ),
                                     ),
                                   ],
