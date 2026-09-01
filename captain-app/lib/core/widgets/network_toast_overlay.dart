@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../sockets/socket_service.dart';
 import '../constants/app_colors.dart';
+import '../../features/auth/providers/auth_provider.dart';
 
-class NetworkToastOverlay extends StatefulWidget {
+class NetworkToastOverlay extends ConsumerStatefulWidget {
   final Widget child;
 
   const NetworkToastOverlay({super.key, required this.child});
 
   @override
-  State<NetworkToastOverlay> createState() => _NetworkToastOverlayState();
+  ConsumerState<NetworkToastOverlay> createState() => _NetworkToastOverlayState();
 }
 
-class _NetworkToastOverlayState extends State<NetworkToastOverlay> {
+class _NetworkToastOverlayState extends ConsumerState<NetworkToastOverlay> {
   SocketConnectionState _connectionState = SocketConnectionState.disconnected;
   bool _isRetrying = false;
 
@@ -56,9 +58,10 @@ class _NetworkToastOverlayState extends State<NetworkToastOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Show toast if disconnected or if explicitly trying to connect but haven't yet (optional).
-    // Let's only show if disconnected.
-    final showToast = _connectionState == SocketConnectionState.disconnected;
+    final authState = ref.watch(authProvider);
+    // ONLY show socket disconnection toast when logged in (authenticated) and actively monitoring orders
+    final showToast = authState.status == AuthStatus.authenticated &&
+        _connectionState == SocketConnectionState.disconnected;
 
     return Stack(
       textDirection: TextDirection.ltr,

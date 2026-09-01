@@ -8,26 +8,56 @@ import 'login_screen.dart';
 import 'mobile_disabled_screen.dart';
 import '../../screens/main_shell_screen.dart';
 
-class SplashScreen extends ConsumerWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen<AuthState>(authProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainShellScreen()),
-        );
-      } else if (next.status == AuthStatus.mobileDisabled) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MobileDisabledScreen()),
-        );
-      } else if (next.status == AuthStatus.unauthenticated ||
-          next.status == AuthStatus.error) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCurrentStateAndNavigate(ref.read(authProvider));
+    });
+
+    // Safety fallback timer: if network is stuck, forward to LoginScreen after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted && !_navigated) {
+        _navigateTo(const LoginScreen());
       }
+    });
+  }
+
+  void _checkCurrentStateAndNavigate(AuthState state) {
+    if (_navigated || !mounted) return;
+
+    if (state.status == AuthStatus.authenticated) {
+      _navigateTo(const MainShellScreen());
+    } else if (state.status == AuthStatus.mobileDisabled) {
+      _navigateTo(const MobileDisabledScreen());
+    } else if (state.status == AuthStatus.unauthenticated ||
+        state.status == AuthStatus.error) {
+      _navigateTo(const LoginScreen());
+    }
+  }
+
+  void _navigateTo(Widget screen) {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      _checkCurrentStateAndNavigate(next);
     });
 
     return Scaffold(
