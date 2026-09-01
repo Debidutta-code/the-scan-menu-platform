@@ -119,62 +119,193 @@ export class PaymentController {
     }
   }
 
+  async getConfig(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { restaurantId } = req.params;
+      const settings = await RestaurantSettings.findOne({ restaurantId });
+      if (!settings) {
+        throw new CustomError('Settings not found', 404);
+      }
+
+      const p = settings.paymentConfig;
+      const isRazorpayConfigured = Boolean(p?.razorpayConfig?.keyId && p?.razorpayConfig?.keySecret);
+
+      const safeConfig = {
+        activeProvider: p?.activeProvider || 'CASH',
+        activeMode: p?.activeMode || 'POSTPAID',
+        paymentMethods: p?.paymentMethods || {
+          cash: true,
+          card: true,
+          upi: true,
+          razorpay: false,
+        },
+        manualUpi: {
+          enabled: p?.manualUpiEnabled ?? p?.paymentMethods?.upi ?? true,
+          upiId: p?.upiId || '',
+          displayName: p?.upiDisplayName || '',
+        },
+        razorpay: {
+          enabled: p?.razorpayEnabled ?? p?.paymentMethods?.razorpay ?? false,
+          status: isRazorpayConfigured ? 'CONNECTED' : 'NOT_CONFIGURED',
+          keyId: p?.razorpayConfig?.keyId || '',
+        },
+        ordering: {
+          prepaidEnabled: p?.prepaidEnabled ?? true,
+          postpaidEnabled: p?.postpaidEnabled ?? true,
+          activeMode: p?.activeMode || 'POSTPAID',
+        },
+        preferredMethodOrder: p?.preferredMethodOrder || ['UPI', 'CASH', 'CARD', 'RAZORPAY'],
+      };
+
+      res.status(200).json({ success: true, data: safeConfig });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async updateConfig(req: Request, res: Response, next: NextFunction) {
     try {
       const { restaurantId } = req.params;
-      const { activeProvider, activeMode, razorpayConfig } = req.body;
-
-      if (!activeProvider || !activeMode) {
-        throw new CustomError('activeProvider and activeMode are required', 400);
-      }
-
-      const validProviders = ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE'];
-      const validModes = ['PREPAID', 'POSTPAID', 'HYBRID'];
-
-      if (!validProviders.includes(activeProvider)) {
-        throw new CustomError('Invalid activeProvider', 400);
-      }
-      if (!validModes.includes(activeMode)) {
-        throw new CustomError('Invalid activeMode', 400);
-      }
+      const userRole = (req as any).user?.role;
+      const { activeProvider, activeMode, paymentMethods, preferredMethodOrder, upiId, upiDisplayName } = req.body;
 
       const settings = await RestaurantSettings.findOne({ restaurantId });
       if (!settings) {
         throw new CustomError('Settings not found', 404);
       }
 
-      settings.paymentConfig.activeProvider = activeProvider;
-      settings.paymentConfig.activeMode = activeMode;
+      if (activeMode) {
+        const validModes = ['PREPAID', 'POSTPAID', 'HYBRID'];
+        if (!validModes.includes(activeMode)) {
+          throw new CustomError('Invalid activeMode', 400);
+        }
+        settings.paymentConfig.activeMode = activeMode;
+      }
 
-      if (razorpayConfig) {
+      if (activeProvider) {
+        const validProviders = ['CASH', 'RAZORPAY', 'STRIPE', 'SQUARE'];
+        if (!validProviders.includes(activeProvider)) {
+          throw new CustomError('Invalid activeProvider', 400);
+        }
+
+        // If manager tries to set activeProvider to RAZORPAY, verify it is enabled by Super Admin
+        if (activeProvider === 'RAZORPAY' && !settings.paymentConfig.razorpayEnabled && userRole !== 'SUPER_ADMIN') {
+          throw new CustomError('Razorpay is not enabled for this restaurant by platform admin', 403);
+        }
+        settings.paymentConfig.activeProvider = activeProvider;
+      }
+
+      if (paymentMethods && typeof paymentMethods === 'object') {
+        const superAdminRazorpayEnabled = settings.paymentConfig.razorpayEnabled ?? false;
+        settings.paymentConfig.paymentMethods = {
+          cash: paymentMethods.cash !== undefined ? Boolean(paymentMethods.cash) : settings.paymentConfig.paymentMethods.cash,
+          card: paymentMethods.card !== undefined ? Boolean(paymentMethods.card) : settings.paymentConfig.paymentMethods.card,
+          upi: paymentMethods.upi !== undefined ? Boolean(paymentMethods.upi) : settings.paymentConfig.paymentMethods.upi,
+          razorpay: userRole === 'SUPER_ADMIN'
+            ? (paymentMethods.razorpay !== undefined ? Boolean(paymentMethods.razorpay) : settings.paymentConfig.paymentMethods.razorpay)
+            : (superAdminRazorpayEnabled && paymentMethods.razorpay ? true : false),
+        };
+      }
+
+      if (upiId !== undefined) {
+        settings.paymentConfig.upiId = String(upiId).trim();
+      }
+      if (upiDisplayName !== undefined) {
+        settings.paymentConfig.upiDisplayName = String(upiDisplayName).trim();
+      }
+      if (preferredMethodOrder && Array.isArray(preferredMethodOrder)) {
+        settings.paymentConfig.preferredMethodOrder = preferredMethodOrder;
+      }
+
+      // Security: Non-superadmins CANNOT pass or modify razorpayConfig
+      if (userRole === 'SUPER_ADMIN' && req.body.razorpayConfig) {
+        const { razorpayConfig } = req.body;
         if (!settings.paymentConfig.razorpayConfig) {
           settings.paymentConfig.razorpayConfig = {};
         }
-
         if (razorpayConfig.keyId !== undefined) {
           settings.paymentConfig.razorpayConfig.keyId = razorpayConfig.keyId;
         }
-
-        if (razorpayConfig.keySecret !== undefined) {
+        if (razorpayConfig.keySecret !== undefined && razorpayConfig.keySecret.trim()) {
           settings.paymentConfig.razorpayConfig.keySecret = encrypt(razorpayConfig.keySecret);
         }
-
-        if (razorpayConfig.webhookSecret !== undefined) {
+        if (razorpayConfig.webhookSecret !== undefined && razorpayConfig.webhookSecret.trim()) {
           (settings.paymentConfig.razorpayConfig as any).webhookSecret = encrypt(razorpayConfig.webhookSecret);
         }
       }
 
       await settings.save();
 
+      const isRazorpayConfigured = Boolean(settings.paymentConfig.razorpayConfig?.keyId && settings.paymentConfig.razorpayConfig?.keySecret);
       const safeConfig = {
         activeProvider: settings.paymentConfig.activeProvider,
         activeMode: settings.paymentConfig.activeMode,
-        razorpayConfig: {
-          keyId: settings.paymentConfig.razorpayConfig?.keyId,
-        }
+        paymentMethods: settings.paymentConfig.paymentMethods,
+        manualUpi: {
+          enabled: settings.paymentConfig.manualUpiEnabled ?? settings.paymentConfig.paymentMethods.upi,
+          upiId: settings.paymentConfig.upiId || '',
+          displayName: settings.paymentConfig.upiDisplayName || '',
+        },
+        razorpay: {
+          enabled: settings.paymentConfig.razorpayEnabled ?? settings.paymentConfig.paymentMethods.razorpay,
+          status: isRazorpayConfigured ? 'CONNECTED' : 'NOT_CONFIGURED',
+          keyId: settings.paymentConfig.razorpayConfig?.keyId || '',
+        },
+        preferredMethodOrder: settings.paymentConfig.preferredMethodOrder,
       };
 
       res.status(200).json({ success: true, data: safeConfig });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyManualPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { restaurantId, orderId } = req.params;
+      const { method, amount } = req.body;
+      const user = (req as any).user || {};
+
+      const result = await paymentService.verifyManualPayment(
+        restaurantId,
+        orderId,
+        { id: user.id || user._id, name: user.name, role: user.role },
+        method || 'UPI',
+        amount
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: `Payment verified successfully via ${method || 'UPI'}`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyRazorpayPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { restaurantId } = req.params;
+      const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+
+      if (!orderId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        throw new CustomError('orderId, razorpayOrderId, razorpayPaymentId, and razorpaySignature are required', 400);
+      }
+
+      const result = await paymentService.verifyRazorpayPayment(
+        restaurantId,
+        orderId,
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Razorpay payment verified and order updated successfully',
+      });
     } catch (error) {
       next(error);
     }

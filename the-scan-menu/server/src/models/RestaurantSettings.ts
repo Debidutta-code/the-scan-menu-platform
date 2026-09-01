@@ -33,6 +33,11 @@ export interface IRestaurantSettingsPayment {
   activeProvider: 'CASH' | 'RAZORPAY' | 'STRIPE' | 'SQUARE';
   activeMode: 'PREPAID' | 'POSTPAID' | 'HYBRID';
   taxRatePercent: number;
+  manualUpiEnabled?: boolean;
+  upiDisplayName?: string;
+  razorpayEnabled?: boolean;
+  prepaidEnabled?: boolean;
+  postpaidEnabled?: boolean;
   paymentMethods: {
     cash: boolean;
     card: boolean;
@@ -42,6 +47,7 @@ export interface IRestaurantSettingsPayment {
   razorpayConfig?: {
     keyId?: string;
     keySecret?: string;
+    webhookSecret?: string;
   };
   integrationConfig: {
     provider: string;
@@ -210,9 +216,15 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
         upi: { type: Boolean, default: true },
         razorpay: { type: Boolean, default: false },
       },
+      manualUpiEnabled: { type: Boolean, default: true },
+      upiDisplayName: { type: String, trim: true },
+      razorpayEnabled: { type: Boolean, default: false },
+      prepaidEnabled: { type: Boolean, default: true },
+      postpaidEnabled: { type: Boolean, default: true },
       razorpayConfig: {
         keyId: { type: String },
         keySecret: { type: String },
+        webhookSecret: { type: String },
       },
       integrationConfig: {
         provider: { type: String, default: 'NONE' },

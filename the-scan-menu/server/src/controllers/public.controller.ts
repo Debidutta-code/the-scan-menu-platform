@@ -517,14 +517,15 @@ export class PublicController {
    */
   async confirmPrepaidPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { checkoutAttemptId, gatewayPaymentId } = req.body;
+      const { checkoutAttemptId, gatewayPaymentId, gatewaySignature, razorpaySignature } = req.body;
 
       if (!checkoutAttemptId || !gatewayPaymentId) {
         sendError(res, 'BAD_REQUEST', 'checkoutAttemptId and gatewayPaymentId are required', null, 400);
         return;
       }
 
-      const order = await checkoutService.confirmPrepaidPayment(checkoutAttemptId, gatewayPaymentId);
+      const effectiveSignature = gatewaySignature || razorpaySignature;
+      const order = await checkoutService.confirmPrepaidPayment(checkoutAttemptId, gatewayPaymentId, effectiveSignature);
       const safeOrderDTO = toCustomerSafeOrderDTO(order, true);
       sendSuccess(res, safeOrderDTO, 'Payment confirmed and order placed successfully', 200);
     } catch (error: any) {

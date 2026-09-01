@@ -216,4 +216,47 @@ export class RazorpayAdapter implements PaymentProvider {
       rawPayload: parsedPayload
     };
   }
+
+  /**
+   * Verifies Razorpay checkout signature server-side.
+   * Signature HMAC: sha256(order_id + "|" + payment_id, key_secret)
+   */
+  async verifyPaymentSignature(
+    restaurantId: string,
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string
+  ): Promise<boolean> {
+    const settings = await RestaurantSettings.findOne({ restaurantId });
+    if (!settings?.paymentConfig?.razorpayConfig?.keySecret) {
+      throw new CustomError('Razorpay is not configured for this restaurant', 400);
+    }
+
+    const keySecret = decrypt(settings.paymentConfig.razorpayConfig.keySecret);
+    const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(body)
+      .digest('hex');
+
+    return expectedSignature === razorpaySignature;
+  }
+
+  /**
+   * Tests Razorpay credentials by calling orders list API
+   */
+  async testCredentials(keyId: string, keySecret: string): Promise<boolean> {
+    try {
+      const instance = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
+      await instance.orders.all({ count: 1 });
+      return true;
+    } catch (err: any) {
+      console.error('Razorpay testCredentials failed:', err?.error || err?.message || err);
+      return false;
+    }
+  }
 }
+

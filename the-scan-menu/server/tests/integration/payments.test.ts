@@ -12,6 +12,7 @@ import { FeatureFlag } from '../../src/models/FeatureFlag';
 import { RestaurantStaff } from '../../src/models/RestaurantStaff';
 import { tokenService } from '../../src/services/token.service';
 import { CashAdapter } from '../../src/integrations/payments/adapters/CashAdapter';
+import { RazorpayAdapter } from '../../src/integrations/payments/adapters/RazorpayAdapter';
 import { PaymentProviderFactory } from '../../src/integrations/payments/PaymentProviderFactory';
 
 let mongoServer: MongoMemoryServer;
@@ -109,8 +110,10 @@ describe('Payment Framework Unit Tests', () => {
     expect(defaultAdapter).toBeInstanceOf(CashAdapter);
   });
 
-  it('PaymentProviderFactory throws on unsupported providers in Phase 6', () => {
-    expect(() => PaymentProviderFactory.getAdapter('RAZORPAY')).toThrow('Razorpay adapter not implemented in Phase 6');
+  it('PaymentProviderFactory returns RazorpayAdapter for RAZORPAY and throws on unsupported providers', () => {
+    const rzpAdapter = PaymentProviderFactory.getAdapter('RAZORPAY');
+    expect(rzpAdapter).toBeInstanceOf(RazorpayAdapter);
+    expect(() => PaymentProviderFactory.getAdapter('STRIPE')).toThrow('Stripe adapter not configured for this region');
   });
 
   it('CashAdapter creates intent and marks as CAPTURED immediately', async () => {

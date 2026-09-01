@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../../hooks/useToast';
-import apiClient from '../../lib/api';
+import { restaurantService } from '../../services/restaurant.service';
 import {
   CreditCard,
   Lock,
@@ -80,75 +80,77 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
 
   const targetRestaurantId = propRestaurantId || activeRestaurantId;
 
-  // Active Payment Mode State
   const [activePaymentMode, setActivePaymentMode] = useState<'POSTPAID' | 'PREPAID'>('POSTPAID');
 
-  // Payment Methods Enabled State
   const [cashEnabled, setCashEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
   const [upiEnabled, setUpiEnabled] = useState(true);
   const [razorpayEnabled, setRazorpayEnabled] = useState(false);
 
-  // Credentials State
+  // Safe Credentials / Display Info
   const [upiId, setUpiId] = useState('');
+  const [upiDisplayName, setUpiDisplayName] = useState('');
+  const [razorpayStatus, setRazorpayStatus] = useState<'CONNECTED' | 'NOT_CONFIGURED'>('NOT_CONFIGURED');
   const [razorpayKeyId, setRazorpayKeyId] = useState('');
-  const [razorpayKeySecret, setRazorpayKeySecret] = useState('');
-  const [razorpayWebhookSecret, setRazorpayWebhookSecret] = useState('');
+
+  // Policy restrictions from Super Admin
+  const [prepaidAllowed, setPrepaidAllowed] = useState(true);
+  const [postpaidAllowed, setPostpaidAllowed] = useState(true);
 
   // Priority Method Sorting State
   const [methodOrder, setMethodOrder] = useState<MethodKey[]>(['UPI', 'CASH', 'CARD', 'RAZORPAY']);
 
-  const { data: restaurantResponse, isLoading } = useQuery({
-    queryKey: ['restaurantProfileInfo', targetRestaurantId],
+  const { data: configResponse, isLoading } = useQuery({
+    queryKey: ['restaurantPaymentConfigSafe', targetRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${targetRestaurantId}`);
-      return res.data;
+      if (!targetRestaurantId) return null;
+      return await restaurantService.getPaymentConfig(targetRestaurantId);
     },
     enabled: !!targetRestaurantId,
   });
 
   useEffect(() => {
-    if (restaurantResponse?.success && restaurantResponse?.data) {
-      const p = restaurantResponse.data;
-      if (p.paymentMethods) {
-        setCashEnabled(p.paymentMethods.cash !== false);
-        setCardEnabled(p.paymentMethods.card !== false);
-        setUpiEnabled(p.paymentMethods.upi !== false);
-        setRazorpayEnabled(!!p.paymentMethods.razorpay);
+    if (configResponse?.data) {
+      const cfg = configResponse.data;
+
+      if (cfg.paymentMethods) {
+        setCashEnabled(cfg.paymentMethods.cash !== false);
+        setCardEnabled(cfg.paymentMethods.card !== false);
+        setUpiEnabled(cfg.paymentMethods.upi !== false);
+        setRazorpayEnabled(!!cfg.paymentMethods.razorpay);
       }
 
-      const paymentConfig = p.paymentConfig || p.settings?.paymentConfig;
-      if (paymentConfig) {
-        setActivePaymentMode(paymentConfig.activeMode || p.activeMode || 'POSTPAID');
-        setUpiId(paymentConfig.upiId || p.upiId || p.printerConfig?.upiId || '');
-        if (paymentConfig.preferredMethodOrder && Array.isArray(paymentConfig.preferredMethodOrder) && paymentConfig.preferredMethodOrder.length > 0) {
-          setMethodOrder(paymentConfig.preferredMethodOrder);
-        }
-      } else {
-        if (p.activeMode) setActivePaymentMode(p.activeMode);
-        setUpiId(p.upiId || p.printerConfig?.upiId || '');
-        if (p.preferredMethodOrder && Array.isArray(p.preferredMethodOrder) && p.preferredMethodOrder.length > 0) {
-          setMethodOrder(p.preferredMethodOrder);
-        }
+      if (cfg.manualUpi) {
+        setUpiId(cfg.manualUpi.upiId || '');
+        setUpiDisplayName(cfg.manualUpi.displayName || '');
       }
 
-      if (p.razorpayConfig) {
-        setRazorpayKeyId(p.razorpayConfig.keyId || '');
-        setRazorpayKeySecret(p.razorpayConfig.keySecret || '');
+      if (cfg.razorpay) {
+        setRazorpayStatus(cfg.razorpay.status || 'NOT_CONFIGURED');
+        setRazorpayKeyId(cfg.razorpay.keyId || '');
+      }
+
+      if (cfg.ordering) {
+        setPrepaidAllowed(cfg.ordering.prepaidEnabled !== false);
+        setPostpaidAllowed(cfg.ordering.postpaidEnabled !== false);
+        setActivePaymentMode(cfg.ordering.activeMode || cfg.activeMode || 'POSTPAID');
+      }
+
+      if (cfg.preferredMethodOrder && Array.isArray(cfg.preferredMethodOrder)) {
+        setMethodOrder(cfg.preferredMethodOrder);
       }
     }
-  }, [restaurantResponse]);
+  }, [configResponse]);
 
   const updateMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const res = await apiClient.patch(`/restaurants/${targetRestaurantId}`, payload);
-      return res.data;
+      if (!targetRestaurantId) throw new Error('Restaurant ID missing');
+      return await restaurantService.updatePaymentConfig(targetRestaurantId, payload);
     },
     onSuccess: () => {
-      toast('Payments & Channels Settings saved successfully!', 'success');
+      queryClient.invalidateQueries({ queryKey: ['restaurantPaymentConfigSafe', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['restaurantProfileInfo', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', targetRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
+      toast('Payment configuration saved successfully!', 'success');
       if (onSaved) onSaved();
     },
     onError: (err: any) => {
@@ -156,36 +158,19 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
     },
   });
 
-  const moveMethod = (index: number, direction: 'UP' | 'DOWN') => {
-    const targetIdx = direction === 'UP' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= methodOrder.length) return;
+  const moveMethod = (index: number, direction: 'up' | 'down') => {
     const newOrder = [...methodOrder];
-    const [moved] = newOrder.splice(index, 1);
-    newOrder.splice(targetIdx, 0, moved);
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+
+    const temp = newOrder[index];
+    newOrder[index] = newOrder[targetIndex];
+    newOrder[targetIndex] = temp;
     setMethodOrder(newOrder);
   };
 
-  const handleSavePayments = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (isEnabled('payments')) {
-      try {
-        await apiClient.patch(`/restaurants/${targetRestaurantId}/payments/config`, {
-          activeProvider: razorpayEnabled ? 'RAZORPAY' : 'CASH',
-          activeMode: activePaymentMode,
-          preferredMethodOrder: methodOrder,
-          razorpayConfig: razorpayEnabled
-            ? {
-                keyId: razorpayKeyId.trim(),
-                keySecret: razorpayKeySecret.trim() || undefined,
-                webhookSecret: razorpayWebhookSecret.trim() || undefined,
-              }
-            : undefined,
-        });
-      } catch (err: any) {
-        console.error('Failed to update payment provider config', err);
-      }
-    }
 
     updateMutation.mutate({
       activeMode: activePaymentMode,
@@ -197,13 +182,8 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         upi: upiEnabled,
         razorpay: razorpayEnabled,
       },
-      upiId: upiEnabled && upiId.trim() ? upiId.trim() : undefined,
-      razorpayConfig: razorpayEnabled
-        ? {
-            keyId: razorpayKeyId.trim() || undefined,
-            keySecret: razorpayKeySecret.trim() || undefined,
-          }
-        : undefined,
+      upiId: upiId.trim(),
+      upiDisplayName: upiDisplayName.trim(),
     });
   };
 
@@ -231,7 +211,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
   };
 
   return (
-    <form onSubmit={handleSavePayments} className="space-y-3 sm:space-y-4 font-sans select-none">
+    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 font-sans select-none">
       {/* ── 1. ACTIVE DINING PAYMENT POLICY ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
         <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
@@ -263,12 +243,13 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             {/* POSTPAID OPTION */}
             <button
               type="button"
-              onClick={() => setActivePaymentMode('POSTPAID')}
+              disabled={!postpaidAllowed}
+              onClick={() => postpaidAllowed && setActivePaymentMode('POSTPAID')}
               className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between ${
                 activePaymentMode === 'POSTPAID'
                   ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-xs'
                   : 'border-slate-200/80 bg-white hover:border-slate-300'
-              }`}
+              } ${!postpaidAllowed ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -288,19 +269,20 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
               </div>
               <div className="mt-2.5 pt-2 border-t border-slate-150 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>Auto-accept orders supported</span>
+                <span>{!postpaidAllowed ? 'Disabled by platform admin' : 'Auto-accept orders supported'}</span>
               </div>
             </button>
 
             {/* PREPAID OPTION */}
             <button
               type="button"
-              onClick={() => setActivePaymentMode('PREPAID')}
+              disabled={!prepaidAllowed}
+              onClick={() => prepaidAllowed && setActivePaymentMode('PREPAID')}
               className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between ${
                 activePaymentMode === 'PREPAID'
                   ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-xs'
                   : 'border-slate-200/80 bg-white hover:border-slate-300'
-              }`}
+              } ${!prepaidAllowed ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -320,7 +302,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
               </div>
               <div className="mt-2.5 pt-2 border-t border-slate-150 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                <span>Zero unpaid order risk</span>
+                <span>{!prepaidAllowed ? 'Disabled by platform admin' : 'Zero unpaid order risk'}</span>
               </div>
             </button>
           </div>
@@ -399,7 +381,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                     <button
                       type="button"
                       disabled={isFirst}
-                      onClick={() => moveMethod(index, 'UP')}
+                      onClick={() => moveMethod(index, 'up')}
                       title="Move Up (Higher Priority)"
                       className="p-1 rounded hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
                     >
@@ -408,7 +390,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                     <button
                       type="button"
                       disabled={isLast}
-                      onClick={() => moveMethod(index, 'DOWN')}
+                      onClick={() => moveMethod(index, 'down')}
                       title="Move Down (Lower Priority)"
                       className="p-1 rounded hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
                     >
@@ -444,54 +426,34 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
           </div>
         )}
 
-        {razorpayEnabled && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-3.5 space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 font-mono">
-                <Globe className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Razorpay Gateway API Keys</span>
-              </h5>
-              <span className="text-[10px] text-slate-500 font-mono bg-white px-1.5 py-0.2 rounded border border-slate-200">
-                Test &amp; Live Mode
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-600 mb-1">Key ID</label>
-                <input
-                  type="text"
-                  value={razorpayKeyId}
-                  onChange={(e) => setRazorpayKeyId(e.target.value)}
-                  placeholder="rzp_test_..."
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono shadow-2xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-600 mb-1">Key Secret</label>
-                <input
-                  type="password"
-                  value={razorpayKeySecret}
-                  onChange={(e) => setRazorpayKeySecret(e.target.value)}
-                  placeholder="Enter secret"
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono shadow-2xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-600 mb-1">Webhook Secret</label>
-                <input
-                  type="password"
-                  value={razorpayWebhookSecret}
-                  onChange={(e) => setRazorpayWebhookSecret(e.target.value)}
-                  placeholder="Enter webhook secret"
-                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono shadow-2xs"
-                />
-              </div>
-            </div>
+        {/* Razorpay Platform Managed Status Banner */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 font-mono">
+              <Globe className="w-3.5 h-3.5 text-amber-500" />
+              <span>Razorpay Online Payment Gateway</span>
+            </h5>
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+              razorpayStatus === 'CONNECTED'
+                ? 'bg-emerald-100 text-emerald-900'
+                : 'bg-slate-200 text-slate-600'
+            }`}>
+              {razorpayStatus === 'CONNECTED' ? 'CONNECTED • PLATFORM MANAGED' : 'NOT CONFIGURED'}
+            </span>
           </div>
-        )}
+
+          <p className="text-xs text-slate-500">
+            {razorpayStatus === 'CONNECTED'
+              ? 'Razorpay credentials, webhooks, and regional settlement policies are securely managed by the Platform Super Administrator. Key secrets are encrypted in the server vault.'
+              : 'Online card and netbanking payment gateway is not enabled for this outlet. Contact your platform administrator to activate Razorpay integration.'}
+          </p>
+
+          {razorpayKeyId && (
+            <div className="text-[11px] font-mono text-slate-500 bg-white p-2 rounded-lg border border-slate-200 inline-block">
+              Public Key ID: <span className="font-bold text-slate-700">{razorpayKeyId}</span>
+            </div>
+          )}
+        </div>
 
         {/* ── 4. SUBMIT ACTION ── */}
         <div className="pt-2 flex justify-end">
@@ -500,7 +462,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             isLoading={updateMutation.isPending}
             leftIcon={<Save className="w-3.5 h-3.5" />}
           >
-            Save Payment Settings
+            Save Payment Preferences
           </Button>
         </div>
       </div>

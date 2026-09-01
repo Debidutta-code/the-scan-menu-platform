@@ -276,6 +276,45 @@ class ActiveOrdersNotifier extends StateNotifier<ActiveOrdersState> {
       state = state.copyWith(pendingActionOrderIds: nextPending);
     }
   }
+
+  Future<bool> verifyManualPayment(
+    String orderId, {
+    String method = 'UPI',
+    num? amount,
+  }) async {
+    final restaurantId = _restaurantId;
+    if (restaurantId == null) return false;
+
+    final pending = Set<String>.from(state.pendingActionOrderIds)..add(orderId);
+    state = state.copyWith(
+      pendingActionOrderIds: pending,
+      orders: state.orders.map((o) {
+        if (o.id == orderId) return o.copyWith(paymentStatus: 'PAID');
+        return o;
+      }).toList(),
+    );
+
+    try {
+      final res = await _apiClient.dio.post(
+        ApiConstants.verifyManualPayment(restaurantId, orderId),
+        data: {
+          'method': method,
+          if (amount != null) 'amount': amount,
+        },
+      );
+      if (res.data['success'] == true) {
+        fetchActiveOrders(isSilent: true);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      fetchActiveOrders(isSilent: true);
+      return false;
+    } finally {
+      final nextPending = Set<String>.from(state.pendingActionOrderIds)..remove(orderId);
+      state = state.copyWith(pendingActionOrderIds: nextPending);
+    }
+  }
 }
 
 final activeOrdersProvider =

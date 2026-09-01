@@ -56,6 +56,9 @@ class ApiConstants {
   static String clearOrder(String restaurantId, String orderId) =>
       '$apiV1Path/restaurants/$restaurantId/orders/$orderId/clear';
 
+  static String verifyManualPayment(String restaurantId, String orderId) =>
+      '$apiV1Path/restaurants/$restaurantId/orders/$orderId/verify-manual';
+
   static String tableOrders(String restaurantId, String tableId) =>
       '$apiV1Path/restaurants/$restaurantId/tables/$tableId/orders';
 

@@ -35,6 +35,10 @@ router.patch('/pos/:restaurantId/config', adminController.updatePOSConfig);
 router.get('/payments/overview', adminController.getPaymentOverview);
 router.get('/payments/tenant-configs', adminController.getTenantPaymentConfigs);
 router.patch('/payments/restaurants/:restaurantId/methods', adminController.updateTenantPaymentMethods);
+router.get('/restaurants/:restaurantId/payment-config', adminController.getRestaurantPaymentConfig);
+router.put('/restaurants/:restaurantId/payment-config', adminController.updateRestaurantPaymentConfig);
+router.patch('/restaurants/:restaurantId/payment-config', adminController.updateRestaurantPaymentConfig);
+router.post('/restaurants/:restaurantId/payment-config/test-razorpay', adminController.testRazorpayCredentials);
 
 // Global Audit Trail
 router.get('/audit-logs', adminController.getAuditLogs);

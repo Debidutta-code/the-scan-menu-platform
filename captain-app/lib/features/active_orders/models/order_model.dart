@@ -106,6 +106,7 @@ class OrderModel {
 
   OrderModel copyWith({
     String? status,
+    String? paymentStatus,
   }) {
     return OrderModel(
       id: id,
@@ -115,7 +116,7 @@ class OrderModel {
       orderNumber: orderNumber,
       orderMode: orderMode,
       status: status ?? this.status,
-      paymentStatus: paymentStatus,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       subtotal: subtotal,
       tax: tax,
       total: total,

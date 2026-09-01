@@ -21,6 +21,8 @@ export interface PaymentVerificationModalProps {
   mode?: 'PREPAID' | 'POSTPAID';
   title?: string;
   subtitle?: string;
+  upiId?: string;
+  upiDisplayName?: string;
   enabledPaymentMethods?: {
     cash?: boolean;
     card?: boolean;
@@ -48,6 +50,8 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
   mode = 'PREPAID',
   title,
   subtitle,
+  upiId,
+  upiDisplayName,
   enabledPaymentMethods,
   preferredMethodOrder,
   onConfirmPayment,
@@ -293,6 +297,32 @@ export const PaymentVerificationModal: React.FC<PaymentVerificationModalProps> =
                     <ArrowLeft className="w-3 h-3" /> Change ({activeMethod.name})
                   </button>
                 </div>
+
+                {/* Optional Dynamic UPI QR Preview for Staff/Guest */}
+                {activeMethod.id === 'UPI' && upiId && (
+                  <div className="bg-purple-50/80 border border-purple-200 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+                    <div className="bg-white p-1.5 rounded-lg border border-purple-200 shadow-2xs shrink-0">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+                          `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiDisplayName || 'Merchant')}&am=${((order.total || 0) / 100).toFixed(2)}&cu=INR&tn=Order%20${order.orderNumber || ''}`
+                        )}&size=100x100&margin=4`}
+                        alt="UPI Payment QR"
+                        className="w-20 h-20 rounded"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-mono font-bold text-purple-700 block">
+                        Scan with GPay / PhonePe / Paytm
+                      </span>
+                      <span className="text-xs font-bold text-slate-900 block font-mono mt-0.5">
+                        {upiId}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">
+                        Amount: <strong className="text-slate-900">{formattedAmount}</strong> • Verify notification before tapping Received.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   {/* Option 0: NOT PAID YET */}

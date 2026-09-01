@@ -9,6 +9,7 @@ import { Payment } from '../models/Payment';
 import { RestaurantSettings } from '../models/RestaurantSettings';
 import { inventoryService } from './inventory.service';
 import { PaymentProviderFactory } from '../integrations/payments/PaymentProviderFactory';
+import { RazorpayAdapter } from '../integrations/payments/adapters/RazorpayAdapter';
 import { getNextOrderNumber } from '../utils/orderCounter';
 import { NotificationService } from './notification.service';
 import { posIntegrationService } from './posIntegration.service';
@@ -292,8 +293,30 @@ export class CheckoutService {
    */
   async confirmPrepaidPayment(
     checkoutAttemptId: Types.ObjectId | string,
-    gatewayPaymentId: string
+    gatewayPaymentId: string,
+    gatewaySignature?: string
   ): Promise<any> {
+    const existingAttempt = await CheckoutAttempt.findById(checkoutAttemptId);
+    if (!existingAttempt) {
+      throw new CustomError('ATTEMPT_NOT_FOUND', 'Checkout attempt not found', 404);
+    }
+
+    // Server-side verification for Razorpay if signature is present or gatewayOrderId exists
+    if (existingAttempt.gatewayProvider === 'RAZORPAY') {
+      if (gatewaySignature && existingAttempt.gatewayOrderId) {
+        const adapter = new RazorpayAdapter();
+        const isValid = await adapter.verifyPaymentSignature(
+          existingAttempt.restaurantId.toString(),
+          existingAttempt.gatewayOrderId,
+          gatewayPaymentId,
+          gatewaySignature
+        );
+        if (!isValid) {
+          throw new CustomError('PAYMENT_VERIFICATION_FAILED', 'Server-side payment signature verification failed', 400);
+        }
+      }
+    }
+
     // Atomic lock on CheckoutAttempt to prevent duplicate processing
     const attempt = await CheckoutAttempt.findOneAndUpdate(
       { _id: new Types.ObjectId(checkoutAttemptId), status: 'PAYMENT_PENDING' },

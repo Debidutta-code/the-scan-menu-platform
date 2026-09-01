@@ -333,6 +333,21 @@ export const adminService = {
     return res.data;
   },
 
+  async getRestaurantPaymentConfig(restaurantId: string) {
+    const res = await apiClient.get(`/admin/restaurants/${restaurantId}/payment-config`);
+    return res.data;
+  },
+
+  async updateRestaurantPaymentConfig(restaurantId: string, data: any) {
+    const res = await apiClient.put(`/admin/restaurants/${restaurantId}/payment-config`, data);
+    return res.data;
+  },
+
+  async testRazorpayCredentials(restaurantId: string, data: { keyId?: string; keySecret?: string }) {
+    const res = await apiClient.post(`/admin/restaurants/${restaurantId}/payment-config/test-razorpay`, data);
+    return res.data;
+  },
+
   // Audit Logs
   async getAuditLogs(params: { page?: number; limit?: number; action?: string; severity?: string; search?: string }) {
     const query = new URLSearchParams(params as any).toString();
@@ -514,6 +529,22 @@ export const managerService = {
     const res = await apiClient.post(`/restaurants/${restaurantId}/pos/verify-manager-pin`, { pin, action });
     return res.data;
   },
+
+  // Payment Management (Safe Manager View)
+  async getPaymentConfig(restaurantId: string) {
+    const res = await apiClient.get(`/restaurants/${restaurantId}/payments/config`);
+    return res.data;
+  },
+
+  async updatePaymentConfig(restaurantId: string, data: any) {
+    const res = await apiClient.patch(`/restaurants/${restaurantId}/payments/config`, data);
+    return res.data;
+  },
+
+  async verifyManualPayment(restaurantId: string, orderId: string, data: { method?: string; amount?: number }) {
+    const res = await apiClient.post(`/restaurants/${restaurantId}/orders/${orderId}/verify-manual`, data);
+    return res.data;
+  },
 };
 
 export const publicService = {
@@ -616,3 +647,6 @@ export const publicService = {
     return res.data;
   },
 };
+
+export const restaurantService = managerService;
+

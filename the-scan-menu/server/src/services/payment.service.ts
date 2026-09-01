@@ -1,8 +1,10 @@
 import { Order } from '../models/Order';
 import { NotificationService } from './notification.service';
 import { PaymentProviderFactory } from '../integrations/payments/PaymentProviderFactory';
+import { RazorpayAdapter } from '../integrations/payments/adapters/RazorpayAdapter';
 import { Transaction, ITransaction } from '../models/Transaction';
 import { RestaurantSettings } from '../models/RestaurantSettings';
+import { auditLogService } from './auditLog.service';
 import { Types } from 'mongoose';
 import { PaymentIntent } from '../integrations/payments/PaymentProvider';
 class CustomError extends Error {
@@ -270,6 +272,222 @@ export class PaymentService {
 
     return result;
   }
+
+  /**
+   * Explicit Staff Verification for Manual UPI, Cash, or Card payments
+   */
+  async verifyManualPayment(
+    restaurantId: string | Types.ObjectId,
+    orderId: string | Types.ObjectId,
+    staffUser: { id?: string; name?: string; role?: string },
+    method: string = 'UPI',
+    amount?: number
+  ): Promise<{ order: any; transaction: any }> {
+    const rId = new Types.ObjectId(restaurantId);
+    const oId = new Types.ObjectId(orderId);
+
+    const order = await Order.findOne({ _id: oId, restaurantId: rId });
+    if (!order) {
+      throw new CustomError('Order not found for this restaurant', 404);
+    }
+
+    const payableAmount = amount !== undefined ? amount : order.total;
+
+    // Find or create transaction record
+    let transaction = await Transaction.findOne({ orderId: oId, restaurantId: rId });
+    if (!transaction) {
+      transaction = new Transaction({
+        restaurantId: rId,
+        orderId: oId,
+        diningSessionId: order.diningSessionId,
+        tableSessionId: order.diningSessionId,
+        provider: (['UPI', 'CASH', 'CARD'].includes(method.toUpperCase()) ? method.toUpperCase() : 'MANUAL') as any,
+        method: (['UPI', 'CASH', 'CARD'].includes(method.toUpperCase()) ? method.toUpperCase() : 'OTHER') as any,
+        mode: order.diningSessionId ? 'POSTPAID' : 'PREPAID',
+        amount: payableAmount,
+        currency: 'INR',
+        status: 'CAPTURED',
+        metadata: {
+          verifiedByStaffId: staffUser.id,
+          verifiedByStaffName: staffUser.name,
+          verifiedAt: new Date(),
+          isManualVerification: true,
+          method,
+        },
+      });
+    } else {
+      transaction.status = 'CAPTURED';
+      transaction.method = (['UPI', 'CASH', 'CARD'].includes(method.toUpperCase()) ? method.toUpperCase() : 'OTHER') as any;
+      transaction.provider = (['UPI', 'CASH', 'CARD'].includes(method.toUpperCase()) ? method.toUpperCase() : 'MANUAL') as any;
+      transaction.metadata = {
+        ...(transaction.metadata || {}),
+        verifiedByStaffId: staffUser.id,
+        verifiedByStaffName: staffUser.name,
+        verifiedAt: new Date(),
+        isManualVerification: true,
+        method,
+      };
+    }
+    await transaction.save();
+
+    order.paymentStatus = 'PAID';
+    order.paymentMethod = method;
+
+    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
+
+    if (order.status === 'PENDING') {
+      order.status = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
+    }
+
+    await order.save();
+
+    // Log to Audit Log
+    try {
+      await auditLogService.logEvent({
+        action: 'PAYMENT_MANUALLY_VERIFIED',
+        actorId: staffUser.id,
+        actorName: staffUser.name,
+        actorRole: staffUser.role,
+        restaurantId: rId.toString(),
+        severity: 'INFO',
+        details: {
+          orderId: oId.toString(),
+          orderNumber: order.orderNumber,
+          amount: payableAmount,
+          method,
+          transactionId: transaction._id.toString(),
+        },
+      });
+    } catch (e) {
+      console.error('Failed to write audit log for manual payment verification:', e);
+    }
+
+    try {
+      NotificationService.getInstance().notifyOrderStatusUpdated(
+        rId.toString(),
+        order._id.toString(),
+        order.status,
+        order.updatedAt
+      );
+    } catch (err) {
+      console.error('Failed to notify order status updated:', err);
+    }
+
+    return { order, transaction };
+  }
+
+  /**
+   * Server-side verified Razorpay Payment confirmation
+   */
+  async verifyRazorpayPayment(
+    restaurantId: string | Types.ObjectId,
+    orderId: string | Types.ObjectId,
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpaySignature: string
+  ): Promise<{ success: boolean; order: any; transaction: any }> {
+    const rId = new Types.ObjectId(restaurantId);
+    const oId = new Types.ObjectId(orderId);
+
+    const adapter = new RazorpayAdapter();
+    const isValid = await adapter.verifyPaymentSignature(
+      restaurantId.toString(),
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature
+    );
+
+    if (!isValid) {
+      throw new CustomError('Razorpay payment signature verification failed', 400);
+    }
+
+    const order = await Order.findOne({ _id: oId, restaurantId: rId });
+    if (!order) {
+      throw new CustomError('Order not found', 404);
+    }
+
+    let transaction = await Transaction.findOne({
+      $or: [
+        { providerReferenceId: razorpayOrderId },
+        { orderId: oId }
+      ],
+      restaurantId: rId,
+    });
+
+    if (!transaction) {
+      transaction = new Transaction({
+        restaurantId: rId,
+        orderId: oId,
+        diningSessionId: order.diningSessionId,
+        provider: 'RAZORPAY',
+        method: 'UPI',
+        mode: order.diningSessionId ? 'POSTPAID' : 'PREPAID',
+        amount: order.total,
+        currency: 'INR',
+        status: 'CAPTURED',
+        providerReferenceId: razorpayOrderId,
+        metadata: {
+          razorpayPaymentId,
+          razorpaySignature,
+          verifiedAt: new Date(),
+        },
+      });
+    } else {
+      transaction.status = 'CAPTURED';
+      transaction.providerReferenceId = razorpayOrderId;
+      transaction.metadata = {
+        ...(transaction.metadata || {}),
+        razorpayPaymentId,
+        razorpaySignature,
+        verifiedAt: new Date(),
+      };
+    }
+    await transaction.save();
+
+    order.paymentStatus = 'PAID';
+    order.paymentMethod = 'RAZORPAY';
+
+    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
+
+    if (order.status === 'PENDING') {
+      order.status = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
+    }
+
+    await order.save();
+
+    try {
+      await auditLogService.logEvent({
+        action: 'PAYMENT_RAZORPAY_VERIFIED',
+        restaurantId: rId.toString(),
+        severity: 'INFO',
+        details: {
+          orderId: oId.toString(),
+          orderNumber: order.orderNumber,
+          razorpayOrderId,
+          razorpayPaymentId,
+          amount: order.total,
+        },
+      });
+    } catch (e) {
+      console.error('Failed to write audit log for razorpay verification:', e);
+    }
+
+    try {
+      NotificationService.getInstance().notifyOrderStatusUpdated(
+        rId.toString(),
+        order._id.toString(),
+        order.status,
+        order.updatedAt
+      );
+    } catch (err) {
+      console.error('Failed to notify order status update:', err);
+    }
+
+    return { success: true, order, transaction };
+  }
 }
 
 export const paymentService = new PaymentService();
+
