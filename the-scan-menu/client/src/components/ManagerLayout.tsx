@@ -747,7 +747,7 @@ export const ManagerLayout: React.FC = () => {
           className={`flex-1 min-h-0 relative ${
             isMenuEditorRoute
               ? 'p-0 overflow-hidden flex flex-col'
-              : ['orders', 'counter', 'kds', 'tables', 'menu'].includes(activeTab)
+              : ['orders', 'counter', 'kds', 'tables', 'menu', 'staff'].includes(activeTab)
               ? 'p-2 sm:p-2.5 md:p-3 overflow-hidden flex flex-col scrollbar-none'
               : 'p-2.5 sm:p-3 md:p-4 overflow-y-auto scrollbar-none'
           }`}

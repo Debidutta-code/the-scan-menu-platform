@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock,
@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
-import { useToast } from '../hooks/useToast';
 import { printOrderTicket } from '../utils/printReceipt';
 import apiClient from '../lib/api';
 
@@ -155,9 +154,15 @@ export const ManagerOrders: React.FC = () => {
   const [showOrderMenu, setShowOrderMenu] = useState(false);
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
+  // Animated visual highlight for payment requirement in prepaid mode
+  const [isPaymentHighlighted, setIsPaymentHighlighted] = useState(false);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAdvanceTimestampRef = useRef<number>(0);
+
   useEffect(() => {
     setShowOrderMenu(false);
     setIsConfirmingCancel(false);
+    setIsPaymentHighlighted(false);
   }, [selectedOrderId]);
 
   // All Orders History States
@@ -207,8 +212,6 @@ export const ManagerOrders: React.FC = () => {
     enabled: !!activeRestaurantId,
     staleTime: 60_000,
   });
-
-  const { toast } = useToast();
 
   const orderingPaymentPolicy = useMemo(() => {
     return (
@@ -299,15 +302,28 @@ export const ManagerOrders: React.FC = () => {
 
   // Action Handlers
   const handleAdvanceStatus = useCallback((order: Order) => {
+    const timestamp = Date.now();
+    // 160ms throttle to absorb accidental double-strike hardware bounces
+    if (timestamp - lastAdvanceTimestampRef.current < 160) {
+      return;
+    }
+    lastAdvanceTimestampRef.current = timestamp;
+
     const isPrepaid = orderingPaymentPolicy === 'PREPAID';
     if (isPrepaid && order.paymentStatus !== 'PAID' && order.status === 'PENDING') {
-      toast('Payment Required: Prepaid orders must be marked as Paid before kitchen preparation.', 'error');
+      // Direct visual highlight animation on payment options instead of generic toast error
+      setSelectedOrderId(order._id);
+      setIsPaymentHighlighted(true);
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => {
+        setIsPaymentHighlighted(false);
+      }, 3500);
       return;
     }
     const nextStatus = getNextStatus(order.status, workflowMode);
     if (!nextStatus) return;
     updateStatusMutation.mutate({ orderId: order._id, nextStatus });
-  }, [orderingPaymentPolicy, workflowMode, updateStatusMutation, toast]);
+  }, [orderingPaymentPolicy, workflowMode, updateStatusMutation]);
 
   const handleRevertStatus = useCallback((order: Order) => {
     const prevStatus = getPreviousStatus(order.status, workflowMode);
@@ -316,6 +332,8 @@ export const ManagerOrders: React.FC = () => {
   }, [workflowMode, updateStatusMutation]);
 
   const handleTogglePaymentStatus = (order: Order, paymentMethod?: string) => {
+    setIsPaymentHighlighted(false);
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
     const nextPaymentStatus = order.paymentStatus === 'PAID' ? 'PENDING' : 'PAID';
     updatePaymentStatusMutation.mutate({
       orderId: order._id,
@@ -582,11 +600,17 @@ export const ManagerOrders: React.FC = () => {
 
                               return (
                                 <motion.div
+                                  layout="position"
                                   key={order._id}
-                                  initial={{ opacity: 0, scale: 0.97, y: 4 }}
-                                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.97, y: -4 }}
-                                  transition={{ duration: 0.14 }}
+                                  initial={{ opacity: 0, scale: 0.96 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.96 }}
+                                  transition={{
+                                    layout: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
+                                    opacity: { duration: 0.14 },
+                                  }}
+                                  whileHover={{ scale: 1.012 }}
+                                  whileTap={{ scale: 0.99 }}
                                   onClick={() => setSelectedOrderId((prev) => (prev === order._id ? null : order._id))}
                                   className={`rounded-xl cursor-pointer transition-all duration-150 flex flex-col p-2 gap-1 group relative overflow-hidden ${
                                     isSelected
@@ -969,7 +993,7 @@ export const ManagerOrders: React.FC = () => {
                   <div className="p-2 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Paid {selectedOrder.paymentMethod ? `(${selectedOrder.paymentMethod})` : ''}</span>
+                      <span>Paid {selectedOrder.paymentMethod ? `(${selectedOrder.paymentMethod.toUpperCase()})` : ''}</span>
                     </div>
                     <button
                       type="button"
@@ -981,99 +1005,170 @@ export const ManagerOrders: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <div className="p-2 bg-white border border-slate-200/90 rounded-xl space-y-1.5 shadow-2xs">
+                  <motion.div
+                    key={isPaymentHighlighted ? 'highlighted' : 'normal'}
+                    animate={
+                      isPaymentHighlighted
+                        ? {
+                            x: [0, -7, 7, -5, 5, -3, 3, 0],
+                            scale: [1, 1.02, 1],
+                          }
+                        : {}
+                    }
+                    transition={{ duration: 0.4, ease: 'easeInOut' }}
+                    className={`p-2.5 rounded-xl space-y-2 transition-all duration-300 ${
+                      isPaymentHighlighted
+                        ? 'bg-rose-50/90 border-2 border-rose-500 ring-4 ring-rose-500/25 shadow-md'
+                        : 'bg-white border border-slate-200/90 shadow-2xs'
+                    }`}
+                  >
                     <div className="text-[11px] font-bold text-slate-600 flex items-center justify-between">
-                      <span className="flex items-center gap-1 text-rose-700 font-semibold">
-                        <CreditCard className="w-3 h-3 text-rose-600" />
-                        <span>Payment Pending</span>
+                      <span className={`flex items-center gap-1 font-bold ${isPaymentHighlighted ? 'text-rose-900' : 'text-rose-700'}`}>
+                        <CreditCard className={`w-3.5 h-3.5 text-rose-600 ${isPaymentHighlighted ? 'animate-bounce' : ''}`} />
+                        <span>{isPaymentHighlighted ? 'Collect Payment to Start Prep' : 'Payment Pending'}</span>
                       </span>
-                      <span className="text-[10px] text-amber-700 font-bold">1-click pay</span>
+                      <span className={`text-[10px] font-bold ${isPaymentHighlighted ? 'text-rose-700 font-black animate-pulse' : 'text-amber-700'}`}>
+                        {isPaymentHighlighted ? '⚠️ Action Required' : '1-click pay'}
+                      </span>
                     </div>
+
                     <div className="grid grid-cols-3 gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleTogglePaymentStatus(selectedOrder, 'cash')}
-                        className="py-1.5 px-1 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
+                        className={`py-2 px-1 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer group ${
+                          isPaymentHighlighted
+                            ? 'bg-white border-2 border-emerald-500 hover:bg-emerald-50 shadow-xs ring-2 ring-emerald-500/20 text-emerald-950 font-black'
+                            : 'bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200/80 shadow-2xs'
+                        }`}
                       >
-                        <Banknote className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition" />
+                        <Banknote className={`w-4 h-4 text-emerald-600 group-hover:scale-110 transition ${isPaymentHighlighted ? 'scale-110' : ''}`} />
                         <span>Cash</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleTogglePaymentStatus(selectedOrder, 'upi')}
-                        className="py-1.5 px-1 bg-slate-50 hover:bg-purple-50 hover:border-purple-300 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
+                        className={`py-2 px-1 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer group ${
+                          isPaymentHighlighted
+                            ? 'bg-white border-2 border-purple-500 hover:bg-purple-50 shadow-xs ring-2 ring-purple-500/20 text-purple-950 font-black'
+                            : 'bg-slate-50 hover:bg-purple-50 hover:border-purple-300 border border-slate-200/80 shadow-2xs'
+                        }`}
                       >
-                        <QrCode className="w-3.5 h-3.5 text-purple-600 group-hover:scale-110 transition" />
+                        <QrCode className={`w-4 h-4 text-purple-600 group-hover:scale-110 transition ${isPaymentHighlighted ? 'scale-110' : ''}`} />
                         <span>UPI</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleTogglePaymentStatus(selectedOrder, 'card')}
-                        className="py-1.5 px-1 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs group"
+                        className={`py-2 px-1 rounded-lg text-xs font-bold text-slate-800 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer group ${
+                          isPaymentHighlighted
+                            ? 'bg-white border-2 border-indigo-500 hover:bg-indigo-50 shadow-xs ring-2 ring-indigo-500/20 text-indigo-950 font-black'
+                            : 'bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 border border-slate-200/80 shadow-2xs'
+                        }`}
                       >
-                        <CreditCard className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition" />
+                        <CreditCard className={`w-4 h-4 text-indigo-600 group-hover:scale-110 transition ${isPaymentHighlighted ? 'scale-110' : ''}`} />
                         <span>Card</span>
                       </button>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* 2. Primary Workflow Action Button */}
-                {(() => {
-                  const isPrepaid = orderingPaymentPolicy === 'PREPAID';
-                  const isUnpaidPrepaidPending = isPrepaid && selectedOrder.paymentStatus !== 'PAID' && selectedOrder.status === 'PENDING';
-                  const nextStatus = getNextStatus(selectedOrder.status, workflowMode);
+                <AnimatePresence mode="wait" initial={false}>
+                  {(() => {
+                    const isPrepaid = orderingPaymentPolicy === 'PREPAID';
+                    const isUnpaidPrepaidPending = isPrepaid && selectedOrder.paymentStatus !== 'PAID' && selectedOrder.status === 'PENDING';
+                    const nextStatus = getNextStatus(selectedOrder.status, workflowMode);
 
-                  if (isUnpaidPrepaidPending) {
+                    if (isUnpaidPrepaidPending) {
+                      return (
+                        <motion.div
+                          key="payment-required"
+                          initial={{ opacity: 0, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -3 }}
+                          transition={{ duration: 0.12 }}
+                          className="w-full"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleAdvanceStatus(selectedOrder)}
+                            className={`w-full py-2.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] ${
+                              isPaymentHighlighted
+                                ? 'bg-rose-100 border-2 border-rose-500 text-rose-950 ring-2 ring-rose-400/30 font-black shadow-xs animate-pulse'
+                                : 'bg-rose-50 border border-rose-300 text-rose-800 hover:bg-rose-100 shadow-2xs'
+                            }`}
+                          >
+                            <CreditCard className="w-4 h-4 text-rose-600" />
+                            <span>{isPaymentHighlighted ? '☝️ Select Cash, UPI, or Card above' : 'Payment Required to Start Prep'}</span>
+                          </button>
+                        </motion.div>
+                      );
+                    }
+
+                    if (nextStatus) {
+                      const nextAction = getNextActionLabel(selectedOrder.status, workflowMode);
+                      const ActionIcon = nextAction.icon;
+                      return (
+                        <motion.div
+                          key={`action-${selectedOrder.status}-${nextStatus}`}
+                          initial={{ opacity: 0, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -3 }}
+                          transition={{ duration: 0.12 }}
+                          className="w-full"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleAdvanceStatus(selectedOrder)}
+                            disabled={pendingOrderIds.has(selectedOrder._id)}
+                            className={`w-full py-2.5 text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${nextAction.gradient} disabled:opacity-50`}
+                          >
+                            <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
+                            <span>{nextAction.label}</span>
+                          </button>
+                        </motion.div>
+                      );
+                    }
+
+                    if (selectedOrder.status === 'SERVED') {
+                      return (
+                        <motion.div
+                          key="served-clear"
+                          initial={{ opacity: 0, y: 3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -3 }}
+                          transition={{ duration: 0.12 }}
+                          className="w-full"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleFreeTable(selectedOrder, true)}
+                            disabled={pendingOrderIds.has(selectedOrder._id)}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                          >
+                            <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
+                            <span>Free Table &amp; Print Bill</span>
+                          </button>
+                        </motion.div>
+                      );
+                    }
+
                     return (
-                      <button
-                        type="button"
-                        onClick={() => handleAdvanceStatus(selectedOrder)}
-                        className="w-full py-2.5 bg-rose-50 border border-rose-300 text-rose-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer hover:bg-rose-100 active:scale-[0.98] shadow-2xs"
+                      <motion.div
+                        key="completed"
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -3 }}
+                        transition={{ duration: 0.12 }}
+                        className="w-full py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
                       >
-                        <CreditCard className="w-4 h-4 text-rose-600" />
-                        <span>Payment Required to Start Prep</span>
-                      </button>
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span>Order Completed</span>
+                      </motion.div>
                     );
-                  }
-
-                  if (nextStatus) {
-                    const nextAction = getNextActionLabel(selectedOrder.status, workflowMode);
-                    const ActionIcon = nextAction.icon;
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => handleAdvanceStatus(selectedOrder)}
-                        disabled={pendingOrderIds.has(selectedOrder._id)}
-                        className={`w-full py-2.5 text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${nextAction.gradient} disabled:opacity-50`}
-                      >
-                        <ActionIcon className="w-4 h-4" strokeWidth={2.2} />
-                        <span>{nextAction.label}</span>
-                      </button>
-                    );
-                  }
-
-                  if (selectedOrder.status === 'SERVED') {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => handleFreeTable(selectedOrder, true)}
-                        disabled={pendingOrderIds.has(selectedOrder._id)}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] cursor-pointer disabled:opacity-50"
-                      >
-                        <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
-                        <span>Free Table &amp; Print Bill</span>
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <div className="w-full py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                      <CheckCircle className="w-4 h-4 text-emerald-600" />
-                      <span>Order Completed</span>
-                    </div>
-                  );
-                })()}
+                  })()}
+                </AnimatePresence>
 
                 {/* 3. Secondary Actions: Kitchen Token + Bill + Revert */}
                 <div className="flex items-center gap-2">

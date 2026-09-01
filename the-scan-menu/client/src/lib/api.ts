@@ -90,11 +90,15 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (error.response && error.response.status === 401) {
-      // If the request was for /auth/login, /public/, or /customer/, don't redirect away to /login
+      // If the request was for /auth/login, /public/, /customer/, or POS PIN validation, don't clear session or redirect away to /login
       if (
         originalRequest?.url?.includes('/auth/login') ||
         originalRequest?.url?.includes('/public/') ||
-        originalRequest?.url?.includes('/customer/')
+        originalRequest?.url?.includes('/customer/') ||
+        originalRequest?.url?.includes('/pos/unlock') ||
+        originalRequest?.url?.includes('/pos/verify-manager-pin') ||
+        error.response.data?.error?.code === 'INVALID_PIN' ||
+        error.response.data?.error?.code === 'UNAUTHORIZED_MANAGER_PIN'
       ) {
         return Promise.reject(error);
       }

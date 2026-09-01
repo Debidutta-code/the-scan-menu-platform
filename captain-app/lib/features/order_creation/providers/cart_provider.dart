@@ -15,6 +15,8 @@ class CartState {
   final String customerName;
   final String customerPhone;
   final String customerNote;
+  final String paymentMethod; // 'CASH' | 'UPI' | 'CARD'
+  final String paymentStatus; // 'PENDING' | 'PAID'
   final bool isSubmitting;
   final String? errorMessage;
 
@@ -25,6 +27,8 @@ class CartState {
     this.customerName = '',
     this.customerPhone = '',
     this.customerNote = '',
+    this.paymentMethod = 'CASH',
+    this.paymentStatus = 'PENDING',
     this.isSubmitting = false,
     this.errorMessage,
   });
@@ -32,6 +36,15 @@ class CartState {
   int get totalItemCount => items.fold(0, (sum, i) => sum + i.quantity);
 
   int get subtotalInPaise => items.fold(0, (sum, i) => sum + i.itemTotal);
+
+  int calculateTaxInPaise(num taxRatePercent) {
+    if (taxRatePercent <= 0) return 0;
+    return ((subtotalInPaise * taxRatePercent) / 100).round();
+  }
+
+  int calculateGrandTotalInPaise(num taxRatePercent) {
+    return subtotalInPaise + calculateTaxInPaise(taxRatePercent);
+  }
 
   bool get isEmpty => items.isEmpty;
 
@@ -46,6 +59,8 @@ class CartState {
     String? customerName,
     String? customerPhone,
     String? customerNote,
+    String? paymentMethod,
+    String? paymentStatus,
     bool? isSubmitting,
     String? errorMessage,
   }) {
@@ -56,6 +71,8 @@ class CartState {
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
       customerNote: customerNote ?? this.customerNote,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: errorMessage,
     );
@@ -78,6 +95,14 @@ class CartNotifier extends StateNotifier<CartState> {
 
   void setOrderMode(String mode) {
     state = state.copyWith(orderMode: mode);
+  }
+
+  void setPaymentMethod(String method) {
+    state = state.copyWith(paymentMethod: method);
+  }
+
+  void setPaymentStatus(String status) {
+    state = state.copyWith(paymentStatus: status);
   }
 
   void setCustomerInfo({String? name, String? phone, String? note}) {
@@ -246,8 +271,8 @@ class CartNotifier extends StateNotifier<CartState> {
         'customerName': state.customerName.trim().isEmpty ? null : state.customerName.trim(),
         'customerPhone': state.customerPhone.trim().isEmpty ? null : state.customerPhone.trim(),
         'customerNote': state.customerNote.trim().isEmpty ? null : state.customerNote.trim(),
-        'paymentStatus': state.orderMode == 'COUNTER' ? 'PAID' : 'PENDING',
-        'paymentMethod': 'CASH',
+        'paymentStatus': state.paymentStatus,
+        'paymentMethod': state.paymentMethod,
         'items': state.items.map((i) => i.toOrderPayloadJson()).toList(),
       };
 

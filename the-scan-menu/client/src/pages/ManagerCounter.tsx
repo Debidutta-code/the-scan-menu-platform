@@ -30,6 +30,8 @@ import {
   FileText,
   Tv,
   AlertTriangle,
+  Armchair,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -103,6 +105,15 @@ export const ManagerCounter: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<'PAID' | 'PENDING'>('PAID');
   const [orderMode, setOrderMode] = useState<OrderMode>('DINE_IN');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+
+  // Table Selection State for Dine-In Table Orders
+  const [selectedTable, setSelectedTable] = useState<any | null>(null);
+  const [showTablePickerModal, setShowTablePickerModal] = useState(false);
+  const [tableSearchQuery, setTableSearchQuery] = useState('');
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('ALL');
+
+  // Inline Note Editor State for Cart Items
+  const [editingNoteItem, setEditingNoteItem] = useState<{ itemId: string; name: string; note: string } | null>(null);
 
   // Checkout Wizard Modal State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -182,6 +193,26 @@ export const ManagerCounter: React.FC = () => {
     queryKey: ['managerCounterRecentOrders', restaurantId],
     queryFn: async () => {
       const res = await apiClient.get(`/restaurants/${restaurantId}/orders?limit=15`);
+      return res.data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch Tables for Table Order Placement
+  const { data: tablesData } = useQuery({
+    queryKey: ['managerCounterTables', restaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${restaurantId}/tables`);
+      return res.data;
+    },
+    enabled: !!restaurantId,
+  });
+
+  // Fetch Zones for Table Filtering
+  const { data: zonesData } = useQuery({
+    queryKey: ['managerCounterZones', restaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${restaurantId}/zones`);
       return res.data;
     },
     enabled: !!restaurantId,
@@ -283,6 +314,7 @@ export const ManagerCounter: React.FC = () => {
     setCustomerName('');
     setCustomerPhone('');
     setCustomerNote('');
+    setSelectedTable(null);
   }, []);
 
   const cartSubtotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -316,7 +348,7 @@ export const ManagerCounter: React.FC = () => {
     const defaultPrint = settingsData?.data?.printerConfig?.defaultPrintTarget || 'BOTH';
     setSelectedPrintTarget(defaultPrint as TicketPrintType);
     setPaymentMethod('UPI');
-    setPaymentStatus('PAID');
+    setPaymentStatus(selectedTable?.status === 'OCCUPIED' ? 'PENDING' : 'PAID');
     setCheckoutStep('CUSTOMER_INFO');
     setShowCheckoutModal(true);
 
@@ -324,7 +356,7 @@ export const ManagerCounter: React.FC = () => {
     setTimeout(() => {
       customerNameInputRef.current?.focus();
     }, 100);
-  }, [cartItems.length, settingsData?.data?.printerConfig?.defaultPrintTarget, toast]);
+  }, [cartItems.length, selectedTable, settingsData?.data?.printerConfig?.defaultPrintTarget, toast]);
 
   // Step 1 -> Step 2
   const handleProceedToPayment = useCallback(() => {
@@ -339,13 +371,19 @@ export const ManagerCounter: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    const resolvedOrderMode = selectedTable ? 'DINE_IN' : orderMode;
+    const defaultGuestName = selectedTable
+      ? (selectedTable.displayName || `Table ${selectedTable.tableNumber}`)
+      : 'Walk-in Customer';
+
     const payload = {
-      customerName: customerName.trim() || 'Walk-in Customer',
+      tableId: selectedTable?._id || undefined,
+      customerName: customerName.trim() || defaultGuestName,
       customerPhone: customerPhone.trim() || undefined,
       customerNote: customerNote.trim() || undefined,
       paymentStatus,
       paymentMethod,
-      orderMode,
+      orderMode: resolvedOrderMode,
       items: cartItems.map((item) => ({
         // For variant items, itemId is a composite "mongoId_variantName" used only for cart deduplication.
         // baseItemId always holds the real MongoDB MenuItem _id — use it for the API.
@@ -401,11 +439,14 @@ export const ManagerCounter: React.FC = () => {
           }
         }
 
-        toast(`Order #${createdOrder.orderNumber} placed & printed successfully!`, 'success');
+        const tableLabel = selectedTable ? ` for ${selectedTable.displayName || 'Table ' + selectedTable.tableNumber}` : '';
+        toast(`Order #${createdOrder.orderNumber}${tableLabel} placed & printed successfully!`, 'success');
         setShowCheckoutModal(false);
         clearCart();
         queryClient.invalidateQueries({ queryKey: ['orders', restaurantId] });
         queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', restaurantId] });
+        queryClient.invalidateQueries({ queryKey: ['managerCounterTables', restaurantId] });
+        queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
       }
     } catch (err: any) {
       if (!err.response || err.code === 'ERR_NETWORK') {
@@ -443,6 +484,7 @@ export const ManagerCounter: React.FC = () => {
     paymentStatus,
     paymentMethod,
     orderMode,
+    selectedTable,
     restaurantId,
     selectedPrintTarget,
     settingsData?.data,
@@ -613,15 +655,53 @@ export const ManagerCounter: React.FC = () => {
             <span className="hidden sm:inline">Recent Orders</span>
           </button>
 
+          {/* Table Selector Pill */}
+          {selectedTable ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100/90 border border-amber-300 text-amber-950 text-xs font-bold shadow-2xs">
+              <Armchair className="w-3.5 h-3.5 text-amber-700 shrink-0" strokeWidth={2.5} />
+              <span className="truncate max-w-[130px]">{selectedTable.displayName || `Table ${selectedTable.tableNumber}`}</span>
+              <button
+                type="button"
+                onClick={() => setShowTablePickerModal(true)}
+                className="text-[10px] text-amber-800 hover:underline ml-0.5 cursor-pointer font-bold"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTable(null)}
+                className="w-4 h-4 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-900 flex items-center justify-center transition cursor-pointer ml-0.5"
+                title="Clear Table (revert to walk-in)"
+              >
+                <X className="w-2.5 h-2.5" strokeWidth={3} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowTablePickerModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition cursor-pointer active:scale-95 shadow-2xs"
+              title="Assign this order to a specific Dine-in Table"
+            >
+              <Armchair className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} />
+              <span>Assign Table</span>
+            </button>
+          )}
+
           {/* Order Mode Toggle */}
           <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200/80 shadow-inner">
             {orderModeOptions.map((opt) => {
-              const isActive = orderMode === opt.key;
+              const isActive = (!selectedTable && orderMode === opt.key) || (selectedTable && opt.key === 'DINE_IN');
               return (
                 <button
                   key={opt.key}
                   type="button"
-                  onClick={() => setOrderMode(opt.key)}
+                  onClick={() => {
+                    if (opt.key === 'TAKEAWAY') {
+                      setSelectedTable(null);
+                    }
+                    setOrderMode(opt.key);
+                  }}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                     isActive
                       ? 'bg-slate-950 text-white shadow-sm'
@@ -930,9 +1010,37 @@ export const ManagerCounter: React.FC = () => {
                 <Receipt className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
                 <span>Order Summary ({totalItemCount})</span>
               </h3>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {orderMode === 'DINE_IN' ? '🍽️ Dine-In Table' : '🛍️ Takeaway'}
-              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {selectedTable ? (
+                    <span className="text-amber-900 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/80 inline-flex items-center gap-1">
+                      <Armchair className="w-2.5 h-2.5 text-amber-600" />
+                      {selectedTable.displayName || `Table ${selectedTable.tableNumber}`}
+                    </span>
+                  ) : orderMode === 'DINE_IN' ? (
+                    '🍽️ Walk-in Dine-In'
+                  ) : (
+                    '🛍️ Walk-in Takeaway'
+                  )}
+                </span>
+                {selectedTable ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowTablePickerModal(true)}
+                    className="text-[9px] text-slate-400 hover:text-amber-800 underline font-medium cursor-pointer"
+                  >
+                    Switch
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowTablePickerModal(true)}
+                    className="text-[9px] text-amber-700 hover:text-amber-900 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 cursor-pointer"
+                  >
+                    + Assign Table
+                  </button>
+                )}
+              </div>
             </div>
             {cartItems.length > 0 && (
               <button
@@ -961,7 +1069,34 @@ export const ManagerCounter: React.FC = () => {
                   className="p-2 bg-slate-50/80 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs hover:border-slate-300 transition"
                 >
                   <div className="min-w-0 flex-1 pr-2">
-                    <h5 className="font-bold text-slate-900 truncate leading-tight text-xs">{item.name}</h5>
+                    <div className="flex items-center gap-1.5">
+                      <h5 className="font-bold text-slate-900 truncate leading-tight text-xs">{item.name}</h5>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingNoteItem({
+                            itemId: item.itemId,
+                            name: item.name,
+                            note: item.specialInstructions || '',
+                          })
+                        }
+                        className={`p-0.5 rounded transition cursor-pointer shrink-0 ${
+                          item.specialInstructions
+                            ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                            : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'
+                        }`}
+                        title={item.specialInstructions ? 'Edit kitchen instruction' : 'Add kitchen instruction (e.g. less sugar)'}
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {item.specialInstructions && (
+                      <div className="text-[10px] text-amber-800 bg-amber-50/90 border border-amber-200/80 px-1.5 py-0.2 rounded mt-0.5 font-medium flex items-center gap-1 truncate max-w-fit">
+                        <span className="font-bold">Note:</span> {item.specialInstructions}
+                      </div>
+                    )}
+
                     <span className="font-mono text-[10px] text-slate-500 font-medium block mt-0.5">
                       ₹{(item.price / 100).toFixed(2)} × {item.quantity} = ₹{((item.price * item.quantity) / 100).toFixed(2)}
                     </span>
@@ -1082,7 +1217,7 @@ export const ManagerCounter: React.FC = () => {
                           </span>
                         </div>
                         <h3 className="font-display text-lg font-bold text-slate-900 leading-tight mt-0.5">
-                          Guest Details (Optional)
+                          {selectedTable ? `${selectedTable.displayName || 'Table ' + selectedTable.tableNumber} Order` : 'Guest Details (Optional)'}
                         </h3>
                       </div>
                     </div>
@@ -1094,6 +1229,32 @@ export const ManagerCounter: React.FC = () => {
                       <X className="w-4 h-4" strokeWidth={2} />
                     </button>
                   </div>
+
+                  {selectedTable && (
+                    <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Armchair className="w-4 h-4 text-amber-700" />
+                        <div>
+                          <span className="font-bold text-xs text-slate-900 block">
+                            Assigned Table: {selectedTable.displayName || `Table ${selectedTable.tableNumber}`}
+                          </span>
+                          <span className="text-[10px] text-amber-800">
+                            Order will be bound to this table's live dining session.
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCheckoutModal(false);
+                          setShowTablePickerModal(true);
+                        }}
+                        className="text-[10px] font-bold text-amber-800 underline hover:text-amber-950 cursor-pointer"
+                      >
+                        Change Table
+                      </button>
+                    </div>
+                  )}
 
                   <p className="text-xs text-slate-500 leading-relaxed">
                     Type guest details or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[11px] font-bold text-slate-700">Enter ↵</kbd> directly to skip to payment.
@@ -1249,29 +1410,36 @@ export const ManagerCounter: React.FC = () => {
 
                   {/* PAYMENT STATUS TOGGLE */}
                   <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
-                    <span className="text-xs font-bold text-slate-700">Payment Status</span>
-                    <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Payment Settlement</span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {selectedTable
+                          ? 'Collect payment immediately or add to table tab'
+                          : 'Counter walk-in orders are normally paid on placement'}
+                      </span>
+                    </div>
+                    <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
                       <button
                         type="button"
                         onClick={() => setPaymentStatus('PAID')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                           paymentStatus === 'PAID'
                             ? 'bg-emerald-600 text-white shadow-2xs'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        ✓ Marked as Paid
+                        ✓ Paid Now
                       </button>
                       <button
                         type="button"
                         onClick={() => setPaymentStatus('PENDING')}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                           paymentStatus === 'PENDING'
                             ? 'bg-amber-500 text-slate-950 shadow-2xs'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        Pay Later (Pending)
+                        Pay Later (Tab)
                       </button>
                     </div>
                   </div>
@@ -1535,7 +1703,11 @@ export const ManagerCounter: React.FC = () => {
         item={selectedItemForVariants}
         onAddToCart={(customizedItem: any) => {
           setCartItems((prev) => {
-            const existingIndex = prev.findIndex((i) => i.itemId === customizedItem.itemId);
+            const existingIndex = prev.findIndex(
+              (i) =>
+                i.itemId === customizedItem.itemId &&
+                i.specialInstructions === customizedItem.specialInstructions
+            );
             if (existingIndex > -1) {
               const updated = [...prev];
               updated[existingIndex].quantity += customizedItem.quantity;
@@ -1559,6 +1731,330 @@ export const ManagerCounter: React.FC = () => {
           });
         }}
       />
+
+      {/* ── TABLE PICKER MODAL (DINE-IN TABLE ORDERING) ────────────────────────── */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {showTablePickerModal && (
+              <div className="fixed inset-0 z-[9995] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 select-none font-sans">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh]"
+                >
+                  {/* Header */}
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                        <Armchair className="w-5 h-5" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <h2 className="font-display font-bold text-lg text-slate-900 leading-tight">
+                          Select Dine-in Table
+                        </h2>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Assign this counter order to a specific floor table
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTablePickerModal(false)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" strokeWidth={2} />
+                    </button>
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="p-4 border-b border-slate-100 space-y-3 bg-white">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search table by number (e.g. 2, T-04, Indoor)..."
+                        value={tableSearchQuery}
+                        onChange={(e) => setTableSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-amber-400 focus:bg-white transition"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Zone Chips */}
+                    {Array.isArray(zonesData?.data) && zonesData.data.length > 0 && (
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedZoneFilter('ALL')}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                            selectedZoneFilter === 'ALL'
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          All Zones
+                        </button>
+                        {zonesData.data.map((zone: any) => (
+                          <button
+                            key={zone._id}
+                            type="button"
+                            onClick={() => setSelectedZoneFilter(zone._id)}
+                            className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                              selectedZoneFilter === zone._id
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {zone.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tables Grid */}
+                  <div className="p-5 overflow-y-auto flex-1">
+                    {(() => {
+                      const allTables: any[] = Array.isArray(tablesData?.data) ? tablesData.data : [];
+                      const zonesMap: Record<string, string> = {};
+                      if (Array.isArray(zonesData?.data)) {
+                        zonesData.data.forEach((z: any) => {
+                          zonesMap[z._id] = z.name;
+                        });
+                      }
+
+                      const filtered = allTables.filter((tbl) => {
+                        const matchesZone =
+                          selectedZoneFilter === 'ALL' ||
+                          (tbl.zoneId && (typeof tbl.zoneId === 'object' ? tbl.zoneId._id : tbl.zoneId) === selectedZoneFilter);
+
+                        const q = tableSearchQuery.toLowerCase().trim();
+                        const zoneName = tbl.zoneId ? (zonesMap[typeof tbl.zoneId === 'object' ? tbl.zoneId._id : tbl.zoneId] || '') : '';
+                        const matchesQuery =
+                          !q ||
+                          tbl.tableNumber?.toLowerCase().includes(q) ||
+                          tbl.displayName?.toLowerCase().includes(q) ||
+                          zoneName.toLowerCase().includes(q);
+
+                        return matchesZone && matchesQuery && tbl.isActive && !tbl.isArchived;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="py-12 text-center text-slate-400 text-xs">
+                            No active tables found matching your search.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {filtered.map((tbl) => {
+                            const isSelected = selectedTable?._id === tbl._id;
+                            const isOccupied = tbl.status === 'OCCUPIED';
+                            const isBillReq = tbl.status === 'BILL_REQUESTED';
+                            const zoneName = tbl.zoneId ? (zonesMap[typeof tbl.zoneId === 'object' ? tbl.zoneId._id : tbl.zoneId] || '') : '';
+
+                            return (
+                              <button
+                                key={tbl._id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTable(tbl);
+                                  setOrderMode('DINE_IN');
+                                  setShowTablePickerModal(false);
+                                  toast(`Assigned to ${tbl.displayName || 'Table ' + tbl.tableNumber}`, 'success');
+                                }}
+                                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between gap-2.5 cursor-pointer shadow-2xs select-none active:scale-95 ${
+                                  isSelected
+                                    ? 'border-amber-500 bg-amber-50/90 ring-4 ring-amber-500/20 shadow-md'
+                                    : 'border-slate-200 bg-white hover:border-amber-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="min-w-0">
+                                    <span className="font-display font-black text-sm text-slate-900 block truncate">
+                                      {tbl.displayName || `Table ${tbl.tableNumber}`}
+                                    </span>
+                                    {zoneName && (
+                                      <span className="text-[10px] text-slate-500 font-medium truncate block">
+                                        📍 {zoneName}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Armchair className={`w-4 h-4 shrink-0 ${isSelected ? 'text-amber-600' : 'text-slate-400'}`} />
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
+                                  <span
+                                    className={`inline-flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-0.5 rounded-md ${
+                                      isOccupied
+                                        ? 'bg-amber-100 text-amber-900'
+                                        : isBillReq
+                                        ? 'bg-indigo-100 text-indigo-900'
+                                        : 'bg-emerald-100 text-emerald-900'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        isOccupied ? 'bg-amber-500' : isBillReq ? 'bg-indigo-500' : 'bg-emerald-500'
+                                      }`}
+                                    />
+                                    {isOccupied ? 'Occupied' : isBillReq ? 'Bill Due' : 'Available'}
+                                  </span>
+
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-amber-600 font-black" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTable(null);
+                        setShowTablePickerModal(false);
+                        toast('Switched to Walk-in Counter order', 'info');
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition cursor-pointer"
+                    >
+                      Clear Table (Use Walk-in)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowTablePickerModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
+
+      {/* ── INLINE ITEM SPECIAL INSTRUCTION / NOTE EDITOR MODAL ───────────── */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {editingNoteItem && (
+              <div className="fixed inset-0 z-[9996] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 select-none font-sans">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  className="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl border border-slate-100 space-y-4"
+                >
+                  <div className="flex items-center justify-between border-b pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-amber-500" />
+                      <h3 className="font-bold text-sm text-slate-900">Kitchen Note: {editingNoteItem.name}</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingNoteItem(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1.5 uppercase font-mono">
+                      Special Preparation Instruction
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. A little less sugar, extra crispy, no onions..."
+                      value={editingNoteItem.note}
+                      onChange={(e) =>
+                        setEditingNoteItem((prev) => (prev ? { ...prev, note: e.target.value } : null))
+                      }
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-amber-400 focus:bg-white transition shadow-2xs"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Quick Preset Instruction Pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Less Sugar',
+                      'No Sugar',
+                      'Extra Spicy',
+                      'Less Spicy',
+                      'No Onion / Garlic',
+                      'Pack Separately',
+                      'Serve Hot',
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() =>
+                          setEditingNoteItem((prev) => (prev ? { ...prev, note: preset } : null))
+                        }
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-700 transition cursor-pointer"
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 pt-2 border-t border-slate-100">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-1/2"
+                      onClick={() => {
+                        // Clear note
+                        setCartItems((prev) =>
+                          prev.map((i) =>
+                            i.itemId === editingNoteItem.itemId ? { ...i, specialInstructions: undefined } : i
+                          )
+                        );
+                        setEditingNoteItem(null);
+                      }}
+                    >
+                      Remove Note
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      className="w-1/2"
+                      onClick={() => {
+                        const trimmed = editingNoteItem.note.trim();
+                        setCartItems((prev) =>
+                          prev.map((i) =>
+                            i.itemId === editingNoteItem.itemId
+                              ? { ...i, specialInstructions: trimmed || undefined }
+                              : i
+                          )
+                        );
+                        setEditingNoteItem(null);
+                      }}
+                    >
+                      Save Note
+                    </Button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
 
     </div>
   );

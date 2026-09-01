@@ -91,6 +91,9 @@ export function useManagerOrders({
   // Mutation execution queue map per orderId to prevent race conditions on rapid actions
   const mutationQueueRef = useRef<Map<string, Promise<any>>>(new Map());
 
+  // In-flight mutation tracking per orderId with timestamp and last optimistic status
+  const inFlightMutationsRef = useRef<Map<string, { count: number; lastOptimisticStatus?: string; lastModified: number }>>(new Map());
+
   // Local workflow mode state
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>(() => {
     if (!activeRestaurantId) return 'FIVE_STEP';
@@ -140,9 +143,16 @@ export function useManagerOrders({
   });
 
   const activeOrders: Order[] = useMemo(() => {
-    return activeOrdersResponse?.success && Array.isArray(activeOrdersResponse.data)
-      ? activeOrdersResponse.data
-      : [];
+    if (!activeOrdersResponse?.success || !Array.isArray(activeOrdersResponse.data)) {
+      return [];
+    }
+    return activeOrdersResponse.data.map((order: Order) => {
+      const inFlight = inFlightMutationsRef.current.get(order._id);
+      if (inFlight && inFlight.lastOptimisticStatus && (inFlight.count > 0 || Date.now() - inFlight.lastModified < 1500)) {
+        return { ...order, status: inFlight.lastOptimisticStatus as any };
+      }
+      return order;
+    });
   }, [activeOrdersResponse]);
 
   // 3. All Orders History Query
@@ -170,10 +180,13 @@ export function useManagerOrders({
     };
 
     const handleStatusUpdated = (data: { orderId: string; status: string }) => {
-      // Only refetch if the order is not currently mid-flight in pending state
-      if (!data?.orderId || !pendingOrderIds.has(data.orderId)) {
-        invalidate();
+      if (!data?.orderId) return;
+      const inFlight = inFlightMutationsRef.current.get(data.orderId);
+      // If we recently mutated this order locally or have pending in-flight updates, ignore intermediate stale broadcasts!
+      if (inFlight && (inFlight.count > 0 || Date.now() - inFlight.lastModified < 1500)) {
+        return;
       }
+      invalidate();
     };
 
     socket.on('order:status_updated', handleStatusUpdated);
@@ -228,12 +241,12 @@ export function useManagerOrders({
 
       return currentPromise;
     },
-    onMutate: async ({ orderId, nextStatus, paymentStatus }) => {
+    onMutate: async ({ orderId, nextStatus, paymentStatus, paymentMethod }) => {
       // 1. Cancel in-flight refetches
       await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
 
-      // 2. Snapshot current state
+      // 2. Snapshot current state for rollback
       const previousActive = queryClient.getQueryData(['activeOrdersQueue', activeRestaurantId]);
       const previousHistory = queryClient.getQueryData([
         'allOrdersHistory',
@@ -243,10 +256,17 @@ export function useManagerOrders({
         historyStatusFilter,
       ]);
 
-      // 3. Mark pending
-      setPendingOrderIds((prev) => new Set(prev).add(orderId));
+      // Record in-flight mutation counter and latest optimistic status
+      const prevInfo = inFlightMutationsRef.current.get(orderId) || { count: 0, lastModified: 0 };
+      inFlightMutationsRef.current.set(orderId, {
+        count: prevInfo.count + 1,
+        lastOptimisticStatus: nextStatus,
+        lastModified: Date.now(),
+      });
 
-      // 4. Optimistically update activeOrdersQueue cache
+      const effectiveMethod = paymentStatus === 'PAID' ? (paymentMethod || 'cash') : undefined;
+
+      // 3. Optimistically update activeOrdersQueue cache immediately (0ms UI transition)
       queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
         if (!old || !old.success || !Array.isArray(old.data)) return old;
         const existingIndex = old.data.findIndex((order: Order) => order._id === orderId);
@@ -257,6 +277,7 @@ export function useManagerOrders({
             ...updatedData[existingIndex],
             status: nextStatus as any,
             ...(paymentStatus ? { paymentStatus } : {}),
+            ...(effectiveMethod ? { paymentMethod: effectiveMethod } : {}),
           };
         } else if (nextStatus !== 'CANCELLED') {
           // Order was not in active queue (e.g. from history). Restore to active queue!
@@ -267,13 +288,14 @@ export function useManagerOrders({
               ...target,
               status: nextStatus as any,
               ...(paymentStatus ? { paymentStatus } : {}),
+              ...(effectiveMethod ? { paymentMethod: effectiveMethod } : {}),
             });
           }
         }
         return { ...old, data: updatedData };
       });
 
-      // 5. Optimistically update allOrdersHistory
+      // 4. Optimistically update allOrdersHistory immediately
       queryClient.setQueriesData({ queryKey: ['allOrdersHistory', activeRestaurantId] }, (old: any) => {
         if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
         const updatedOrders = old.data.orders.map((o: Order) => {
@@ -282,6 +304,7 @@ export function useManagerOrders({
               ...o,
               status: nextStatus as any,
               ...(paymentStatus ? { paymentStatus } : {}),
+              ...(effectiveMethod ? { paymentMethod: effectiveMethod } : {}),
             };
           }
           return o;
@@ -292,25 +315,52 @@ export function useManagerOrders({
       return { previousActive, previousHistory, orderId, nextStatus };
     },
     onError: (err: any, _variables, context: any) => {
+      // ⚠️ Bulletproof fallback: Rollback state immediately on failure
+      if (context?.orderId) {
+        inFlightMutationsRef.current.delete(context.orderId);
+      }
       if (context?.previousActive) {
         queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], context.previousActive);
       }
       if (context?.previousHistory) {
-        queryClient.setQueryData(['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter], context.previousHistory);
+        queryClient.setQueryData(
+          ['allOrdersHistory', activeRestaurantId, historyPage, debouncedSearch, historyStatusFilter],
+          context.previousHistory
+        );
       }
       const errMsg = err?.response?.data?.error?.message || 'Failed to update order status. Rolled back.';
       toast(errMsg, 'error');
     },
+    onSuccess: (data, variables) => {
+      const inFlight = inFlightMutationsRef.current.get(variables.orderId);
+      // Only sync server response if there are no pending newer in-flight mutations for this order
+      if (inFlight && inFlight.count <= 1 && data?.success && data?.data) {
+        queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
+          if (!old || !old.success || !Array.isArray(old.data)) return old;
+          return {
+            ...old,
+            data: old.data.map((o: Order) => (o._id === variables.orderId ? { ...o, ...data.data } : o)),
+          };
+        });
+      }
+    },
     onSettled: (_data, _error, variables) => {
       mutationQueueRef.current.delete(variables.orderId);
-      setPendingOrderIds((prev) => {
-        const next = new Set(prev);
-        next.delete(variables.orderId);
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['managerTables', activeRestaurantId] });
+      const current = inFlightMutationsRef.current.get(variables.orderId);
+      if (current) {
+        const newCount = Math.max(0, current.count - 1);
+        if (newCount === 0) {
+          // Grace buffer to avoid trailing WebSocket bounces
+          setTimeout(() => {
+            const latest = inFlightMutationsRef.current.get(variables.orderId);
+            if (latest && latest.count === 0 && Date.now() - latest.lastModified >= 1400) {
+              inFlightMutationsRef.current.delete(variables.orderId);
+            }
+          }, 1500);
+        } else {
+          inFlightMutationsRef.current.set(variables.orderId, { ...current, count: newCount });
+        }
+      }
     },
   });
 
@@ -462,7 +512,7 @@ export function useManagerOrders({
       );
       return res.data;
     },
-    onMutate: async ({ orderId, paymentStatus }) => {
+    onMutate: async ({ orderId, paymentStatus, paymentMethod }) => {
       // 1. Cancel in-flight queries
       await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
       await queryClient.cancelQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
@@ -477,26 +527,35 @@ export function useManagerOrders({
         historyStatusFilter,
       ]);
 
-      // 3. Mark pending
-      setPendingOrderIds((prev) => new Set(prev).add(orderId));
+      const effectiveMethod = paymentStatus === 'PAID' ? (paymentMethod || 'cash') : undefined;
 
-      // 4. Optimistically update activeOrdersQueue cache immediately
+      // 3. Optimistically update activeOrdersQueue cache immediately
       queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
         if (!old || !old.success || !Array.isArray(old.data)) return old;
         const updatedData = old.data.map((order: Order) => {
           if (order._id === orderId) {
-            return { ...order, paymentStatus };
+            return {
+              ...order,
+              paymentStatus,
+              paymentMethod: effectiveMethod,
+            };
           }
           return order;
         });
         return { ...old, data: updatedData };
       });
 
-      // 5. Optimistically update allOrdersHistory cache immediately
+      // 4. Optimistically update allOrdersHistory cache immediately
       queryClient.setQueriesData({ queryKey: ['allOrdersHistory', activeRestaurantId] }, (old: any) => {
         if (!old || !old.success || !old.data || !Array.isArray(old.data.orders)) return old;
         const updatedOrders = old.data.orders.map((o: Order) => {
-          if (o._id === orderId) return { ...o, paymentStatus };
+          if (o._id === orderId) {
+            return {
+              ...o,
+              paymentStatus,
+              paymentMethod: effectiveMethod,
+            };
+          }
           return o;
         });
         return { ...old, data: { ...old.data, orders: updatedOrders } };
@@ -517,14 +576,16 @@ export function useManagerOrders({
       const errMsg = err?.response?.data?.error?.message || 'Failed to update payment status. Rolled back.';
       toast(errMsg, 'error');
     },
-    onSettled: (_data, _error, variables) => {
-      setPendingOrderIds((prev) => {
-        const next = new Set(prev);
-        next.delete(variables.orderId);
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['allOrdersHistory', activeRestaurantId] });
+    onSuccess: (data, variables) => {
+      if (data?.success && data?.data) {
+        queryClient.setQueryData(['activeOrdersQueue', activeRestaurantId], (old: any) => {
+          if (!old || !old.success || !Array.isArray(old.data)) return old;
+          return {
+            ...old,
+            data: old.data.map((o: Order) => (o._id === variables.orderId ? { ...o, ...data.data } : o)),
+          };
+        });
+      }
     },
   });
 

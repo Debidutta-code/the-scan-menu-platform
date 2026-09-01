@@ -47,6 +47,9 @@ class RestaurantProfile {
   final String? address;
   final String? phone;
   final String orderWorkflowMode;
+  final String activePaymentMode; // 'PREPAID' | 'POSTPAID' | 'HYBRID'
+  final String? upiId;
+  final num taxRatePercent;
   final List<String> featureFlags;
 
   RestaurantProfile({
@@ -57,8 +60,13 @@ class RestaurantProfile {
     this.address,
     this.phone,
     required this.orderWorkflowMode,
+    this.activePaymentMode = 'POSTPAID',
+    this.upiId,
+    this.taxRatePercent = 0,
     this.featureFlags = const [],
   });
+
+  bool get isPrepaid => activePaymentMode.toUpperCase() == 'PREPAID';
 
   factory RestaurantProfile.fromJson(Map<String, dynamic> json) {
     final settings = json['settings'] is Map ? json['settings'] : {};
@@ -66,6 +74,21 @@ class RestaurantProfile {
     final orderWorkflowMode = workflow['orderWorkflowMode'] ??
         json['orderWorkflowMode'] ??
         'FIVE_STEP';
+
+    final activePaymentMode = json['activeMode'] ??
+        settings['payment']?['activeMode'] ??
+        settings['paymentConfig']?['activeMode'] ??
+        'POSTPAID';
+
+    final upiId = json['upiId'] ??
+        settings['payment']?['upiId'] ??
+        settings['paymentConfig']?['upiId'] ??
+        settings['printerConfig']?['upiId'];
+
+    final taxRate = json['taxRatePercent'] ??
+        settings['payment']?['taxRatePercent'] ??
+        settings['paymentConfig']?['taxRatePercent'] ??
+        0;
 
     List<String> parsedFlags = [];
     if (json['featureFlags'] is List) {
@@ -83,6 +106,11 @@ class RestaurantProfile {
       address: json['address'],
       phone: json['phone'],
       orderWorkflowMode: orderWorkflowMode,
+      activePaymentMode: activePaymentMode.toString(),
+      upiId: upiId != null && upiId.toString().trim().isNotEmpty
+          ? upiId.toString().trim()
+          : null,
+      taxRatePercent: taxRate is num ? taxRate : 0,
       featureFlags: parsedFlags,
     );
   }

@@ -8,6 +8,7 @@ import '../../core/notifications/notification_permission_dialog.dart';
 import '../../core/notifications/push_notification_service.dart';
 import '../active_orders/providers/active_orders_provider.dart';
 import '../active_orders/screens/active_orders_screen.dart';
+import '../auth/providers/auth_provider.dart';
 import '../auth/screens/mobile_disabled_screen.dart';
 import '../profile/screens/profile_screen.dart';
 import '../tables/screens/tables_screen.dart';

@@ -233,6 +233,7 @@ export const seedDatabase = async () => {
         activeProvider: 'CASH',
         activeMode: 'POSTPAID',
         taxRatePercent: 5.0,
+        upiId: 'democafe@okhdfcbank',
         paymentMethods: { cash: true, card: true, upi: true, razorpay: true },
         razorpayConfig: { keyId: 'rzp_test_demoKey123', keySecret: 'demoSecret456' },
         integrationConfig: { provider: 'PETPOOJA', config: { outletId: 'democafe_01', enabled: true } },

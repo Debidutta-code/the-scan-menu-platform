@@ -277,49 +277,60 @@ export class RestaurantController {
       const cleanPin = pin.trim();
       const restObjId = new mongoose.Types.ObjectId(restaurantId);
 
-      // 1. Check RestaurantStaff associations
-      const staffJoins = await RestaurantStaff.find({
-        restaurantId: restObjId,
-        isActive: true,
-      }).populate('userId');
-
       let matchedUser: any = null;
       let matchedRole: string = 'STAFF';
 
-      for (const join of staffJoins) {
-        const u = join.userId as any;
-        if (u && u.isActive && u.pin && u.pin.trim() === cleanPin) {
-          matchedUser = u;
-          matchedRole = join.role || u.role;
-          break;
+      // 1. If an active authenticated session exists, enforce matching the logged-in user's PIN
+      if (req.user?.id) {
+        const loggedUser = await User.findById(req.user.id);
+        if (loggedUser && loggedUser.isActive && loggedUser.pin && loggedUser.pin.trim() === cleanPin) {
+          matchedUser = loggedUser;
+          matchedRole = loggedUser.role;
+        } else if (req.user.role === 'SUPER_ADMIN') {
+          const superAdmin = await User.findById(req.user.id);
+          if (superAdmin && superAdmin.pin && superAdmin.pin.trim() === cleanPin) {
+            matchedUser = superAdmin;
+            matchedRole = 'SUPER_ADMIN';
+          }
         }
-      }
 
-      // 2. Check direct Users with restaurantId
-      if (!matchedUser) {
-        const directUser = await User.findOne({
+        if (!matchedUser) {
+          sendError(res, 'INVALID_PIN', 'Invalid PIN for current account. Please enter your account PIN.', null, 400);
+          return;
+        }
+      } else {
+        // 2. Unauthenticated / Kiosk Terminal: Check RestaurantStaff associations
+        const staffJoins = await RestaurantStaff.find({
           restaurantId: restObjId,
-          pin: cleanPin,
           isActive: true,
-        });
-        if (directUser) {
-          matchedUser = directUser;
-          matchedRole = directUser.role;
-        }
-      }
+        }).populate('userId');
 
-      // 3. Check SuperAdmin PIN override
-      if (!matchedUser && req.user?.role === 'SUPER_ADMIN') {
-        const superAdmin = await User.findById(req.user.id);
-        if (superAdmin && superAdmin.pin && superAdmin.pin.trim() === cleanPin) {
-          matchedUser = superAdmin;
-          matchedRole = 'SUPER_ADMIN';
+        for (const join of staffJoins) {
+          const u = join.userId as any;
+          if (u && u.isActive && u.pin && u.pin.trim() === cleanPin) {
+            matchedUser = u;
+            matchedRole = join.role || u.role;
+            break;
+          }
         }
-      }
 
-      if (!matchedUser) {
-        sendError(res, 'INVALID_PIN', 'Invalid POS PIN. Please try again or contact your manager.', null, 401);
-        return;
+        // 3. Check direct Users with restaurantId
+        if (!matchedUser) {
+          const directUser = await User.findOne({
+            restaurantId: restObjId,
+            pin: cleanPin,
+            isActive: true,
+          });
+          if (directUser) {
+            matchedUser = directUser;
+            matchedRole = directUser.role;
+          }
+        }
+
+        if (!matchedUser) {
+          sendError(res, 'INVALID_PIN', 'Invalid POS PIN. Please try again or contact your manager.', null, 400);
+          return;
+        }
       }
 
       const responsePayload = {
