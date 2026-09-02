@@ -1,8 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Category } from '../models/Category';
-import { MenuItem } from '../models/MenuItem';
-import { CustomizationGroup } from '../models/CustomizationGroup';
+import { categoryRepository } from '../repositories/category.repository';
+import { menuItemRepository, customizationGroupRepository } from '../repositories/menuItem.repository';
 import { CloudinaryService } from '../services/cloudinary.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { inventoryService } from '../services/inventory.service';
@@ -45,9 +44,7 @@ export class MenuController {
   async listCategories(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const categories = await Category.find({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      }).sort({ sortOrder: 1 });
+      const categories = await categoryRepository.findByRestaurantId(restaurantId);
 
       sendSuccess(res, categories, 'Categories retrieved successfully');
     } catch (error) {
@@ -68,13 +65,11 @@ export class MenuController {
       let finalSortOrder = sortOrder;
       if (finalSortOrder === undefined) {
         // Auto-increment sortOrder: find max
-        const lastCategory = await Category.findOne({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        }).sort({ sortOrder: -1 });
+        const lastCategory = await categoryRepository.findMaxSortOrder(restaurantId);
         finalSortOrder = lastCategory ? lastCategory.sortOrder + 1 : 0;
       }
 
-      const category = new Category({
+      const category = await categoryRepository.create({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         name: name.trim(),
         description: description?.trim(),
@@ -83,7 +78,6 @@ export class MenuController {
         isActive: true,
       });
 
-      await category.save();
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, category, 'Category created successfully', 201);
     } catch (error) {
@@ -99,11 +93,7 @@ export class MenuController {
       // Ensure manager doesn't modify restaurantId
       delete updateData.restaurantId;
 
-      const category = await Category.findOneAndUpdate(
-        { _id: categoryId, restaurantId: new mongoose.Types.ObjectId(restaurantId) },
-        updateData,
-        { new: true }
-      );
+      const category = await categoryRepository.updateByIdAndRestaurant(categoryId, restaurantId, updateData);
 
       if (!category) {
         sendError(res, 'CATEGORY_NOT_FOUND', 'Category not found', null, 404);
@@ -121,20 +111,14 @@ export class MenuController {
     try {
       const { restaurantId, categoryId } = req.params;
 
-      const category = await Category.findOne({
-        _id: categoryId,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const category = await categoryRepository.findByIdAndRestaurant(categoryId, restaurantId);
 
       if (!category) {
         sendError(res, 'CATEGORY_NOT_FOUND', 'Category not found', null, 404);
         return;
       }
 
-      const itemCount = await MenuItem.countDocuments({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        categoryId: category._id,
-      });
+      const itemCount = await menuItemRepository.countByRestaurantAndCategory(restaurantId, category._id);
 
       if (itemCount > 0) {
         sendError(
@@ -147,7 +131,7 @@ export class MenuController {
         return;
       }
 
-      await Category.findByIdAndDelete(categoryId);
+      await categoryRepository.deleteById(categoryId);
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, {}, 'Category deleted successfully');
     } catch (error) {
@@ -165,17 +149,7 @@ export class MenuController {
         return;
       }
 
-      const bulkOps = categoryOrder.map((id: string, index: number) => ({
-        updateOne: {
-          filter: {
-            _id: new mongoose.Types.ObjectId(id),
-            restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          },
-          update: { $set: { sortOrder: index } },
-        },
-      }));
-
-      await Category.bulkWrite(bulkOps);
+      await categoryRepository.bulkUpdateSortOrder(restaurantId, categoryOrder);
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, {}, 'Categories reordered successfully');
     } catch (error) {
@@ -192,9 +166,7 @@ export class MenuController {
       const { restaurantId } = req.params;
       const { categoryId, isDraft } = req.query;
 
-      const query: Record<string, any> = {
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      };
+      const query: Record<string, any> = {};
 
       if (categoryId) {
         query.categoryId = new mongoose.Types.ObjectId(categoryId as string);
@@ -204,9 +176,7 @@ export class MenuController {
         query.isDraft = isDraft === 'true';
       }
 
-      const items = await MenuItem.find(query)
-        .populate('categoryId', 'name sortOrder')
-        .sort({ sortOrder: 1 });
+      const items = await menuItemRepository.findByRestaurantId(restaurantId, query);
       sendSuccess(res, items, 'Menu items retrieved successfully');
     } catch (error) {
       next(error);
@@ -216,10 +186,7 @@ export class MenuController {
   async getMenuItem(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, itemId } = req.params;
-      const item = await MenuItem.findOne({
-        _id: itemId,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      }).populate('categoryId', 'name sortOrder');
+      const item = await menuItemRepository.findByIdAndRestaurant(itemId, restaurantId);
 
       if (!item) {
         sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
@@ -278,10 +245,7 @@ export class MenuController {
       }
 
       // Cross-category tenant leakage validation: Ensure category belongs to this restaurant
-      const category = await Category.findOne({
-        _id: categoryId,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const category = await categoryRepository.findByIdAndRestaurant(categoryId, restaurantId);
 
       if (!category) {
         sendError(
@@ -297,14 +261,11 @@ export class MenuController {
       let finalSortOrder = sortOrder;
       if (finalSortOrder === undefined) {
         // Auto-increment sortOrder inside this category
-        const lastItem = await MenuItem.findOne({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          categoryId: new mongoose.Types.ObjectId(categoryId),
-        }).sort({ sortOrder: -1 });
+        const lastItem = await menuItemRepository.findMaxSortOrderInCategory(restaurantId, categoryId);
         finalSortOrder = lastItem ? lastItem.sortOrder + 1 : 0;
       }
 
-      const menuItem = new MenuItem({
+      const menuItem = await menuItemRepository.create({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         categoryId: new mongoose.Types.ObjectId(categoryId),
         name: name.trim(),
@@ -333,7 +294,6 @@ export class MenuController {
         totalSteps: totalSteps !== undefined ? Number(totalSteps) : 5,
       });
 
-      await menuItem.save();
       await restaurantStatsService.incrementMenuItems(restaurantId, 1);
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, menuItem, 'Menu item created successfully', 201);
@@ -350,10 +310,7 @@ export class MenuController {
       // Prevent manager from modifying restaurantId
       delete updateData.restaurantId;
 
-      const item = await MenuItem.findOne({
-        _id: itemId,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const item = await menuItemRepository.findByIdAndRestaurant(itemId, restaurantId);
 
       if (!item) {
         sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
@@ -362,10 +319,7 @@ export class MenuController {
 
       // Cross-category tenant validation if changing category
       if (updateData.categoryId && updateData.categoryId !== item.categoryId.toString()) {
-        const category = await Category.findOne({
-          _id: updateData.categoryId,
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        });
+        const category = await categoryRepository.findByIdAndRestaurant(updateData.categoryId, restaurantId);
 
         if (!category) {
           sendError(
@@ -425,7 +379,7 @@ export class MenuController {
       if (updateData.completedStep !== undefined) item.completedStep = Number(updateData.completedStep);
       if (updateData.totalSteps !== undefined) item.totalSteps = Number(updateData.totalSteps);
 
-      await item.save();
+      await menuItemRepository.save(item);
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, item, 'Menu item updated successfully');
     } catch (error) {
@@ -437,10 +391,7 @@ export class MenuController {
     try {
       const { restaurantId, itemId } = req.params;
 
-      const item = await MenuItem.findOneAndDelete({
-        _id: itemId,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const item = await menuItemRepository.findOneAndDelete(itemId, restaurantId);
 
       if (!item) {
         sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
@@ -461,10 +412,7 @@ export class MenuController {
       const { restaurantId, itemId } = req.params;
       const { isAvailable } = req.body || {};
 
-      const currentItem = await MenuItem.findOne({
-        _id: itemId,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const currentItem = await menuItemRepository.findByIdAndRestaurant(itemId, restaurantId);
 
       if (!currentItem) {
         sendError(res, 'MENU_ITEM_NOT_FOUND', 'Menu item not found', null, 404);
@@ -526,13 +474,7 @@ export class MenuController {
 
       const objectIds = itemIds.map((id: string) => new mongoose.Types.ObjectId(id));
 
-      await MenuItem.updateMany(
-        {
-          _id: { $in: objectIds },
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        },
-        { isAvailable: !!isAvailable }
-      );
+      await menuItemRepository.bulkUpdateAvailability(objectIds, restaurantId, !!isAvailable);
 
       sendSuccess(res, {}, 'Bulk availability updated successfully');
     } catch (error) {
@@ -550,18 +492,7 @@ export class MenuController {
         return;
       }
 
-      const bulkOps = itemIds.map((id: string, index: number) => ({
-        updateOne: {
-          filter: {
-            _id: new mongoose.Types.ObjectId(id),
-            categoryId: new mongoose.Types.ObjectId(categoryId),
-            restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          },
-          update: { sortOrder: index },
-        },
-      }));
-
-      await MenuItem.bulkWrite(bulkOps);
+      await menuItemRepository.bulkUpdateSortOrder(restaurantId, categoryId, itemIds);
       sendSuccess(res, {}, 'Menu items reordered successfully');
     } catch (error) {
       next(error);
@@ -577,16 +508,13 @@ export class MenuController {
       const { restaurantId } = req.params;
       const { type } = req.query;
 
-      const filter: any = {
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        isArchived: false,
-      };
+      const filter: any = {};
 
       if (type && (type === 'VARIANT' || type === 'ADDON')) {
         filter.type = type;
       }
 
-      const groups = await CustomizationGroup.find(filter).sort({ createdAt: -1 });
+      const groups = await customizationGroupRepository.findByRestaurantId(restaurantId, filter);
       sendSuccess(res, groups, 'Customization groups retrieved successfully');
     } catch (error) {
       next(error);
@@ -603,7 +531,7 @@ export class MenuController {
         return;
       }
 
-      const group = new CustomizationGroup({
+      const group = await customizationGroupRepository.create({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         name: name.trim(),
         type,
@@ -623,7 +551,6 @@ export class MenuController {
         isGlobal: !!isGlobal,
       });
 
-      await group.save();
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, group, 'Customization group created successfully', 201);
     } catch (error) {
@@ -636,11 +563,7 @@ export class MenuController {
       const { restaurantId, id } = req.params;
       const { name, type, selectionType, minSelections, maxSelections, isRequired, description, options, categoryIds, isGlobal } = req.body;
 
-      const group = await CustomizationGroup.findOne({
-        _id: id,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        isArchived: false,
-      });
+      const group = await customizationGroupRepository.findByIdAndRestaurant(id, restaurantId);
 
       if (!group) {
         sendError(res, 'NOT_FOUND', 'Customization group not found', null, 404);
@@ -666,7 +589,7 @@ export class MenuController {
       }
       if (isGlobal !== undefined) group.isGlobal = !!isGlobal;
 
-      await group.save();
+      await customizationGroupRepository.save(group);
       cacheService.invalidatePattern(`public_menu_${restaurantId}`);
       sendSuccess(res, group, 'Customization group updated successfully');
     } catch (error) {
@@ -678,14 +601,7 @@ export class MenuController {
     try {
       const { restaurantId, id } = req.params;
 
-      const group = await CustomizationGroup.findOneAndUpdate(
-        {
-          _id: id,
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        },
-        { isArchived: true },
-        { new: true }
-      );
+      const group = await customizationGroupRepository.archiveByIdAndRestaurant(id, restaurantId);
 
       if (!group) {
         sendError(res, 'NOT_FOUND', 'Customization group not found', null, 404);

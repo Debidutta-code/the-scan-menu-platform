@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
-import { Customer, ICustomer } from '../models/Customer';
-import { Order } from '../models/Order';
+import { ICustomer } from '../models/Customer';
+import { customerRepository } from '../repositories/customer.repository';
+import { orderRepository } from '../repositories/order.repository';
 import { CustomError } from '../utils/response';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
 
@@ -17,12 +18,7 @@ export class CustomerService {
   ): Promise<ICustomer> {
     const cleanPhone = normalizeIndianPhoneNumber(phone);
 
-    const rId = new Types.ObjectId(restaurantId);
-
-    let customer = await Customer.findOne({
-      restaurantId: rId,
-      phone: cleanPhone,
-    });
+    let customer = await customerRepository.findByPhoneAndRestaurant(cleanPhone, restaurantId);
 
     if (customer) {
       if (name && name.trim() && name.trim() !== customer.name) {
@@ -32,13 +28,13 @@ export class CustomerService {
         customer.email = email.trim();
       }
       customer.lastSeenAt = new Date();
-      await customer.save();
+      await customerRepository.save(customer);
       return customer;
     }
 
     // Create new customer
-    customer = new Customer({
-      restaurantId: rId,
+    customer = await customerRepository.create({
+      restaurantId: new Types.ObjectId(restaurantId.toString()),
       phone: cleanPhone,
       name: (name && name.trim()) ? name.trim() : 'Guest Diner',
       email: email ? email.trim() : undefined,
@@ -47,7 +43,6 @@ export class CustomerService {
       lastSeenAt: new Date(),
     });
 
-    await customer.save();
     return customer;
   }
 
@@ -57,7 +52,7 @@ export class CustomerService {
   async recordCustomerOrder(customerId: Types.ObjectId | string, orderTotal: number): Promise<void> {
     if (!customerId) return;
     try {
-      await Customer.findByIdAndUpdate(customerId, {
+      await customerRepository.updateById(customerId, {
         $inc: {
           totalOrdersCount: 1,
           totalSpent: orderTotal || 0,
@@ -66,7 +61,7 @@ export class CustomerService {
           lastOrderAt: new Date(),
           lastSeenAt: new Date(),
         },
-      });
+      } as any);
     } catch (err) {
       console.error('Failed to update customer order metrics:', err);
     }
@@ -78,12 +73,12 @@ export class CustomerService {
   async deductCustomerOrder(customerId: Types.ObjectId | string, orderTotal: number): Promise<void> {
     if (!customerId) return;
     try {
-      await Customer.findByIdAndUpdate(customerId, {
+      await customerRepository.updateById(customerId, {
         $inc: {
           totalOrdersCount: -1,
           totalSpent: -(orderTotal || 0),
         },
-      });
+      } as any);
     } catch (err) {
       console.error('Failed to deduct customer order metrics:', err);
     }
@@ -98,26 +93,21 @@ export class CustomerService {
     page = 1,
     limit = 20
   ) {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
 
     const skip = (Math.max(1, page) - 1) * limit;
 
     const [orders, total] = await Promise.all([
-      Order.find({ restaurantId: rId, customerId: cId })
-        .populate('tableId', 'displayName tableNumber')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Order.countDocuments({ restaurantId: rId, customerId: cId }),
+      orderRepository.findByRestaurantId(rId, { customerId: cId }, { createdAt: -1 }, skip, limit),
+      orderRepository.countByRestaurantId(rId, { customerId: cId }),
     ]);
 
     // Self-healing background sync of customer totalSpent and totalOrdersCount
-    const validOrders = await Order.find({ customerId: cId, status: { $ne: 'CANCELLED' } }).select('total').lean();
+    const validOrders = await orderRepository.findByRestaurantId(rId, { customerId: cId, status: { $ne: 'CANCELLED' } }, {}, 0, 10000);
     const actualSpent = validOrders.reduce((sum, o) => sum + (o.total || 0), 0);
     const actualCount = validOrders.length;
-    Customer.findByIdAndUpdate(cId, { totalSpent: actualSpent, totalOrdersCount: actualCount }).catch(() => {});
+    customerRepository.updateById(cId, { totalSpent: actualSpent, totalOrdersCount: actualCount } as any).catch(() => {});
 
     return {
       orders,
@@ -139,23 +129,19 @@ export class CustomerService {
     page = 1,
     limit = 50
   ) {
-    const rId = new Types.ObjectId(restaurantId);
-    const query: any = { restaurantId: rId };
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const filter: any = {};
 
     if (search && search.trim() !== '') {
       const regex = new RegExp(search.trim(), 'i');
-      query.$or = [{ name: regex }, { phone: regex }, { email: regex }];
+      filter.$or = [{ name: regex }, { phone: regex }, { email: regex }];
     }
 
     const skip = (Math.max(1, page) - 1) * limit;
 
     const [customers, total] = await Promise.all([
-      Customer.find(query)
-        .sort({ lastOrderAt: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Customer.countDocuments(query),
+      customerRepository.findByRestaurantId(rId, filter, { lastOrderAt: -1, createdAt: -1 }, skip, limit),
+      customerRepository.countByRestaurantId(rId, filter),
     ]);
 
     return {
@@ -173,19 +159,21 @@ export class CustomerService {
    * Retrieves a single customer's full profile and stats.
    */
   async getCustomerDetails(restaurantId: Types.ObjectId | string, customerId: Types.ObjectId | string) {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
 
-    const customer = await Customer.findOne({ _id: cId, restaurantId: rId });
-    if (!customer) {
+    const customer = await customerRepository.findById(cId);
+    if (!customer || customer.restaurantId.toString() !== rId.toString()) {
       throw new CustomError('CUSTOMER_NOT_FOUND', 'Customer profile not found', 404);
     }
 
-    const recentOrders = await Order.find({ restaurantId: rId, customerId: cId })
-      .populate('tableId', 'displayName tableNumber')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    const recentOrders = await orderRepository.findByRestaurantId(
+      rId,
+      { customerId: cId },
+      { createdAt: -1 },
+      0,
+      10
+    );
 
     return {
       customer,

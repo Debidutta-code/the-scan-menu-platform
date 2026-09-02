@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { paymentService } from '../services/payment.service';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 import { encrypt } from '../utils/encryption';
 
 class CustomError extends Error {
@@ -122,7 +122,7 @@ export class PaymentController {
   async getConfig(req: Request, res: Response, next: NextFunction) {
     try {
       const { restaurantId } = req.params;
-      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       if (!settings) {
         throw new CustomError('Settings not found', 404);
       }
@@ -169,7 +169,7 @@ export class PaymentController {
       const userRole = (req as any).user?.role;
       const { activeProvider, activeMode, paymentMethods, preferredMethodOrder, upiId, upiDisplayName } = req.body;
 
-      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       if (!settings) {
         throw new CustomError('Settings not found', 404);
       }
@@ -234,7 +234,7 @@ export class PaymentController {
         }
       }
 
-      await settings.save();
+      await restaurantSettingsRepository.save(settings);
 
       const isRazorpayConfigured = Boolean(settings.paymentConfig.razorpayConfig?.keyId && settings.paymentConfig.razorpayConfig?.keySecret);
       const safeConfig = {

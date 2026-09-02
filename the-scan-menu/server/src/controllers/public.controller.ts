@@ -1,17 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { TenantRequest } from '../middleware/tenantResolver.middleware';
 import { CustomerAuthenticatedRequest } from '../middleware/customerAuth';
-import { Restaurant } from '../models/Restaurant';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { Table } from '../models/Table';
-import { Category } from '../models/Category';
-import { MenuItem } from '../models/MenuItem';
-import { Order } from '../models/Order';
-import { DiningSession } from '../models/DiningSession';
-import { Bill } from '../models/Bill';
-import { Tax } from '../models/Tax';
-import { Customer } from '../models/Customer';
-import { IdempotencyRecord } from '../models/IdempotencyRecord';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { tableRepository } from '../repositories/table.repository';
+import { categoryRepository } from '../repositories/category.repository';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { billRepository } from '../repositories/bill.repository';
+import { taxRepository } from '../repositories/tax.repository';
+import { customerRepository } from '../repositories/customer.repository';
+import { idempotencyRecordRepository } from '../repositories/idempotencyRecord.repository';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
 import { diningSessionService } from '../services/diningSession.service';
 import { orderService } from '../services/order.service';
 import { checkoutService } from '../services/checkout.service';
@@ -26,7 +27,6 @@ import {
 } from '../utils/dto';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
-import { FeatureFlag } from '../models/FeatureFlag';
 
 export class PublicController {
   constructor() {
@@ -67,8 +67,8 @@ export class PublicController {
       }
 
       const resolution = await diningSessionService.resolveTable(restaurantIdentifier, token, guestToken);
-      const settings = await RestaurantSettings.findOne({ restaurantId: resolution.restaurant._id });
-      const featureFlags = await FeatureFlag.find({ restaurantId: resolution.restaurant._id }).select('key enabled -_id').lean();
+      const settings = await restaurantSettingsRepository.findByRestaurantId(resolution.restaurant._id);
+      const featureFlags = await featureFlagRepository.findByRestaurantId(resolution.restaurant._id);
       const loyaltyConfig = await loyaltyService.getLoyaltyConfig(resolution.restaurant._id);
 
       const responseData = {
@@ -133,19 +133,19 @@ export class PublicController {
       const { restaurantSlug, tableToken } = req.params;
       const { guestName, joinPin, forceNew } = req.body;
 
-      const restaurant = req.restaurant || (await Restaurant.findOne({ slug: restaurantSlug?.toLowerCase().trim() }));
+      const restaurant = req.restaurant || (await restaurantRepository.findBySlug(restaurantSlug?.toLowerCase().trim() || ''));
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      const table = req.table || (await Table.findOne({ token: tableToken, restaurantId: restaurant._id }));
+      const table = req.table || (await tableRepository.findByTokenAndRestaurant(tableToken, restaurant._id));
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurant._id);
       const paymentMode = settings?.paymentConfig?.activeMode === 'PREPAID' ? 'PREPAID' : 'POSTPAID';
 
       const result = await diningSessionService.joinOrCreateSession(
@@ -181,7 +181,7 @@ export class PublicController {
           sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
           return;
         }
-        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        restaurant = await restaurantRepository.findBySlug(restaurantSlug.toLowerCase().trim());
         if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
           sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
           return;
@@ -201,16 +201,12 @@ export class PublicController {
         return;
       }
 
-      const categories = await Category.find({
-        restaurantId: restaurant._id,
-        isActive: true,
-      }).sort({ sortOrder: 1 });
+      const categories = await categoryRepository.findActiveByRestaurantId(restaurant._id);
 
-      const menuItems = await MenuItem.find({
-        restaurantId: restaurant._id,
+      const menuItems = await menuItemRepository.findByRestaurantId(restaurant._id, {
         isDraft: { $ne: true },
         isArchived: { $ne: true },
-      }).sort({ sortOrder: 1 });
+      });
 
       const categoriesWithItems = categories.map((category) => {
         const items = menuItems.filter(
@@ -297,7 +293,7 @@ export class PublicController {
 
       // Attempt atomic insert of IdempotencyRecord
       try {
-        await IdempotencyRecord.create({
+        await idempotencyRecordRepository.create({
           key: idempotencyKeyStr,
           restaurantId: restaurant._id,
           diningSessionId: diningSessionId && mongoose.Types.ObjectId.isValid(diningSessionId)
@@ -312,10 +308,10 @@ export class PublicController {
       } catch (insertErr: any) {
         // Duplicate key (E11000) -> Record exists
         if (insertErr.code === 11000) {
-          const existingRecord = await IdempotencyRecord.findOne({
-            key: idempotencyKeyStr,
-            restaurantId: restaurant._id,
-          });
+          const existingRecord = await idempotencyRecordRepository.findByKeyAndRestaurant(
+            idempotencyKeyStr,
+            restaurant._id
+          );
 
           if (existingRecord) {
             // Verify request hash matches
@@ -382,7 +378,7 @@ export class PublicController {
       // Deduct loyalty points if redemption requested
       let pointsToRedeem = req.body.pointsToRedeem ? Number(req.body.pointsToRedeem) : 0;
       if (req.body.useLoyaltyPoints && effectiveCustomerId && pointsToRedeem === 0) {
-        const cust = await Customer.findById(effectiveCustomerId);
+        const cust = await customerRepository.findById(effectiveCustomerId);
         if (cust) pointsToRedeem = cust.loyaltyPoints || 0;
       }
 
@@ -435,14 +431,13 @@ export class PublicController {
 
       // Complete idempotency record
       if (lockAcquired) {
-        await IdempotencyRecord.updateOne(
-          { key: idempotencyKeyStr, restaurantId: restaurant._id },
+        await idempotencyRecordRepository.updateByKeyAndRestaurant(
+          idempotencyKeyStr,
+          restaurant._id,
           {
-            $set: {
-              status: 'COMPLETED',
-              orderId: order._id,
-              responseBody: safeOrderDTO,
-            },
+            status: 'COMPLETED',
+            orderId: order._id,
+            responseBody: safeOrderDTO,
           }
         );
       }
@@ -453,10 +448,10 @@ export class PublicController {
     } catch (error: any) {
       if (lockAcquired && idempotencyKeyStr && restaurant) {
         // Release or fail lock on error
-        await IdempotencyRecord.deleteOne({
-          key: idempotencyKeyStr,
-          restaurantId: restaurant._id,
-        }).catch(() => {});
+        await idempotencyRecordRepository.deleteByKeyAndRestaurant(
+          idempotencyKeyStr,
+          restaurant._id
+        ).catch(() => {});
       }
 
       if (error.code) {
@@ -479,14 +474,14 @@ export class PublicController {
         (req.headers['idempotency-key'] as string) ||
         `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
-      const restaurant = req.restaurant || (await Restaurant.findOne({ slug: restaurantSlug?.toLowerCase().trim() }));
+      const restaurant = req.restaurant || (await restaurantRepository.findBySlug(restaurantSlug?.toLowerCase().trim() || ''));
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
       const table =
-        req.table || (tableToken ? await Table.findOne({ token: tableToken, restaurantId: restaurant._id }) : undefined);
+        req.table || (tableToken ? await tableRepository.findByTokenAndRestaurant(tableToken, restaurant._id) : undefined);
 
       const result = await checkoutService.createPrepaidCheckoutAttempt({
         restaurantId: restaurant._id,
@@ -544,7 +539,7 @@ export class PublicController {
     try {
       const { sessionId, restaurantSlug } = req.params;
 
-      const restaurant = req.restaurant || (restaurantSlug ? await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() }) : null);
+      const restaurant = req.restaurant || (restaurantSlug ? await restaurantRepository.findBySlug(restaurantSlug.toLowerCase().trim()) : null);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant context is required to request bill', null, 404);
         return;
@@ -562,7 +557,7 @@ export class PublicController {
       }
 
       // Ownership Guard: Ensure the requested session belongs to the verified table and restaurant
-      const session = await DiningSession.findById(sessionId);
+      const session = await diningSessionRepository.findById(sessionId);
       if (!session) {
         sendError(res, 'SESSION_NOT_FOUND', 'Dining session not found', null, 404);
         return;
@@ -611,18 +606,13 @@ export class PublicController {
 
       if (req.table && req.restaurant) {
         // Preferred: Scoped by active table token
-        session = await DiningSession.findOne({
-          restaurantId: req.restaurant._id,
-          tableId: req.table._id,
-          status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-        });
+        session = await diningSessionRepository.findActiveByTableId(req.table._id);
       } else if (sessionId && mongoose.Types.ObjectId.isValid(sessionId)) {
         // Fallback by sessionId if tenant matches
-        const query: any = { _id: sessionId };
-        if (req.restaurant) {
-          query.restaurantId = req.restaurant._id;
+        session = await diningSessionRepository.findById(sessionId);
+        if (session && req.restaurant && session.restaurantId.toString() !== req.restaurant._id.toString()) {
+          session = null;
         }
-        session = await DiningSession.findOne(query);
       }
 
       if (!session) {
@@ -630,15 +620,10 @@ export class PublicController {
         return;
       }
 
-      const orders = await Order.find({
-        diningSessionId: session._id,
-        status: { $ne: 'CANCELLED' },
-      }).sort({ roundNumber: 1, createdAt: 1 });
+      const sessionOrders = await orderRepository.findByDiningSessionId(session._id);
+      const orders = sessionOrders.filter((o) => o.status !== 'CANCELLED');
 
-      const activeBill = await Bill.findOne({
-        diningSessionId: session._id,
-        status: { $in: ['PENDING', 'SETTLED'] },
-      }).sort({ version: -1 });
+      const activeBill = await billRepository.findLatestByDiningSessionId(session._id);
 
       const currentCustomerId = req.customer?._id?.toString();
       const sanitizedSession = toCustomerSafeDiningSessionDTO(
@@ -681,8 +666,13 @@ export class PublicController {
         query.tableId = req.table._id;
       }
 
-      const order = await Order.findOne(query);
+      const order = await orderRepository.findById(orderId);
       if (!order) {
+        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
+        return;
+      }
+
+      if (req.restaurant && order.restaurantId.toString() !== req.restaurant._id.toString()) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
         return;
       }
@@ -710,16 +700,13 @@ export class PublicController {
         return;
       }
 
-      const query: any = { _id: orderId };
-      if (req.restaurant) {
-        query.restaurantId = req.restaurant._id;
-      }
-      if (req.table) {
-        query.tableId = req.table._id;
+      const order = await orderRepository.findById(orderId);
+      if (!order) {
+        sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
+        return;
       }
 
-      const order = await Order.findOne(query).select('status paymentStatus');
-      if (!order) {
+      if (req.restaurant && order.restaurantId.toString() !== req.restaurant._id.toString()) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
         return;
       }
@@ -746,7 +733,7 @@ export class PublicController {
         return;
       }
 
-      const activeTaxes = await Tax.find({ restaurantId, isActive: true });
+      const activeTaxes = await taxRepository.findByRestaurantId(restaurantId);
       sendSuccess(res, activeTaxes, 'Taxes retrieved successfully');
     } catch (error) {
       next(error);
@@ -762,7 +749,7 @@ export class PublicController {
 
       const restaurant =
         req.restaurant ||
-        (restaurantSlug ? await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() }) : null);
+        (restaurantSlug ? await restaurantRepository.findBySlug(restaurantSlug.toLowerCase().trim()) : null);
 
       if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
@@ -775,18 +762,14 @@ export class PublicController {
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurant._id);
 
-      const categories = await Category.find({
-        restaurantId: restaurant._id,
-        isActive: true,
-      }).sort({ sortOrder: 1 });
+      const categories = await categoryRepository.findActiveByRestaurantId(restaurant._id);
 
-      const menuItems = await MenuItem.find({
-        restaurantId: restaurant._id,
+      const menuItems = await menuItemRepository.findByRestaurantId(restaurant._id, {
         isDraft: { $ne: true },
         isArchived: { $ne: true },
-      }).sort({ sortOrder: 1 });
+      });
 
       const categoriesWithItems = categories.map((category) => {
         const items = menuItems.filter(
@@ -856,7 +839,7 @@ export class PublicController {
         paymentStatus,
       } = req.body;
 
-      restaurant = (req as any).restaurant || (await Restaurant.findOne({ slug: restaurantSlug?.toLowerCase().trim() }));
+      restaurant = (req as any).restaurant || (await restaurantRepository.findBySlug(restaurantSlug?.toLowerCase().trim() || ''));
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
@@ -887,7 +870,7 @@ export class PublicController {
       const requestHash = crypto.createHash('sha256').update(requestPayloadString).digest('hex');
 
       try {
-        await IdempotencyRecord.create({
+        await idempotencyRecordRepository.create({
           key: idempotencyKeyStr,
           restaurantId: restaurant._id,
           endpoint: req.originalUrl || req.path,
@@ -898,10 +881,10 @@ export class PublicController {
         lockAcquired = true;
       } catch (insertErr: any) {
         if (insertErr.code === 11000) {
-          const existingRecord = await IdempotencyRecord.findOne({
-            key: idempotencyKeyStr,
-            restaurantId: restaurant._id,
-          });
+          const existingRecord = await idempotencyRecordRepository.findByKeyAndRestaurant(
+            idempotencyKeyStr,
+            restaurant._id
+          );
 
           if (existingRecord) {
             if (existingRecord.requestHash !== requestHash) {
@@ -951,7 +934,7 @@ export class PublicController {
         if (!effectiveCustomerName?.trim()) {
           sendError(res, 'VALIDATION_ERROR', 'Customer name is required for TAKEAWAY and DELIVERY orders', null, 400);
           if (lockAcquired && idempotencyKeyStr && restaurant) {
-            await IdempotencyRecord.deleteOne({ key: idempotencyKeyStr, restaurantId: restaurant._id }).catch(() => {});
+            await idempotencyRecordRepository.deleteByKeyAndRestaurant(idempotencyKeyStr, restaurant._id).catch(() => {});
           }
           return;
         }
@@ -961,7 +944,7 @@ export class PublicController {
         if (!deliveryAddress || typeof deliveryAddress !== 'object' || !deliveryAddress.street) {
           sendError(res, 'VALIDATION_ERROR', 'Delivery address is required for DELIVERY orders', null, 400);
           if (lockAcquired && idempotencyKeyStr && restaurant) {
-            await IdempotencyRecord.deleteOne({ key: idempotencyKeyStr, restaurantId: restaurant._id }).catch(() => {});
+            await idempotencyRecordRepository.deleteByKeyAndRestaurant(idempotencyKeyStr, restaurant._id).catch(() => {});
           }
           return;
         }
@@ -983,14 +966,13 @@ export class PublicController {
       const safeOrderDTO = toCustomerSafeOrderDTO(order, true);
 
       if (lockAcquired) {
-        await IdempotencyRecord.updateOne(
-          { key: idempotencyKeyStr, restaurantId: restaurant._id },
+        await idempotencyRecordRepository.updateByKeyAndRestaurant(
+          idempotencyKeyStr,
+          restaurant._id,
           {
-            $set: {
-              status: 'COMPLETED',
-              orderId: order._id,
-              responseBody: safeOrderDTO,
-            },
+            status: 'COMPLETED',
+            orderId: order._id,
+            responseBody: safeOrderDTO,
           }
         );
       }
@@ -998,10 +980,10 @@ export class PublicController {
       sendSuccess(res, safeOrderDTO, 'Sessionless order placed successfully', 201);
     } catch (error: any) {
       if (lockAcquired && idempotencyKeyStr && restaurant) {
-        await IdempotencyRecord.deleteOne({
-          key: idempotencyKeyStr,
-          restaurantId: restaurant._id,
-        }).catch(() => {});
+        await idempotencyRecordRepository.deleteByKeyAndRestaurant(
+          idempotencyKeyStr,
+          restaurant._id
+        ).catch(() => {});
       }
 
       if (error.code) {

@@ -3,7 +3,8 @@ import path from 'path';
 import { initializeApp, getApps, cert, applicationDefault, App } from 'firebase-admin/app';
 import { getMessaging, Messaging, Message, MulticastMessage } from 'firebase-admin/messaging';
 import config from '../config';
-import { DeviceToken, IDeviceToken } from '../models/DeviceToken';
+import { IDeviceToken } from '../models/DeviceToken';
+import { deviceTokenRepository } from '../repositories/deviceToken.repository';
 import { logger } from '../utils/logger';
 
 export interface PushNotificationPayload {
@@ -134,19 +135,11 @@ export class PushNotificationService {
     appVersion?: string
   ): Promise<IDeviceToken> {
     const cleanToken = token.trim();
-    const existing = await DeviceToken.findOneAndUpdate(
-      { token: cleanToken },
-      {
-        userId,
-        restaurantId,
-        platform,
-        deviceModel,
-        appVersion,
-        isActive: true,
-        lastActiveAt: new Date(),
-      },
-      { upsert: true, new: true }
-    );
+    const existing = await deviceTokenRepository.upsertByUserAndToken(userId, restaurantId, cleanToken, {
+      platform,
+      deviceModel,
+      appVersion,
+    });
     logger.info(`[PushNotification] Registered device token: User=${userId}, Restaurant=${restaurantId}, Platform=${platform}, Token=${cleanToken.substring(0, 15)}...`);
     return existing;
   }
@@ -154,13 +147,17 @@ export class PushNotificationService {
   public async unregisterDevice(token: string): Promise<void> {
     if (!token) return;
     const cleanToken = token.trim();
-    await DeviceToken.findOneAndUpdate({ token: cleanToken }, { isActive: false });
+    const record = await deviceTokenRepository.findByToken(cleanToken);
+    if (record) {
+      record.isActive = false;
+      await deviceTokenRepository.save(record);
+    }
     logger.info(`[PushNotification] Unregistered device token: ${cleanToken.substring(0, 15)}...`);
   }
 
   public async sendToRestaurant(restaurantId: string, payload: PushNotificationPayload): Promise<void> {
     try {
-      const activeDevices = await DeviceToken.find({ restaurantId, isActive: true });
+      const activeDevices = await deviceTokenRepository.findByRestaurantId(restaurantId, true);
       if (activeDevices.length === 0) {
         logger.debug(`[PushNotification] No active devices found for restaurant ${restaurantId}. Title="${payload.title}"`);
         return;
@@ -176,7 +173,7 @@ export class PushNotificationService {
 
   public async sendToUser(userId: string, payload: PushNotificationPayload): Promise<void> {
     try {
-      const activeDevices = await DeviceToken.find({ userId, isActive: true });
+      const activeDevices = await deviceTokenRepository.findByUserId(userId, true);
       if (activeDevices.length === 0) {
         logger.debug(`[PushNotification] No active devices found for user ${userId}`);
         return;
@@ -240,7 +237,7 @@ export class PushNotificationService {
         err.code === 'messaging/invalid-registration-token' ||
         err.code === 'messaging/registration-token-not-registered'
       ) {
-        await DeviceToken.updateOne({ token: token.trim() }, { isActive: false });
+        await deviceTokenRepository.deactivateByToken(token);
         logger.info(`[PushNotification] Deactivated stale device token: ${token.substring(0, 15)}...`);
       }
       return false;
@@ -317,10 +314,7 @@ export class PushNotificationService {
           });
 
           if (tokensToDeactivate.length > 0) {
-            await DeviceToken.updateMany(
-              { token: { $in: tokensToDeactivate } },
-              { isActive: false }
-            );
+            await deviceTokenRepository.deactivateByTokens(tokensToDeactivate);
             logger.info(`[PushNotification] Deactivated ${tokensToDeactivate.length} invalid/unregistered device tokens.`);
           }
         }

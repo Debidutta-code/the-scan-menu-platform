@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import crypto from 'crypto';
-import { OtpSession } from '../models/OtpSession';
+import { otpRepository } from '../repositories/otp.repository';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
 import { CustomError } from '../utils/response';
 import config from '../config';
@@ -34,15 +34,9 @@ export class OtpService {
     demoOtp?: string;
   }> {
     const normalizedPhone = normalizeIndianPhoneNumber(rawPhone);
-    const rId = new Types.ObjectId(restaurantId);
 
     // 1. Check for active cooldown on existing unused OTP
-    const existingSession = await OtpSession.findOne({
-      restaurantId: rId,
-      phone: normalizedPhone,
-      isUsed: false,
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
+    const existingSession = await otpRepository.findActiveByPhoneAndRestaurant(normalizedPhone, restaurantId);
 
     if (existingSession && existingSession.resendAvailableAt > new Date()) {
       const remainingSeconds = Math.ceil(
@@ -59,7 +53,7 @@ export class OtpService {
     // 2. Invalidate / mark superseded any previous unused OTP sessions for this phone
     if (existingSession) {
       existingSession.isUsed = true;
-      await existingSession.save();
+      await otpRepository.save(existingSession);
     }
 
     // 3. Generate 4-digit OTP (fixed '0000' placeholder until SMS gateway is integrated)
@@ -71,8 +65,8 @@ export class OtpService {
     const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes
     const resendAvailableAt = new Date(now.getTime() + 60 * 1000); // 60 seconds
 
-    const newSession = new OtpSession({
-      restaurantId: rId,
+    await otpRepository.create({
+      restaurantId: new Types.ObjectId(restaurantId.toString()),
       phone: normalizedPhone,
       otpHash,
       attempts: 0,
@@ -81,8 +75,6 @@ export class OtpService {
       expiresAt,
       isUsed: false,
     });
-
-    await newSession.save();
 
     // 5. In test and non-production environments, provide demoOtp for automated testing
     const isNonProduction = config.app.isTest || process.env.NODE_ENV !== 'production';
@@ -112,15 +104,9 @@ export class OtpService {
     }
 
     const normalizedPhone = normalizeIndianPhoneNumber(rawPhone);
-    const rId = new Types.ObjectId(restaurantId);
 
     // Find the latest active, non-expired, unused OTP session
-    const session = await OtpSession.findOne({
-      restaurantId: rId,
-      phone: normalizedPhone,
-      isUsed: false,
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
+    const session = await otpRepository.findActiveByPhoneAndRestaurant(normalizedPhone, restaurantId);
 
     if (!session) {
       throw new CustomError(
@@ -133,7 +119,7 @@ export class OtpService {
     // Check if maximum attempts have already been exhausted
     if (session.attempts >= session.maxAttempts) {
       session.isUsed = true;
-      await session.save();
+      await otpRepository.save(session);
       throw new CustomError(
         'OTP_MAX_ATTEMPTS_EXCEEDED',
         'Maximum verification attempts exceeded. Please request a new code.',
@@ -154,7 +140,7 @@ export class OtpService {
       if (remainingAttempts === 0) {
         session.isUsed = true;
       }
-      await session.save();
+      await otpRepository.save(session);
 
       if (remainingAttempts === 0) {
         throw new CustomError(
@@ -174,7 +160,7 @@ export class OtpService {
 
     // Success: Mark as used immediately (single-use)
     session.isUsed = true;
-    await session.save();
+    await otpRepository.save(session);
 
     return {
       verified: true,

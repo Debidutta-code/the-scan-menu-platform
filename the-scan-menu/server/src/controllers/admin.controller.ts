@@ -1,14 +1,15 @@
 import { Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Restaurant } from '../models/Restaurant';
-import { RestaurantStaff } from '../models/RestaurantStaff';
-import { User } from '../models/User';
-import { Order } from '../models/Order';
-import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { Category } from '../models/Category';
-import { MenuItem } from '../models/MenuItem';
-import { Tax } from '../models/Tax';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { restaurantStaffRepository } from '../repositories/restaurantStaff.repository';
+import { userRepository } from '../repositories/user.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { integrationSyncLogRepository } from '../repositories/integrationSyncLog.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { categoryRepository } from '../repositories/category.repository';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { taxRepository } from '../repositories/tax.repository';
 import { auditLogService } from '../services/auditLog.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { EmailService } from '../services/email.service';
@@ -157,7 +158,7 @@ export class AdminController {
       const { id } = req.params;
       const updateData = req.body;
 
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await restaurantRepository.findById(id);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
@@ -175,13 +176,13 @@ export class AdminController {
       if (updateData.coverImageUrl !== undefined) restFields.coverImageUrl = updateData.coverImageUrl;
 
       if (Object.keys(restFields).length > 0) {
-        await Restaurant.findByIdAndUpdate(id, restFields, { new: true });
+        await restaurantRepository.updateById(id, restFields);
       }
 
       // 2. Update or Upsert RestaurantSettings
-      let settings = await RestaurantSettings.findOne({ restaurantId: id });
+      let settings = await restaurantSettingsRepository.findByRestaurantId(id);
       if (!settings) {
-        settings = new RestaurantSettings({ restaurantId: id });
+        settings = await restaurantSettingsRepository.create({ restaurantId: new mongoose.Types.ObjectId(id) });
       }
 
       if (updateData.theme) settings.theme = { ...settings.theme, ...updateData.theme };
@@ -207,7 +208,7 @@ export class AdminController {
       if (updateData.qrCodeStyle) settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
       if (updateData.roundingConfig) settings.roundingConfig = { ...(settings.roundingConfig || { enabled: true, strategy: 'NEAREST' }), ...updateData.roundingConfig };
 
-      await settings.save();
+      await restaurantSettingsRepository.save(settings);
 
       // Recalculate audit
       const audit = await outletSetupAuditService.auditOutlet(id);
@@ -221,21 +222,21 @@ export class AdminController {
   async seedDemoMenu(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await restaurantRepository.findById(id);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
       // Check existing categories
-      const existingCategories = await Category.find({ restaurantId: restaurant._id });
+      const existingCategories = await categoryRepository.findByRestaurantId(restaurant._id);
       if (existingCategories.length > 0) {
         sendError(res, 'MENU_EXISTS', 'Restaurant already has categories. Delete them first or add items individually.', null, 400);
         return;
       }
 
       // 1. Create Starter Categories
-      const catStarters = await Category.create({
+      const catStarters = await categoryRepository.create({
         restaurantId: restaurant._id,
         name: 'Starters & Appetizers',
         description: 'Crispy bites and freshly grilled appetizers',
@@ -243,7 +244,7 @@ export class AdminController {
         isActive: true,
       });
 
-      const catMains = await Category.create({
+      const catMains = await categoryRepository.create({
         restaurantId: restaurant._id,
         name: 'Main Course',
         description: 'Chef signature curries and rich gravies',
@@ -251,7 +252,7 @@ export class AdminController {
         isActive: true,
       });
 
-      const catBreads = await Category.create({
+      const catBreads = await categoryRepository.create({
         restaurantId: restaurant._id,
         name: 'Breads & Rice',
         description: 'Clay-oven baked naans, rotis, and aromatic biryanis',
@@ -259,7 +260,7 @@ export class AdminController {
         isActive: true,
       });
 
-      const catDesserts = await Category.create({
+      const catDesserts = await categoryRepository.create({
         restaurantId: restaurant._id,
         name: 'Desserts',
         description: 'Sweet treats and authentic desserts',
@@ -267,7 +268,7 @@ export class AdminController {
         isActive: true,
       });
 
-      const catDrinks = await Category.create({
+      const catDrinks = await categoryRepository.create({
         restaurantId: restaurant._id,
         name: 'Beverages & Mocktails',
         description: 'Refreshing coolers, smoothies, and artisan shakes',
@@ -440,7 +441,7 @@ export class AdminController {
         },
       ];
 
-      await MenuItem.insertMany(demoItems);
+      await menuItemRepository.insertMany(demoItems as any);
 
       const audit = await outletSetupAuditService.auditOutlet(id);
       sendSuccess(res, { categoriesCount: 5, itemsCount: demoItems.length, audit }, 'Starter demo menu seeded successfully', 201);
@@ -454,21 +455,21 @@ export class AdminController {
       const { id } = req.params;
       const { preset } = req.body; // 'GST_5' | 'GST_18' | 'VAT_10' | 'NONE'
 
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await restaurantRepository.findById(id);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
       // Remove existing taxes
-      await Tax.deleteMany({ restaurantId: restaurant._id });
+      await taxRepository.deleteByRestaurantId(restaurant._id);
 
       let createdTaxes: any[] = [];
       let defaultRate = 0;
 
       if (preset === 'GST_5') {
         defaultRate = 5;
-        const group = await Tax.create({
+        const group = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'GROUP',
           name: 'GST (5%)',
@@ -476,7 +477,7 @@ export class AdminController {
           isActive: true,
         });
 
-        const cgst = await Tax.create({
+        const cgst = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'TAX',
           groupId: group._id,
@@ -485,7 +486,7 @@ export class AdminController {
           isActive: true,
         });
 
-        const sgst = await Tax.create({
+        const sgst = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'TAX',
           groupId: group._id,
@@ -497,7 +498,7 @@ export class AdminController {
         createdTaxes = [group, cgst, sgst];
       } else if (preset === 'GST_18') {
         defaultRate = 18;
-        const group = await Tax.create({
+        const group = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'GROUP',
           name: 'GST (18%)',
@@ -505,7 +506,7 @@ export class AdminController {
           isActive: true,
         });
 
-        const cgst = await Tax.create({
+        const cgst = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'TAX',
           groupId: group._id,
@@ -514,7 +515,7 @@ export class AdminController {
           isActive: true,
         });
 
-        const sgst = await Tax.create({
+        const sgst = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'TAX',
           groupId: group._id,
@@ -526,7 +527,7 @@ export class AdminController {
         createdTaxes = [group, cgst, sgst];
       } else if (preset === 'VAT_10') {
         defaultRate = 10;
-        const vat = await Tax.create({
+        const vat = await taxRepository.create({
           restaurantId: restaurant._id,
           type: 'TAX',
           name: 'VAT',
@@ -537,7 +538,7 @@ export class AdminController {
       }
 
       // Update settings default tax rate
-      await RestaurantSettings.findOneAndUpdate(
+      await restaurantSettingsRepository.findOneAndUpdate(
         { restaurantId: restaurant._id },
         { 'paymentConfig.taxRatePercent': defaultRate },
         { new: true, upsert: true }
@@ -552,14 +553,20 @@ export class AdminController {
 
   async getPlatformStats(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const totalRestaurants = await Restaurant.countDocuments();
-      const activeRestaurants = await Restaurant.countDocuments({ status: { $in: ['ACTIVE', 'TRIAL'] } });
-      const suspendedRestaurants = await Restaurant.countDocuments({ status: 'SUSPENDED' });
+      const totalRestaurants = await restaurantRepository.count();
+      const activeRestaurants = await restaurantRepository.count({ status: { $in: ['ACTIVE', 'TRIAL'] } });
+      const suspendedRestaurants = await restaurantRepository.count({ status: 'SUSPENDED' });
 
-      const totalOrders = await Order.countDocuments();
+      const totalOrders = await orderRepository.countTotal();
 
-      const recentRestaurants = await Restaurant.find().sort({ createdAt: -1 }).limit(5);
-      const recentOrders = await Order.find().sort({ createdAt: -1 }).limit(5).populate('restaurantId', 'name');
+      const recentRestaurants = await restaurantRepository.find({}, { createdAt: -1 }, 0, 5);
+      const recentOrders = await orderRepository.findByRestaurantId(
+        '',
+        {},
+        { createdAt: -1 },
+        0,
+        5
+      );
 
       const activityFeed = [];
 
@@ -606,7 +613,7 @@ export class AdminController {
 
       let finalSlug = slug ? slugify(slug) : slugify(name);
 
-      const existing = await Restaurant.findOne({ slug: finalSlug });
+      const existing = await restaurantRepository.findBySlug(finalSlug);
       if (existing) {
         if (!slug) {
           finalSlug = `${finalSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -618,7 +625,7 @@ export class AdminController {
 
       const code = await counterService.getNextSequence('restaurant_code', 'RST-', 6);
 
-      const restaurant = new Restaurant({
+      const restaurant = await restaurantRepository.create({
         code,
         name,
         slug: finalSlug,
@@ -630,8 +637,6 @@ export class AdminController {
         email,
         address,
       });
-
-      await restaurant.save();
 
       sendSuccess(res, restaurant, 'Restaurant created successfully', 201);
     } catch (error) {
@@ -645,8 +650,8 @@ export class AdminController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const total = await Restaurant.countDocuments();
-      const restaurants = await Restaurant.find().skip(skip).limit(limit).sort({ createdAt: -1 });
+      const total = await restaurantRepository.count();
+      const restaurants = await restaurantRepository.find({}, { createdAt: -1 }, skip, limit);
 
       sendSuccess(
         res,
@@ -669,14 +674,14 @@ export class AdminController {
   async getRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await restaurantRepository.findById(id);
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId: id });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(id);
 
       const payload = {
         ...restaurant.toObject(),
@@ -701,23 +706,23 @@ export class AdminController {
 
       if (updateData.slug) {
         updateData.slug = slugify(updateData.slug);
-        const existing = await Restaurant.findOne({ slug: updateData.slug, _id: { $ne: id } });
+        const existing = await restaurantRepository.findOne({ slug: updateData.slug, _id: { $ne: id } });
         if (existing) {
           sendError(res, 'SLUG_CONFLICT', 'The provided slug is already in use.', null, 400);
           return;
         }
       }
 
-      const restaurant = await Restaurant.findByIdAndUpdate(id, updateData, { new: true });
+      const restaurant = await restaurantRepository.updateById(id, updateData);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
       // Sync settings if settings-related fields exist
-      let settings = await RestaurantSettings.findOne({ restaurantId: id });
+      let settings = await restaurantSettingsRepository.findByRestaurantId(id);
       if (!settings) {
-        settings = new RestaurantSettings({ restaurantId: id });
+        settings = await restaurantSettingsRepository.create({ restaurantId: new mongoose.Types.ObjectId(id) });
       }
 
       if (updateData.gstNumber !== undefined) {
@@ -746,7 +751,7 @@ export class AdminController {
       if (updateData.qrCodeStyle !== undefined) {
         settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
       }
-      await settings.save();
+      await restaurantSettingsRepository.save(settings);
 
       const payload = {
         ...restaurant.toObject(),
@@ -767,7 +772,7 @@ export class AdminController {
   async suspendRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findByIdAndUpdate(id, { status: 'SUSPENDED' }, { new: true });
+      const restaurant = await restaurantRepository.updateById(id, { status: 'SUSPENDED' });
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
@@ -785,7 +790,7 @@ export class AdminController {
   async activateRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findByIdAndUpdate(id, { status: 'ACTIVE' }, { new: true });
+      const restaurant = await restaurantRepository.updateById(id, { status: 'ACTIVE' });
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
@@ -803,7 +808,7 @@ export class AdminController {
   async deleteRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const restaurant = await Restaurant.findByIdAndUpdate(id, { status: 'ARCHIVED' }, { new: true });
+      const restaurant = await restaurantRepository.updateById(id, { status: 'ARCHIVED' });
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
@@ -823,7 +828,7 @@ export class AdminController {
       const { id } = req.params;
       const { userId, email, name, password } = req.body;
 
-      const restaurant = await Restaurant.findById(id);
+      const restaurant = await restaurantRepository.findById(id);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
@@ -832,28 +837,27 @@ export class AdminController {
       let targetUserId: string;
 
       if (userId) {
-        const existingUser = await User.findById(userId);
+        const existingUser = await userRepository.findById(userId);
         if (!existingUser) {
           sendError(res, 'USER_NOT_FOUND', 'The specified user was not found', null, 404);
           return;
         }
         targetUserId = existingUser.id;
       } else if (email && name && password) {
-        const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+        const existingUser = await userRepository.findByEmail(email);
         if (existingUser) {
           sendError(res, 'USER_ALREADY_EXISTS', 'A user with this email already exists', null, 400);
           return;
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const newUser = new User({
+        const newUser = await userRepository.create({
           email: email.toLowerCase().trim(),
           passwordHash,
           name,
           role: 'MANAGER',
           isActive: true,
         });
-        await newUser.save();
         targetUserId = newUser.id;
 
         try {
@@ -878,29 +882,27 @@ export class AdminController {
         return;
       }
 
-      const existingStaff = await RestaurantStaff.findOne({
-        userId: targetUserId,
-        restaurantId: restaurant.id,
-      });
+      const existingStaff = await restaurantStaffRepository.findByUserIdAndRestaurantId(
+        targetUserId,
+        restaurant.id
+      );
 
       if (existingStaff) {
         if (!existingStaff.isActive || existingStaff.role !== 'MANAGER') {
           existingStaff.isActive = true;
           existingStaff.role = 'MANAGER';
-          await existingStaff.save();
+          await restaurantStaffRepository.save(existingStaff);
         }
         sendSuccess(res, existingStaff, 'Manager assigned successfully');
         return;
       }
 
-      const staff = new RestaurantStaff({
-        userId: targetUserId,
+      const staff = await restaurantStaffRepository.create({
+        userId: new mongoose.Types.ObjectId(targetUserId),
         restaurantId: restaurant.id,
         role: 'MANAGER',
         isActive: true,
       });
-
-      await staff.save();
 
       sendSuccess(res, staff, 'Manager assigned successfully', 201);
     } catch (error) {
@@ -913,14 +915,14 @@ export class AdminController {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
       // Total Platform GMV
-      const revenueAggregate = await Order.aggregate([
+      const revenueAggregate = await orderRepository.aggregate([
         { $match: { status: { $ne: 'CANCELLED' } } },
         { $group: { _id: null, totalRevenue: { $sum: '$total' } } },
       ]);
       const totalRevenue = revenueAggregate[0]?.totalRevenue || 0;
 
       // 30-Day Daily Revenue & Orders Trend
-      const dailyTrendRaw = await Order.aggregate([
+      const dailyTrendRaw = await orderRepository.aggregate([
         {
           $match: {
             createdAt: { $gte: thirtyDaysAgo },
@@ -938,7 +940,7 @@ export class AdminController {
       ]);
 
       // Top 5 Performing Restaurants
-      const topRestaurantsRaw = await Order.aggregate([
+      const topRestaurantsRaw = await orderRepository.aggregate([
         { $match: { status: { $ne: 'CANCELLED' } } },
         {
           $group: {
@@ -971,7 +973,7 @@ export class AdminController {
       ]);
 
       // Subscription Plan Distribution
-      const planDistributionRaw = await Restaurant.aggregate([
+      const planDistributionRaw = await restaurantRepository.aggregate([
         {
           $group: {
             _id: '$subscription.planKey',
@@ -1008,8 +1010,8 @@ export class AdminController {
   // 1. Get POS Outlets
   async getPOSOutlets(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const settingsList = await RestaurantSettings.find().lean();
-      const restaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } }).lean();
+      const settingsList = await restaurantSettingsRepository.find();
+      const restaurants = await restaurantRepository.findAllExcludeArchived();
 
       const outlets = restaurants.map((rest: any) => {
         const set = settingsList.find((s: any) => s.restaurantId?.toString() === rest._id.toString());
@@ -1041,8 +1043,8 @@ export class AdminController {
       const skip = (page - 1) * limit;
 
       const [logs, total] = await Promise.all([
-        IntegrationSyncLog.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        IntegrationSyncLog.countDocuments(),
+        integrationSyncLogRepository.findByRestaurantId('', {}, { createdAt: -1 }, skip, limit),
+        integrationSyncLogRepository.countByRestaurantId(''),
       ]);
 
       sendSuccess(res, { logs, total, page, pages: Math.ceil(total / limit) }, 'POS sync logs retrieved');
@@ -1055,13 +1057,13 @@ export class AdminController {
   async triggerPOSMenuSync(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const rest = await Restaurant.findById(restaurantId);
+      const rest = await restaurantRepository.findById(restaurantId);
       if (!rest) {
         sendError(res, 'NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      await RestaurantSettings.findOneAndUpdate(
+      await restaurantSettingsRepository.findOneAndUpdate(
         { restaurantId },
         { 'petpoojaConfig.lastSyncAt': new Date() },
         { upsert: true }
@@ -1089,7 +1091,7 @@ export class AdminController {
       const { restaurantId } = req.params;
       const { enabled, outletId, apiKey } = req.body;
 
-      const settings = await RestaurantSettings.findOneAndUpdate(
+      const settings = await restaurantSettingsRepository.findOneAndUpdate(
         { restaurantId },
         {
           'petpoojaConfig.enabled': enabled,
@@ -1099,7 +1101,7 @@ export class AdminController {
         { new: true, upsert: true }
       );
 
-      const rest = await Restaurant.findById(restaurantId);
+      const rest = await restaurantRepository.findById(restaurantId);
       await auditLogService.logEvent({
         action: 'POS_CONFIG_UPDATED',
         actorId: req.user?.id,
@@ -1110,7 +1112,7 @@ export class AdminController {
         details: { enabled, outletId },
       });
 
-      sendSuccess(res, settings.petpoojaConfig, 'POS configuration updated');
+      sendSuccess(res, settings?.petpoojaConfig, 'POS configuration updated');
     } catch (error) {
       next(error);
     }
@@ -1119,7 +1121,7 @@ export class AdminController {
   // 5. Get Payment Overview
   async getPaymentOverview(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const paymentAggregation = await Order.aggregate([
+      const paymentAggregation = await orderRepository.aggregate([
         { $match: { status: { $ne: 'CANCELLED' } } },
         {
           $group: {
@@ -1163,8 +1165,8 @@ export class AdminController {
   // 6. Get Tenant Payment Configs
   async getTenantPaymentConfigs(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const restaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } }).lean();
-      const settingsList = await RestaurantSettings.find().lean();
+      const restaurants = await restaurantRepository.findAllExcludeArchived();
+      const settingsList = await restaurantSettingsRepository.find();
 
       const configs = restaurants.map((rest: any) => {
         const set = settingsList.find((s: any) => s.restaurantId?.toString() === rest._id.toString());
@@ -1193,7 +1195,7 @@ export class AdminController {
       const { restaurantId } = req.params;
       const { cashEnabled, cardEnabled, upiEnabled, razorpayEnabled } = req.body;
 
-      const settings = await RestaurantSettings.findOneAndUpdate(
+      const settings = await restaurantSettingsRepository.findOneAndUpdate(
         { restaurantId },
         {
           'paymentGateways.cashEnabled': cashEnabled,
@@ -1204,7 +1206,7 @@ export class AdminController {
         { new: true, upsert: true }
       );
 
-      const rest = await Restaurant.findById(restaurantId);
+      const rest = await restaurantRepository.findById(restaurantId);
       await auditLogService.logEvent({
         action: 'PAYMENT_CONFIG_UPDATED',
         actorId: req.user?.id,
@@ -1215,7 +1217,7 @@ export class AdminController {
         details: { cashEnabled, cardEnabled, upiEnabled, razorpayEnabled },
       });
 
-      sendSuccess(res, settings.paymentGateways, 'Payment methods updated');
+      sendSuccess(res, settings?.paymentGateways, 'Payment methods updated');
     } catch (error) {
       next(error);
     }
@@ -1225,13 +1227,13 @@ export class AdminController {
   async getRestaurantPaymentConfig(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       const paymentConfig = settings?.paymentConfig;
 
       const responsePayload = {
@@ -1284,15 +1286,15 @@ export class AdminController {
         preferredMethodOrder,
       } = req.body;
 
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      let settings = await RestaurantSettings.findOne({ restaurantId });
+      let settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       if (!settings) {
-        settings = new RestaurantSettings({ restaurantId });
+        settings = await restaurantSettingsRepository.create({ restaurantId: new mongoose.Types.ObjectId(restaurantId) });
       }
       if (!settings.paymentConfig) {
         settings.paymentConfig = {} as any;
@@ -1370,7 +1372,7 @@ export class AdminController {
         settings.paymentConfig.preferredMethodOrder = preferredMethodOrder;
       }
 
-      await settings.save();
+      await restaurantSettingsRepository.save(settings);
 
       // Audit Log Record (Without secrets!)
       await auditLogService.logEvent({
@@ -1428,7 +1430,7 @@ export class AdminController {
       let effectiveKeySecret = keySecret;
 
       if (!effectiveKeyId || !effectiveKeySecret) {
-        const settings = await RestaurantSettings.findOne({ restaurantId });
+        const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
         if (settings?.paymentConfig?.razorpayConfig) {
           if (!effectiveKeyId) effectiveKeyId = settings.paymentConfig.razorpayConfig.keyId;
           if (!effectiveKeySecret && settings.paymentConfig.razorpayConfig.keySecret) {

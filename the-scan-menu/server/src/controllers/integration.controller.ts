@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { posIntegrationService } from '../services/posIntegration.service';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 import { encrypt } from '../utils/encryption';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
@@ -53,7 +53,7 @@ export class IntegrationController {
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       const integrationConfig = settings?.paymentConfig?.integrationConfig || { provider: 'NONE', config: {} };
 
       const provider = integrationConfig.provider || 'NONE';
@@ -87,7 +87,7 @@ export class IntegrationController {
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       if (!settings) {
         sendError(res, 'NOT_FOUND', 'Restaurant settings not found', null, 404);
         return;
@@ -115,7 +115,7 @@ export class IntegrationController {
         },
       };
 
-      await settings.save();
+      await restaurantSettingsRepository.save(settings);
 
       const safeResponse = {
         provider: targetProvider,

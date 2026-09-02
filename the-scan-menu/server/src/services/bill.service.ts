@@ -1,15 +1,16 @@
 import { Types } from 'mongoose';
-import { Bill, IBill } from '../models/Bill';
-import { DiningSession, IDiningSession } from '../models/DiningSession';
-import { Order } from '../models/Order';
-import { Payment } from '../models/Payment';
-import { Tax } from '../models/Tax';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { IBill } from '../models/Bill';
+import { IDiningSession } from '../models/DiningSession';
+import { billRepository } from '../repositories/bill.repository';
+import { billCounterRepository } from '../repositories/billCounter.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { paymentRepository } from '../repositories/payment.repository';
+import { taxRepository } from '../repositories/tax.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { auditLogRepository } from '../repositories/auditLog.repository';
 import { calculateRoundOff } from '../utils/rounding.util';
-import { AuditLog } from '../models/AuditLog';
 import { NotificationService } from './notification.service';
-
-import { BillCounter } from '../models/BillCounter';
 
 class CustomError extends Error {
   status: number;
@@ -29,20 +30,14 @@ export class BillService {
     const restId = typeof restaurantId === 'string' ? new Types.ObjectId(restaurantId) : restaurantId;
     const year = new Date().getFullYear();
 
-    const counter = await BillCounter.findOneAndUpdate(
-      { restaurantId: restId, year },
-      { $inc: { seq: 1 } },
-      { upsert: true, new: true }
-    );
-
-    let seq = counter.seq;
+    let seq = await billCounterRepository.getNextSequence(restId, year);
     const candidateBillNumber = `INV-${year}-${String(seq).padStart(4, '0')}`;
 
     // Self-healing check: if candidate bill number already exists in DB (legacy bills or direct inserts)
-    const existing = await Bill.findOne({ restaurantId: restId, billNumber: candidateBillNumber });
-    if (existing) {
+    const existingBills = await billRepository.findByRestaurantId(restId, { billNumber: candidateBillNumber });
+    if (existingBills.length > 0) {
       const yearRegex = new RegExp(`^INV-${year}-(\\d+)$`);
-      const bills = await Bill.find({ restaurantId: restId, billNumber: yearRegex }).select('billNumber').lean();
+      const bills = await billRepository.findByRestaurantId(restId, { billNumber: yearRegex });
 
       let maxSeq = seq;
       for (const b of bills) {
@@ -57,11 +52,7 @@ export class BillService {
         }
       }
 
-      const healed = await BillCounter.findOneAndUpdate(
-        { restaurantId: restId, year },
-        { $max: { seq: maxSeq + 1 } },
-        { new: true }
-      );
+      const healed = await billCounterRepository.updateMaxSeq(restId, year, maxSeq);
       seq = healed!.seq;
     }
 
@@ -79,30 +70,24 @@ export class BillService {
     manualDiscountAmount: number = 0,
     discountReason?: string
   ): Promise<IBill> {
-    const session = await DiningSession.findOne({
-      _id: new Types.ObjectId(sessionId),
-      restaurantId: new Types.ObjectId(restaurantId),
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    const session = await diningSessionRepository.findByIdAndRestaurant(sessionId, restaurantId);
 
-    if (!session) {
+    if (!session || !['ACTIVE', 'BILL_REQUESTED'].includes(session.status)) {
       throw new CustomError('SESSION_NOT_ACTIVE', 'Dining session is not active or not found', 409);
     }
 
     // 1. Fetch active orders in this session
-    const orders = await Order.find({
-      diningSessionId: session._id,
-      status: { $ne: 'CANCELLED' },
-    });
+    const orders = await orderRepository.findByDiningSessionId(session._id);
+    const activeOrders = orders.filter((o) => o.status !== 'CANCELLED');
 
-    if (orders.length === 0) {
+    if (activeOrders.length === 0) {
       throw new CustomError('NO_ORDERS_IN_SESSION', 'Cannot generate a bill with no active orders', 400);
     }
 
     // 2. Compute gross amount and taxes
-    const grossAmount = orders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+    const grossAmount = activeOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
 
-    const activeTaxes: any[] = await Tax.find({ restaurantId: session.restaurantId, isActive: true });
+    const activeTaxes = await taxRepository.findActiveByRestaurantId(session.restaurantId);
     let taxAmount = 0;
     const taxBreakdown: any[] = [];
     const groups = activeTaxes.filter((t) => t.type === 'GROUP');
@@ -146,30 +131,24 @@ export class BillService {
     const serviceCharge = session.serviceCharge || 0;
     const unroundedNetAmount = Math.max(0, grossAmount + taxAmount + serviceCharge - discountAmount);
 
-    const settings = await RestaurantSettings.findOne({ restaurantId: session.restaurantId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(session.restaurantId);
     const { roundedTotal: netAmount, roundOff } = calculateRoundOff(unroundedNetAmount, settings?.roundingConfig);
 
     // Sum already captured payments for this session (e.g. partial cash deposits or prepaid rounds)
-    const capturedPayments = await Payment.find({
-      diningSessionId: session._id,
-      status: 'CAPTURED',
-    });
-    const paidAmount = capturedPayments.reduce((sum, p) => sum + p.amount, 0);
+    const capturedPayments = await paymentRepository.findCapturedByDiningSessionId(session._id);
+    const paidAmount = capturedPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
     const balanceDue = Math.max(0, netAmount - paidAmount);
 
     // 3. Supersede any existing pending bills for this session
-    const existingPendingBill = await Bill.findOne({
-      diningSessionId: session._id,
-      status: 'PENDING',
-    });
+    const existingPendingBill = await billRepository.findPendingByDiningSessionId(session._id);
 
     let version = 1;
     if (existingPendingBill) {
       existingPendingBill.status = 'SUPERSEDED';
-      await existingPendingBill.save();
+      await billRepository.save(existingPendingBill);
       version = existingPendingBill.version + 1;
     } else {
-      const highestVersionBill = await Bill.findOne({ diningSessionId: session._id }).sort({ version: -1 });
+      const highestVersionBill = await billRepository.findByDiningSessionId(session._id);
       if (highestVersionBill) {
         version = highestVersionBill.version + 1;
       }
@@ -177,7 +156,7 @@ export class BillService {
 
     const billNumber = await this.generateBillNumber(restaurantId);
 
-    const bill = new Bill({
+    const bill = await billRepository.create({
       restaurantId: session.restaurantId,
       diningSessionId: session._id,
       tableId: session.tableId,
@@ -199,8 +178,6 @@ export class BillService {
       settledAt: balanceDue === 0 ? new Date() : undefined,
     });
 
-    await bill.save();
-
     // 4. Update DiningSession status and financials
     session.status = balanceDue === 0 ? 'SETTLED' : 'BILL_REQUESTED';
     session.subtotal = grossAmount;
@@ -213,15 +190,13 @@ export class BillService {
     session.paidAmount = paidAmount;
     session.balanceDue = balanceDue;
     session.lastActivityAt = new Date();
-    await session.save();
+    await diningSessionRepository.save(session);
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'BILL_GENERATED',
       actorId: generatedByUserId,
       actorRole: generatedByUserId ? 'MANAGER' : 'CUSTOMER',
       restaurantId: restaurantId.toString(),
-      entityType: 'Bill',
-      entityId: bill._id,
       details: {
         billNumber: bill.billNumber,
         version: bill.version,
@@ -250,25 +225,18 @@ export class BillService {
     restaurantId: Types.ObjectId | string,
     sessionId: Types.ObjectId | string
   ): Promise<IDiningSession> {
-    const session = await DiningSession.findOne({
-      _id: new Types.ObjectId(sessionId),
-      restaurantId: new Types.ObjectId(restaurantId),
-      status: 'BILL_REQUESTED',
-    });
+    const session = await diningSessionRepository.findByIdAndRestaurant(sessionId, restaurantId);
 
-    if (!session) {
+    if (!session || session.status !== 'BILL_REQUESTED') {
       throw new CustomError('SESSION_NOT_IN_BILL_REQUESTED', 'Session is not currently awaiting bill settlement', 400);
     }
 
     // Mark pending bill as superseded
-    await Bill.updateMany(
-      { diningSessionId: session._id, status: 'PENDING' },
-      { $set: { status: 'SUPERSEDED' } }
-    );
+    await billRepository.updateManyByDiningSession(session._id, { status: 'SUPERSEDED' });
 
     session.status = 'ACTIVE';
     session.lastActivityAt = new Date();
-    await session.save();
+    await diningSessionRepository.save(session);
 
     try {
       NotificationService.getInstance().notifySessionUpdated(
@@ -292,13 +260,9 @@ export class BillService {
     payments: { method: 'CASH' | 'UPI' | 'CARD' | 'NETBANKING'; amount: number; provider?: string }[],
     staffUserId?: string
   ): Promise<{ bill: IBill; session: IDiningSession; payments: any[] }> {
-    const bill = await Bill.findOne({
-      _id: new Types.ObjectId(billId),
-      restaurantId: new Types.ObjectId(restaurantId),
-      status: 'PENDING',
-    });
+    const bill = await billRepository.findById(billId);
 
-    if (!bill) {
+    if (!bill || bill.restaurantId.toString() !== restaurantId.toString() || bill.status !== 'PENDING') {
       throw new CustomError('BILL_NOT_FOUND_OR_ALREADY_SETTLED', 'Bill is not pending or does not exist', 404);
     }
 
@@ -311,25 +275,24 @@ export class BillService {
       throw new CustomError('PAYMENT_EXCEEDS_BALANCE', `Payment amount (${totalPaymentAmount}) exceeds balance due (${bill.balanceDue})`, 400);
     }
 
-    const sessionDoc = await DiningSession.findById(bill.diningSessionId);
+    const sessionDoc = await diningSessionRepository.findById(bill.diningSessionId);
     if (!sessionDoc) {
       throw new CustomError('SESSION_NOT_FOUND', 'Dining session not found', 404);
     }
 
     const createdPayments = [];
     for (const p of payments) {
-      const payment = new Payment({
-        restaurantId: new Types.ObjectId(restaurantId),
+      const payment = await paymentRepository.create({
+        restaurantId: new Types.ObjectId(restaurantId.toString()),
         diningSessionId: sessionDoc._id,
         billId: bill._id,
-        provider: p.provider || (p.method === 'CASH' ? 'CASH' : 'RAZORPAY'),
+        provider: (p.provider as any) || (p.method === 'CASH' ? 'CASH' : 'RAZORPAY'),
         method: p.method,
         amount: p.amount,
         currency: 'INR',
         status: 'CAPTURED',
         providerReferenceId: `pos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       });
-      await payment.save();
       createdPayments.push(payment);
     }
 
@@ -342,13 +305,10 @@ export class BillService {
       bill.status = 'SETTLED';
       bill.settledAt = new Date();
     }
-    await bill.save();
+    await billRepository.save(bill);
 
     // Settle all orders under the session to PAID
-    await Order.updateMany(
-      { diningSessionId: sessionDoc._id, status: { $ne: 'CANCELLED' } },
-      { $set: { paymentStatus: 'PAID' } }
-    );
+    await orderRepository.updatePaymentStatusBySessionId(sessionDoc._id, 'PAID');
 
     // Update DiningSession
     sessionDoc.paidAmount += totalPaymentAmount;
@@ -358,15 +318,13 @@ export class BillService {
       sessionDoc.closedAt = new Date();
     }
     sessionDoc.lastActivityAt = new Date();
-    await sessionDoc.save();
+    await diningSessionRepository.save(sessionDoc);
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'SESSION_SETTLED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: restaurantId.toString(),
-      entityType: 'Bill',
-      entityId: bill._id,
       details: {
         billNumber: bill.billNumber,
         paidAmount: totalPaymentAmount,

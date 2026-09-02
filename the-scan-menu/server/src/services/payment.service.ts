@@ -1,9 +1,10 @@
-import { Order } from '../models/Order';
+import { orderRepository } from '../repositories/order.repository';
 import { NotificationService } from './notification.service';
 import { PaymentProviderFactory } from '../integrations/payments/PaymentProviderFactory';
 import { RazorpayAdapter } from '../integrations/payments/adapters/RazorpayAdapter';
-import { Transaction, ITransaction } from '../models/Transaction';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { ITransaction } from '../models/Transaction';
+import { paymentRepository } from '../repositories/payment.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 import { auditLogService } from './auditLog.service';
 import { Types } from 'mongoose';
 import { PaymentIntent } from '../integrations/payments/PaymentProvider';
@@ -22,7 +23,7 @@ export class PaymentService {
     currency: string = 'INR',
     metadata?: Record<string, any>
   ): Promise<PaymentIntent> {
-    const settings = await RestaurantSettings.findOne({ restaurantId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     if (!settings) {
       throw new CustomError('Restaurant settings not found', 404);
     }
@@ -97,45 +98,9 @@ export class PaymentService {
     const skip = (page - 1) * limit;
 
     const [transactions, total, summaryAgg] = await Promise.all([
-      Transaction.find(query)
-        .sort({ createdAt: -1 })
-        .populate([
-          {
-            path: 'orderId',
-            select: 'orderNumber orderMode customerName customerPhone items total subtotal tax status paymentStatus tableId createdAt',
-            populate: { path: 'tableId', select: 'displayName tableNumber' }
-          },
-          {
-            path: 'diningSessionId',
-            select: 'sessionCode tableId status',
-            populate: { path: 'tableId', select: 'displayName tableNumber' }
-          },
-          { path: 'billId', select: 'billNumber netAmount balanceDue discountAmount' }
-        ])
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Transaction.countDocuments(query),
-      Transaction.aggregate([
-        { $match: { restaurantId: rId } },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: {
-              $sum: { $cond: [{ $eq: ['$status', 'CAPTURED'] }, '$amount', 0] }
-            },
-            capturedCount: {
-              $sum: { $cond: [{ $eq: ['$status', 'CAPTURED'] }, 1, 0] }
-            },
-            pendingCount: {
-              $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] }
-            },
-            failedCount: {
-              $sum: { $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0] }
-            }
-          }
-        }
-      ])
+      paymentRepository.findTransactionsWithPopulate(query, { createdAt: -1 }, skip, limit),
+      paymentRepository.countByRestaurantId(rId, query),
+      paymentRepository.aggregateSummary(rId),
     ]);
 
     const summary = summaryAgg[0] || {
@@ -149,20 +114,7 @@ export class PaymentService {
   }
 
   async getTransaction(restaurantId: string | Types.ObjectId, transactionId: string): Promise<ITransaction> {
-    const transaction = await Transaction.findOne({ _id: transactionId, restaurantId })
-      .populate([
-        {
-          path: 'orderId',
-          select: 'orderNumber orderMode customerName customerPhone items total subtotal tax status paymentStatus tableId createdAt',
-          populate: { path: 'tableId', select: 'displayName tableNumber' }
-        },
-        {
-          path: 'diningSessionId',
-          select: 'sessionCode tableId status',
-          populate: { path: 'tableId', select: 'displayName tableNumber' }
-        },
-        { path: 'billId', select: 'billNumber netAmount balanceDue discountAmount' }
-      ]);
+    const transaction = await paymentRepository.findOneWithPopulate({ _id: transactionId, restaurantId });
     if (!transaction) {
       throw new CustomError('Transaction not found', 404);
     }
@@ -175,7 +127,7 @@ export class PaymentService {
     staffUserId?: string,
     method?: string
   ): Promise<ITransaction> {
-    const transaction = await Transaction.findOne({ _id: transactionId, restaurantId });
+    const transaction = await paymentRepository.findByIdAndRestaurant(transactionId, restaurantId);
     if (!transaction) {
       throw new CustomError('Transaction not found', 404);
     }
@@ -192,13 +144,13 @@ export class PaymentService {
       capturedByStaffId: staffUserId,
       capturedAt: new Date(),
     };
-    await transaction.save();
+    await paymentRepository.save(transaction);
 
     if (transaction.orderId) {
-      const order = await Order.findById(transaction.orderId);
+      const order = await orderRepository.findById(transaction.orderId);
       if (order && order.paymentStatus !== 'PAID') {
         order.paymentStatus = 'PAID';
-        await order.save();
+        await orderRepository.save(order);
         try {
           NotificationService.getInstance().notifyOrderStatusUpdated(
             restaurantId.toString(),
@@ -223,7 +175,7 @@ export class PaymentService {
       return result;
     }
 
-    const transaction = await Transaction.findById(result.transactionId);
+    const transaction = await paymentRepository.findById(result.transactionId);
     if (!transaction) {
       console.error(`Webhook verified but transaction ${result.transactionId} not found.`);
       return result;
@@ -235,14 +187,14 @@ export class PaymentService {
 
     if (result.status === 'CAPTURED') {
       transaction.status = 'CAPTURED';
-      await transaction.save();
+      await paymentRepository.save(transaction);
 
       if (transaction.orderId) {
-        const order = await Order.findById(transaction.orderId);
+        const order = await orderRepository.findById(transaction.orderId);
         if (order && order.paymentStatus !== 'PAID') {
           order.paymentStatus = 'PAID';
 
-          const settings = await RestaurantSettings.findOne({ restaurantId: order.restaurantId });
+          const settings = await restaurantSettingsRepository.findByRestaurantId(order.restaurantId);
           const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
           if (order.status === 'PENDING' && settings?.paymentConfig?.activeMode === 'PREPAID') {
@@ -251,7 +203,7 @@ export class PaymentService {
               }
           }
 
-          await order.save();
+          await orderRepository.save(order);
 
           try {
              NotificationService.getInstance().notifyOrderStatusUpdated(
@@ -267,7 +219,7 @@ export class PaymentService {
       }
     } else if (result.status === 'FAILED') {
       transaction.status = 'FAILED';
-      await transaction.save();
+      await paymentRepository.save(transaction);
     }
 
     return result;
@@ -283,10 +235,10 @@ export class PaymentService {
     method: string = 'UPI',
     amount?: number
   ): Promise<{ order: any; transaction: any }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const oId = new Types.ObjectId(orderId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const oId = new Types.ObjectId(orderId.toString());
 
-    const order = await Order.findOne({ _id: oId, restaurantId: rId });
+    const order = await orderRepository.findByIdAndRestaurant(oId, rId);
     if (!order) {
       throw new CustomError('Order not found for this restaurant', 404);
     }
@@ -294,9 +246,9 @@ export class PaymentService {
     const payableAmount = amount !== undefined ? amount : order.total;
 
     // Find or create transaction record
-    let transaction = await Transaction.findOne({ orderId: oId, restaurantId: rId });
+    let transaction = await paymentRepository.findByOrderId(oId);
     if (!transaction) {
-      transaction = new Transaction({
+      transaction = await paymentRepository.create({
         restaurantId: rId,
         orderId: oId,
         diningSessionId: order.diningSessionId,
@@ -327,20 +279,20 @@ export class PaymentService {
         isManualVerification: true,
         method,
       };
+      await paymentRepository.save(transaction);
     }
-    await transaction.save();
 
     order.paymentStatus = 'PAID';
     order.paymentMethod = method;
 
-    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
     if (order.status === 'PENDING') {
       order.status = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
     }
 
-    await order.save();
+    await orderRepository.save(order);
 
     // Log to Audit Log
     try {
@@ -402,21 +354,18 @@ export class PaymentService {
       throw new CustomError('Razorpay payment signature verification failed', 400);
     }
 
-    const order = await Order.findOne({ _id: oId, restaurantId: rId });
+    const order = await orderRepository.findByIdAndRestaurant(oId, rId);
     if (!order) {
       throw new CustomError('Order not found', 404);
     }
 
-    let transaction = await Transaction.findOne({
-      $or: [
-        { providerReferenceId: razorpayOrderId },
-        { orderId: oId }
-      ],
-      restaurantId: rId,
-    });
+    let transaction = await paymentRepository.findByProviderReferenceId(razorpayOrderId);
+    if (!transaction) {
+      transaction = await paymentRepository.findByOrderId(oId);
+    }
 
     if (!transaction) {
-      transaction = new Transaction({
+      transaction = await paymentRepository.create({
         restaurantId: rId,
         orderId: oId,
         diningSessionId: order.diningSessionId,
@@ -442,20 +391,20 @@ export class PaymentService {
         razorpaySignature,
         verifiedAt: new Date(),
       };
+      await paymentRepository.save(transaction);
     }
-    await transaction.save();
 
     order.paymentStatus = 'PAID';
     order.paymentMethod = 'RAZORPAY';
 
-    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
     if (order.status === 'PENDING') {
       order.status = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
     }
 
-    await order.save();
+    await orderRepository.save(order);
 
     try {
       await auditLogService.logEvent({

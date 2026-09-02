@@ -1,9 +1,13 @@
 import { Types } from 'mongoose';
-import { Customer, ICustomer } from '../models/Customer';
-import { LoyaltyLedger, ILoyaltyLedger } from '../models/LoyaltyLedger';
-import { Order } from '../models/Order';
-import { RestaurantSettings, IRestaurantSettingsLoyalty } from '../models/RestaurantSettings';
-import { PlatformSettings, IPlatformSettingsLoyalty } from '../models/PlatformSettings';
+import { ICustomer } from '../models/Customer';
+import { ILoyaltyLedger } from '../models/LoyaltyLedger';
+import { IRestaurantSettingsLoyalty } from '../models/RestaurantSettings';
+import { IPlatformSettingsLoyalty } from '../models/PlatformSettings';
+import { customerRepository } from '../repositories/customer.repository';
+import { loyaltyRepository } from '../repositories/loyalty.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { platformSettingsRepository } from '../repositories/platformSettings.repository';
 
 export const DEFAULT_LOYALTY_CONFIG: IRestaurantSettingsLoyalty & { mode?: 'GLOBAL' | 'OUTLET_WISE' } = {
   mode: 'GLOBAL',
@@ -30,35 +34,15 @@ export class LoyaltyService {
    * Retrieves singleton PlatformSettings for SuperAdmin global loyalty policies
    */
   async getPlatformSettings(): Promise<any> {
-    let settings = await PlatformSettings.findOne({});
-    if (!settings) {
-      settings = await PlatformSettings.create({
-        loyalty: {
-          mode: 'GLOBAL',
-          enabled: true,
-          earningMode: 'PERCENTAGE',
-          earnPercentage: 50,
-          spendRatioPaise: 1000,
-          fixedPointsPerOrder: 50,
-          validityDays: 7,
-          pointValuePaise: 50,
-          maxRedemptionPercentPerOrder: 50,
-          minPointsToRedeem: 50,
-        },
-      });
-    }
-    return settings;
+    return platformSettingsRepository.getSettings();
   }
 
   /**
    * Updates SuperAdmin platform loyalty configuration
    */
   async updateGlobalLoyaltyPolicy(configPartial: Partial<IPlatformSettingsLoyalty>): Promise<any> {
-    const settings = await this.getPlatformSettings();
-    const current = settings.loyalty || {};
-    settings.loyalty = { ...current, ...configPartial };
-    await settings.save();
-    return settings.loyalty;
+    const updated = await platformSettingsRepository.updateSettings({ loyalty: configPartial as any });
+    return updated.loyalty;
   }
 
   /**
@@ -71,8 +55,8 @@ export class LoyaltyService {
     }
 
     // Outlet-wise mode: fetch outlet specific settings
-    const rId = new Types.ObjectId(restaurantId);
-    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
     if (!settings || !settings.loyaltyConfig) {
       return { ...DEFAULT_LOYALTY_CONFIG, ...platform.loyalty, mode: 'OUTLET_WISE' };
     }
@@ -86,10 +70,10 @@ export class LoyaltyService {
     restaurantId: string | Types.ObjectId,
     configPartial: Partial<IRestaurantSettingsLoyalty>
   ): Promise<IRestaurantSettingsLoyalty> {
-    const rId = new Types.ObjectId(restaurantId);
-    let settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const rId = new Types.ObjectId(restaurantId.toString());
+    let settings = await restaurantSettingsRepository.findByRestaurantId(rId);
     if (!settings) {
-      settings = new RestaurantSettings({
+      settings = await restaurantSettingsRepository.create({
         restaurantId: rId,
         currency: 'INR',
         timezone: 'Asia/Kolkata',
@@ -99,7 +83,7 @@ export class LoyaltyService {
     const currentConfig = settings.loyaltyConfig || { ...DEFAULT_LOYALTY_CONFIG };
     const updatedConfig = { ...currentConfig, ...configPartial };
     settings.loyaltyConfig = updatedConfig as any;
-    await settings.save();
+    await restaurantSettingsRepository.save(settings);
 
     return updatedConfig;
   }
@@ -111,21 +95,15 @@ export class LoyaltyService {
     restaurantId: string | Types.ObjectId,
     customerId: string | Types.ObjectId
   ): Promise<{ expiredPointsTotal: number }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
 
-    const customer = await Customer.findOne({ _id: cId, restaurantId: rId });
-    if (!customer) return { expiredPointsTotal: 0 };
+    const customer = await customerRepository.findById(cId);
+    if (!customer || customer.restaurantId.toString() !== rId.toString()) return { expiredPointsTotal: 0 };
 
     const now = new Date();
     // Find unredeemed points batches past their expiration timestamp
-    const expiredLedgers = await LoyaltyLedger.find({
-      restaurantId: rId,
-      customerId: cId,
-      type: 'EARN',
-      expiresAt: { $ne: null, $lte: now },
-      remainingPoints: { $gt: 0 },
-    });
+    const expiredLedgers = await loyaltyRepository.findExpiredByCustomer(cId, rId, now);
 
     if (expiredLedgers.length === 0) {
       return { expiredPointsTotal: 0 };
@@ -135,15 +113,15 @@ export class LoyaltyService {
     for (const item of expiredLedgers) {
       expiredPointsTotal += item.remainingPoints || 0;
       item.remainingPoints = 0;
-      await item.save();
+      await loyaltyRepository.save(item);
     }
 
     if (expiredPointsTotal > 0) {
       const config = await this.getLoyaltyConfig(restaurantId);
       customer.loyaltyPoints = Math.max(0, (customer.loyaltyPoints || 0) - expiredPointsTotal);
-      await customer.save();
+      await customerRepository.save(customer);
 
-      await LoyaltyLedger.create({
+      await loyaltyRepository.create({
         restaurantId: rId,
         customerId: cId,
         type: 'EXPIRE',
@@ -161,11 +139,11 @@ export class LoyaltyService {
    * Looks up a customer's loyalty profile by phone number or customer ID
    */
   async getCustomerLoyalty(restaurantId: string | Types.ObjectId, phone: string): Promise<any> {
-    const rId = new Types.ObjectId(restaurantId);
+    const rId = new Types.ObjectId(restaurantId.toString());
     const cleanPhone = phone.trim();
     const config = await this.getLoyaltyConfig(restaurantId);
 
-    const customer = await Customer.findOne({ restaurantId: rId, phone: cleanPhone });
+    const customer = await customerRepository.findByPhoneAndRestaurant(cleanPhone, rId);
 
     if (!customer) {
       return {
@@ -180,7 +158,7 @@ export class LoyaltyService {
     // Auto-expire unredeemed points first
     await this.processExpiredPoints(restaurantId, customer._id);
 
-    const updatedCust = (await Customer.findById(customer._id)) || customer;
+    const updatedCust = (await customerRepository.findById(customer._id)) || customer;
     const redeemableRupees = ((updatedCust.loyaltyPoints || 0) * config.pointValuePaise) / 100;
 
     return {
@@ -205,16 +183,16 @@ export class LoyaltyService {
     orderTotalPaise: number,
     orderId?: string | Types.ObjectId
   ): Promise<{ pointsEarned: number; newBalance: number; expiresAt?: Date }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
     const config = await this.getLoyaltyConfig(restaurantId);
 
     if (!config.enabled) {
       return { pointsEarned: 0, newBalance: 0 };
     }
 
-    const customer = await Customer.findOne({ _id: cId, restaurantId: rId });
-    if (!customer) return { pointsEarned: 0, newBalance: 0 };
+    const customer = await customerRepository.findById(cId);
+    if (!customer || customer.restaurantId.toString() !== rId.toString()) return { pointsEarned: 0, newBalance: 0 };
 
     // Auto-process expired points first
     await this.processExpiredPoints(restaurantId, customer._id);
@@ -243,12 +221,12 @@ export class LoyaltyService {
     customer.loyaltyPoints = (customer.loyaltyPoints || 0) + pointsEarned;
     customer.lifetimePointsEarned = (customer.lifetimePointsEarned || 0) + pointsEarned;
     customer.tier = this.calculateTier(customer.lifetimePointsEarned);
-    await customer.save();
+    await customerRepository.save(customer);
 
-    await LoyaltyLedger.create({
+    await loyaltyRepository.create({
       restaurantId: rId,
       customerId: cId,
-      orderId: orderId ? new Types.ObjectId(orderId) : undefined,
+      orderId: orderId ? new Types.ObjectId(orderId.toString()) : undefined,
       type: 'EARN',
       points: pointsEarned,
       remainingPoints: pointsEarned,
@@ -278,13 +256,13 @@ export class LoyaltyService {
       return { effectivePoints: 0, discountPaise: 0, pointValuePaise: config.pointValuePaise };
     }
 
-    const customer = await Customer.findOne({ _id: cId, restaurantId: rId });
-    if (!customer) {
+    const customer = await customerRepository.findById(cId);
+    if (!customer || customer.restaurantId.toString() !== rId.toString()) {
       return { effectivePoints: 0, discountPaise: 0, pointValuePaise: config.pointValuePaise };
     }
 
     await this.processExpiredPoints(restaurantId, customer._id);
-    const updatedCust = (await Customer.findById(customer._id)) || customer;
+    const updatedCust = (await customerRepository.findById(customer._id)) || customer;
 
     const availablePoints = updatedCust.loyaltyPoints || 0;
     if (availablePoints < (config.minPointsToRedeem || 50)) {
@@ -310,17 +288,17 @@ export class LoyaltyService {
     pointsToRedeem: number,
     orderId?: string | Types.ObjectId
   ): Promise<{ pointsRedeemed: number; discountPaise: number; newBalance: number }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
     const config = await this.getLoyaltyConfig(restaurantId);
 
-    const customer = await Customer.findOne({ _id: cId, restaurantId: rId });
-    if (!customer) {
+    const customer = await customerRepository.findById(cId);
+    if (!customer || customer.restaurantId.toString() !== rId.toString()) {
       throw new Error('Customer not found');
     }
 
     await this.processExpiredPoints(restaurantId, customer._id);
-    const updatedCust = (await Customer.findById(customer._id)) || customer;
+    const updatedCust = (await customerRepository.findById(customer._id)) || customer;
 
     if (pointsToRedeem <= 0 || pointsToRedeem > (updatedCust.loyaltyPoints || 0)) {
       throw new Error('Insufficient valid loyalty points');
@@ -328,13 +306,7 @@ export class LoyaltyService {
 
     // Deduct remaining points FIFO from active EARN batches
     const now = new Date();
-    const activeBatches = await LoyaltyLedger.find({
-      restaurantId: rId,
-      customerId: cId,
-      type: 'EARN',
-      remainingPoints: { $gt: 0 },
-      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-    }).sort({ createdAt: 1 });
+    const activeBatches = await loyaltyRepository.findActiveEarnBatches(cId, rId, now);
 
     let remainingToDeduct = pointsToRedeem;
     for (const batch of activeBatches) {
@@ -343,18 +315,18 @@ export class LoyaltyService {
       const deductFromBatch = Math.min(batchAvail, remainingToDeduct);
       batch.remainingPoints = batchAvail - deductFromBatch;
       remainingToDeduct -= deductFromBatch;
-      await batch.save();
+      await loyaltyRepository.save(batch);
     }
 
     updatedCust.loyaltyPoints = Math.max(0, (updatedCust.loyaltyPoints || 0) - pointsToRedeem);
-    await updatedCust.save();
+    await customerRepository.save(updatedCust);
 
     const discountPaise = pointsToRedeem * config.pointValuePaise;
 
-    await LoyaltyLedger.create({
+    await loyaltyRepository.create({
       restaurantId: rId,
       customerId: cId,
-      orderId: orderId ? new Types.ObjectId(orderId) : undefined,
+      orderId: orderId ? new Types.ObjectId(orderId.toString()) : undefined,
       type: 'REDEEM',
       points: -pointsToRedeem,
       rupeeValuePaise: discountPaise,
@@ -375,12 +347,12 @@ export class LoyaltyService {
     reason: string,
     staffUserId?: string
   ): Promise<ICustomer> {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
     const config = await this.getLoyaltyConfig(restaurantId);
 
-    const customer = await Customer.findOne({ _id: cId, restaurantId: rId });
-    if (!customer) {
+    const customer = await customerRepository.findById(cId);
+    if (!customer || customer.restaurantId.toString() !== rId.toString()) {
       throw new Error('Customer not found');
     }
 
@@ -389,12 +361,12 @@ export class LoyaltyService {
       customer.lifetimePointsEarned = (customer.lifetimePointsEarned || 0) + pointsDelta;
       customer.tier = this.calculateTier(customer.lifetimePointsEarned);
     }
-    await customer.save();
+    await customerRepository.save(customer);
 
     const validityDays = config.validityDays !== undefined ? config.validityDays : 7;
     const expiresAt = pointsDelta > 0 && validityDays > 0 ? new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000) : undefined;
 
-    await LoyaltyLedger.create({
+    await loyaltyRepository.create({
       restaurantId: rId,
       customerId: cId,
       type: 'ADJUST',
@@ -414,10 +386,10 @@ export class LoyaltyService {
    * Retrieves points ledger history for a customer
    */
   async getCustomerLedger(restaurantId: string | Types.ObjectId, customerId: string | Types.ObjectId): Promise<ILoyaltyLedger[]> {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
     await this.processExpiredPoints(rId, cId);
-    return await LoyaltyLedger.find({ restaurantId: rId, customerId: cId }).sort({ createdAt: -1 }).limit(50);
+    return loyaltyRepository.findByCustomerAndRestaurant(cId, rId, { createdAt: -1 }, 0, 50);
   }
 
   /**
@@ -428,16 +400,13 @@ export class LoyaltyService {
     sortBy: 'points' | 'spend' | 'visits' = 'points',
     limit = 20
   ): Promise<any[]> {
-    const rId = new Types.ObjectId(restaurantId);
+    const rId = new Types.ObjectId(restaurantId.toString());
     const config = await this.getLoyaltyConfig(restaurantId);
     let sortObj: any = { loyaltyPoints: -1 };
     if (sortBy === 'spend') sortObj = { totalSpent: -1 };
     if (sortBy === 'visits') sortObj = { totalOrdersCount: -1 };
 
-    const customers = await Customer.find({ restaurantId: rId })
-      .sort(sortObj)
-      .limit(limit)
-      .lean();
+    const customers = await customerRepository.findByRestaurantId(rId, {}, sortObj, 0, limit);
 
     return customers.map((c: any, index: number) => ({
       rank: index + 1,
@@ -463,8 +432,8 @@ export class LoyaltyService {
     phone?: string,
     name?: string
   ): Promise<{ creditedOrdersCount: number; pointsAdded: number }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const cId = new Types.ObjectId(customerId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const cId = new Types.ObjectId(customerId.toString());
 
     // Build order match query for completed/served orders belonging to this customer
     const matchConditions: any[] = [{ customerId: cId }];
@@ -475,22 +444,23 @@ export class LoyaltyService {
       matchConditions.push({ customerName: { $regex: new RegExp(`^${name.trim()}$`, 'i') } });
     }
 
-    const completedOrders = await Order.find({
-      restaurantId: rId,
-      status: { $in: ['SERVED', 'COMPLETED', 'DELIVERED', 'READY', 'ACCEPTED'] },
-      $or: matchConditions,
-    });
+    const completedOrders = await orderRepository.findByRestaurantId(
+      rId,
+      {
+        status: { $in: ['SERVED', 'COMPLETED', 'DELIVERED', 'READY', 'ACCEPTED'] },
+        $or: matchConditions,
+      },
+      {},
+      0,
+      1000
+    );
 
     let creditedOrdersCount = 0;
     let pointsAdded = 0;
 
     for (const order of completedOrders) {
       // Check if LoyaltyLedger entry already exists for this order
-      const existingLedger = await LoyaltyLedger.findOne({
-        restaurantId: rId,
-        orderId: order._id,
-        type: 'EARN',
-      });
+      const existingLedger = await loyaltyRepository.findByOrderAndRestaurant(order._id, rId, 'EARN');
 
       if (!existingLedger) {
         // Link customer identity to order if missing
@@ -501,7 +471,7 @@ export class LoyaltyService {
           order.customerPhone = phone.trim();
         }
         (order as any).hasEarnedLoyaltyPoints = true;
-        await order.save();
+        await orderRepository.save(order);
 
         const res = await this.earnPoints(rId, cId, order.total || 0, order._id);
         if (res.pointsEarned > 0) {

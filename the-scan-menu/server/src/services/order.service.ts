@@ -1,17 +1,18 @@
 import { Types } from 'mongoose';
-import { Order, IOrder, OrderStatus, OrderMode } from '../models/Order';
-import { Customer } from '../models/Customer';
-import { LoyaltyLedger } from '../models/LoyaltyLedger';
-import { Table } from '../models/Table';
-import { DiningSession } from '../models/DiningSession';
+import { IOrder, OrderStatus, OrderMode } from '../models/Order';
+import { orderRepository } from '../repositories/order.repository';
+import { customerRepository } from '../repositories/customer.repository';
+import { loyaltyRepository } from '../repositories/loyalty.repository';
+import { tableRepository } from '../repositories/table.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
 import { diningSessionService } from './diningSession.service';
-import { Bill } from '../models/Bill';
-import { Payment } from '../models/Payment';
-import { MenuItem } from '../models/MenuItem';
-import { Category } from '../models/Category';
-import { Tax } from '../models/Tax';
-import { Restaurant } from '../models/Restaurant';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { billRepository } from '../repositories/bill.repository';
+import { paymentRepository } from '../repositories/payment.repository';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { categoryRepository } from '../repositories/category.repository';
+import { taxRepository } from '../repositories/tax.repository';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 import { inventoryService } from './inventory.service';
 import { getNextOrderNumber } from '../utils/orderCounter';
 import { validateStatusTransition } from '../utils/orderStateMachine';
@@ -22,7 +23,7 @@ import { customerService } from './customer.service';
 import { loyaltyService } from './loyalty.service';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
 import { calculateRoundOff } from '../utils/rounding.util';
-import { AuditLog } from '../models/AuditLog';
+import { auditLogRepository } from '../repositories/auditLog.repository';
 
 class CustomError extends Error {
   status: number;
@@ -94,14 +95,14 @@ export class OrderService {
     }
 
     // 1. Validate Menu Items & Categories
-    const categories = await Category.find({ restaurantId: new Types.ObjectId(restaurantId) });
+    const categories = await categoryRepository.findByRestaurantId(restaurantId);
     const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
 
     const failedItems: any[] = [];
     const validatedItems = [];
 
     for (const item of items) {
-      const menuItem = await MenuItem.findById(item.itemId);
+      const menuItem = await menuItemRepository.findById(item.itemId);
       if (!menuItem || menuItem.restaurantId.toString() !== restaurantId.toString()) {
         failedItems.push({ itemId: item.itemId, menuItemId: item.itemId, name: 'Unknown Item', reason: 'unavailable' });
         continue;
@@ -179,7 +180,7 @@ export class OrderService {
 
     // 3. Compute Totals and Taxes Server-Side
     const subtotal = validatedItems.reduce((sum, item) => sum + item.itemSubtotal, 0);
-    const activeTaxes: any[] = await Tax.find({ restaurantId: new Types.ObjectId(restaurantId), isActive: true });
+    const activeTaxes = await taxRepository.findActiveByRestaurantId(restaurantId);
 
     let tax = 0;
     const taxBreakdown: any[] = [];
@@ -220,7 +221,7 @@ export class OrderService {
       });
     }
 
-    const restaurantSettings = await RestaurantSettings.findOne({ restaurantId: new Types.ObjectId(restaurantId) });
+    const restaurantSettings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     const unroundedTotal = subtotal + tax;
     const { roundedTotal: total, roundOff } = calculateRoundOff(unroundedTotal, restaurantSettings?.roundingConfig);
 
@@ -259,11 +260,7 @@ export class OrderService {
     const isAnonymousOrder = !diningSessionId;
     if (orderMode === 'DINE_IN' && tableId && isCustomerSource && isAnonymousOrder) {
       // Check if the table session is in BILL_REQUESTED state before attempting merge
-      const tableSession = await DiningSession.findOne({
-        restaurantId: new Types.ObjectId(restaurantId),
-        tableId: new Types.ObjectId(tableId),
-        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-      });
+      const tableSession = await diningSessionRepository.findActiveByTableId(tableId);
 
       if (tableSession?.status === 'BILL_REQUESTED') {
         throw new CustomError(
@@ -273,18 +270,18 @@ export class OrderService {
         );
       }
 
-      const pendingRound = await Order.findOne({
-        restaurantId: new Types.ObjectId(restaurantId),
-        tableId: new Types.ObjectId(tableId),
+      const pendingRounds = await orderRepository.findByRestaurantId(restaurantId, {
+        tableId: new Types.ObjectId(tableId.toString()),
         status: 'PENDING',
       });
+      const pendingRound = pendingRounds[0];
 
       if (pendingRound) {
         // Check if a Bill has been generated for this round's session.
         // A SUPERSEDED bill signals that the session went through a bill-request/reopen cycle,
         // which closes the merge window — new orders must start a new round.
         const priorBill = pendingRound.diningSessionId
-          ? await Bill.findOne({ diningSessionId: pendingRound.diningSessionId })
+          ? await billRepository.findByDiningSessionId(pendingRound.diningSessionId)
           : null;
 
         if (!priorBill) {
@@ -300,13 +297,15 @@ export class OrderService {
           pendingRound.total = mergedSubtotal + pendingRound.tax;
           (pendingRound as any).isMerged = true;
 
-          await pendingRound.save();
+          await orderRepository.save(pendingRound);
 
           // Update session totals
           if (tableSession) {
-            await DiningSession.findByIdAndUpdate(tableSession._id, {
-              $inc: { subtotal, tax, total, balanceDue: total },
-              $set: { lastActivityAt: new Date() },
+            await diningSessionRepository.incFinancials(tableSession._id, {
+              subtotal,
+              tax,
+              total,
+              balanceDue: total,
             });
           }
 
@@ -322,10 +321,7 @@ export class OrderService {
 
     if (orderMode === 'DINE_IN' && tableId) {
       if (diningSessionId) {
-        const existingSession = await DiningSession.findOne({
-          _id: new Types.ObjectId(diningSessionId),
-          restaurantId: new Types.ObjectId(restaurantId),
-        });
+        const existingSession = await diningSessionRepository.findByIdAndRestaurant(diningSessionId, restaurantId);
 
         if (existingSession) {
           if (existingSession.status === 'BILL_REQUESTED') {
@@ -347,11 +343,7 @@ export class OrderService {
       }
 
       if (!resolvedDiningSession) {
-        const tableActiveSession = await DiningSession.findOne({
-          restaurantId: new Types.ObjectId(restaurantId),
-          tableId: new Types.ObjectId(tableId),
-          status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-        });
+        const tableActiveSession = await diningSessionRepository.findActiveByTableId(tableId);
 
         if (tableActiveSession) {
           if (tableActiveSession.status === 'BILL_REQUESTED') {
@@ -366,9 +358,9 @@ export class OrderService {
       }
 
       if (!resolvedDiningSession) {
-        resolvedDiningSession = new DiningSession({
-          restaurantId: new Types.ObjectId(restaurantId),
-          tableId: new Types.ObjectId(tableId),
+        resolvedDiningSession = await diningSessionRepository.create({
+          restaurantId: new Types.ObjectId(restaurantId.toString()),
+          tableId: new Types.ObjectId(tableId.toString()),
           sessionCode: `S-${Math.floor(1000 + Math.random() * 9000)}`,
           joinPin: Math.floor(1000 + Math.random() * 9000).toString(),
           status: 'ACTIVE',
@@ -386,25 +378,15 @@ export class OrderService {
           openedAt: new Date(),
           lastActivityAt: new Date(),
         });
-        await resolvedDiningSession.save();
         roundNumber = 1;
       } else {
-        const updatedSession = await DiningSession.findByIdAndUpdate(
-          resolvedDiningSession._id,
-          {
-            $inc: {
-              roundCount: 1,
-              subtotal,
-              tax,
-              total,
-              balanceDue: total,
-            },
-            $set: {
-              lastActivityAt: new Date(),
-            },
-          },
-          { new: true }
-        );
+        const updatedSession = await diningSessionRepository.incFinancials(resolvedDiningSession._id, {
+          roundCount: 1,
+          subtotal,
+          tax,
+          total,
+          balanceDue: total,
+        });
         if (updatedSession) {
           resolvedDiningSession = updatedSession;
         }
@@ -413,14 +395,14 @@ export class OrderService {
     }
 
     // 5. Allocate Monotonically Increasing Order Number
-    const orderNumber = await getNextOrderNumber(new Types.ObjectId(restaurantId));
+    const orderNumber = await getNextOrderNumber(new Types.ObjectId(restaurantId.toString()));
 
     // 6. Create Immutable Order Ticket
-    const order = new Order({
-      restaurantId: new Types.ObjectId(restaurantId),
-      tableId: tableId ? new Types.ObjectId(tableId) : undefined,
+    const order = await orderRepository.create({
+      restaurantId: new Types.ObjectId(restaurantId.toString()),
+      tableId: tableId ? new Types.ObjectId(tableId.toString()) : undefined,
       diningSessionId: resolvedDiningSession ? resolvedDiningSession._id : undefined,
-      guestSessionId: guestSessionId ? new Types.ObjectId(guestSessionId) : undefined,
+      guestSessionId: guestSessionId ? new Types.ObjectId(guestSessionId.toString()) : undefined,
       customerId: resolvedCustomerId,
       orderMode,
       deliveryAddress,
@@ -442,8 +424,7 @@ export class OrderService {
       integrationMetadata: {},
     });
 
-    await order.save();
-    await restaurantStatsService.recordOrderCreated(new Types.ObjectId(restaurantId));
+    await restaurantStatsService.recordOrderCreated(new Types.ObjectId(restaurantId.toString()));
 
     if (resolvedCustomerId) {
       customerService.recordCustomerOrder(resolvedCustomerId, total);
@@ -455,7 +436,7 @@ export class OrderService {
       const rawMethod = ((paymentMethod || (order.source === 'POS' ? 'CASH' : 'CASH')) as string).toUpperCase();
       const provider = ['UPI', 'CASH', 'CARD', 'RAZORPAY', 'STRIPE'].includes(rawMethod) ? rawMethod : 'CASH';
 
-      await Payment.create({
+      await paymentRepository.create({
         restaurantId: order.restaurantId,
         orderId: order._id,
         diningSessionId: order.diningSessionId,
@@ -508,12 +489,12 @@ export class OrderService {
 
       setTimeout(async () => {
         try {
-          const freshOrder = await Order.findById(orderIdStr);
+          const freshOrder = await orderRepository.findById(orderIdStr);
           if (!freshOrder || freshOrder.status !== 'PENDING') return;
 
           const nextStatus = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
           freshOrder.status = nextStatus as any;
-          await freshOrder.save();
+          await orderRepository.save(freshOrder);
 
           NotificationService.getInstance().notifyOrderStatusUpdated(
             restIdStr,
@@ -540,10 +521,7 @@ export class OrderService {
     userRole: 'SUPER_ADMIN' | 'MANAGER' | 'STAFF',
     paymentUpdate?: { paymentStatus: 'PAID' | 'PENDING'; paymentMethod?: string }
   ): Promise<IOrder> {
-    const order = await Order.findOne({
-      _id: new Types.ObjectId(orderId),
-      restaurantId: new Types.ObjectId(restaurantId),
-    });
+    const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
     if (!order) {
       throw new CustomError('ORDER_NOT_FOUND', 'Order not found', 404);
@@ -556,7 +534,7 @@ export class OrderService {
       }
     }
 
-    const settings = await RestaurantSettings.findOne({ restaurantId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
     const validation = validateStatusTransition(order.status, nextStatus, userRole, workflowMode);
@@ -566,7 +544,7 @@ export class OrderService {
     }
 
     // Prepaid Mode Guard: Cannot move past PENDING into kitchen preparation/fulfillment unless payment is PAID
-    const restaurant = await Restaurant.findById(restaurantId);
+    const restaurant = await restaurantRepository.findById(restaurantId);
     const paymentMode =
       settings?.paymentConfig?.activeMode ||
       (restaurant as any)?.paymentConfig?.activeMode ||
@@ -583,7 +561,7 @@ export class OrderService {
     }
 
     order.status = nextStatus;
-    await order.save();
+    await orderRepository.save(order);
 
     // Accrue loyalty points when order status transitions to SERVED, COMPLETED, DELIVERED, READY or ACCEPTED
     if (['SERVED', 'COMPLETED', 'DELIVERED', 'READY', 'ACCEPTED'].includes(nextStatus)) {
@@ -603,7 +581,7 @@ export class OrderService {
       );
 
       if (order.diningSessionId) {
-        const session = await DiningSession.findById(order.diningSessionId);
+        const session = await diningSessionRepository.findById(order.diningSessionId);
         if (session) {
           NotificationService.getInstance().notifySessionUpdated(
             restaurantId.toString(),
@@ -628,10 +606,7 @@ export class OrderService {
     staffUserId?: string,
     reason?: string
   ): Promise<IOrder> {
-    const order = await Order.findOne({
-      _id: new Types.ObjectId(orderId),
-      restaurantId: new Types.ObjectId(restaurantId),
-    });
+    const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
     if (!order) {
       throw new CustomError('ORDER_NOT_FOUND', 'Order not found', 404);
@@ -642,7 +617,7 @@ export class OrderService {
     }
 
     order.status = 'CANCELLED';
-    await order.save();
+    await orderRepository.save(order);
 
     // Restore inventory quantities for all tracked items in cancelled order
     try {
@@ -669,14 +644,14 @@ export class OrderService {
 
     // Recalculate session totals if dine-in
     if (order.diningSessionId) {
-      const session = await DiningSession.findById(order.diningSessionId);
+      const session = await diningSessionRepository.findById(order.diningSessionId);
       if (session) {
         session.subtotal = Math.max(0, session.subtotal - order.subtotal);
         session.tax = Math.max(0, session.tax - order.tax);
         session.total = Math.max(0, session.total - order.total);
         session.balanceDue = Math.max(0, session.total - session.paidAmount);
         session.lastActivityAt = new Date();
-        await session.save();
+        await diningSessionRepository.save(session);
 
         try {
           NotificationService.getInstance().notifySessionUpdated(
@@ -690,13 +665,11 @@ export class OrderService {
       }
     }
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'ORDER_CANCELLED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: restaurantId.toString(),
-      entityType: 'Order',
-      entityId: order._id,
       details: { orderNumber: order.orderNumber, reason, amount: order.total },
     });
 
@@ -722,10 +695,7 @@ export class OrderService {
     orderId: Types.ObjectId | string,
     staffUserId?: string
   ): Promise<IOrder> {
-    const order = await Order.findOne({
-      _id: new Types.ObjectId(orderId),
-      restaurantId: new Types.ObjectId(restaurantId),
-    });
+    const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
     if (!order) {
       throw new CustomError('ORDER_NOT_FOUND', 'Order not found', 404);
@@ -739,16 +709,13 @@ export class OrderService {
     if (order.paymentStatus === 'PENDING') {
       order.paymentStatus = 'PAID';
     }
-    await order.save();
+    await orderRepository.save(order);
 
     // 1. If linked to a dining session, close session and clear all orders for that session
     const sessId = order.diningSessionId || order.sessionId;
     if (sessId) {
       try {
-        const session = await DiningSession.findOne({
-          _id: new Types.ObjectId(sessId),
-          restaurantId: new Types.ObjectId(restaurantId),
-        });
+        const session = await diningSessionRepository.findByIdAndRestaurant(sessId, restaurantId);
         if (session && session.status !== 'CLOSED') {
           await diningSessionService.closeSession(restaurantId, session._id, staffUserId);
         }
@@ -756,47 +723,31 @@ export class OrderService {
         console.error('Error closing dining session during clearOrder:', sessErr);
       }
 
-      await Order.updateMany(
-        {
-          restaurantId: new Types.ObjectId(restaurantId),
-          $or: [{ diningSessionId: new Types.ObjectId(sessId) }, { sessionId: new Types.ObjectId(sessId) }],
-          status: { $ne: 'CANCELLED' },
-        },
-        {
-          $set: {
-            status: 'COMPLETED',
-            isCleared: true,
-            clearedAt: new Date(),
-            paymentStatus: 'PAID',
-          },
-        }
-      );
+      await orderRepository.updateStatusBySessionId(sessId, 'COMPLETED');
+      await orderRepository.updatePaymentStatusBySessionId(sessId, 'PAID');
     }
 
     // 2. If table is associated, check if any uncleared non-cancelled orders remain on this table
     if (order.tableId) {
-      const remainingTableOrders = await Order.countDocuments({
-        restaurantId: new Types.ObjectId(restaurantId),
+      const remainingTableOrders = await orderRepository.countByRestaurantId(restaurantId, {
         tableId: order.tableId,
         isCleared: { $ne: true },
         status: { $nin: ['CANCELLED'] },
       });
 
       if (remainingTableOrders === 0) {
-        const table = await Table.findByIdAndUpdate(order.tableId, { $set: { status: 'AVAILABLE' } }, { new: true });
+        const table = await tableRepository.updateById(order.tableId, { status: 'AVAILABLE' });
         if (table?.token) {
           NotificationService.getInstance().notifyTableCleared(table.token, { orderId: order._id });
         }
       }
     }
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'ORDER_CLEARED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: restaurantId.toString(),
-      entityType: 'Order',
-      entityId: order._id,
       details: { orderNumber: order.orderNumber, total: order.total, tableId: order.tableId },
     });
 
@@ -826,14 +777,14 @@ export async function accrueLoyaltyForOrder(
     return false;
   }
 
-  const rId = new Types.ObjectId(restaurantId);
+  const rId = new Types.ObjectId(restaurantId.toString());
 
   // Check if ledger entry already exists for this order
-  const existingLedger = await LoyaltyLedger.findOne({ orderId: order._id, type: 'EARN' });
+  const existingLedger = await loyaltyRepository.findByOrderAndRestaurant(order._id, rId);
   if (existingLedger) {
     if (!(order as any).hasEarnedLoyaltyPoints) {
       (order as any).hasEarnedLoyaltyPoints = true;
-      await order.save().catch(() => {});
+      await orderRepository.save(order).catch(() => {});
     }
     return true;
   }
@@ -844,8 +795,7 @@ export async function accrueLoyaltyForOrder(
 
   // If customerId is missing but name exists (e.g. "Dev"), search for matching customer profile
   if (!customerId && !phone && name && name !== 'Diner') {
-    const existingCust = await Customer.findOne({
-      restaurantId: rId,
+    const existingCust = await customerRepository.findOneByRestaurant(rId, {
       name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
     });
     if (existingCust) {
@@ -871,7 +821,7 @@ export async function accrueLoyaltyForOrder(
   if (customerId) {
     try {
       (order as any).hasEarnedLoyaltyPoints = true;
-      await order.save();
+      await orderRepository.save(order);
 
       await customerService.recordCustomerOrder(customerId, order.total || 0);
       await loyaltyService.earnPoints(rId, customerId, order.total || 0, order._id);
@@ -879,7 +829,7 @@ export async function accrueLoyaltyForOrder(
     } catch (err) {
       console.error(`[LoyaltyAccrual] Failed for order ${order._id}:`, err);
       (order as any).hasEarnedLoyaltyPoints = false;
-      await order.save().catch(() => {});
+      await orderRepository.save(order).catch(() => {});
       return false;
     }
   }

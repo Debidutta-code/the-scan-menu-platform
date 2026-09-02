@@ -1,5 +1,6 @@
-import { SubscriptionPlan, ISubscriptionPlan } from '../models/SubscriptionPlan';
-import { Restaurant } from '../models/Restaurant';
+import { ISubscriptionPlan } from '../models/SubscriptionPlan';
+import { subscriptionRepository } from '../repositories/subscription.repository';
+import { restaurantRepository } from '../repositories/restaurant.repository';
 import { featureFlagService, DEFAULT_FLAGS } from './featureFlag.service';
 import { Types, ClientSession } from 'mongoose';
 
@@ -8,25 +9,25 @@ export class SubscriptionService {
    * Retrieves all available subscription plans.
    */
   async getAllPlans(): Promise<ISubscriptionPlan[]> {
-    return await SubscriptionPlan.find().sort({ createdAt: 1 });
+    return subscriptionRepository.findAll();
   }
 
   /**
    * Retrieves a specific subscription plan by its key.
    */
   async getPlanByKey(key: string): Promise<ISubscriptionPlan | null> {
-    return await SubscriptionPlan.findOne({ key });
+    return subscriptionRepository.findByKey(key);
   }
 
   /**
    * Retrieves the current subscription plan for a given restaurant.
    */
   async getRestaurantPlan(restaurantId: string | Types.ObjectId): Promise<ISubscriptionPlan | null> {
-    const restaurant = await Restaurant.findById(restaurantId);
+    const restaurant = await restaurantRepository.findById(restaurantId);
     if (!restaurant || !restaurant.subscription) {
       return null;
     }
-    return await SubscriptionPlan.findOne({ key: restaurant.subscription.planKey });
+    return subscriptionRepository.findByKey(restaurant.subscription.planKey);
   }
 
   /**
@@ -39,15 +40,9 @@ export class SubscriptionService {
     }
 
     // 1. Update the Restaurant's subscription plan
-    await Restaurant.findByIdAndUpdate(
-      restaurantId,
-      {
-        $set: {
-          'subscription.planKey': planKey,
-        },
-      },
-      { session }
-    );
+    await restaurantRepository.updateById(restaurantId, {
+      'subscription.planKey': planKey,
+    } as any, session);
 
     // 2. Sync Feature Flags
     // Create an array of updates for all DEFAULT_FLAGS

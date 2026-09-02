@@ -1,12 +1,12 @@
 import mongoose, { Types } from 'mongoose';
-import { Restaurant } from '../models/Restaurant';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { Table } from '../models/Table';
-import { Category } from '../models/Category';
-import { MenuItem } from '../models/MenuItem';
-import { Tax } from '../models/Tax';
-import { FeatureFlag } from '../models/FeatureFlag';
-import { RestaurantStaff } from '../models/RestaurantStaff';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { tableRepository } from '../repositories/table.repository';
+import { categoryRepository } from '../repositories/category.repository';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { taxRepository } from '../repositories/tax.repository';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
+import { restaurantStaffRepository } from '../repositories/restaurantStaff.repository';
 import { DEFAULT_FLAGS } from './featureFlag.service';
 import { loyaltyService } from './loyalty.service';
 
@@ -59,14 +59,14 @@ export class OutletSetupAuditService {
     const rId = typeof restaurantId === 'string' ? new Types.ObjectId(restaurantId) : restaurantId;
 
     const [restaurant, settings, tables, categories, menuItems, taxes, flags, staffJoins] = await Promise.all([
-      Restaurant.findById(rId),
-      RestaurantSettings.findOne({ restaurantId: rId }),
-      Table.find({ restaurantId: rId, isArchived: { $ne: true } }),
-      Category.find({ restaurantId: rId, isActive: { $ne: false } }),
-      MenuItem.find({ restaurantId: rId, isAvailable: { $ne: false } }),
-      Tax.find({ restaurantId: rId, isActive: true }),
-      FeatureFlag.find({ restaurantId: rId }),
-      RestaurantStaff.find({ restaurantId: rId, isActive: true }),
+      restaurantRepository.findById(rId),
+      restaurantSettingsRepository.findByRestaurantId(rId),
+      tableRepository.findByRestaurantId(rId, { isArchived: { $ne: true } }),
+      categoryRepository.findByRestaurantId(rId, { isActive: { $ne: false } }),
+      menuItemRepository.findByRestaurantId(rId, { isAvailable: { $ne: false } }),
+      taxRepository.findActiveByRestaurantId(rId),
+      featureFlagRepository.findByRestaurantId(rId),
+      restaurantStaffRepository.findActiveByRestaurantId(rId),
     ]);
 
     if (!restaurant) {

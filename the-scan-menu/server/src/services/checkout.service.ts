@@ -1,12 +1,13 @@
 import { Types } from 'mongoose';
-import { CheckoutAttempt, ICheckoutAttempt, ICartSnapshotItem } from '../models/CheckoutAttempt';
-import { DiningSession } from '../models/DiningSession';
-import { MenuItem } from '../models/MenuItem';
-import { Category } from '../models/Category';
-import { Tax } from '../models/Tax';
-import { Order } from '../models/Order';
-import { Payment } from '../models/Payment';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { ICheckoutAttempt, ICartSnapshotItem } from '../models/CheckoutAttempt';
+import { checkoutAttemptRepository } from '../repositories/checkoutAttempt.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { categoryRepository } from '../repositories/category.repository';
+import { taxRepository } from '../repositories/tax.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { paymentRepository } from '../repositories/payment.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 import { inventoryService } from './inventory.service';
 import { PaymentProviderFactory } from '../integrations/payments/PaymentProviderFactory';
 import { RazorpayAdapter } from '../integrations/payments/adapters/RazorpayAdapter';
@@ -73,9 +74,9 @@ export class CheckoutService {
     } = params;
 
     // 1. Idempotency Check
-    const existingAttempt = await CheckoutAttempt.findOne({ idempotencyKey });
+    const existingAttempt = await checkoutAttemptRepository.findByIdempotencyKeyOnly(idempotencyKey);
     if (existingAttempt) {
-      const settings = await RestaurantSettings.findOne({ restaurantId });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       const razorpayKeyId = settings?.paymentConfig?.razorpayConfig?.keyId;
       return {
         checkoutAttempt: existingAttempt,
@@ -91,14 +92,14 @@ export class CheckoutService {
     }
 
     // 2. Validate Items & Stock Server-Side
-    const categories = await Category.find({ restaurantId: new Types.ObjectId(restaurantId) });
+    const categories = await categoryRepository.findByRestaurantId(restaurantId);
     const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
 
     const failedItems: any[] = [];
     const validatedItems: ICartSnapshotItem[] = [];
 
     for (const item of items) {
-      const menuItem = await MenuItem.findById(item.itemId);
+      const menuItem = await menuItemRepository.findById(item.itemId);
       if (!menuItem || menuItem.restaurantId.toString() !== restaurantId.toString()) {
         failedItems.push({ itemId: item.itemId, name: 'Unknown Item', reason: 'unavailable' });
         continue;
@@ -162,7 +163,7 @@ export class CheckoutService {
 
     // 3. Compute Totals & Taxes Server-Side
     const subtotal = validatedItems.reduce((sum, vi) => sum + vi.itemSubtotal, 0);
-    const activeTaxes: any[] = await Tax.find({ restaurantId: new Types.ObjectId(restaurantId), isActive: true });
+    const activeTaxes = await taxRepository.findActiveByRestaurantId(restaurantId);
 
     let tax = 0;
     const taxBreakdown: any[] = [];
@@ -203,22 +204,18 @@ export class CheckoutService {
       });
     }
 
-    const settings = await RestaurantSettings.findOne({ restaurantId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     const unroundedTotal = subtotal + tax;
     const { roundedTotal: total, roundOff } = calculateRoundOff(unroundedTotal, settings?.roundingConfig);
 
     // 4. Resolve or create dining session if dine-in
-    let resolvedDiningSessionId = diningSessionId ? new Types.ObjectId(diningSessionId) : undefined;
+    let resolvedDiningSessionId = diningSessionId ? new Types.ObjectId(diningSessionId.toString()) : undefined;
     if (orderMode === 'DINE_IN' && tableId && !resolvedDiningSessionId) {
-      let activeSession = await DiningSession.findOne({
-        restaurantId: new Types.ObjectId(restaurantId),
-        tableId: new Types.ObjectId(tableId),
-        status: 'ACTIVE',
-      });
+      let activeSession = await diningSessionRepository.findActiveByTableId(tableId);
       if (!activeSession) {
-        activeSession = new DiningSession({
-          restaurantId: new Types.ObjectId(restaurantId),
-          tableId: new Types.ObjectId(tableId),
+        activeSession = await diningSessionRepository.create({
+          restaurantId: new Types.ObjectId(restaurantId.toString()),
+          tableId: new Types.ObjectId(tableId.toString()),
           sessionCode: `S-${Math.floor(1000 + Math.random() * 9000)}`,
           joinPin: Math.floor(1000 + Math.random() * 9000).toString(),
           status: 'ACTIVE',
@@ -235,7 +232,6 @@ export class CheckoutService {
           openedAt: new Date(),
           lastActivityAt: new Date(),
         });
-        await activeSession.save();
       }
       resolvedDiningSessionId = activeSession._id;
     }
@@ -254,11 +250,11 @@ export class CheckoutService {
     }
 
     // 6. Persist CheckoutAttempt Document
-    const attempt = new CheckoutAttempt({
-      restaurantId: new Types.ObjectId(restaurantId),
-      tableId: tableId ? new Types.ObjectId(tableId) : undefined,
+    const attempt = await checkoutAttemptRepository.create({
+      restaurantId: new Types.ObjectId(restaurantId.toString()),
+      tableId: tableId ? new Types.ObjectId(tableId.toString()) : undefined,
       diningSessionId: resolvedDiningSessionId,
-      guestSessionId: guestSessionId ? new Types.ObjectId(guestSessionId) : undefined,
+      guestSessionId: guestSessionId ? new Types.ObjectId(guestSessionId.toString()) : undefined,
       idempotencyKey,
       customerName,
       customerPhone,
@@ -275,7 +271,6 @@ export class CheckoutService {
       gatewayProvider: provider,
       gatewayOrderId,
     });
-    await attempt.save();
 
     const razorpayKeyId = settings?.paymentConfig?.razorpayConfig?.keyId;
 
@@ -296,7 +291,7 @@ export class CheckoutService {
     gatewayPaymentId: string,
     gatewaySignature?: string
   ): Promise<any> {
-    const existingAttempt = await CheckoutAttempt.findById(checkoutAttemptId);
+    const existingAttempt = await checkoutAttemptRepository.findById(checkoutAttemptId);
     if (!existingAttempt) {
       throw new CustomError('ATTEMPT_NOT_FOUND', 'Checkout attempt not found', 404);
     }
@@ -318,16 +313,12 @@ export class CheckoutService {
     }
 
     // Atomic lock on CheckoutAttempt to prevent duplicate processing
-    const attempt = await CheckoutAttempt.findOneAndUpdate(
-      { _id: new Types.ObjectId(checkoutAttemptId), status: 'PAYMENT_PENDING' },
-      { $set: { status: 'PAYMENT_SUCCESS', gatewayPaymentId } },
-      { new: true }
-    );
+    const attempt = await checkoutAttemptRepository.lockPending(checkoutAttemptId, gatewayPaymentId);
 
     if (!attempt) {
-      const existing = await CheckoutAttempt.findById(checkoutAttemptId);
+      const existing = await checkoutAttemptRepository.findById(checkoutAttemptId);
       if (existing && existing.status === 'ORDER_CREATED' && existing.orderId) {
-        const order = await Order.findById(existing.orderId);
+        const order = await orderRepository.findById(existing.orderId);
         return order;
       }
       throw new CustomError('ATTEMPT_ALREADY_PROCESSED', 'This checkout attempt has already been processed', 409);
@@ -338,7 +329,7 @@ export class CheckoutService {
 
       let roundNumber = 1;
       if (attempt.diningSessionId) {
-        const session = await DiningSession.findById(attempt.diningSessionId);
+        const session = await diningSessionRepository.findById(attempt.diningSessionId);
         if (session) {
           session.roundCount += 1;
           session.subtotal += attempt.subtotal;
@@ -346,7 +337,7 @@ export class CheckoutService {
           session.total += attempt.total;
           session.paidAmount += attempt.total;
           session.lastActivityAt = new Date();
-          await session.save();
+          await diningSessionRepository.save(session);
           roundNumber = session.roundCount;
         }
       }
@@ -368,7 +359,7 @@ export class CheckoutService {
       }
 
       // Create Immutable Order Ticket
-      const order = new Order({
+      const order = await orderRepository.create({
         restaurantId: attempt.restaurantId,
         tableId: attempt.tableId,
         diningSessionId: attempt.diningSessionId,
@@ -407,7 +398,6 @@ export class CheckoutService {
         },
       });
 
-      await order.save();
       await restaurantStatsService.recordOrderCreated(attempt.restaurantId);
 
       if (resolvedCustomerId) {
@@ -415,7 +405,7 @@ export class CheckoutService {
       }
 
       // Create Payment Transaction Record
-      const payment = new Payment({
+      await paymentRepository.create({
         restaurantId: attempt.restaurantId,
         diningSessionId: attempt.diningSessionId,
         checkoutAttemptId: attempt._id,
@@ -427,12 +417,11 @@ export class CheckoutService {
         status: 'CAPTURED',
         providerReferenceId: gatewayPaymentId,
       });
-      await payment.save();
 
       // Finalize CheckoutAttempt
       attempt.status = 'ORDER_CREATED';
       attempt.orderId = order._id;
-      await attempt.save();
+      await checkoutAttemptRepository.save(attempt);
 
       // Dispatch to POS & Sockets
       posIntegrationService.pushOrderAsync(attempt.restaurantId, order);
@@ -440,7 +429,7 @@ export class CheckoutService {
       try {
         NotificationService.getInstance().notifyOrderCreated(attempt.restaurantId.toString(), order);
         if (attempt.diningSessionId) {
-          const freshSession = await DiningSession.findById(attempt.diningSessionId);
+          const freshSession = await diningSessionRepository.findById(attempt.diningSessionId);
           NotificationService.getInstance().notifySessionUpdated(
             attempt.restaurantId.toString(),
             attempt.diningSessionId.toString(),
@@ -456,7 +445,7 @@ export class CheckoutService {
       console.error('Error creating order after payment success:', err);
       attempt.status = 'RECONCILIATION_REQUIRED';
       attempt.errorMessage = err.message || 'Order creation failed';
-      await attempt.save();
+      await checkoutAttemptRepository.save(attempt);
       throw err;
     }
   }

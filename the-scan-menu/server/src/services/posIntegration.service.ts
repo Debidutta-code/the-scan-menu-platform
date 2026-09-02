@@ -1,8 +1,9 @@
 import { Types } from 'mongoose';
-import { IntegrationSyncLog, IIntegrationSyncLog, IntegrationSyncOperation } from '../models/IntegrationSyncLog';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { IIntegrationSyncLog, IntegrationSyncOperation } from '../models/IntegrationSyncLog';
+import { integrationSyncLogRepository } from '../repositories/integrationSyncLog.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { orderRepository } from '../repositories/order.repository';
 import { IntegrationFactory } from '../integrations/core/IntegrationFactory';
-import { Order } from '../models/Order';
 import { logger } from '../utils/logger';
 
 export interface SyncLogQueryOptions {
@@ -48,10 +49,10 @@ export class PosIntegrationService {
 
     setImmediate(async () => {
       try {
-        const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+        const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
         const provider = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
 
-        const syncLog = new IntegrationSyncLog({
+        const syncLog = await integrationSyncLogRepository.create({
           restaurantId: rId,
           orderId: oId,
           provider,
@@ -67,21 +68,20 @@ export class PosIntegrationService {
             orderMode: order?.orderMode,
           },
         });
-        await syncLog.save();
 
         try {
           const adapter = IntegrationFactory.getAdapter(provider);
           await adapter.pushOrder(order);
           syncLog.status = 'SUCCESS';
           syncLog.nextRetryAt = null;
-          await syncLog.save();
+          await integrationSyncLogRepository.save(syncLog);
         } catch (err: any) {
           const errorMsg = err?.message || 'Unknown POS push error';
           syncLog.status = 'FAILED';
           syncLog.errorMessage = errorMsg;
           syncLog.errorLog = errorMsg;
           syncLog.nextRetryAt = new Date(Date.now() + this.calculateBackoffMs(1));
-          await syncLog.save();
+          await integrationSyncLogRepository.save(syncLog);
           logger.warn(`POS pushOrder failed for restaurant ${rId}, order ${oId}: ${errorMsg}. Next retry at ${syncLog.nextRetryAt.toISOString()}`);
         }
       } catch (outerErr: any) {
@@ -103,10 +103,10 @@ export class PosIntegrationService {
 
     setImmediate(async () => {
       try {
-        const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+        const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
         const provider = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
 
-        const syncLog = new IntegrationSyncLog({
+        const syncLog = await integrationSyncLogRepository.create({
           restaurantId: rId,
           orderId: oId,
           provider,
@@ -117,21 +117,20 @@ export class PosIntegrationService {
           lastAttemptAt: new Date(),
           payloadSnapshot: { status },
         });
-        await syncLog.save();
 
         try {
           const adapter = IntegrationFactory.getAdapter(provider);
           await adapter.updateOrderStatus(oId.toString(), status);
           syncLog.status = 'SUCCESS';
           syncLog.nextRetryAt = null;
-          await syncLog.save();
+          await integrationSyncLogRepository.save(syncLog);
         } catch (err: any) {
           const errorMsg = err?.message || 'Unknown POS status update error';
           syncLog.status = 'FAILED';
           syncLog.errorMessage = errorMsg;
           syncLog.errorLog = errorMsg;
           syncLog.nextRetryAt = new Date(Date.now() + this.calculateBackoffMs(1));
-          await syncLog.save();
+          await integrationSyncLogRepository.save(syncLog);
           logger.warn(`POS updateOrderStatus failed for restaurant ${rId}, order ${oId}: ${errorMsg}`);
         }
       } catch (outerErr: any) {
@@ -148,10 +147,10 @@ export class PosIntegrationService {
 
     setImmediate(async () => {
       try {
-        const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+        const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
         const provider = settings?.paymentConfig?.integrationConfig?.provider || 'NONE';
 
-        const syncLog = new IntegrationSyncLog({
+        const syncLog = await integrationSyncLogRepository.create({
           restaurantId: rId,
           provider,
           operation: 'SYNC_MENU' as IntegrationSyncOperation,
@@ -161,21 +160,20 @@ export class PosIntegrationService {
           lastAttemptAt: new Date(),
           payloadSnapshot: { restaurantId: rId.toString() },
         });
-        await syncLog.save();
 
         try {
           const adapter = IntegrationFactory.getAdapter(provider);
           await adapter.syncMenu(rId.toString());
           syncLog.status = 'SUCCESS';
           syncLog.nextRetryAt = null;
-          await syncLog.save();
+          await integrationSyncLogRepository.save(syncLog);
         } catch (err: any) {
           const errorMsg = err?.message || 'Unknown POS menu sync error';
           syncLog.status = 'FAILED';
           syncLog.errorMessage = errorMsg;
           syncLog.errorLog = errorMsg;
           syncLog.nextRetryAt = new Date(Date.now() + this.calculateBackoffMs(1));
-          await syncLog.save();
+          await integrationSyncLogRepository.save(syncLog);
           logger.warn(`POS syncMenu failed for restaurant ${rId}: ${errorMsg}`);
         }
       } catch (outerErr: any) {
@@ -191,33 +189,24 @@ export class PosIntegrationService {
    */
   public async processPendingRetries(): Promise<{ processed: number; succeeded: number; failed: number }> {
     const now = new Date();
-    const candidateLogs = await IntegrationSyncLog.find({
-      status: { $in: ['FAILED', 'RETRYING'] },
-      nextRetryAt: { $lte: now },
-      syncAttempts: { $lt: this.MAX_RETRIES },
-      isLocked: { $ne: true },
-    }).limit(20);
+    const candidateLogs = await integrationSyncLogRepository.findPendingRetries(now, 20);
 
     let succeeded = 0;
     let failed = 0;
 
     for (const log of candidateLogs) {
       // Atomic lock acquisition to prevent concurrent worker execution (Test E)
-      const lockedLog = await IntegrationSyncLog.findOneAndUpdate(
-        { _id: log._id, isLocked: { $ne: true } },
-        { $set: { isLocked: true, status: 'RETRYING', lastAttemptAt: now } },
-        { new: true }
-      );
+      const lockedLog = await integrationSyncLogRepository.lockForRetry(log._id, now);
 
       if (!lockedLog) continue; // Another worker locked it
 
       try {
-        const settings = await RestaurantSettings.findOne({ restaurantId: lockedLog.restaurantId });
+        const settings = await restaurantSettingsRepository.findByRestaurantId(lockedLog.restaurantId);
         const provider = settings?.paymentConfig?.integrationConfig?.provider || lockedLog.provider || 'NONE';
         const adapter = IntegrationFactory.getAdapter(provider);
 
         if (lockedLog.operation === 'PUSH_ORDER' && lockedLog.orderId) {
-          const order = await Order.findById(lockedLog.orderId);
+          const order = await orderRepository.findById(lockedLog.orderId);
           if (order) {
             await adapter.pushOrder(order);
           }
@@ -232,7 +221,7 @@ export class PosIntegrationService {
         lockedLog.status = 'SUCCESS';
         lockedLog.nextRetryAt = null;
         lockedLog.isLocked = false;
-        await lockedLog.save();
+        await integrationSyncLogRepository.save(lockedLog);
         succeeded++;
       } catch (err: any) {
         const newAttempts = lockedLog.syncAttempts + 1;
@@ -250,7 +239,7 @@ export class PosIntegrationService {
           lockedLog.nextRetryAt = new Date(Date.now() + this.calculateBackoffMs(newAttempts));
         }
 
-        await lockedLog.save();
+        await integrationSyncLogRepository.save(lockedLog);
         failed++;
       }
     }
@@ -262,12 +251,12 @@ export class PosIntegrationService {
    * Manual retry triggered by restaurant manager.
    */
   public async retrySyncLog(logId: string | Types.ObjectId): Promise<IIntegrationSyncLog> {
-    const log = await IntegrationSyncLog.findById(logId);
+    const log = await integrationSyncLogRepository.findById(logId);
     if (!log) {
       throw new Error('Sync log not found');
     }
 
-    const settings = await RestaurantSettings.findOne({ restaurantId: log.restaurantId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(log.restaurantId);
     const provider = settings?.paymentConfig?.integrationConfig?.provider || log.provider || 'NONE';
     const adapter = IntegrationFactory.getAdapter(provider);
 
@@ -276,7 +265,7 @@ export class PosIntegrationService {
 
     try {
       if (log.operation === 'PUSH_ORDER' && log.orderId) {
-        const order = await Order.findById(log.orderId);
+        const order = await orderRepository.findById(log.orderId);
         if (order) {
           await adapter.pushOrder(order);
         }
@@ -290,7 +279,7 @@ export class PosIntegrationService {
       log.status = 'SUCCESS';
       log.nextRetryAt = null;
       log.isLocked = false;
-      await log.save();
+      await integrationSyncLogRepository.save(log);
       return log;
     } catch (err: any) {
       log.errorMessage = err?.message || 'Manual retry failed';
@@ -303,7 +292,7 @@ export class PosIntegrationService {
         log.status = 'FAILED';
         log.nextRetryAt = new Date(Date.now() + this.calculateBackoffMs(log.syncAttempts));
       }
-      await log.save();
+      await integrationSyncLogRepository.save(log);
       throw err;
     }
   }
@@ -348,8 +337,8 @@ export class PosIntegrationService {
     }
 
     const [logs, total] = await Promise.all([
-      IntegrationSyncLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      IntegrationSyncLog.countDocuments(query),
+      integrationSyncLogRepository.findByRestaurantId(rId, query, { createdAt: -1 }, skip, limit),
+      integrationSyncLogRepository.countByRestaurantId(rId, query),
     ]);
 
     return { logs, total, page, limit };

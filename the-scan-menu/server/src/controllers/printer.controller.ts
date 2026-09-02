@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { printerService } from '../services/printer.service';
-import { Restaurant } from '../models/Restaurant';
+import { restaurantRepository } from '../repositories/restaurant.repository';
 import { sendSuccess, sendError } from '../utils/response';
 
 export class PrinterController {
@@ -15,7 +15,7 @@ export class PrinterController {
         return;
       }
 
-      const restaurant = await Restaurant.findById(restaurantId).select('name').lean();
+      const restaurant = await restaurantRepository.findById(restaurantId);
       const restaurantName = restaurant?.name || 'Pixora POS';
 
       const result = await printerService.printTestSlip(ip.trim(), Number(port) || 9100, paperWidth, restaurantName);

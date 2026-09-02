@@ -1,14 +1,13 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Order } from '../models/Order';
-import { TableSession } from '../models/TableSession';
-import { Category } from '../models/Category';
+import { orderRepository } from '../repositories/order.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { categoryRepository } from '../repositories/category.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 import { sendSuccess, sendError } from '../utils/response';
 import { NotificationService } from '../services/notification.service';
 import { posIntegrationService } from '../services/posIntegration.service';
 import mongoose from 'mongoose';
-
-import { RestaurantSettings } from '../models/RestaurantSettings';
 
 export class KDSController {
   constructor() {
@@ -39,7 +38,6 @@ export class KDSController {
 
       // Active orders query: orders not CANCELLED and not SERVED, or orders with items still needing prep
       const query: any = {
-        restaurantId: rId,
         status: { $nin: ['SERVED', 'CANCELLED'] },
       };
 
@@ -47,9 +45,7 @@ export class KDSController {
         query.orderMode = orderMode.toUpperCase();
       }
 
-      const orders = await Order.find(query)
-        .populate('tableId', 'displayName tableNumber')
-        .sort({ createdAt: 1 });
+      const orders = await orderRepository.findByRestaurantId(rId, query, { createdAt: 1 }, 0, 200);
 
       // If category filter is supplied, filter items by category ID or name
       let filteredTickets = orders;
@@ -60,8 +56,7 @@ export class KDSController {
         if (mongoose.Types.ObjectId.isValid(categoryFilter)) {
           targetCategoryIds.push(categoryFilter);
         } else {
-          const matchedCategories = await Category.find({
-            restaurantId: rId,
+          const matchedCategories = await categoryRepository.findByRestaurantId(rId, {
             name: { $regex: new RegExp(categoryFilter, 'i') },
           });
           targetCategoryIds = matchedCategories.map((c) => c._id.toString());
@@ -69,7 +64,7 @@ export class KDSController {
 
         if (targetCategoryIds.length > 0) {
           filteredTickets = orders.map((order: any) => {
-            const doc = order.toObject();
+            const doc = order.toObject ? order.toObject() : order;
             doc.items = (doc.items || []).filter((item: any) =>
               item.menuItemId ? targetCategoryIds.includes(item.menuItemId.toString()) : true
             );
@@ -110,10 +105,7 @@ export class KDSController {
         return;
       }
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -129,7 +121,7 @@ export class KDSController {
       const currentItemStatus = item.itemStatus || 'PENDING';
 
       // Check restaurant workflow mode for 3-step vs 4-step/5-step
-      const settings = await RestaurantSettings.findOne({ restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
       let targetItemStatus = nextItemStatus;
@@ -153,7 +145,7 @@ export class KDSController {
       const previousAggregateStatus = order.status;
 
       // Triggers pre-save hook for aggregate order status calculation
-      await order.save();
+      await orderRepository.save(order);
 
       // Socket notification for item status update
       try {
@@ -186,9 +178,10 @@ export class KDSController {
       }
 
       // Notify session update if session exists
-      if (order.sessionId) {
+      const sessId = order.diningSessionId || order.sessionId;
+      if (sessId) {
         try {
-          const session = await TableSession.findById(order.sessionId);
+          const session = await diningSessionRepository.findById(sessId);
           if (session) {
             NotificationService.getInstance().notifySessionUpdated(
               order.restaurantId.toString(),
@@ -220,10 +213,7 @@ export class KDSController {
         return;
       }
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -243,7 +233,7 @@ export class KDSController {
 
       order.status = 'SERVED';
       order.markModified('status');
-      await order.save();
+      await orderRepository.save(order);
 
       // Emit socket notification
       try {
@@ -261,9 +251,10 @@ export class KDSController {
       posIntegrationService.updateOrderStatusAsync(restaurantId, orderId, 'SERVED');
 
       // Notify session update if session exists
-      if (order.sessionId) {
+      const sessId = order.diningSessionId || order.sessionId;
+      if (sessId) {
         try {
-          const session = await TableSession.findById(order.sessionId);
+          const session = await diningSessionRepository.findById(sessId);
           if (session) {
             NotificationService.getInstance().notifySessionUpdated(
               order.restaurantId.toString(),
@@ -292,13 +283,7 @@ export class KDSController {
       const limit = parseInt(req.query.limit as string, 10) || 25;
 
       const rId = new mongoose.Types.ObjectId(restaurantId);
-      const orders = await Order.find({
-        restaurantId: rId,
-        status: 'SERVED',
-      })
-        .populate('tableId', 'displayName tableNumber')
-        .sort({ updatedAt: -1 })
-        .limit(limit);
+      const orders = await orderRepository.findByRestaurantId(rId, { status: 'SERVED' }, { updatedAt: -1 }, 0, limit);
 
       sendSuccess(res, orders, 'Bumped KDS tickets history retrieved successfully');
     } catch (error) {
@@ -319,10 +304,7 @@ export class KDSController {
         return;
       }
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -339,7 +321,7 @@ export class KDSController {
 
       order.status = 'PREPARING';
       order.markModified('status');
-      await order.save();
+      await orderRepository.save(order);
 
       // Emit socket notification
       try {

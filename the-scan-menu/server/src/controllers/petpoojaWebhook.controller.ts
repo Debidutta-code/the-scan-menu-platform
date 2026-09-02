@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Order } from '../models/Order';
+import { orderRepository } from '../repositories/order.repository';
 import { logger } from '../utils/logger';
 
 export class PetpoojaWebhookController {
@@ -50,13 +50,26 @@ export class PetpoojaWebhookController {
       }
 
       // Find order by petpoojaOrderId or ObjectId or orderNumber
-      const order = await Order.findOne({
-        $or: [
-          { 'integrationMetadata.petpoojaOrderId': targetOrderId },
-          { _id: targetOrderId.match(/^[0-9a-fA-F]{24}$/) ? targetOrderId : null },
-          { orderNumber: Number(targetOrderId) || -1 },
-        ],
-      });
+      let order = null;
+      if (targetOrderId.match(/^[0-9a-fA-F]{24}$/)) {
+        order = await orderRepository.findById(targetOrderId);
+      }
+      if (!order) {
+        const matchingOrders = await orderRepository.aggregate([
+          {
+            $match: {
+              $or: [
+                { 'integrationMetadata.petpoojaOrderId': targetOrderId },
+                { orderNumber: Number(targetOrderId) || -1 },
+              ],
+            },
+          },
+          { $limit: 1 },
+        ]);
+        if (matchingOrders.length > 0) {
+          order = await orderRepository.findById(matchingOrders[0]._id);
+        }
+      }
 
       if (!order) {
         logger.warn(`[PetpoojaWebhook] Order not found for ticket ID: ${targetOrderId}`);
@@ -65,7 +78,7 @@ export class PetpoojaWebhookController {
       }
 
       order.status = mappedStatus as any;
-      await order.save();
+      await orderRepository.save(order);
 
       logger.info(`[PetpoojaWebhook] Successfully updated Order ${order._id} status to ${mappedStatus}`);
 

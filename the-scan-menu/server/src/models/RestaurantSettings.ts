@@ -155,6 +155,8 @@ export interface IRestaurantSettings extends Document {
   printerConfig: IRestaurantSettingsPrinter;
   qrCodeStyle?: IRestaurantSettingsQrStyle;
   loyaltyConfig?: IRestaurantSettingsLoyalty;
+  petpoojaConfig?: any;
+  paymentGateways?: any;
   timings?: {
     open: string;
     close: string;

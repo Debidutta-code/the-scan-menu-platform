@@ -1,8 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Order, OrderStatus } from '../models/Order';
-import { DiningSession } from '../models/DiningSession';
-import { Bill } from '../models/Bill';
+import { OrderStatus } from '../models/Order';
+import { orderRepository } from '../repositories/order.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { billRepository } from '../repositories/bill.repository';
 import { orderService } from '../services/order.service';
 import { diningSessionService } from '../services/diningSession.service';
 import { billService } from '../services/bill.service';
@@ -55,9 +56,7 @@ export class OrderController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const query: Record<string, any> = {
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      };
+      const query: Record<string, any> = {};
 
       if (statusFilter && statusFilter !== 'ALL') {
         query.status = statusFilter;
@@ -80,13 +79,14 @@ export class OrderController {
         query.$or = orConditions;
       }
 
-      const total = await Order.countDocuments(query);
-      const orders = await Order.find(query)
-        .sort({ createdAt: -1 })
-        .populate('tableId', 'displayName tableNumber')
-        .populate('diningSessionId', 'status sessionCode closedAt')
-        .skip(skip)
-        .limit(limit);
+      const total = await orderRepository.count(restaurantId, query);
+      const orders = await orderRepository.findByRestaurantId(
+        restaurantId,
+        query,
+        { createdAt: -1 },
+        skip,
+        limit
+      );
 
       const responseData = {
         orders,
@@ -110,17 +110,17 @@ export class OrderController {
 
       // Build the base query — exclude cancelled and cleared orders
       const query: Record<string, any> = {
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
         status: { $ne: 'CANCELLED' },
         isCleared: { $ne: true },
       };
 
-      const orders = await Order.find(query)
-        .sort({ createdAt: 1 })
-        .populate([
-          { path: 'tableId', select: 'displayName tableNumber' },
-          { path: 'diningSessionId', select: 'status sessionCode closedAt' },
-        ]);
+      const orders = await orderRepository.findByRestaurantId(
+        restaurantId,
+        query,
+        { createdAt: 1 },
+        0,
+        500
+      );
 
       // Filter out any legacy or edge-case orders where dining session is already CLOSED
       const activeOrders = orders.filter((o: any) => {
@@ -188,12 +188,7 @@ export class OrderController {
     try {
       const { restaurantId, orderId } = req.params;
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      })
-        .populate('tableId', 'displayName tableNumber')
-        .populate('diningSessionId', 'status sessionCode closedAt');
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -235,10 +230,7 @@ export class OrderController {
       const { restaurantId, orderId, itemIndex } = req.params;
       const { itemStatus } = req.body;
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -278,7 +270,7 @@ export class OrderController {
       if (itemStatus === 'SERVED' && !order.items[index].servedAt) {
         order.items[index].servedAt = new Date();
       }
-      await order.save();
+      await orderRepository.save(order);
 
       sendSuccess(res, order, 'Item status updated successfully');
     } catch (error) {
@@ -306,27 +298,19 @@ export class OrderController {
     try {
       const { restaurantId, sessionId } = req.params;
 
-      const session = await DiningSession.findOne({
-        _id: new mongoose.Types.ObjectId(sessionId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      }).populate('tableId', 'displayName tableNumber');
+      const session = await diningSessionRepository.findByIdAndRestaurant(sessionId, restaurantId);
 
       if (!session) {
         sendError(res, 'SESSION_NOT_FOUND', 'Dining session not found', null, 404);
         return;
       }
 
-      const orders = await Order.find({
-        diningSessionId: session._id,
-        status: { $ne: 'CANCELLED' },
-      }).sort({ roundNumber: 1, createdAt: 1 });
+      const orders = await orderRepository.findByDiningSessionId(session._id);
+      const activeOrders = orders.filter((o) => o.status !== 'CANCELLED');
 
-      const activeBill = await Bill.findOne({
-        diningSessionId: session._id,
-        status: { $in: ['PENDING', 'SETTLED'] },
-      }).sort({ version: -1 });
+      const activeBill = await billRepository.findLatestByDiningSessionId(session._id);
 
-      sendSuccess(res, { session, orders, bill: activeBill }, 'Table session retrieved successfully');
+      sendSuccess(res, { session, orders: activeOrders, bill: activeBill }, 'Table session retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -337,19 +321,12 @@ export class OrderController {
       const { restaurantId, tableId } = req.params;
 
       // 1. Find active dining session if any
-      const activeSession = await DiningSession.findOne({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        tableId: new mongoose.Types.ObjectId(tableId),
-        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-      });
+      const activeSession = await diningSessionRepository.findActiveByTableId(tableId);
 
       let orders: any[] = [];
-      if (activeSession) {
-        orders = await Order.find({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          diningSessionId: activeSession._id,
-          status: { $ne: 'CANCELLED' },
-        }).sort({ createdAt: 1 });
+      if (activeSession && activeSession.restaurantId.toString() === restaurantId.toString()) {
+        const sessionOrders = await orderRepository.findByDiningSessionId(activeSession._id);
+        orders = sessionOrders.filter((o) => o.status !== 'CANCELLED');
       }
 
       // 2. If no active session or no session orders found, find all non-cancelled orders for this table today
@@ -357,12 +334,15 @@ export class OrderController {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
-        orders = await Order.find({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          tableId: new mongoose.Types.ObjectId(tableId),
-          status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
-          createdAt: { $gte: startOfDay },
-        }).sort({ createdAt: 1 });
+        orders = await orderRepository.findByRestaurantId(
+          restaurantId,
+          {
+            tableId: new mongoose.Types.ObjectId(tableId),
+            status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
+            createdAt: { $gte: startOfDay },
+          },
+          { createdAt: 1 }
+        );
       }
 
       sendSuccess(res, orders, 'Table orders retrieved successfully');
@@ -376,7 +356,7 @@ export class OrderController {
       const { restaurantId, sessionId } = req.params;
       const { payments, manualDiscountAmount, discountReason } = req.body;
 
-      let bill: any = await Bill.findOne({ diningSessionId: new mongoose.Types.ObjectId(sessionId), status: 'PENDING' });
+      let bill: any = await billRepository.findPendingByDiningSessionId(sessionId);
       if (!bill) {
         bill = await billService.requestOrGenerateBill(restaurantId, sessionId, req.user?.id, manualDiscountAmount, discountReason);
       }
@@ -441,10 +421,7 @@ export class OrderController {
     try {
       const { restaurantId, orderId } = req.params;
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -498,10 +475,7 @@ export class OrderController {
         return;
       }
 
-      const order = await Order.findOne({
-        _id: new mongoose.Types.ObjectId(orderId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const order = await orderRepository.findByIdAndRestaurant(orderId, restaurantId);
 
       if (!order) {
         sendError(res, 'ORDER_NOT_FOUND', 'Order not found', null, 404);
@@ -512,7 +486,7 @@ export class OrderController {
       if (paymentMethod && typeof paymentMethod === 'string') {
         order.paymentMethod = paymentMethod.toUpperCase();
       }
-      await order.save();
+      await orderRepository.save(order);
 
       sendSuccess(res, order, `Order payment marked as ${paymentStatus}`);
     } catch (error) {

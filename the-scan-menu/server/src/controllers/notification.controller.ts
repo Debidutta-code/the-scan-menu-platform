@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { pushNotificationService } from '../services/pushNotification.service';
 import { sendSuccess, sendError } from '../utils/response';
-import { RestaurantStaff } from '../models/RestaurantStaff';
+import { restaurantStaffRepository } from '../repositories/restaurantStaff.repository';
 
 export class NotificationController {
   constructor() {
@@ -29,7 +29,8 @@ export class NotificationController {
 
       // If restaurantId is not provided, resolve from user's active/assigned restaurant
       if (!targetRestaurantId) {
-        const staff = await RestaurantStaff.findOne({ userId: req.user.id, isActive: true });
+        const staffRecords = await restaurantStaffRepository.findByUserId(req.user.id);
+        const staff = staffRecords.find(s => s.isActive);
         if (staff) {
           targetRestaurantId = staff.restaurantId.toString();
         }

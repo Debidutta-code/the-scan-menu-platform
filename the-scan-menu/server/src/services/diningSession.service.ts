@@ -1,11 +1,13 @@
 import { Types } from 'mongoose';
-import { DiningSession, IDiningSession } from '../models/DiningSession';
-import { GuestSession, IGuestSession } from '../models/GuestSession';
-import { Table } from '../models/Table';
-import { Restaurant } from '../models/Restaurant';
-import { Order } from '../models/Order';
-import { Payment } from '../models/Payment';
-import { AuditLog } from '../models/AuditLog';
+import { IDiningSession } from '../models/DiningSession';
+import { IGuestSession } from '../models/GuestSession';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { guestSessionRepository } from '../repositories/guestSession.repository';
+import { tableRepository } from '../repositories/table.repository';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { paymentRepository } from '../repositories/payment.repository';
+import { auditLogRepository } from '../repositories/auditLog.repository';
 import { NotificationService } from './notification.service';
 import { accrueLoyaltyForOrder } from './order.service';
 import crypto from 'crypto';
@@ -65,27 +67,23 @@ export class DiningSessionService {
     // 1. Resolve restaurant
     let restaurant: any;
     if (Types.ObjectId.isValid(restaurantSlugOrId)) {
-      restaurant = await Restaurant.findById(restaurantSlugOrId);
+      restaurant = await restaurantRepository.findById(restaurantSlugOrId);
     }
     if (!restaurant) {
-      restaurant = await Restaurant.findOne({ slug: restaurantSlugOrId.toLowerCase().trim() });
+      restaurant = await restaurantRepository.findBySlug(restaurantSlugOrId.toLowerCase().trim());
     }
     if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
       throw new CustomError('RESTAURANT_NOT_FOUND', 'Restaurant not found or inactive', 404);
     }
 
     // 2. Resolve table
-    const table = await Table.findOne({ token: tableToken, restaurantId: restaurant._id, isActive: true });
-    if (!table) {
+    const table = await tableRepository.findByTokenAndRestaurant(tableToken, restaurant._id);
+    if (!table || !table.isActive) {
       throw new CustomError('TABLE_NOT_FOUND', 'Table not found or inactive', 404);
     }
 
     // 3. Find active session for this table
-    const activeSession = await DiningSession.findOne({
-      restaurantId: restaurant._id,
-      tableId: table._id,
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    const activeSession = await diningSessionRepository.findActiveByTableId(table._id);
 
     // Case 1: No active session exists on this table
     if (!activeSession) {
@@ -102,14 +100,11 @@ export class DiningSessionService {
 
     // Case 2: Active session exists, check if caller holds a valid guest token
     if (guestToken) {
-      const guestSession = await GuestSession.findOne({
-        diningSessionId: activeSession._id,
-        guestToken,
-      });
+      const guestSession = await guestSessionRepository.findByTokenAndDiningSession(guestToken, activeSession._id);
 
       if (guestSession) {
         guestSession.lastSeenAt = new Date();
-        await guestSession.save();
+        await guestSessionRepository.save(guestSession);
 
         return {
           restaurant,
@@ -126,8 +121,7 @@ export class DiningSessionService {
     // Case 3: Unknown device (No valid guest token) scanning an existing session
     // If Prepaid, balanceDue is 0, and all orders are SERVED (or no orders), auto-close old session
     if (activeSession.paymentMode === 'PREPAID' && activeSession.balanceDue === 0) {
-      const activePendingOrders = await Order.countDocuments({
-        diningSessionId: activeSession._id,
+      const activePendingOrders = await orderRepository.countByDiningSessionId(activeSession._id, {
         status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'] },
       });
 
@@ -135,7 +129,7 @@ export class DiningSessionService {
         // Safe to auto-archive completed prepaid session
         activeSession.status = 'CLOSED';
         activeSession.closedAt = new Date();
-        await activeSession.save();
+        await diningSessionRepository.save(activeSession);
 
         return {
           restaurant,
@@ -183,11 +177,7 @@ export class DiningSessionService {
     guestSession: IGuestSession;
     guestToken: string;
   }> {
-    let session = await DiningSession.findOne({
-      restaurantId: new Types.ObjectId(restaurantId),
-      tableId: new Types.ObjectId(tableId),
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    let session = await diningSessionRepository.findActiveByTableId(tableId);
 
     let isHost = false;
 
@@ -203,9 +193,9 @@ export class DiningSessionService {
         }
       }
 
-      session = new DiningSession({
-        restaurantId: new Types.ObjectId(restaurantId),
-        tableId: new Types.ObjectId(tableId),
+      session = await diningSessionRepository.create({
+        restaurantId: new Types.ObjectId(restaurantId.toString()),
+        tableId: new Types.ObjectId(tableId.toString()),
         sessionCode: this.generateSessionCode(),
         joinPin: this.generateJoinPin(),
         status: 'ACTIVE',
@@ -223,15 +213,12 @@ export class DiningSessionService {
         openedAt: new Date(),
         lastActivityAt: new Date(),
       });
-      await session.save();
       isHost = true;
 
-      await AuditLog.create({
+      await auditLogRepository.create({
         action: 'SESSION_CREATED',
         actorRole: 'CUSTOMER',
         restaurantId: restaurantId.toString(),
-        entityType: 'DiningSession',
-        entityId: session._id,
         details: { sessionCode: session.sessionCode, paymentMode, tableId: tableId.toString() },
       });
     } else {
@@ -241,28 +228,25 @@ export class DiningSessionService {
       }
       session.guestCount += 1;
       session.lastActivityAt = new Date();
-      await session.save();
+      await diningSessionRepository.save(session);
     }
 
     const guestToken = this.generateGuestToken();
-    const guestSession = new GuestSession({
+    const guestSession = await guestSessionRepository.create({
       diningSessionId: session._id,
-      restaurantId: new Types.ObjectId(restaurantId),
-      tableId: new Types.ObjectId(tableId),
+      restaurantId: new Types.ObjectId(restaurantId.toString()),
+      tableId: new Types.ObjectId(tableId.toString()),
       guestToken,
       guestName: guestName ? guestName.trim() : (isHost ? 'Host' : `Guest ${session.guestCount}`),
       isHost,
       joinedAt: new Date(),
       lastSeenAt: new Date(),
     });
-    await guestSession.save();
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'GUEST_JOINED',
       actorRole: 'CUSTOMER',
       restaurantId: restaurantId.toString(),
-      entityType: 'GuestSession',
-      entityId: guestSession._id,
       details: {
         diningSessionId: session._id.toString(),
         guestName: guestSession.guestName,
@@ -291,18 +275,16 @@ export class DiningSessionService {
    * Recalculates session financials by aggregating all non-cancelled orders.
    */
   async recalculateSessionFinancials(sessionId: Types.ObjectId | string): Promise<IDiningSession> {
-    const session = await DiningSession.findById(sessionId);
+    const session = await diningSessionRepository.findById(sessionId);
     if (!session) {
       throw new CustomError('SESSION_NOT_FOUND', 'Dining session not found', 404);
     }
 
-    const orders = await Order.find({
-      diningSessionId: session._id,
-      status: { $ne: 'CANCELLED' },
-    });
+    const orders = await orderRepository.findByDiningSessionId(session._id);
+    const activeOrders = orders.filter((o) => o.status !== 'CANCELLED');
 
-    const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
-    const tax = orders.reduce((sum, o) => sum + (o.tax || 0), 0);
+    const subtotal = activeOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+    const tax = activeOrders.reduce((sum, o) => sum + (o.tax || 0), 0);
     const total = subtotal + tax + (session.serviceCharge || 0) - (session.discount || 0);
 
     session.subtotal = subtotal;
@@ -310,7 +292,7 @@ export class DiningSessionService {
     session.total = Math.max(0, total);
     session.balanceDue = Math.max(0, session.total - (session.paidAmount || 0));
     session.lastActivityAt = new Date();
-    await session.save();
+    await diningSessionRepository.save(session);
 
     return session;
   }
@@ -323,45 +305,36 @@ export class DiningSessionService {
     sessionId: Types.ObjectId | string,
     staffUserId?: string
   ): Promise<IDiningSession> {
-    const session = await DiningSession.findOne({
-      _id: new Types.ObjectId(sessionId),
-      restaurantId: new Types.ObjectId(restaurantId),
-    });
+    const session = await diningSessionRepository.findByIdAndRestaurant(sessionId, restaurantId);
     if (!session) {
       throw new CustomError('SESSION_NOT_FOUND', 'Dining session not found', 404);
     }
 
     session.status = 'CLOSED';
     session.closedAt = new Date();
-    await session.save();
+    await diningSessionRepository.save(session);
 
-    await Order.updateMany(
-      {
-        $or: [{ diningSessionId: session._id }, { sessionId: session._id }],
-        status: { $ne: 'CANCELLED' },
-      },
-      { $set: { status: 'COMPLETED', paymentStatus: 'PAID', isCleared: true, clearedAt: new Date() } }
-    );
+    await orderRepository.updateStatusBySessionId(session._id, 'COMPLETED');
+    await orderRepository.updatePaymentStatusBySessionId(session._id, 'PAID');
 
     // Accrue loyalty points for all completed session orders
-    const sessionOrders = await Order.find({
-      $or: [{ diningSessionId: session._id }, { sessionId: session._id }],
-      status: { $ne: 'CANCELLED' },
-    });
+    const sessionOrders = await orderRepository.findByDiningSessionId(session._id);
     for (const ord of sessionOrders) {
-      await accrueLoyaltyForOrder(session.restaurantId, ord).catch((err) =>
-        console.error('[LoyaltyAccrual] Error accruing points on session close:', err)
-      );
+      if (ord.status !== 'CANCELLED') {
+        await accrueLoyaltyForOrder(session.restaurantId, ord).catch((err) =>
+          console.error('[LoyaltyAccrual] Error accruing points on session close:', err)
+        );
+      }
     }
 
     if (session.tableId) {
-      await Table.findByIdAndUpdate(session.tableId, { $set: { status: 'AVAILABLE' } });
+      await tableRepository.updateById(session.tableId, { status: 'AVAILABLE' });
     }
 
     // Record payment in transactions ledger if not already recorded
-    const existingPayment = await Payment.findOne({ diningSessionId: session._id, status: 'CAPTURED' });
-    if (!existingPayment && session.total > 0) {
-      await Payment.create({
+    const existingPayments = await paymentRepository.findCapturedByDiningSessionId(session._id);
+    if (existingPayments.length === 0 && session.total > 0) {
+      await paymentRepository.create({
         restaurantId: session.restaurantId,
         diningSessionId: session._id,
         tableId: session.tableId,
@@ -379,18 +352,16 @@ export class DiningSessionService {
       });
     }
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'SESSION_CLOSED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: restaurantId.toString(),
-      entityType: 'DiningSession',
-      entityId: session._id,
       details: { total: session.total, paidAmount: session.paidAmount, balanceDue: session.balanceDue },
     });
 
     try {
-      const table = await Table.findById(session.tableId).select('token').lean();
+      const table = await tableRepository.findById(session.tableId);
       NotificationService.getInstance().notifySessionUpdated(
         restaurantId.toString(),
         session._id.toString(),
@@ -416,10 +387,7 @@ export class DiningSessionService {
     reason: string,
     staffUserId?: string
   ): Promise<IDiningSession> {
-    const session = await DiningSession.findOne({
-      _id: new Types.ObjectId(sessionId),
-      restaurantId: new Types.ObjectId(restaurantId),
-    });
+    const session = await diningSessionRepository.findByIdAndRestaurant(sessionId, restaurantId);
     if (!session) {
       throw new CustomError('SESSION_NOT_FOUND', 'Dining session not found', 404);
     }
@@ -427,15 +395,13 @@ export class DiningSessionService {
     session.status = 'ABANDONED';
     session.abandonedReason = reason.trim();
     session.closedAt = new Date();
-    await session.save();
+    await diningSessionRepository.save(session);
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'SESSION_ABANDONED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: restaurantId.toString(),
-      entityType: 'DiningSession',
-      entityId: session._id,
       details: {
         reason: session.abandonedReason,
         unpaidLossAmount: session.balanceDue,
@@ -444,7 +410,7 @@ export class DiningSessionService {
     });
 
     try {
-      const table = await Table.findById(session.tableId).select('token').lean();
+      const table = await tableRepository.findById(session.tableId);
       NotificationService.getInstance().notifySessionUpdated(
         restaurantId.toString(),
         session._id.toString(),
@@ -470,42 +436,34 @@ export class DiningSessionService {
     reason?: string,
     staffUserId?: string
   ): Promise<{ session: IDiningSession; sourceTable: any; targetTable: any }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const srcId = new Types.ObjectId(sourceTableId);
-    const tgtId = new Types.ObjectId(targetTableId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const srcId = new Types.ObjectId(sourceTableId.toString());
+    const tgtId = new Types.ObjectId(targetTableId.toString());
 
     if (srcId.equals(tgtId)) {
       throw new CustomError('SAME_TABLE_TRANSFER', 'Cannot transfer session to the same table', 400);
     }
 
     const [sourceTable, targetTable] = await Promise.all([
-      Table.findOne({ _id: srcId, restaurantId: rId, isActive: true }),
-      Table.findOne({ _id: tgtId, restaurantId: rId, isActive: true }),
+      tableRepository.findByIdAndRestaurant(srcId, rId),
+      tableRepository.findByIdAndRestaurant(tgtId, rId),
     ]);
 
-    if (!sourceTable) {
+    if (!sourceTable || !sourceTable.isActive) {
       throw new CustomError('SOURCE_TABLE_NOT_FOUND', 'Source table not found or inactive', 404);
     }
-    if (!targetTable) {
+    if (!targetTable || !targetTable.isActive) {
       throw new CustomError('TARGET_TABLE_NOT_FOUND', 'Target table not found or inactive', 404);
     }
 
-    const activeSession = await DiningSession.findOne({
-      restaurantId: rId,
-      tableId: srcId,
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    const activeSession = await diningSessionRepository.findActiveByTableId(srcId);
 
     if (!activeSession) {
       throw new CustomError('NO_ACTIVE_SESSION', 'Source table does not have an active dining session', 409);
     }
 
     // Check if target table already has an active session
-    const targetSession = await DiningSession.findOne({
-      restaurantId: rId,
-      tableId: tgtId,
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    const targetSession = await diningSessionRepository.findActiveByTableId(tgtId);
 
     if (targetSession) {
       throw new CustomError(
@@ -518,22 +476,17 @@ export class DiningSessionService {
     // Reassign session tableId
     activeSession.tableId = tgtId;
     activeSession.lastActivityAt = new Date();
-    await activeSession.save();
+    await diningSessionRepository.save(activeSession);
 
     // Reassign non-cancelled orders to new table
-    await Order.updateMany(
-      { diningSessionId: activeSession._id, status: { $ne: 'CANCELLED' } },
-      { $set: { tableId: tgtId } }
-    );
+    await orderRepository.updateTableBySessionId(activeSession._id, tgtId);
 
     // Audit log
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'TABLE_TRANSFERRED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: rId.toString(),
-      entityType: 'DiningSession',
-      entityId: activeSession._id,
       details: {
         fromTable: sourceTable.displayName || sourceTable.tableNumber,
         toTable: targetTable.displayName || targetTable.tableNumber,
@@ -568,30 +521,26 @@ export class DiningSessionService {
     secondaryTableIds: (Types.ObjectId | string)[],
     staffUserId?: string
   ): Promise<{ primarySession: IDiningSession; primaryTable: any; mergedTables: any[] }> {
-    const rId = new Types.ObjectId(restaurantId);
-    const primId = new Types.ObjectId(primaryTableId);
-    const secIds = secondaryTableIds.map((id) => new Types.ObjectId(id));
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const primId = new Types.ObjectId(primaryTableId.toString());
+    const secIds = secondaryTableIds.map((id) => new Types.ObjectId(id.toString()));
 
     if (secIds.length === 0) {
       throw new CustomError('NO_SECONDARY_TABLES', 'At least one secondary table is required to merge', 400);
     }
 
-    const primaryTable = await Table.findOne({ _id: primId, restaurantId: rId, isActive: true });
-    if (!primaryTable) {
+    const primaryTable = await tableRepository.findByIdAndRestaurant(primId, rId);
+    if (!primaryTable || !primaryTable.isActive) {
       throw new CustomError('PRIMARY_TABLE_NOT_FOUND', 'Primary table not found', 404);
     }
 
-    const primarySession = await DiningSession.findOne({
-      restaurantId: rId,
-      tableId: primId,
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    const primarySession = await diningSessionRepository.findActiveByTableId(primId);
 
     if (!primarySession) {
       throw new CustomError('NO_PRIMARY_SESSION', 'Primary table must have an active session to merge into', 409);
     }
 
-    const secondaryTables = await Table.find({ _id: { $in: secIds }, restaurantId: rId, isActive: true });
+    const secondaryTables = await tableRepository.findByRestaurantId(rId, { _id: { $in: secIds }, isActive: true });
     if (secondaryTables.length !== secIds.length) {
       throw new CustomError('INVALID_SECONDARY_TABLES', 'One or more secondary tables could not be found', 404);
     }
@@ -607,47 +556,38 @@ export class DiningSessionService {
     }
 
     // For any secondary table that had an active session, absorb its orders and close that session
-    const secondarySessions = await DiningSession.find({
-      restaurantId: rId,
-      tableId: { $in: secIds },
-      status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-    });
+    for (const secId of secIds) {
+      const secSession = await diningSessionRepository.findActiveByTableId(secId);
+      if (secSession) {
+        // Reassign all active orders to primary session & primary table
+        await orderRepository.updateTableBySessionId(secSession._id, primId);
+        await orderRepository.updateSessionBySessionId(secSession._id, primarySession._id);
 
-    for (const secSession of secondarySessions) {
-      // Reassign all active orders to primary session & primary table
-      await Order.updateMany(
-        { diningSessionId: secSession._id, status: { $ne: 'CANCELLED' } },
-        { $set: { diningSessionId: primarySession._id, tableId: primId } }
-      );
-
-      // Close merged secondary session
-      secSession.status = 'CLOSED';
-      secSession.closedAt = new Date();
-      secSession.abandonedReason = `Merged into Table ${primaryTable.displayName || primaryTable.tableNumber}`;
-      await secSession.save();
+        // Close merged secondary session
+        secSession.status = 'CLOSED';
+        secSession.closedAt = new Date();
+        secSession.abandonedReason = `Merged into Table ${primaryTable.displayName || primaryTable.tableNumber}`;
+        await diningSessionRepository.save(secSession);
+      }
     }
 
     // Recalculate primary session totals
-    const allSessionOrders = await Order.find({
-      diningSessionId: primarySession._id,
-      status: { $ne: 'CANCELLED' },
-    });
+    const allSessionOrders = await orderRepository.findByDiningSessionId(primarySession._id);
+    const activeOrders = allSessionOrders.filter((o) => o.status !== 'CANCELLED');
 
-    primarySession.subtotal = allSessionOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
-    primarySession.tax = allSessionOrders.reduce((sum, o) => sum + (o.tax || 0), 0);
-    primarySession.total = allSessionOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    primarySession.subtotal = activeOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+    primarySession.tax = activeOrders.reduce((sum, o) => sum + (o.tax || 0), 0);
+    primarySession.total = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
     primarySession.balanceDue = Math.max(0, primarySession.total - (primarySession.paidAmount || 0));
     primarySession.lastActivityAt = new Date();
-    await primarySession.save();
+    await diningSessionRepository.save(primarySession);
 
     // Audit log
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'TABLES_MERGED',
       actorId: staffUserId,
       actorRole: 'MANAGER',
       restaurantId: rId.toString(),
-      entityType: 'DiningSession',
-      entityId: primarySession._id,
       details: {
         primaryTable: primaryTable.displayName || primaryTable.tableNumber,
         secondaryTables: secondaryTables.map((t) => t.displayName || t.tableNumber),

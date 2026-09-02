@@ -1,4 +1,5 @@
-import AuditLog, { AuditLogSeverity } from '../models/AuditLog';
+import { auditLogRepository } from '../repositories/auditLog.repository';
+import { AuditLogSeverity } from '../models/AuditLog';
 import logger from '../utils/logger';
 
 export class AuditLogService {
@@ -18,7 +19,7 @@ export class AuditLogService {
     try {
       const severity = params.severity || 'INFO';
 
-      await AuditLog.create({
+      await auditLogRepository.create({
         action: params.action,
         actorId: params.actorId,
         actorName: params.actorName,
@@ -70,8 +71,8 @@ export class AuditLogService {
     }
 
     const [logs, total] = await Promise.all([
-      AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      AuditLog.countDocuments(query),
+      auditLogRepository.findByRestaurantId(query.restaurantId || '', query, { createdAt: -1 }, skip, limit),
+      auditLogRepository.countByRestaurantId(query.restaurantId || '', query),
     ]);
 
     return {

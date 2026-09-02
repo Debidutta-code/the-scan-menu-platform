@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
-import { WebhookSubscription, IWebhookSubscription, WebhookEventType } from '../models/WebhookSubscription';
+import { IWebhookSubscription, WebhookEventType } from '../models/WebhookSubscription';
+import { webhookSubscriptionRepository } from '../repositories/webhookSubscription.repository';
 import { CreateWebhookSubscriptionInput } from '../validators/webhook.validator';
 import { Types } from 'mongoose';
 
@@ -12,11 +13,9 @@ export class WebhookDispatcherService {
     restaurantId: string,
     input: CreateWebhookSubscriptionInput
   ): Promise<IWebhookSubscription> {
-    const rId = new Types.ObjectId(restaurantId);
     const secret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
-
-    return WebhookSubscription.create({
-      restaurantId: rId,
+    return webhookSubscriptionRepository.create({
+      restaurantId: new Types.ObjectId(restaurantId),
       targetUrl: input.targetUrl,
       events: input.events as WebhookEventType[],
       secret,
@@ -30,18 +29,14 @@ export class WebhookDispatcherService {
    * List all Webhook Subscriptions for a restaurant.
    */
   async listSubscriptions(restaurantId: string): Promise<IWebhookSubscription[]> {
-    return WebhookSubscription.find({ restaurantId: new Types.ObjectId(restaurantId) }).sort({ createdAt: -1 });
+    return webhookSubscriptionRepository.findByRestaurantId(restaurantId);
   }
 
   /**
    * Delete a Webhook Subscription.
    */
   async deleteSubscription(restaurantId: string, subscriptionId: string): Promise<boolean> {
-    const res = await WebhookSubscription.deleteOne({
-      _id: new Types.ObjectId(subscriptionId),
-      restaurantId: new Types.ObjectId(restaurantId),
-    });
-    return res.deletedCount > 0;
+    return webhookSubscriptionRepository.deleteByIdAndRestaurant(subscriptionId, restaurantId);
   }
 
   /**
@@ -57,20 +52,19 @@ export class WebhookDispatcherService {
    */
   async dispatchEvent(restaurantId: string | Types.ObjectId, event: WebhookEventType, payload: any): Promise<void> {
     try {
-      const subscriptions = await WebhookSubscription.find({
-        restaurantId: new Types.ObjectId(restaurantId.toString()),
-        events: event,
-        isActive: true,
-      });
+      const subscriptions = await webhookSubscriptionRepository.findActiveByEvent(event);
+      const filtered = subscriptions.filter(
+        s => s.restaurantId.toString() === restaurantId.toString()
+      );
 
-      if (!subscriptions || subscriptions.length === 0) {
+      if (!filtered || filtered.length === 0) {
         return;
       }
 
       const timestamp = Math.floor(Date.now() / 1000);
       const payloadStr = JSON.stringify(payload);
 
-      for (const sub of subscriptions) {
+      for (const sub of filtered) {
         this.deliverToSubscription(sub, event, payload, payloadStr, timestamp);
       }
     } catch (err: any) {
@@ -110,27 +104,24 @@ export class WebhookDispatcherService {
       responseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
 
       // Reset failure count on success
-      await WebhookSubscription.updateOne(
-        { _id: sub._id },
-        {
-          failureCount: 0,
-          $push: {
-            deliveryLogs: {
-              $each: [
-                {
-                  event,
-                  payload,
-                  responseStatus: status,
-                  responseBody: responseText.substring(0, 1000),
-                  attempts: 1,
-                  deliveredAt: new Date(),
-                },
-              ],
-              $slice: -50, // Keep last 50 delivery logs
-            },
+      await webhookSubscriptionRepository.updateById(sub._id as any, {
+        failureCount: 0,
+        $push: {
+          deliveryLogs: {
+            $each: [
+              {
+                event,
+                payload,
+                responseStatus: status,
+                responseBody: responseText.substring(0, 1000),
+                attempts: 1,
+                deliveredAt: new Date(),
+              },
+            ],
+            $slice: -50,
           },
-        }
-      );
+        },
+      } as any);
     } catch (err: any) {
       status = err.response?.status || 0;
       responseText = err.response?.data ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : '';
@@ -139,29 +130,26 @@ export class WebhookDispatcherService {
       const newFailureCount = sub.failureCount + 1;
       const shouldDeactivate = newFailureCount >= 10;
 
-      await WebhookSubscription.updateOne(
-        { _id: sub._id },
-        {
-          failureCount: newFailureCount,
-          isActive: shouldDeactivate ? false : sub.isActive,
-          $push: {
-            deliveryLogs: {
-              $each: [
-                {
-                  event,
-                  payload,
-                  responseStatus: status,
-                  responseBody: responseText.substring(0, 1000),
-                  errorMessage,
-                  attempts: 1,
-                  deliveredAt: new Date(),
-                },
-              ],
-              $slice: -50,
-            },
+      await webhookSubscriptionRepository.updateById(sub._id as any, {
+        failureCount: newFailureCount,
+        isActive: shouldDeactivate ? false : sub.isActive,
+        $push: {
+          deliveryLogs: {
+            $each: [
+              {
+                event,
+                payload,
+                responseStatus: status,
+                responseBody: responseText.substring(0, 1000),
+                errorMessage,
+                attempts: 1,
+                deliveredAt: new Date(),
+              },
+            ],
+            $slice: -50,
           },
-        }
-      );
+        },
+      } as any);
     }
   }
 }

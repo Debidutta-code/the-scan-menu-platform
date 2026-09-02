@@ -3,8 +3,10 @@ import bcrypt from 'bcrypt';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { UserRepository } from '../repositories/user.repository';
 import { RefreshTokenRepository } from '../repositories/refreshToken.repository';
+import { restaurantStaffRepository } from '../repositories/restaurantStaff.repository';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
 import { TokenService } from '../services/token.service';
-import { RestaurantStaff } from '../models/RestaurantStaff';
 import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
 
@@ -64,28 +66,25 @@ export class AuthController {
         maxAge: expiryDays * 24 * 60 * 60 * 1000,
       });
 
-      const staffRecords = await RestaurantStaff.find({ userId: { $in: [(user as any)._id, user.id] }, isActive: true });
-      let assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
+      const staffRecords = await restaurantStaffRepository.findByUserId(user.id);
+      let assignedRestaurants = staffRecords.filter(s => s.isActive).map((s) => s.restaurantId.toString());
 
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
-        const { Restaurant } = await import('../models/Restaurant');
-        const allRestaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } });
+        const allRestaurants = await restaurantRepository.findAll({ status: { $ne: 'ARCHIVED' } });
         assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 
       // Check Mobile Application Feature Flag when logging in from mobile client
       if (clientType === 'mobile' && user.role !== 'SUPER_ADMIN') {
-        const { FeatureFlag } = await import('../models/FeatureFlag');
         let hasMobileAccess = false;
 
         if (assignedRestaurants.length > 0) {
-          const enabledFlag = await FeatureFlag.findOne({
-            restaurantId: { $in: assignedRestaurants },
-            key: 'mobile_app',
-            enabled: true,
-          });
-          if (enabledFlag) {
-            hasMobileAccess = true;
+          for (const restId of assignedRestaurants) {
+            const enabledFlag = await featureFlagRepository.findByKey(restId, 'mobile_app');
+            if (enabledFlag && enabledFlag.enabled) {
+              hasMobileAccess = true;
+              break;
+            }
           }
         }
 
@@ -224,12 +223,11 @@ export class AuthController {
         return;
       }
 
-      const staffRecords = await RestaurantStaff.find({ userId: { $in: [(user as any)._id, user.id] }, isActive: true });
-      let assignedRestaurants = staffRecords.map((s) => s.restaurantId.toString());
+      const staffRecords = await restaurantStaffRepository.findByUserId(user.id);
+      let assignedRestaurants = staffRecords.filter(s => s.isActive).map((s) => s.restaurantId.toString());
 
       if (user.role === 'SUPER_ADMIN' && assignedRestaurants.length === 0) {
-        const { Restaurant } = await import('../models/Restaurant');
-        const allRestaurants = await Restaurant.find({ status: { $ne: 'ARCHIVED' } });
+        const allRestaurants = await restaurantRepository.findAll({ status: { $ne: 'ARCHIVED' } });
         assignedRestaurants = allRestaurants.map((r: any) => r.id.toString());
       }
 
@@ -300,8 +298,7 @@ export class AuthController {
       }
 
       const newPasswordHash = await bcrypt.hash(newPassword, 10);
-      user.passwordHash = newPasswordHash;
-      await user.save();
+      await this.userRepository.update(user.id, { passwordHash: newPasswordHash });
 
       // Revoke all refresh tokens on password change to force login on other devices
       await this.tokenRepository.revokeAllForUser(user.id);

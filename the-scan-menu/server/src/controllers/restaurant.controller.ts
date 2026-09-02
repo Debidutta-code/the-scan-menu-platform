@@ -1,15 +1,15 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Restaurant } from '../models/Restaurant';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { Table } from '../models/Table';
-import { TableZone } from '../models/TableZone';
-import { Tax } from '../models/Tax';
-import { User } from '../models/User';
-import { RestaurantStaff } from '../models/RestaurantStaff';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { tableRepository } from '../repositories/table.repository';
+import { tableZoneRepository } from '../repositories/tableZone.repository';
+import { taxRepository } from '../repositories/tax.repository';
+import { userRepository } from '../repositories/user.repository';
+import { restaurantStaffRepository } from '../repositories/restaurantStaff.repository';
 import { TableService } from '../services/table.service';
-import { DiningSession } from '../models/DiningSession';
-import { Order } from '../models/Order';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
+import { orderRepository } from '../repositories/order.repository';
 import { diningSessionService } from '../services/diningSession.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
 import { customerService } from '../services/customer.service';
@@ -19,7 +19,7 @@ import { sendSuccess, sendError } from '../utils/response';
 import config from '../config';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-import { FeatureFlag } from '../models/FeatureFlag';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
 
 const tableService = new TableService();
 
@@ -77,20 +77,20 @@ export class RestaurantController {
       const assignedRole = role === 'MANAGER' ? 'MANAGER' : 'STAFF';
 
       // Check if user already exists
-      const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+      const existingUser = await userRepository.findByEmail(email);
       if (existingUser) {
-        const existingJoin = await RestaurantStaff.findOne({
-          userId: existingUser._id,
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-        });
+        const existingJoin = await restaurantStaffRepository.findByUserIdAndRestaurantId(
+          existingUser._id,
+          restaurantId
+        );
         if (existingJoin) {
           if (!existingJoin.isActive) {
             existingJoin.isActive = true;
             existingJoin.role = assignedRole;
-            await existingJoin.save();
+            await restaurantStaffRepository.save(existingJoin);
             existingUser.isActive = true;
             existingUser.role = assignedRole;
-            await existingUser.save();
+            await userRepository.save(existingUser);
             sendSuccess(res, { id: existingUser._id, email: existingUser.email, name: existingUser.name, role: existingUser.role, pin: existingUser.pin }, 'Member reactivated successfully', 200);
             return;
           }
@@ -98,39 +98,34 @@ export class RestaurantController {
           return;
         }
 
-        const staffJoin = new RestaurantStaff({
+        await restaurantStaffRepository.create({
           userId: existingUser._id,
           restaurantId: new mongoose.Types.ObjectId(restaurantId),
           role: assignedRole,
           isActive: true,
         });
-        await staffJoin.save();
         await restaurantStatsService.incrementStaff(restaurantId, 1);
         sendSuccess(res, { id: existingUser._id, email: existingUser.email, name: existingUser.name, role: assignedRole, pin: existingUser.pin }, 'Member associated successfully', 201);
         return;
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
-      const staffUser = new User({
+      const staffUser = await userRepository.create({
         email: email.toLowerCase().trim(),
         passwordHash,
         name: name.trim(),
         role: assignedRole,
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
         isActive: true,
         pin: pin ? pin.trim() : undefined,
       });
 
-      await staffUser.save();
-
       // Create RestaurantStaff row
-      const staffJoin = new RestaurantStaff({
+      await restaurantStaffRepository.create({
         userId: staffUser._id,
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         role: assignedRole,
         isActive: true,
       });
-      await staffJoin.save();
       await restaurantStatsService.incrementStaff(restaurantId, 1);
 
       sendSuccess(res, { id: staffUser._id, email: staffUser.email, name: staffUser.name, role: staffUser.role, pin: staffUser.pin }, 'Member created and associated successfully', 201);
@@ -145,12 +140,10 @@ export class RestaurantController {
       const restObjId = new mongoose.Types.ObjectId(restaurantId);
 
       // Fetch all RestaurantStaff entries (both MANAGER and STAFF)
-      const staffJoins = await RestaurantStaff.find({
-        restaurantId: restObjId,
-      }).populate('userId');
+      const staffJoins = await restaurantStaffRepository.findByRestaurantIdPopulated(restaurantId);
 
       // Also fetch direct Users tied to this restaurantId
-      const directUsers = await User.find({
+      const directUsers = await userRepository.find({
         restaurantId: restObjId,
         role: { $in: ['MANAGER', 'STAFF'] },
       });
@@ -201,19 +194,19 @@ export class RestaurantController {
       const { restaurantId, staffId } = req.params;
       const { name, email, password, pin, role, isActive } = req.body;
 
-      const staffJoin = await RestaurantStaff.findOne({
-        userId: new mongoose.Types.ObjectId(staffId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const staffJoin = await restaurantStaffRepository.findByUserIdAndRestaurantId(
+        staffId,
+        restaurantId
+      );
 
-      const user = await User.findById(staffId);
+      const user = await userRepository.findById(staffId);
       if (!user) {
         sendError(res, 'USER_NOT_FOUND', 'User not found', null, 404);
         return;
       }
 
       if (email && email.toLowerCase().trim() !== user.email) {
-        const existing = await User.findOne({ email: email.toLowerCase().trim(), _id: { $ne: staffId } });
+        const existing = await userRepository.findOne({ email: email.toLowerCase().trim(), _id: { $ne: staffId } });
         if (existing) {
           sendError(res, 'USER_ALREADY_EXISTS', 'Email already in use', null, 400);
           return;
@@ -233,8 +226,8 @@ export class RestaurantController {
         if (staffJoin) staffJoin.isActive = isActive;
       }
 
-      await user.save();
-      if (staffJoin) await staffJoin.save();
+      await userRepository.save(user);
+      if (staffJoin) await restaurantStaffRepository.save(staffJoin);
 
       sendSuccess(res, { id: user._id, email: user.email, name: user.name, role: user.role, pin: user.pin, isActive: user.isActive }, 'Member updated successfully');
     } catch (error) {
@@ -245,17 +238,12 @@ export class RestaurantController {
   async deleteStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, staffId } = req.params;
-      const staffObjId = new mongoose.Types.ObjectId(staffId);
-      const restObjId = new mongoose.Types.ObjectId(restaurantId);
 
       // Deactivate RestaurantStaff link
-      await RestaurantStaff.updateMany(
-        { userId: staffObjId, restaurantId: restObjId },
-        { $set: { isActive: false } }
-      );
+      await restaurantStaffRepository.deactivateByUserAndRestaurant(staffId, restaurantId);
 
       // Deactivate the User account
-      await User.findByIdAndUpdate(staffId, { isActive: false });
+      await userRepository.update(staffId, { isActive: false });
       await restaurantStatsService.incrementStaff(restaurantId, -1);
 
       sendSuccess(res, {}, 'Member deactivated / removed successfully');
@@ -282,12 +270,12 @@ export class RestaurantController {
 
       // 1. If an active authenticated session exists, enforce matching the logged-in user's PIN
       if (req.user?.id) {
-        const loggedUser = await User.findById(req.user.id);
+        const loggedUser = await userRepository.findById(req.user.id);
         if (loggedUser && loggedUser.isActive && loggedUser.pin && loggedUser.pin.trim() === cleanPin) {
           matchedUser = loggedUser;
           matchedRole = loggedUser.role;
         } else if (req.user.role === 'SUPER_ADMIN') {
-          const superAdmin = await User.findById(req.user.id);
+          const superAdmin = await userRepository.findById(req.user.id);
           if (superAdmin && superAdmin.pin && superAdmin.pin.trim() === cleanPin) {
             matchedUser = superAdmin;
             matchedRole = 'SUPER_ADMIN';
@@ -300,10 +288,7 @@ export class RestaurantController {
         }
       } else {
         // 2. Unauthenticated / Kiosk Terminal: Check RestaurantStaff associations
-        const staffJoins = await RestaurantStaff.find({
-          restaurantId: restObjId,
-          isActive: true,
-        }).populate('userId');
+        const staffJoins = await restaurantStaffRepository.findActiveByRestaurantIdPopulated(restaurantId);
 
         for (const join of staffJoins) {
           const u = join.userId as any;
@@ -316,7 +301,7 @@ export class RestaurantController {
 
         // 3. Check direct Users with restaurantId
         if (!matchedUser) {
-          const directUser = await User.findOne({
+          const directUser = await userRepository.findOne({
             restaurantId: restObjId,
             pin: cleanPin,
             isActive: true,
@@ -361,11 +346,7 @@ export class RestaurantController {
       const restObjId = new mongoose.Types.ObjectId(restaurantId);
 
       // Check manager associations
-      const managerJoins = await RestaurantStaff.find({
-        restaurantId: restObjId,
-        role: 'MANAGER',
-        isActive: true,
-      }).populate('userId');
+      const managerJoins = await restaurantStaffRepository.findActiveManagersByRestaurantIdPopulated(restaurantId);
 
       let verifiedManager: any = null;
 
@@ -378,7 +359,7 @@ export class RestaurantController {
       }
 
       if (!verifiedManager) {
-        const directManager = await User.findOne({
+        const directManager = await userRepository.findOne({
           restaurantId: restObjId,
           role: 'MANAGER',
           pin: cleanPin,
@@ -390,7 +371,7 @@ export class RestaurantController {
       }
 
       if (!verifiedManager) {
-        const superAdmin = await User.findOne({
+        const superAdmin = await userRepository.findOne({
           role: 'SUPER_ADMIN',
           pin: cleanPin,
           isActive: true,
@@ -424,19 +405,19 @@ export class RestaurantController {
   async getRestaurantProfile(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
 
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      let settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id });
+      let settings = await restaurantSettingsRepository.findByRestaurantId(restaurant._id);
       if (!settings) {
-        settings = new RestaurantSettings({ restaurantId: restaurant._id });
+        settings = await restaurantSettingsRepository.create({ restaurantId: restaurant._id });
       }
 
-      const activeFlags = await FeatureFlag.find({ restaurantId: restaurant._id, enabled: true }).select('key enabled');
+      const activeFlags = await featureFlagRepository.findActiveByRestaurantId(restaurant._id);
 
       const responseData = {
         ...restaurant.toObject(),
@@ -516,12 +497,10 @@ export class RestaurantController {
 
       // Validate active orders/sessions before allowing rounding configuration changes
       if (updateData.roundingConfig !== undefined) {
-        const activeOrdersCount = await Order.countDocuments({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        const activeOrdersCount = await orderRepository.count(restaurantId, {
           status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
         });
-        const activeSessionsCount = await DiningSession.countDocuments({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
+        const activeSessionsCount = await diningSessionRepository.countByRestaurantId(restaurantId, {
           status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
         });
 
@@ -537,15 +516,15 @@ export class RestaurantController {
         }
       }
 
-      const restaurant = await Restaurant.findByIdAndUpdate(restaurantId, updateData, { new: true });
+      const restaurant = await restaurantRepository.updateById(restaurantId, updateData);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      let settings = await RestaurantSettings.findOne({ restaurantId });
+      let settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       if (!settings) {
-        settings = new RestaurantSettings({ restaurantId });
+        settings = await restaurantSettingsRepository.create({ restaurantId: new mongoose.Types.ObjectId(restaurantId) });
       }
 
       if (updateData.theme) settings.theme = { ...settings.theme, ...updateData.theme };
@@ -577,7 +556,7 @@ export class RestaurantController {
         settings.workflow.autoAcceptConfig.enabled = false;
       }
 
-      await settings.save();
+      await restaurantSettingsRepository.save(settings);
 
       const responseData = {
         ...restaurant.toObject(),
@@ -615,19 +594,17 @@ export class RestaurantController {
   async listTables(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const tables = await Table.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: { $ne: true } }).sort({ tableNumber: 1 }).populate("zoneId");
+      const tables = await tableRepository.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId), isArchived: { $ne: true } }, "zoneId");
 
       const tableIds = tables.map((t) => t._id);
 
-      const activeSessions = await DiningSession.find({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      const activeSessions = await diningSessionRepository.findByRestaurantId(restaurantId, {
         status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
       });
 
       const sessionMap = new Map(activeSessions.map((s) => [s.tableId.toString(), s]));
 
-      const Order = mongoose.model('Order');
-      const activeOrders = await Order.aggregate([
+      const activeOrders = await orderRepository.aggregate([
         {
           $match: {
             restaurantId: new mongoose.Types.ObjectId(restaurantId),
@@ -686,22 +663,18 @@ export class RestaurantController {
         return;
       }
 
-      const table = await Table.findOne({ _id: tableId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const table = await tableRepository.findOne({ _id: tableId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
         return;
       }
 
       table.status = status;
-      await table.save();
+      await tableRepository.save(table);
 
       // If clearing table to AVAILABLE, close any active dining session for this table
       if (status === 'AVAILABLE') {
-        const activeSession = await DiningSession.findOne({
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          tableId: table._id,
-          status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
-        });
+        const activeSession = await diningSessionRepository.findActiveByTableId(table._id);
         if (activeSession) {
           await diningSessionService.closeSession(restaurantId, activeSession._id, req.user?.id);
         }
@@ -726,14 +699,13 @@ export class RestaurantController {
       const objectIds = tableIds.map((id: string) => new mongoose.Types.ObjectId(id));
 
       // Update table statuses to AVAILABLE
-      await Table.updateMany(
+      await tableRepository.updateMany(
         { _id: { $in: objectIds }, restaurantId: new mongoose.Types.ObjectId(restaurantId) },
         { $set: { status: 'AVAILABLE' } }
       );
 
       // Close all active dining sessions for these tables
-      const activeSessions = await DiningSession.find({
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
+      const activeSessions = await diningSessionRepository.findByRestaurantId(restaurantId, {
         tableId: { $in: objectIds },
         status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
       });
@@ -743,24 +715,17 @@ export class RestaurantController {
       }
 
       // Also clear all non-cancelled orders for these tables
-      await Order.updateMany(
+      await orderRepository.updateStatusByRestaurantId(
+        restaurantId,
+        'COMPLETED',
         {
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
           tableId: { $in: objectIds },
           status: { $ne: 'CANCELLED' },
-        },
-        {
-          $set: {
-            status: 'COMPLETED',
-            isCleared: true,
-            clearedAt: new Date(),
-            paymentStatus: 'PAID',
-          },
         }
       );
 
       // Broadcast table cleared to all connected customer tables and restaurant staff
-      const clearedTables = await Table.find({ _id: { $in: objectIds } }).select('token').lean();
+      const clearedTables = await tableRepository.find({ _id: { $in: objectIds } });
       for (const tbl of clearedTables) {
         if (tbl?.token) {
           NotificationService.getInstance().notifyTableCleared(tbl.token);
@@ -786,7 +751,7 @@ export class RestaurantController {
       const objectIds = tableIds.map((id: string) => new mongoose.Types.ObjectId(id));
       const newStatus = reserved ? 'RESERVED' : 'AVAILABLE';
 
-      await Table.updateMany(
+      await tableRepository.updateMany(
         { _id: { $in: objectIds }, restaurantId: new mongoose.Types.ObjectId(restaurantId) },
         { $set: { status: newStatus } }
       );
@@ -858,7 +823,7 @@ export class RestaurantController {
       const { zoneId } = req.body;
       let { tableNumber, displayName } = req.body;
 
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
@@ -878,7 +843,7 @@ export class RestaurantController {
           queryFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
         }
 
-        const existingTables = await Table.find(queryFilter);
+        const existingTables = await tableRepository.find(queryFilter);
         let maxNum = 0;
         for (const t of existingTables) {
           const num = parseInt(t.tableNumber, 10);
@@ -909,7 +874,7 @@ export class RestaurantController {
         duplicateFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
       }
 
-      const duplicate = await Table.findOne(duplicateFilter);
+      const duplicate = await tableRepository.findOne(duplicateFilter);
       if (duplicate) {
         sendError(res, 'DUPLICATE_TABLE_NUMBER', `Table number ${tableNumber} already exists in this zone`, null, 400);
         return;
@@ -918,7 +883,7 @@ export class RestaurantController {
       const token = tableService.generateSecureToken();
       const qrCodeUrl = `/api/v1/restaurants/${restaurant.id}/tables/${token}/qr`;
 
-      const table = new Table({
+      const table = await tableRepository.create({
         restaurantId: restaurant.id,
         tableNumber,
         displayName,
@@ -928,7 +893,6 @@ export class RestaurantController {
         isActive: true,
       });
 
-      await table.save();
       await restaurantStatsService.incrementTables(restaurantId, 1);
 
       sendSuccess(res, table, 'Table created successfully', 201);
@@ -957,7 +921,7 @@ export class RestaurantController {
         return;
       }
 
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (session) {
         restaurant?.$session(session);
       }
@@ -981,14 +945,7 @@ export class RestaurantController {
         queryFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
       }
 
-      // If a prefix is provided, we only want to look at tables starting with that prefix
-      // If no prefix is provided, we look at ALL tables in the zone without a prefix or with any format,
-      // but to be safe and simple, let's just grab all and parse carefully.
-      let query = Table.find(queryFilter);
-      if (session) {
-        query = query.session(session);
-      }
-      const existingTables = await query;
+      const existingTables = await tableRepository.find(queryFilter);
 
       let maxNum = 0;
       for (const t of existingTables) {
@@ -1027,11 +984,7 @@ export class RestaurantController {
         startingNum++;
       }
 
-      if (session) {
-        await Table.insertMany(tablesToCreate, { session });
-      } else {
-        await Table.insertMany(tablesToCreate);
-      }
+      await tableRepository.insertMany(tablesToCreate, session);
       await restaurantStatsService.incrementTables(restaurantId, count);
 
       if (session) {
@@ -1054,7 +1007,7 @@ export class RestaurantController {
       const { restaurantId, tableId } = req.params;
       const { tableNumber, displayName, isActive } = req.body;
 
-      const table = await Table.findOne({ _id: tableId, restaurantId });
+      const table = await tableRepository.findOne({ _id: tableId, restaurantId });
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
         return;
@@ -1078,7 +1031,7 @@ export class RestaurantController {
           duplicateFilter.$or = [{ zoneId: { $exists: false } }, { zoneId: null }];
         }
 
-        const duplicate = await Table.findOne(duplicateFilter);
+        const duplicate = await tableRepository.findOne(duplicateFilter);
         if (duplicate) {
           sendError(res, 'DUPLICATE_TABLE_NUMBER', 'Table number already exists in this zone', null, 400);
           return;
@@ -1098,7 +1051,7 @@ export class RestaurantController {
           table.zoneId = req.body.zoneId ? new mongoose.Types.ObjectId(req.body.zoneId) : undefined;
       }
 
-      await table.save();
+      await tableRepository.save(table);
 
       sendSuccess(res, table, 'Table updated successfully');
     } catch (error) {
@@ -1109,19 +1062,19 @@ export class RestaurantController {
   async deleteTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, tableId } = req.params;
-      const orderCount = await mongoose.model('Order').countDocuments({ tableId });
+      const orderCount = await orderRepository.count(restaurantId, { tableId });
 
       let table;
       let archived = false;
       if (orderCount > 0) {
-        table = await Table.findOneAndUpdate(
+        table = await tableRepository.findOneAndUpdate(
           { _id: tableId, restaurantId },
           { isArchived: true, isActive: false },
           { new: true }
         );
         archived = true;
       } else {
-        table = await Table.findOneAndDelete({ _id: tableId, restaurantId });
+        table = await tableRepository.findOneAndDelete({ _id: tableId, restaurantId });
       }
 
       if (!table) {
@@ -1140,7 +1093,7 @@ export class RestaurantController {
   async activateTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, tableId } = req.params;
-      const table = await Table.findOneAndUpdate({ _id: tableId, restaurantId }, { isActive: true }, { new: true });
+      const table = await tableRepository.findOneAndUpdate({ _id: tableId, restaurantId }, { isActive: true }, { new: true });
 
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
@@ -1156,7 +1109,7 @@ export class RestaurantController {
   async deactivateTable(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId, tableId } = req.params;
-      const table = await Table.findOneAndUpdate({ _id: tableId, restaurantId }, { isActive: false }, { new: true });
+      const table = await tableRepository.findOneAndUpdate({ _id: tableId, restaurantId }, { isActive: false }, { new: true });
 
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
@@ -1173,13 +1126,13 @@ export class RestaurantController {
     try {
       const { restaurantId, tableId } = req.params;
 
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
-      const table = await Table.findOne({ _id: tableId, restaurantId: restaurant.id });
+      const table = await tableRepository.findOne({ _id: tableId, restaurantId: restaurant.id });
       if (!table) {
         sendError(res, 'TABLE_NOT_FOUND', 'Table not found', null, 404);
         return;
@@ -1190,7 +1143,7 @@ export class RestaurantController {
       table.token = newToken;
       table.qrCodeUrl = `/api/v1/restaurants/${restaurant.id}/tables/${newToken}/qr`;
 
-      await table.save();
+      await tableRepository.save(table);
 
       sendSuccess(res, table, 'QR code and table token regenerated successfully');
     } catch (error) {
@@ -1202,16 +1155,16 @@ export class RestaurantController {
     try {
       const { restaurantId, tableId } = req.params;
 
-      const restaurant = await Restaurant.findById(restaurantId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (!restaurant) {
         sendError(res, 'RESTAURANT_NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
       // tableId in parameters could actually be the table ID or the token. Support finding by either to make it highly robust
-      let table = await Table.findOne({ _id: mongoose.Types.ObjectId.isValid(tableId) ? tableId : undefined, restaurantId: restaurant.id });
+      let table = await tableRepository.findOne({ _id: mongoose.Types.ObjectId.isValid(tableId) ? tableId : undefined, restaurantId: restaurant.id });
       if (!table) {
-        table = await Table.findOne({ token: tableId, restaurantId: restaurant.id });
+        table = await tableRepository.findOne({ token: tableId, restaurantId: restaurant.id });
       }
 
       if (!table) {
@@ -1222,7 +1175,7 @@ export class RestaurantController {
       const clientUrl = config.app.clientUrl;
       const tableUrl = `${clientUrl}/r/${restaurant.slug}/t/${table.token}`;
 
-      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant.id });
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurant.id);
       const qrStyle = settings?.qrCodeStyle;
       const fgColor = (req.query.fgColor as string) || qrStyle?.fgColor || '#0F172A';
       const bgColor = (req.query.bgColor as string) || qrStyle?.bgColor || '#FFFFFF';
@@ -1264,7 +1217,7 @@ export class RestaurantController {
   async listZones(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const zones = await TableZone.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) }).sort({ name: 1 });
+      const zones = await tableZoneRepository.findByRestaurantId(restaurantId);
       sendSuccess(res, zones, 'Zones fetched successfully');
     } catch (error) {
       next(error);
@@ -1281,19 +1234,18 @@ export class RestaurantController {
         return;
       }
 
-      const existingZone = await TableZone.findOne({ restaurantId: new mongoose.Types.ObjectId(restaurantId), name: name.trim() });
+      const existingZone = await tableZoneRepository.findByIdAndRestaurant(name.trim(), restaurantId);
       if (existingZone) {
         sendError(res, 'CONFLICT', 'Zone with this name already exists', null, 409);
         return;
       }
 
-      const zone = new TableZone({
+      const zone = await tableZoneRepository.create({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         name: name.trim(),
         isActive: true,
       });
 
-      await zone.save();
       sendSuccess(res, zone, 'Zone created successfully', 201);
     } catch (error) {
       next(error);
@@ -1305,7 +1257,7 @@ export class RestaurantController {
       const { restaurantId, zoneId } = req.params;
       const { name, isActive } = req.body;
 
-      const zone = await TableZone.findOne({ _id: zoneId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const zone = await tableZoneRepository.findByIdAndRestaurant(zoneId, restaurantId);
       if (!zone) {
         sendError(res, 'NOT_FOUND', 'Zone not found', null, 404);
         return;
@@ -1314,7 +1266,7 @@ export class RestaurantController {
       if (name) zone.name = name.trim();
       if (isActive !== undefined) zone.isActive = !!isActive;
 
-      await zone.save();
+      await tableZoneRepository.updateById(zone._id, zone);
       sendSuccess(res, zone, 'Zone updated successfully');
     } catch (error) {
       next(error);
@@ -1325,14 +1277,16 @@ export class RestaurantController {
     try {
       const { restaurantId, zoneId } = req.params;
 
-      const zone = await TableZone.findOneAndDelete({ _id: zoneId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const zone = await tableZoneRepository.findByIdAndRestaurant(zoneId, restaurantId);
       if (!zone) {
         sendError(res, 'NOT_FOUND', 'Zone not found', null, 404);
         return;
       }
 
+      await tableZoneRepository.deleteById(zoneId);
+
       // Hard delete all tables in this zone as per user request
-      await Table.deleteMany({ restaurantId: new mongoose.Types.ObjectId(restaurantId), zoneId: new mongoose.Types.ObjectId(zoneId) });
+      await tableRepository.deleteMany({ restaurantId: new mongoose.Types.ObjectId(restaurantId), zoneId: new mongoose.Types.ObjectId(zoneId) });
 
       sendSuccess(res, {}, 'Zone and associated tables deleted successfully');
     } catch (error) {
@@ -1347,7 +1301,7 @@ export class RestaurantController {
   async listTaxes(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
-      const taxes = await Tax.find({ restaurantId: new mongoose.Types.ObjectId(restaurantId) }).sort({ createdAt: 1 });
+      const taxes = await taxRepository.findByRestaurantId(restaurantId);
       sendSuccess(res, taxes, 'Taxes fetched successfully');
     } catch (error) {
       next(error);
@@ -1369,7 +1323,7 @@ export class RestaurantController {
         return;
       }
 
-      const tax = new Tax({
+      const tax = await taxRepository.create({
         restaurantId: new mongoose.Types.ObjectId(restaurantId),
         type: type || 'TAX',
         groupId: groupId ? new mongoose.Types.ObjectId(groupId) : undefined,
@@ -1378,7 +1332,6 @@ export class RestaurantController {
         isActive: true,
       });
 
-      await tax.save();
       sendSuccess(res, tax, 'Tax created successfully', 201);
     } catch (error) {
       next(error);
@@ -1390,7 +1343,7 @@ export class RestaurantController {
       const { restaurantId, taxId } = req.params;
       const { name, percentage, isActive, type, groupId } = req.body;
 
-      const tax = await Tax.findOne({ _id: taxId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const tax = await taxRepository.findByIdAndRestaurant(taxId, restaurantId);
       if (!tax) {
         sendError(res, 'NOT_FOUND', 'Tax not found', null, 404);
         return;
@@ -1405,7 +1358,7 @@ export class RestaurantController {
       }
       if (groupId !== undefined) tax.groupId = groupId ? new mongoose.Types.ObjectId(groupId) : undefined;
 
-      await tax.save();
+      await taxRepository.updateById(tax._id, tax);
       sendSuccess(res, tax, 'Tax updated successfully');
     } catch (error) {
       next(error);
@@ -1416,11 +1369,13 @@ export class RestaurantController {
     try {
       const { restaurantId, taxId } = req.params;
 
-      const tax = await Tax.findOneAndDelete({ _id: taxId, restaurantId: new mongoose.Types.ObjectId(restaurantId) });
+      const tax = await taxRepository.findByIdAndRestaurant(taxId, restaurantId);
       if (!tax) {
         sendError(res, 'NOT_FOUND', 'Tax not found', null, 404);
         return;
       }
+
+      await taxRepository.deleteById(taxId);
 
       sendSuccess(res, {}, 'Tax deleted successfully');
     } catch (error) {

@@ -1,11 +1,12 @@
 import { Response, NextFunction } from 'express';
 import { ApiKeyRequest } from '../middleware/apiKey.middleware';
-import { Category } from '../models/Category';
-import { MenuItem } from '../models/MenuItem';
-import { Order } from '../models/Order';
+import { categoryRepository } from '../repositories/category.repository';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { orderRepository } from '../repositories/order.repository';
 import { webhookDispatcherService } from '../services/webhookDispatcher.service';
 import { createWebhookSubscriptionSchema } from '../validators/webhook.validator';
 import { sendSuccess, sendError } from '../utils/response';
+import { getNextOrderNumber } from '../utils/orderCounter';
 import { Types } from 'mongoose';
 
 export class OpenApiController {
@@ -24,8 +25,8 @@ export class OpenApiController {
   async getMenu(req: ApiKeyRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const rId = new Types.ObjectId(req.restaurantId);
-      const categories = await Category.find({ restaurantId: rId, isArchived: false }).sort({ sortOrder: 1 });
-      const items = await MenuItem.find({ restaurantId: rId, isArchived: false }).sort({ sortOrder: 1 });
+      const categories = await categoryRepository.findByRestaurantId(rId, { isArchived: false }, { sortOrder: 1 });
+      const items = await menuItemRepository.findByRestaurantId(rId, { isArchived: false }, { sortOrder: 1 });
 
       sendSuccess(res, { categories, items }, 'Public catalog menu retrieved successfully');
     } catch (error: any) {
@@ -41,16 +42,14 @@ export class OpenApiController {
       const rId = new Types.ObjectId(req.restaurantId);
       const { status, limit } = req.query;
 
-      const filter: any = { restaurantId: rId };
+      const filter: any = {};
       if (status && typeof status === 'string') {
         filter.status = status;
       }
 
       const limitNum = limit ? Math.min(Number(limit), 100) : 50;
 
-      const orders = await Order.find(filter)
-        .sort({ createdAt: -1 })
-        .limit(limitNum);
+      const orders = await orderRepository.findByRestaurantId(rId, filter, { createdAt: -1 }, 0, limitNum);
 
       sendSuccess(res, orders, 'Orders retrieved successfully');
     } catch (error: any) {
@@ -71,9 +70,9 @@ export class OpenApiController {
         return;
       }
 
-      const orderNumber = `API-${Date.now().toString().slice(-6)}`;
+      const orderNumber = await getNextOrderNumber(rId);
 
-      const order = await Order.create({
+      const order = await orderRepository.create({
         restaurantId: rId,
         orderNumber,
         orderMode: orderMode || 'TAKEAWAY',
@@ -90,7 +89,7 @@ export class OpenApiController {
       });
 
       // Dispatch webhook non-blockingly
-      webhookDispatcherService.dispatchEvent(rId, 'order.created', order.toObject());
+      webhookDispatcherService.dispatchEvent(rId, 'order.created', (order as any).toObject ? (order as any).toObject() : order);
 
       sendSuccess(res, order, 'External order created successfully', 201);
     } catch (error: any) {

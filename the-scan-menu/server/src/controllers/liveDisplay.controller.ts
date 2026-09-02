@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { Restaurant } from '../models/Restaurant';
-import { RestaurantSettings } from '../models/RestaurantSettings';
-import { Order } from '../models/Order';
-import { FeatureFlag } from '../models/FeatureFlag';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -20,43 +20,41 @@ export class LiveDisplayController {
       }
 
       const isObjectId = mongoose.Types.ObjectId.isValid(slugOrId);
-      const query = isObjectId
-        ? { $or: [{ _id: slugOrId }, { slug: slugOrId }] }
-        : { slug: slugOrId };
-
-      const restaurant = await Restaurant.findOne({
-        ...query,
-        status: { $ne: 'ARCHIVED' },
-      }).lean();
-
+      let restaurant = null;
+      if (isObjectId) {
+        restaurant = await restaurantRepository.findById(slugOrId);
+      }
       if (!restaurant) {
+        restaurant = await restaurantRepository.findBySlug(slugOrId.toLowerCase().trim());
+      }
+
+      if (!restaurant || restaurant.status === 'ARCHIVED') {
         sendError(res, 'NOT_FOUND', 'Restaurant not found', null, 404);
         return;
       }
 
       // Check customer_display feature flag
-      const displayFlag = await FeatureFlag.findOne({
-        restaurantId: restaurant._id,
-        key: 'customer_display',
-      }).lean();
+      const displayFlag = await featureFlagRepository.findByKey(restaurant._id, 'customer_display');
 
       if (displayFlag && !displayFlag.enabled) {
         sendError(res, 'FEATURE_DISABLED', 'Customer Live Display module is disabled for this restaurant', null, 403);
         return;
       }
 
-      const settings = await RestaurantSettings.findOne({ restaurantId: restaurant._id }).lean();
+      const settings = await restaurantSettingsRepository.findByRestaurantId(restaurant._id);
 
       // Fetch active preparing and ready orders from the last 48 hours
       const activeCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
-      const activeOrders = await Order.find({
-        restaurantId: restaurant._id,
-        status: { $in: ['PREPARING', 'READY'] },
-        createdAt: { $gte: activeCutoff },
-      })
-        .populate('tableId', 'name tableNumber')
-        .sort({ updatedAt: -1 })
-        .lean();
+      const activeOrders = await orderRepository.findByRestaurantId(
+        restaurant._id,
+        {
+          status: { $in: ['PREPARING', 'READY'] },
+          createdAt: { $gte: activeCutoff },
+        },
+        { updatedAt: -1 },
+        0,
+        100
+      );
 
       // Sanitise orders: strictly ZERO PII
       const sanitizedOrders = activeOrders.map((order: any) => {

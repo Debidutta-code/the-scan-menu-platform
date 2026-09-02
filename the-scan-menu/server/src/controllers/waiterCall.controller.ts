@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { Restaurant } from '../models/Restaurant';
-import { Table } from '../models/Table';
-import { WaiterCall } from '../models/WaiterCall';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { tableRepository } from '../repositories/table.repository';
+import { waiterCallRepository } from '../repositories/waiterCall.repository';
 import { validateWaiterCallTransition } from '../utils/waiterCallStateMachine';
 import { NotificationService } from '../services/notification.service';
 import { featureFlagService } from '../services/featureFlag.service';
@@ -32,13 +32,13 @@ export class WaiterCallController {
       }
 
       // 1. Resolve table and restaurant
-      const table = await Table.findOne({ token: tableToken });
+      const table = await tableRepository.findByToken(tableToken);
       if (!table || !table.isActive) {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
       }
 
-      const restaurant = await Restaurant.findById(table.restaurantId);
+      const restaurant = await restaurantRepository.findById(table.restaurantId);
       if (!restaurant || restaurant.status === 'SUSPENDED') {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
@@ -52,20 +52,10 @@ export class WaiterCallController {
 
       // 2. Auto-expire old pending calls (> 5 mins) before checking active call
       const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-      await WaiterCall.updateMany(
-        {
-          tableId: table._id,
-          status: 'PENDING',
-          createdAt: { $lte: fiveMinsAgo },
-        },
-        { $set: { status: 'EXPIRED' } }
-      );
+      await waiterCallRepository.expireStalePendingByTableId(table._id, fiveMinsAgo);
 
       // Check for existing active PENDING/ACKNOWLEDGED call
-      const existingCall = await WaiterCall.findOne({
-        tableId: table._id,
-        status: { $in: ['PENDING', 'ACKNOWLEDGED'] },
-      });
+      const existingCall = await waiterCallRepository.findActiveByTableId(table._id);
 
       if (existingCall) {
         // Return existing open call rather than creating duplicate
@@ -76,7 +66,7 @@ export class WaiterCallController {
       const { requestType } = req.body;
 
       // 3. Create Waiter Call
-      const waiterCall = new WaiterCall({
+      const waiterCall = await waiterCallRepository.create({
         restaurantId: restaurant._id,
         tableId: table._id,
         tableNumberSnapshot: table.tableNumber,
@@ -84,8 +74,6 @@ export class WaiterCallController {
         requestType: requestType || 'CALL_WAITER',
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       });
-
-      await waiterCall.save();
 
       // Emit waiter_call:created to restaurant:{restaurantId} room via central NotificationService
       try {
@@ -123,7 +111,7 @@ export class WaiterCallController {
       }
 
       // Resolve table
-      const table = await Table.findOne({ token: tableToken });
+      const table = await tableRepository.findByToken(tableToken);
       if (!table || !table.isActive) {
         sendError(res, 'TABLE_NOT_FOUND', 'The specified table or restaurant was not found', null, 404);
         return;
@@ -131,20 +119,10 @@ export class WaiterCallController {
 
       // Auto-expire old pending calls (> 5 mins)
       const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-      await WaiterCall.updateMany(
-        {
-          tableId: table._id,
-          status: 'PENDING',
-          createdAt: { $lte: fiveMinsAgo },
-        },
-        { $set: { status: 'EXPIRED' } }
-      );
+      await waiterCallRepository.expireStalePendingByTableId(table._id, fiveMinsAgo);
 
       // Find any PENDING or ACKNOWLEDGED call
-      const activeCall = await WaiterCall.findOne({
-        tableId: table._id,
-        status: { $in: ['PENDING', 'ACKNOWLEDGED'] },
-      });
+      const activeCall = await waiterCallRepository.findActiveByTableId(table._id);
 
       sendSuccess(res, activeCall, 'Active waiter call retrieved successfully');
     } catch (error) {
@@ -166,18 +144,9 @@ export class WaiterCallController {
 
       // Auto-expire pending calls older than 5 mins for this restaurant
       const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-      await WaiterCall.updateMany(
-        {
-          restaurantId: new mongoose.Types.ObjectId(restaurantId),
-          status: 'PENDING',
-          createdAt: { $lte: fiveMinsAgo },
-        },
-        { $set: { status: 'EXPIRED' } }
-      );
+      await waiterCallRepository.expireStalePendingByRestaurantId(restaurantId, fiveMinsAgo);
 
-      const query: Record<string, any> = {
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      };
+      const query: Record<string, any> = {};
 
       if (statusFilter === 'ACTIVE') {
         query.status = { $in: ['PENDING', 'ACKNOWLEDGED'] };
@@ -187,11 +156,8 @@ export class WaiterCallController {
         query.status = statusFilter;
       }
 
-      const total = await WaiterCall.countDocuments(query);
-      const waiterCalls = await WaiterCall.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
+      const total = await waiterCallRepository.countByRestaurantId(restaurantId, query);
+      const waiterCalls = await waiterCallRepository.findByRestaurantId(restaurantId, query, { createdAt: -1 }, skip, limit);
 
       const responseData = {
         waiterCalls,
@@ -219,10 +185,7 @@ export class WaiterCallController {
         return;
       }
 
-      const waiterCall = await WaiterCall.findOne({
-        _id: new mongoose.Types.ObjectId(callId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const waiterCall = await waiterCallRepository.findByIdAndRestaurant(callId, restaurantId);
 
       if (!waiterCall) {
         sendError(res, 'WAITER_CALL_NOT_FOUND', 'Waiter call record not found', null, 404);
@@ -251,7 +214,7 @@ export class WaiterCallController {
         name: staffName,
         role: user.role || 'STAFF',
       };
-      await waiterCall.save();
+      await waiterCallRepository.save(waiterCall);
 
       // Emit status updated to keep all staff clients and the guest table in sync
       try {
@@ -268,7 +231,7 @@ export class WaiterCallController {
           metadata
         );
         // Look up the table token so we can push to the guest's table room
-        const tableForAck = await Table.findById(waiterCall.tableId).select('token').lean();
+        const tableForAck = await tableRepository.findById(waiterCall.tableId);
         if (tableForAck?.token) {
           NotificationService.getInstance().notifyTableWaiterCallResolved(
             tableForAck.token,
@@ -298,10 +261,7 @@ export class WaiterCallController {
         return;
       }
 
-      const waiterCall = await WaiterCall.findOne({
-        _id: new mongoose.Types.ObjectId(callId),
-        restaurantId: new mongoose.Types.ObjectId(restaurantId),
-      });
+      const waiterCall = await waiterCallRepository.findByIdAndRestaurant(callId, restaurantId);
 
       if (!waiterCall) {
         sendError(res, 'WAITER_CALL_NOT_FOUND', 'Waiter call record not found', null, 404);
@@ -330,7 +290,7 @@ export class WaiterCallController {
         name: staffName,
         role: user.role || 'STAFF',
       };
-      await waiterCall.save();
+      await waiterCallRepository.save(waiterCall);
 
       // Emit waiter_call:resolved to restaurant room and guest table room
       try {
@@ -347,7 +307,7 @@ export class WaiterCallController {
           metadata
         );
         // Look up the table token so we can push to the guest's table room
-        const tableForResolve = await Table.findById(waiterCall.tableId).select('token').lean();
+        const tableForResolve = await tableRepository.findById(waiterCall.tableId);
         if (tableForResolve?.token) {
           NotificationService.getInstance().notifyTableWaiterCallResolved(
             tableForResolve.token,

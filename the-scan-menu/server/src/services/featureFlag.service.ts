@@ -1,5 +1,7 @@
-import { FeatureFlag } from '../models/FeatureFlag';
 import { Types, ClientSession } from 'mongoose';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { subscriptionRepository } from '../repositories/subscription.repository';
 import { logger } from '../utils/logger';
 import config from '../config';
 
@@ -142,15 +144,11 @@ export class FeatureFlagService {
    * If they do not exist, it seeds the default flags and returns them.
    */
   async getRestaurantFlags(restaurantId: string | Types.ObjectId, session?: ClientSession) {
-    const query = FeatureFlag.find({ restaurantId });
-    if (session) query.session(session);
-    let flags = await query;
+    let flags = await featureFlagRepository.findByRestaurantId(restaurantId);
 
     if (flags.length === 0) {
       await this.seedDefaultFlags(restaurantId, session);
-      const reQuery = FeatureFlag.find({ restaurantId });
-      if (session) reQuery.session(session);
-      flags = await reQuery;
+      flags = await featureFlagRepository.findByRestaurantId(restaurantId);
     }
 
     return flags;
@@ -183,27 +181,16 @@ export class FeatureFlagService {
       return true;
     }
 
-    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
-      ? new Types.ObjectId(restaurantId)
-      : restaurantId;
-
-    const flag = await FeatureFlag.findOne({
-      $or: [
-        { restaurantId: targetRestId, key },
-        { restaurantId: restaurantId.toString(), key },
-      ],
-    });
+    const flag = await featureFlagRepository.findByKeyAndRestaurant(key, restaurantId);
     if (flag !== null) {
       return flag.enabled;
     }
 
     // If flag doc does not exist yet, check restaurant subscription plan
     try {
-      const { Restaurant } = await import('../models/Restaurant');
-      const { SubscriptionPlan } = await import('../models/SubscriptionPlan');
-      const restaurant = await Restaurant.findById(targetRestId);
+      const restaurant = await restaurantRepository.findById(restaurantId);
       if (restaurant?.subscription?.planKey) {
-        const plan = await SubscriptionPlan.findOne({ key: restaurant.subscription.planKey });
+        const plan = await subscriptionRepository.findByKey(restaurant.subscription.planKey);
         if (plan) {
           return plan.includedFeatureKeys.includes(key);
         }
@@ -219,55 +206,25 @@ export class FeatureFlagService {
    * Enables a specific feature flag for a given restaurant.
    */
   async enable(restaurantId: string | Types.ObjectId, key: string) {
-    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
-      ? new Types.ObjectId(restaurantId)
-      : restaurantId;
-    return await FeatureFlag.findOneAndUpdate(
-      { restaurantId: targetRestId, key },
-      { enabled: true },
-      { new: true, upsert: true }
-    );
+    return featureFlagRepository.upsert(restaurantId, key, true);
   }
 
   /**
    * Disables a specific feature flag for a given restaurant.
    */
   async disable(restaurantId: string | Types.ObjectId, key: string) {
-    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
-      ? new Types.ObjectId(restaurantId)
-      : restaurantId;
-    return await FeatureFlag.findOneAndUpdate(
-      { restaurantId: targetRestId, key },
-      { enabled: false },
-      { new: true, upsert: true }
-    );
+    return featureFlagRepository.upsert(restaurantId, key, false);
   }
 
   /**
    * Bulk updates multiple feature flags for a given restaurant.
    */
   async bulkUpdate(restaurantId: string | Types.ObjectId, updates: { key: string; enabled: boolean }[], session?: ClientSession) {
-    const targetRestId = typeof restaurantId === 'string' && Types.ObjectId.isValid(restaurantId)
-      ? new Types.ObjectId(restaurantId)
-      : restaurantId;
-
-    const operations = updates.map((update) => ({
-      updateOne: {
-        filter: {
-          $or: [
-            { restaurantId: targetRestId, key: update.key },
-            { restaurantId: restaurantId.toString(), key: update.key },
-          ],
-        },
-        update: { $set: { enabled: update.enabled, restaurantId: targetRestId, key: update.key } },
-        upsert: true,
-      },
-    }));
-
-    if (operations.length > 0) {
-      await FeatureFlag.bulkWrite(operations as any, { session });
-    }
-
+    await Promise.all(
+      updates.map((update) =>
+        featureFlagRepository.upsert(restaurantId, update.key, update.enabled, undefined, session)
+      )
+    );
     return this.getRestaurantFlags(restaurantId, session);
   }
 
@@ -275,14 +232,11 @@ export class FeatureFlagService {
    * Seeds the default flags for a given restaurant.
    */
   public async seedDefaultFlags(restaurantId: string | Types.ObjectId, session?: ClientSession) {
-    const flagsToInsert = DEFAULT_FLAGS.map((flag) => ({
-      restaurantId,
-      key: flag.key,
-      description: flag.description,
-      enabled: false, // Defaulting to false
-    }));
-
-    await FeatureFlag.insertMany(flagsToInsert, { session });
+    await Promise.all(
+      DEFAULT_FLAGS.map((flag) =>
+        featureFlagRepository.upsert(restaurantId, flag.key, false, flag.description, session)
+      )
+    );
   }
 }
 

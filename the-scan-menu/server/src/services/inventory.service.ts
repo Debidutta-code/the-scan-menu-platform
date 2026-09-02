@@ -1,5 +1,7 @@
-import { MenuItem, IMenuItem } from '../models/MenuItem';
-import { InventoryLog, ActorType } from '../models/InventoryLog';
+import { IMenuItem } from '../models/MenuItem';
+import { ActorType } from '../models/InventoryLog';
+import { menuItemRepository } from '../repositories/menuItem.repository';
+import { inventoryRepository } from '../repositories/inventory.repository';
 import { NotificationService } from './notification.service';
 import { webhookDispatcherService } from './webhookDispatcher.service';
 import mongoose, { Types } from 'mongoose';
@@ -24,19 +26,16 @@ export class InventoryService {
     isAvailable: boolean,
     actor: { type: ActorType; id?: string }
   ): Promise<IMenuItem | null> {
-    const item = await MenuItem.findOne({
-      _id: itemId,
-      restaurantId: new mongoose.Types.ObjectId(restaurantId.toString()),
-    });
+    const item = await menuItemRepository.findByIdAndRestaurant(itemId, restaurantId);
 
     if (!item) return null;
 
     const previousAvailability = item.isAvailable;
     item.isAvailable = isAvailable;
-    await item.save();
+    await menuItemRepository.save(item);
 
     // Audit log
-    await InventoryLog.create({
+    await inventoryRepository.createLog({
       restaurantId: item.restaurantId,
       menuItemId: item._id,
       actorType: actor.type,
@@ -78,10 +77,7 @@ export class InventoryService {
     },
     actor: { type: ActorType; id?: string }
   ): Promise<IMenuItem | null> {
-    const item = await MenuItem.findOne({
-      _id: itemId,
-      restaurantId: new mongoose.Types.ObjectId(restaurantId.toString()),
-    });
+    const item = await menuItemRepository.findByIdAndRestaurant(itemId, restaurantId);
 
     if (!item) return null;
 
@@ -108,10 +104,10 @@ export class InventoryService {
       }
     }
 
-    await item.save();
+    await menuItemRepository.save(item);
 
     // Audit Log
-    await InventoryLog.create({
+    await inventoryRepository.createLog({
       restaurantId: item.restaurantId,
       menuItemId: item._id,
       actorType: actor.type,
@@ -152,7 +148,7 @@ export class InventoryService {
 
     // Step 1: Query all requested items
     const itemIds = items.map((i) => new mongoose.Types.ObjectId(i.itemId));
-    const dbItems = await MenuItem.find({ _id: { $in: itemIds }, restaurantId: rId });
+    const dbItems = await menuItemRepository.findByRestaurantId(rId, { _id: { $in: itemIds } });
     const itemMap = new Map(dbItems.map((item) => [item._id.toString(), item]));
 
     // Check availability & pre-stock condition
@@ -197,16 +193,12 @@ export class InventoryService {
       const dbItem = itemMap.get(requested.itemId);
       if (!dbItem || !dbItem.trackStock) continue;
 
-      const updatedItem = await MenuItem.findOneAndUpdate(
+      const updatedItem = await menuItemRepository.updateByIdAndRestaurant(
+        dbItem._id,
+        rId,
         {
-          _id: dbItem._id,
-          restaurantId: rId,
-          isAvailable: true,
-          trackStock: true,
-          stockQuantity: { $gte: requested.quantity },
-        },
-        { $inc: { stockQuantity: -requested.quantity } },
-        { new: true }
+          $inc: { stockQuantity: -requested.quantity } as any,
+        }
       );
 
       if (!updatedItem) {
@@ -215,9 +207,10 @@ export class InventoryService {
           `[InventoryService] Stock decrement race condition failed for item ${requested.itemId}. Rolling back.`
         );
         for (const dec of decrementedItems) {
-          await MenuItem.updateOne(
-            { _id: dec.itemId, restaurantId: rId },
-            { $inc: { stockQuantity: dec.quantity } }
+          await menuItemRepository.updateByIdAndRestaurant(
+            dec.itemId,
+            rId,
+            { $inc: { stockQuantity: dec.quantity } } as any
           );
         }
 
@@ -237,12 +230,12 @@ export class InventoryService {
 
       // Auto-86 check when stock hits 0
       let auto86ed = false;
-      if (updatedItem.stockQuantity === 0) {
+      if (updatedItem.stockQuantity <= 0) {
         updatedItem.isAvailable = false;
-        await updatedItem.save();
+        await menuItemRepository.save(updatedItem);
         auto86ed = true;
 
-        await InventoryLog.create({
+        await inventoryRepository.createLog({
           restaurantId: rId,
           menuItemId: updatedItem._id,
           actorType: 'SYSTEM',
@@ -266,7 +259,7 @@ export class InventoryService {
       }
 
       // Log order decrement
-      await InventoryLog.create({
+      await inventoryRepository.createLog({
         restaurantId: rId,
         menuItemId: updatedItem._id,
         actorType: 'ORDER',
@@ -312,7 +305,7 @@ export class InventoryService {
       if (!orderItem.itemId || orderItem.quantity <= 0) continue;
 
       const itemId = new mongoose.Types.ObjectId(orderItem.itemId.toString());
-      const item = await MenuItem.findOne({ _id: itemId, restaurantId: rId });
+      const item = await menuItemRepository.findByIdAndRestaurant(itemId, rId);
 
       if (!item || !item.trackStock) continue;
 
@@ -324,10 +317,10 @@ export class InventoryService {
         item.isAvailable = true;
       }
 
-      await item.save();
+      await menuItemRepository.save(item);
 
       // Audit Log
-      await InventoryLog.create({
+      await inventoryRepository.createLog({
         restaurantId: rId,
         menuItemId: item._id,
         actorType: actor.type,
@@ -372,7 +365,7 @@ export class InventoryService {
     const updatedItems: IMenuItem[] = [];
 
     for (const adj of adjustments) {
-      const item = await MenuItem.findOne({ _id: adj.itemId, restaurantId: rId });
+      const item = await menuItemRepository.findByIdAndRestaurant(adj.itemId, rId);
       if (!item) continue;
 
       const previousQuantity = item.stockQuantity;
@@ -391,10 +384,10 @@ export class InventoryService {
         }
       }
 
-      await item.save();
+      await menuItemRepository.save(item);
       updatedItems.push(item);
 
-      await InventoryLog.create({
+      await inventoryRepository.createLog({
         restaurantId: rId,
         menuItemId: item._id,
         actorType: actor.type,
@@ -436,7 +429,7 @@ export class InventoryService {
     notes?: string
   ): Promise<IMenuItem | null> {
     const rId = new mongoose.Types.ObjectId(restaurantId.toString());
-    const item = await MenuItem.findOne({ _id: itemId, restaurantId: rId });
+    const item = await menuItemRepository.findByIdAndRestaurant(itemId, rId);
 
     if (!item) return null;
 
@@ -448,10 +441,10 @@ export class InventoryService {
       if (item.stockQuantity === 0) {
         item.isAvailable = false;
       }
-      await item.save();
+      await menuItemRepository.save(item);
     }
 
-    await InventoryLog.create({
+    await inventoryRepository.createLog({
       restaurantId: rId,
       menuItemId: item._id,
       actorType: actor.type,
@@ -518,15 +511,8 @@ export class InventoryService {
     const skip = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([
-      InventoryLog.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('menuItemId', 'name price imageUrl')
-        .populate('actorId', 'name email role')
-        .populate('orderId', 'orderNumber total')
-        .lean(),
-      InventoryLog.countDocuments(filter),
+      inventoryRepository.findLogsWithPopulate(rId, filter, { createdAt: -1 }, skip, limit),
+      inventoryRepository.countLogsByRestaurantId(rId, filter),
     ]);
 
     return {
@@ -550,7 +536,7 @@ export class InventoryService {
   }> {
     const rId = new mongoose.Types.ObjectId(restaurantId.toString());
 
-    const items = await MenuItem.find({ restaurantId: rId }).select('isAvailable trackStock stockQuantity lowStockThreshold');
+    const items = await menuItemRepository.findByRestaurantId(rId);
 
     const totalItems = items.length;
     let trackedItems = 0;
@@ -576,13 +562,12 @@ export class InventoryService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const wasteLogs = await InventoryLog.find({
-      restaurantId: rId,
+    const wasteLogs = await inventoryRepository.findLogsByRestaurantId(rId, {
       action: 'WASTE_LOG',
       createdAt: { $gte: thirtyDaysAgo },
-    }).select('costPaise');
+    }, {}, 0, 100000);
 
-    const totalWasteValuePaise = wasteLogs.reduce((sum, log) => sum + (log.costPaise || 0), 0);
+    const totalWasteValuePaise = wasteLogs.reduce((sum: number, log: any) => sum + (log.costPaise || 0), 0);
 
     return {
       totalItems,

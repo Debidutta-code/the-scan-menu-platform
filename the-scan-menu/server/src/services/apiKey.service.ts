@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { ApiKey, IApiKey, ApiKeyScope } from '../models/ApiKey';
+import { IApiKey, ApiKeyScope } from '../models/ApiKey';
+import { apiKeyRepository } from '../repositories/apiKey.repository';
 import { CreateApiKeyInput } from '../validators/apiKey.validator';
 import { Types } from 'mongoose';
 
@@ -31,7 +32,7 @@ export class ApiKeyService {
       expiresAt.setDate(expiresAt.getDate() + input.expiresInDays);
     }
 
-    const apiKey = await ApiKey.create({
+    const apiKey = await apiKeyRepository.create({
       restaurantId: rId,
       name: input.name,
       keyPrefix,
@@ -53,9 +54,9 @@ export class ApiKeyService {
     }
 
     const keyHash = this.hashKey(rawKey);
-    const apiKey = await ApiKey.findOne({ keyHash, isActive: true });
+    const apiKey = await apiKeyRepository.findByKeyHash(keyHash);
 
-    if (!apiKey) {
+    if (!apiKey || !apiKey.isActive) {
       return null;
     }
 
@@ -64,7 +65,7 @@ export class ApiKeyService {
     }
 
     // Update lastUsedAt asynchronously
-    ApiKey.updateOne({ _id: apiKey._id }, { lastUsedAt: new Date() }).exec();
+    apiKeyRepository.updateLastUsed(apiKey._id as any).catch(() => {});
 
     return apiKey;
   }
@@ -73,18 +74,20 @@ export class ApiKeyService {
    * List all API keys for a restaurant.
    */
   async listApiKeys(restaurantId: string): Promise<IApiKey[]> {
-    return ApiKey.find({ restaurantId: new Types.ObjectId(restaurantId) }).sort({ createdAt: -1 });
+    return apiKeyRepository.findByRestaurantId(restaurantId);
   }
 
   /**
    * Revoke (deactivate) an API key.
    */
   async revokeApiKey(restaurantId: string, keyId: string): Promise<boolean> {
-    const res = await ApiKey.updateOne(
-      { _id: new Types.ObjectId(keyId), restaurantId: new Types.ObjectId(restaurantId) },
-      { isActive: false }
-    );
-    return res.modifiedCount > 0;
+    const key = await apiKeyRepository.findById(keyId);
+    if (key && key.restaurantId.toString() === restaurantId.toString()) {
+      key.isActive = false;
+      await (key as any).save();
+      return true;
+    }
+    return false;
   }
 }
 

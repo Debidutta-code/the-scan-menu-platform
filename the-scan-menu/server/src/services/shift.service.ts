@@ -1,8 +1,9 @@
 import { Types } from 'mongoose';
-import { Shift, IShift, CashMovementType } from '../models/Shift';
-import { Payment } from '../models/Payment';
-import { Order } from '../models/Order';
-import { AuditLog } from '../models/AuditLog';
+import { IShift, CashMovementType } from '../models/Shift';
+import { shiftRepository } from '../repositories/shift.repository';
+import { paymentRepository } from '../repositories/payment.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { auditLogRepository } from '../repositories/auditLog.repository';
 
 class CustomError extends Error {
   status: number;
@@ -19,13 +20,13 @@ export class ShiftService {
    * Computes real-time sales metrics for a shift window
    */
   private async calculateShiftSales(restaurantId: Types.ObjectId, startTime: Date, endTime: Date = new Date()) {
-    const rId = new Types.ObjectId(restaurantId);
-
-    const payments = await Payment.find({
-      restaurantId: rId,
-      status: 'CAPTURED',
-      createdAt: { $gte: startTime, $lte: endTime },
-    }).lean();
+    const payments = await paymentRepository.findByRestaurantId(
+      restaurantId,
+      { status: 'CAPTURED', createdAt: { $gte: startTime, $lte: endTime } },
+      { createdAt: -1 },
+      0,
+      100000
+    );
 
     let cashSales = 0;
     let cardSales = 0;
@@ -42,8 +43,7 @@ export class ShiftService {
       }
     }
 
-    const orderCount = await Order.countDocuments({
-      restaurantId: rId,
+    const orderCount = await orderRepository.countByRestaurantId(restaurantId, {
       status: { $ne: 'CANCELLED' },
       createdAt: { $gte: startTime, $lte: endTime },
     });
@@ -63,10 +63,8 @@ export class ShiftService {
    * Retrieves the currently active OPEN shift with real-time calculated sales
    */
   async getCurrentShift(restaurantId: string | Types.ObjectId): Promise<any | null> {
-    const rId = new Types.ObjectId(restaurantId);
-    const shift = await Shift.findOne({ restaurantId: rId, status: 'OPEN' })
-      .populate('staffId', 'name email role')
-      .sort({ openedAt: -1 });
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const shift = await shiftRepository.findOpenByRestaurantId(rId);
 
     if (!shift) return null;
 
@@ -91,18 +89,18 @@ export class ShiftService {
     openingFloatPaise: number = 0,
     notes?: string
   ): Promise<IShift> {
-    const rId = new Types.ObjectId(restaurantId);
-    const sId = new Types.ObjectId(staffId);
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const sId = new Types.ObjectId(staffId.toString());
 
-    const existing = await Shift.findOne({ restaurantId: rId, status: 'OPEN' });
+    const existing = await shiftRepository.findOpenByRestaurantId(rId);
     if (existing) {
       throw new CustomError('SHIFT_ALREADY_OPEN', 'An active shift is already open. Please close it first.', 409);
     }
 
-    const lastShift = await Shift.findOne({ restaurantId: rId }).sort({ shiftNumber: -1 });
+    const lastShift = await shiftRepository.findLastByRestaurantId(rId);
     const shiftNumber = (lastShift?.shiftNumber || 0) + 1;
 
-    const newShift = await Shift.create({
+    const newShift = await shiftRepository.create({
       restaurantId: rId,
       staffId: sId,
       shiftNumber,
@@ -121,13 +119,11 @@ export class ShiftService {
       closingNotes: notes,
     });
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'SHIFT_OPENED',
       actorId: staffId.toString(),
       actorRole: 'STAFF',
       restaurantId: rId.toString(),
-      entityType: 'Shift',
-      entityId: newShift._id,
       details: { shiftNumber, openingFloat: openingFloatPaise },
     });
 
@@ -146,10 +142,9 @@ export class ShiftService {
     reason: string,
     staffId?: string | Types.ObjectId
   ): Promise<IShift> {
-    const rId = new Types.ObjectId(restaurantId);
-    const shId = new Types.ObjectId(shiftId);
+    const rId = new Types.ObjectId(restaurantId.toString());
 
-    const shift = await Shift.findOne({ _id: shId, restaurantId: rId, status: 'OPEN' });
+    const shift = await shiftRepository.findOpenByIdAndRestaurantId(shiftId, rId);
     if (!shift) {
       throw new CustomError('SHIFT_NOT_FOUND', 'Active open shift not found', 404);
     }
@@ -163,7 +158,7 @@ export class ShiftService {
       amount: amountPaise,
       category: category || 'OTHER',
       reason: reason.trim(),
-      staffId: staffId ? new Types.ObjectId(staffId) : undefined,
+      staffId: staffId ? new Types.ObjectId(staffId.toString()) : undefined,
       createdAt: new Date(),
     });
 
@@ -176,15 +171,13 @@ export class ShiftService {
     const liveSales = await this.calculateShiftSales(rId, shift.openedAt, new Date());
     shift.expectedCashInDrawer = shift.openingFloat + liveSales.cashSales + shift.cashIn - shift.cashOut;
 
-    await shift.save();
+    await shiftRepository.save(shift);
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: `PETTY_CASH_${type}`,
       actorId: staffId?.toString(),
       actorRole: 'STAFF',
       restaurantId: rId.toString(),
-      entityType: 'Shift',
-      entityId: shift._id,
       details: { type, amount: amountPaise, category, reason },
     });
 
@@ -201,10 +194,9 @@ export class ShiftService {
     closingNotes?: string,
     closedByStaffId?: string | Types.ObjectId
   ): Promise<IShift> {
-    const rId = new Types.ObjectId(restaurantId);
-    const shId = new Types.ObjectId(shiftId);
+    const rId = new Types.ObjectId(restaurantId.toString());
 
-    const shift = await Shift.findOne({ _id: shId, restaurantId: rId, status: 'OPEN' });
+    const shift = await shiftRepository.findOpenByIdAndRestaurantId(shiftId, rId);
     if (!shift) {
       throw new CustomError('SHIFT_NOT_FOUND', 'Active open shift not found', 404);
     }
@@ -224,18 +216,16 @@ export class ShiftService {
     shift.closedAt = closedAt;
     shift.closingNotes = closingNotes?.trim();
     if (closedByStaffId) {
-      shift.closedBy = new Types.ObjectId(closedByStaffId);
+      shift.closedBy = new Types.ObjectId(closedByStaffId.toString());
     }
 
-    await shift.save();
+    await shiftRepository.save(shift);
 
-    await AuditLog.create({
+    await auditLogRepository.create({
       action: 'SHIFT_CLOSED',
       actorId: closedByStaffId?.toString(),
       actorRole: 'MANAGER',
       restaurantId: rId.toString(),
-      entityType: 'Shift',
-      entityId: shift._id,
       details: {
         expectedCash: shift.expectedCashInDrawer,
         actualCounted: shift.actualCashCounted,
@@ -251,11 +241,11 @@ export class ShiftService {
    * Generates X-Report (Mid-shift instantaneous reading)
    */
   async getXReport(restaurantId: string | Types.ObjectId, shiftId?: string | Types.ObjectId) {
-    const rId = new Types.ObjectId(restaurantId);
+    const rId = new Types.ObjectId(restaurantId.toString());
     let shift: any;
 
     if (shiftId) {
-      shift = await Shift.findOne({ _id: new Types.ObjectId(shiftId), restaurantId: rId }).populate('staffId', 'name');
+      shift = await shiftRepository.findByIdAndRestaurant(shiftId, rId);
     } else {
       shift = await this.getCurrentShift(rId);
     }
@@ -290,10 +280,8 @@ export class ShiftService {
    * Generates Z-Report (Formal closed shift report)
    */
   async getZReport(restaurantId: string | Types.ObjectId, shiftId: string | Types.ObjectId) {
-    const rId = new Types.ObjectId(restaurantId);
-    const shift = await Shift.findOne({ _id: new Types.ObjectId(shiftId), restaurantId: rId })
-      .populate('staffId', 'name email')
-      .populate('closedBy', 'name email');
+    const rId = new Types.ObjectId(restaurantId.toString());
+    const shift = await shiftRepository.findById(shiftId);
 
     if (!shift) {
       throw new CustomError('SHIFT_NOT_FOUND', 'Shift record not found', 404);
@@ -327,18 +315,12 @@ export class ShiftService {
    * List Shift History
    */
   async listShiftHistory(restaurantId: string | Types.ObjectId, page: number = 1, limit: number = 20) {
-    const rId = new Types.ObjectId(restaurantId);
+    const rId = new Types.ObjectId(restaurantId.toString());
     const skip = (page - 1) * limit;
 
     const [shifts, total] = await Promise.all([
-      Shift.find({ restaurantId: rId })
-        .sort({ openedAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('staffId', 'name')
-        .populate('closedBy', 'name')
-        .lean(),
-      Shift.countDocuments({ restaurantId: rId }),
+      shiftRepository.findByRestaurantId(rId, {}, { openedAt: -1 }, skip, limit),
+      shiftRepository.countByRestaurantId(rId),
     ]);
 
     return { shifts, total, page, totalPages: Math.ceil(total / limit) };

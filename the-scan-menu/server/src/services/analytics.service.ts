@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
-import { Order } from '../models/Order';
-import { RestaurantSettings } from '../models/RestaurantSettings';
+import { analyticsRepository } from '../repositories/analytics.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
 
 export interface DateRange {
   startDate: Date;
@@ -56,7 +57,7 @@ export class AnalyticsService {
    * Helper to aggregate summary metrics over a specific date window
    */
   private async computeWindowSummary(rId: Types.ObjectId, rangeStart: Date, rangeEnd: Date): Promise<MetricSummary> {
-    const paidStats = await Order.aggregate([
+    const paidStats = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -74,18 +75,16 @@ export class AnalyticsService {
       },
     ]);
 
-    const totalOrdersCount = await Order.countDocuments({
-      restaurantId: rId,
+    const totalOrdersCount = await orderRepository.countByRestaurantId(rId, {
       createdAt: { $gte: rangeStart, $lte: rangeEnd },
     });
 
-    const cancelledCount = await Order.countDocuments({
-      restaurantId: rId,
+    const cancelledCount = await orderRepository.countByRestaurantId(rId, {
       status: 'CANCELLED',
       createdAt: { $gte: rangeStart, $lte: rangeEnd },
     });
 
-    const fulfillment = await Order.aggregate([
+    const fulfillment = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -133,7 +132,7 @@ export class AnalyticsService {
     const prior = await this.computeWindowSummary(rId, priorStart, priorEnd);
 
     // Breakdown by ordering mode (DINE_IN, TAKEAWAY, DELIVERY, COUNTER)
-    const modeAgg = await Order.aggregate([
+    const modeAgg = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -164,7 +163,7 @@ export class AnalyticsService {
     });
 
     // Breakdown by source (QR, POS, API, MANUAL)
-    const sourceAgg = await Order.aggregate([
+    const sourceAgg = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -217,7 +216,7 @@ export class AnalyticsService {
 
     const sortStage: Record<string, 1 | -1> = sortBy === 'revenue' ? { totalRevenue: -1 } : { quantitySold: -1 };
 
-    const topItems = await Order.aggregate([
+    const topItems = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -273,11 +272,11 @@ export class AnalyticsService {
     const rId = new Types.ObjectId(restaurantId.toString());
     const { startDate: start, endDate: end } = this.resolveDateRange(startDate, endDate);
 
-    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
     const tz = settings?.timezone || 'Asia/Kolkata';
 
     // Group by hour (0..23)
-    const hourlyAgg = await Order.aggregate([
+    const hourlyAgg = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -314,7 +313,7 @@ export class AnalyticsService {
 
     // Group by day of week (1=Sunday..7=Saturday in MongoDB)
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dailyAgg = await Order.aggregate([
+    const dailyAgg = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -379,11 +378,11 @@ export class AnalyticsService {
     const isSingleDay = durationMs <= 28 * 60 * 60 * 1000;
     const dateFormat = isSingleDay ? '%H:00' : '%Y-%m-%d';
 
-    const settings = await RestaurantSettings.findOne({ restaurantId: rId });
+    const settings = await restaurantSettingsRepository.findByRestaurantId(rId);
     const tz = settings?.timezone || 'Asia/Kolkata';
 
     // Time series timeline for charts
-    const timeSeriesData = await Order.aggregate([
+    const timeSeriesData = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -409,7 +408,7 @@ export class AnalyticsService {
     }));
 
     // Status counts distribution
-    const statusCounts = await Order.aggregate([
+    const statusCounts = await analyticsRepository.aggregateOrders([
       { $match: { restaurantId: rId, createdAt: { $gte: start, $lte: end } } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
@@ -429,7 +428,7 @@ export class AnalyticsService {
     });
 
     // Table Turnover breakdown
-    const tableTurnoverRaw = await Order.aggregate([
+    const tableTurnoverRaw = await analyticsRepository.aggregateOrders([
       {
         $match: {
           restaurantId: rId,
@@ -466,9 +465,13 @@ export class AnalyticsService {
     ]);
 
     // Raw orders payload for CSV download
-    const rawOrders = await Order.find({ restaurantId: rId, createdAt: { $gte: start, $lte: end } })
-      .sort({ createdAt: -1 })
-      .populate('tableId', 'displayName tableNumber');
+    const rawOrders = await orderRepository.findByRestaurantId(
+      rId,
+      { createdAt: { $gte: start, $lte: end } },
+      { createdAt: -1 },
+      0,
+      100000
+    );
 
     const csvData = rawOrders.map((order: any) => ({
       orderNumber: order.orderNumber,

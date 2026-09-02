@@ -9,6 +9,7 @@ export interface IPayment extends Document {
   restaurantId: Types.ObjectId;
   diningSessionId?: Types.ObjectId;
   tableSessionId?: Types.ObjectId; // Alias for backward compatibility
+  tableId?: Types.ObjectId;
   billId?: Types.ObjectId;
   checkoutAttemptId?: Types.ObjectId;
   orderId?: Types.ObjectId;

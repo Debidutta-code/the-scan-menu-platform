@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { CustomerAuthenticatedRequest } from '../middleware/customerAuth';
-import { Restaurant } from '../models/Restaurant';
-import { Customer } from '../models/Customer';
+import { restaurantRepository } from '../repositories/restaurant.repository';
+import { customerRepository } from '../repositories/customer.repository';
 import { customerService } from '../services/customer.service';
 import { loyaltyService } from '../services/loyalty.service';
 import { otpService } from '../services/otp.service';
@@ -39,9 +39,9 @@ export class CustomerAuthController {
       // Resolve restaurant tenant
       let restaurant: any = null;
       if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
-        restaurant = await Restaurant.findById(restaurantId);
+        restaurant = await restaurantRepository.findById(restaurantId);
       } else if (restaurantSlug) {
-        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        restaurant = await restaurantRepository.findBySlug(restaurantSlug.toLowerCase().trim());
       }
 
       if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
@@ -85,9 +85,9 @@ export class CustomerAuthController {
       // Resolve restaurant
       let restaurant: any = null;
       if (restaurantId && mongoose.Types.ObjectId.isValid(restaurantId)) {
-        restaurant = await Restaurant.findById(restaurantId);
+        restaurant = await restaurantRepository.findById(restaurantId);
       } else if (restaurantSlug) {
-        restaurant = await Restaurant.findOne({ slug: restaurantSlug.toLowerCase().trim() });
+        restaurant = await restaurantRepository.findBySlug(restaurantSlug.toLowerCase().trim());
       }
 
       if (!restaurant || ['SUSPENDED', 'ARCHIVED', 'EXPIRED'].includes(restaurant.status)) {
@@ -167,11 +167,9 @@ export class CustomerAuthController {
       ).catch((err) => console.error('Failed to repair uncredited orders:', err));
 
       // Re-fetch fresh customer profile from database to get latest loyalty points balance
-      const freshCustomer = (await Customer.findById(customer._id)) || customer;
+      const freshCustomer = (await customerRepository.findById(customer._id)) || customer;
 
-      const restaurant = await Restaurant.findById(customer.restaurantId).select(
-        'name slug logoUrl currency theme'
-      );
+      const restaurant = await restaurantRepository.findById(customer.restaurantId);
 
       const loyaltyLedger = await loyaltyService.getCustomerLedger(customer.restaurantId, customer._id);
 
@@ -213,7 +211,7 @@ export class CustomerAuthController {
         customer.notes = notes ? notes.trim() : undefined;
       }
 
-      await customer.save();
+      await customerRepository.save(customer);
 
       sendSuccess(res, toCustomerSafeCustomerDTO(customer), 'Customer profile updated successfully');
     } catch (error) {
