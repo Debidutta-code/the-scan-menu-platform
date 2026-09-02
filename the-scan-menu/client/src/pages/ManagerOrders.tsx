@@ -115,10 +115,10 @@ const getElapsedTimeLabel = (createdAt: string, now: Date) => {
   const secs = diffSecTotal % 60;
 
   if (hrs > 0) {
-    return `${hrs}h ${mins}m ${secs}s ago`;
+    return `${hrs}h ${mins}m ago`;
   }
   if (mins > 0) {
-    return `${mins}m ${secs}s ago`;
+    return `${mins}m ago`;
   }
   return `${secs}s ago`;
 };
@@ -595,7 +595,8 @@ export const ManagerOrders: React.FC = () => {
                               const ModeIcon = modeInfo.icon;
                               const isSelected = selectedOrder?._id === order._id;
                               const isPendingAction = pendingOrderIds.has(order._id);
-                              const tableName = order.tableId?.displayName || order.tableId?.tableNumber || 'Walk-in';
+                              const isUnpaid = order.paymentStatus !== 'PAID';
+                              const tableName = order.tableId?.displayName || order.tableId?.tableNumber || (order.orderMode === 'DINE_IN' ? 'Dine-In Table' : modeInfo.label);
                               const totalItemsCount = order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || order.items?.length || 0;
 
                               return (
@@ -612,59 +613,47 @@ export const ManagerOrders: React.FC = () => {
                                   whileHover={{ scale: 1.012 }}
                                   whileTap={{ scale: 0.99 }}
                                   onClick={() => setSelectedOrderId((prev) => (prev === order._id ? null : order._id))}
-                                  className={`rounded-xl cursor-pointer transition-all duration-150 flex flex-col p-2 gap-1 group relative overflow-hidden ${
+                                  className={`rounded-xl cursor-pointer transition-all duration-150 flex flex-col p-2.5 gap-1.5 group relative overflow-hidden ${
                                     isSelected
-                                      ? 'bg-amber-50/70 border-2 border-amber-500 ring-2 ring-amber-500/15 shadow-xs'
-                                      : 'bg-white border border-slate-200/90 hover:border-amber-400/80 hover:shadow-2xs'
+                                      ? 'bg-amber-50/80 border-2 border-amber-500 ring-2 ring-amber-500/15 shadow-xs'
+                                      : isUnpaid
+                                        ? 'bg-white border-y border-r border-slate-200/90 border-l-4 border-l-rose-500 hover:border-rose-400 hover:shadow-2xs'
+                                        : 'bg-white border border-slate-200/90 hover:border-amber-400/80 hover:shadow-2xs'
                                   }`}
                                 >
-                                  {/* Row 1: #Order + Mode + Elapsed Time */}
+                                  {/* Row 1: #Order + Mode + Compact Elapsed Time */}
                                   <div className="flex items-center justify-between gap-1">
                                     <div className="flex items-center gap-1 min-w-0">
-                                      <span className="font-mono text-[11px] font-black text-slate-900 bg-slate-100 px-1.5 py-0.2 rounded shrink-0">
+                                      <span className="font-mono text-[11px] font-black text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
                                         #{order.orderNumber}
                                       </span>
-                                      <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.2 rounded border shrink-0 ${modeInfo.color}`}>
-                                        <ModeIcon className="w-2 h-2" strokeWidth={2} />
+                                      <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${modeInfo.color}`}>
+                                        <ModeIcon className="w-2.5 h-2.5" strokeWidth={2} />
                                         <span>{modeInfo.label}</span>
                                       </span>
                                     </div>
                                     <span className="text-[9px] font-semibold text-slate-400 font-mono flex items-center gap-0.5 whitespace-nowrap shrink-0">
-                                      <Clock className="w-2 h-2 text-slate-400" strokeWidth={2} />
+                                      <Clock className="w-2.5 h-2.5 text-slate-400" strokeWidth={2} />
                                       {getElapsedTimeLabel(order.createdAt, now)}
                                     </span>
                                   </div>
 
-                                  {/* Row 2: Table / Customer + Staff */}
-                                  <div className="flex items-center justify-between gap-1 text-[11px]">
-                                    <span className="font-bold text-slate-900 truncate">
-                                      {tableName}
-                                    </span>
-                                    {(order.customerName || order.customerPhone) && (
-                                      <span className="text-[10px] font-medium text-slate-500 flex items-center gap-0.5 shrink-0 truncate max-w-[90px]">
-                                        <User className="w-2 h-2 text-slate-400 shrink-0" />
-                                        <span className="truncate">{order.customerName || 'Guest'}</span>
-                                      </span>
-                                    )}
+                                  {/* Row 2: Table Name (Full width for maximum readability) */}
+                                  <div className="text-[12px] font-bold text-slate-900 truncate leading-tight">
+                                    {tableName}
                                   </div>
 
-                                  {/* Row 3: Payment Badge & Items/Total */}
+                                  {/* Row 3: Items & Unpaid Indicator + Total Amount */}
                                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 gap-1 text-[10px]">
                                     <div className="flex items-center gap-1 min-w-0">
-                                      {order.paymentStatus === 'PAID' ? (
-                                        <span className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                          <CheckCircle2 className="w-2 h-2 text-emerald-600" strokeWidth={2.5} />
-                                          <span>PAID</span>
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1 py-0.2 rounded bg-rose-50 text-rose-700 border border-rose-200">
-                                          <CreditCard className="w-2 h-2 text-rose-500" strokeWidth={2} />
-                                          <span>PENDING</span>
+                                      <span className="text-slate-500 text-[10px] font-medium truncate">
+                                        {totalItemsCount} item{totalItemsCount === 1 ? '' : 's'}
+                                      </span>
+                                      {isUnpaid && (
+                                        <span className="text-[8px] font-extrabold text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200 shrink-0">
+                                          UNPAID
                                         </span>
                                       )}
-                                      <span className="text-slate-400 text-[10px] truncate">
-                                        • {totalItemsCount} item{totalItemsCount === 1 ? '' : 's'}
-                                      </span>
                                       {isPendingAction && (
                                         <Loader className="w-2.5 h-2.5 animate-spin text-amber-600 shrink-0" strokeWidth={2} />
                                       )}
