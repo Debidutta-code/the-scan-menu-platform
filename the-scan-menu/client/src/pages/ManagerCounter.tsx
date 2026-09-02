@@ -965,10 +965,10 @@ export const ManagerCounter: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 2. ORDER TABS & SEARCH BAR ROW ─────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shrink-0">
-        {/* Left: Open Order Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none select-none flex-1 min-w-0">
+      {/* ── 2. ORDER TABS ROW ─────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-2 shrink-0">
+        {/* Open Order Tabs with Tablet-Friendly Padding */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none select-none flex-1 min-w-0">
           {tabs.map((tab, index) => {
             const isActive = tab.id === activeTabId;
             const tabItemCount = (tab.cartItems || []).reduce((s, i) => s + i.quantity, 0);
@@ -983,14 +983,14 @@ export const ManagerCounter: React.FC = () => {
               <div
                 key={tab.id}
                 onClick={() => switchTab(tab.id)}
-                className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-all shrink-0 ${
+                className={`group relative flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl border text-xs sm:text-sm font-bold cursor-pointer transition-all shrink-0 min-h-[38px] ${
                   isActive
                     ? 'bg-slate-900 text-white border-slate-800 shadow-sm ring-2 ring-amber-500/20'
                     : 'bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 shadow-2xs'
                 }`}
               >
                 <span
-                  className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded ${
+                  className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
                     isActive ? 'bg-slate-800 text-amber-400' : 'bg-slate-100 text-slate-500'
                   }`}
                   title={`Press Alt+${index + 1} to switch`}
@@ -998,19 +998,19 @@ export const ManagerCounter: React.FC = () => {
                   {index + 1}
                 </span>
 
-                <span className="font-bold truncate max-w-[90px] sm:max-w-[120px]">
+                <span className="font-bold truncate max-w-[100px] sm:max-w-[140px]">
                   {displayName}
                 </span>
 
                 {tab.isHeld && (
-                  <span className="px-1 py-0.2 text-[8px] font-bold rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-amber-400 border border-amber-500/40">
                     HELD
                   </span>
                 )}
 
                 {tabItemCount > 0 && (
                   <span
-                    className={`text-[9px] font-bold px-1 py-0.2 rounded font-mono ${
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono ${
                       isActive ? 'bg-amber-400/20 text-amber-300' : 'bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -1024,12 +1024,12 @@ export const ManagerCounter: React.FC = () => {
                     e.stopPropagation();
                     closeTab(tab.id);
                   }}
-                  className={`p-0.5 rounded transition opacity-50 hover:opacity-100 ${
+                  className={`p-1 rounded-lg transition opacity-60 hover:opacity-100 ${
                     isActive ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-200 text-slate-500'
                   }`}
                   title="Close Tab"
                 >
-                  <X className="w-2.5 h-2.5" />
+                  <X className="w-3 h-3" />
                 </button>
               </div>
             );
@@ -1038,10 +1038,10 @@ export const ManagerCounter: React.FC = () => {
           <button
             type="button"
             onClick={() => createNewTab()}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl border border-dashed border-slate-300 hover:border-amber-400 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 text-xs font-bold transition cursor-pointer active:scale-95 shadow-2xs shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl border border-dashed border-slate-300 hover:border-amber-400 bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 text-xs sm:text-sm font-bold transition cursor-pointer active:scale-95 shadow-2xs shrink-0 min-h-[38px]"
             title="Create a new order tab (Ctrl+T / Alt+N)"
           >
-            <Plus className="w-3.5 h-3.5 text-amber-600" strokeWidth={2.5} />
+            <Plus className="w-4 h-4 text-amber-600" strokeWidth={2.5} />
             <span>New Order</span>
           </button>
 
@@ -1049,88 +1049,91 @@ export const ManagerCounter: React.FC = () => {
             type="button"
             onClick={holdCurrentTab}
             disabled={cartItems.length === 0}
-            className={`flex items-center gap-1 px-2 py-1 rounded-xl border text-[11px] font-bold transition cursor-pointer active:scale-95 shadow-2xs shrink-0 ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer active:scale-95 shadow-2xs shrink-0 min-h-[38px] ${
               cartItems.length > 0
                 ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-950'
                 : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
             }`}
             title="Hold current order and open new (Ctrl+H)"
           >
-            <PauseCircle className="w-3 h-3 text-amber-600" strokeWidth={2.5} />
+            <PauseCircle className="w-4 h-4 text-amber-600" strokeWidth={2.5} />
             <span>Hold</span>
           </button>
-        </div>
-
-        {/* Right: High Prominence Search Bar */}
-        <div className="relative group shrink-0 w-full sm:w-72 md:w-80">
-          <Search
-            className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-amber-500 pointer-events-none"
-            strokeWidth={2}
-          />
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search dishes, SKU, barcode... (/)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white pl-8 pr-12 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  searchInputRef.current?.focus();
-                }}
-                className="p-0.5 rounded text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
-                title="Clear search (Esc)"
-              >
-                <X className="w-3 h-3" strokeWidth={2} />
-              </button>
-            ) : (
-              <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.2 text-[9px] font-mono font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded">
-                /
-              </kbd>
-            )}
-          </div>
         </div>
       </div>
 
       {/* ── 3. MAIN WORKSPACE (EXPANDED MENU | SLIM CART COCKPIT) ─────────── */}
       <div className="flex flex-col lg:flex-row gap-2.5 sm:gap-3 flex-1 min-h-0 overflow-hidden items-stretch">
-        {/* LEFT EXPANDED COLUMN: CATEGORIES + DENSE PRODUCT CARDS */}
+        {/* LEFT EXPANDED COLUMN: PROMINENT SEARCH + CATEGORIES + DENSE PRODUCT CARDS */}
         <div className="flex-1 min-w-0 flex flex-col h-full min-h-0 space-y-2">
-          {/* HORIZONTAL CATEGORY BAR (NO COUNT CLUTTER) */}
-          {categories.length > 0 && (
-            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedCategoryFilter('ALL')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
-                  selectedCategoryFilter === 'ALL'
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-white border border-slate-200/90 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                All
-              </button>
-              {categories.map((cat: any) => (
+          {/* MENU HEADER CONTROLS: PROMINENT SEARCH BAR & TABLET-FRIENDLY CATEGORIES */}
+          <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2 shrink-0">
+            {/* High-Prominence Dish Search Bar */}
+            <div className="relative group">
+              <Search
+                className="w-4 h-4 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors pointer-events-none"
+                strokeWidth={2.5}
+              />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search dishes by name, SKU, barcode... (/)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50/80 focus:bg-white pl-10 pr-12 py-2 sm:py-2.5 rounded-xl border-2 border-amber-400/60 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/15 text-xs sm:text-sm font-bold text-slate-900 placeholder:text-slate-400 shadow-2xs transition-all"
+              />
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 bg-slate-200 hover:bg-slate-300 transition cursor-pointer"
+                    title="Clear search (Esc)"
+                  >
+                    <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  </button>
+                ) : (
+                  <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300/80 rounded-md">
+                    /
+                  </kbd>
+                )}
+              </div>
+            </div>
+
+            {/* Tablet-Friendly Category Filter Buttons */}
+            {categories.length > 0 && (
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-0.5 scrollbar-none shrink-0 pt-0.5">
                 <button
-                  key={cat._id}
                   type="button"
-                  onClick={() => setSelectedCategoryFilter(cat._id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs ${
-                    selectedCategoryFilter === cat._id
-                      ? 'bg-slate-950 text-white'
-                      : 'bg-white border border-slate-200/90 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  onClick={() => setSelectedCategoryFilter('ALL')}
+                  className={`px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs min-h-[38px] sm:min-h-[40px] flex items-center ${
+                    selectedCategoryFilter === 'ALL'
+                      ? 'bg-slate-950 text-white ring-2 ring-slate-950/20'
+                      : 'bg-slate-100 border border-slate-200/90 text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
                   }`}
                 >
-                  {cat.name}
+                  All Items
                 </button>
-              ))}
-            </div>
-          )}
+                {categories.map((cat: any) => (
+                  <button
+                    key={cat._id}
+                    type="button"
+                    onClick={() => setSelectedCategoryFilter(cat._id)}
+                    className={`px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer shrink-0 shadow-2xs min-h-[38px] sm:min-h-[40px] flex items-center ${
+                      selectedCategoryFilter === cat._id
+                        ? 'bg-slate-950 text-white ring-2 ring-slate-950/20'
+                        : 'bg-slate-100 border border-slate-200/90 text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* DENSE PRODUCT GRID */}
           <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none pr-0.5 space-y-2">
@@ -1217,9 +1220,11 @@ export const ManagerCounter: React.FC = () => {
                             >
                               <div className="min-w-0">
                                 <div className="flex items-start justify-between gap-1">
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
-                                    <h4 className={`text-xs font-bold leading-tight line-clamp-1 ${isOut ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                                  <div className="flex items-start gap-1.5 min-w-0">
+                                    <div className="mt-0.5 shrink-0">
+                                      <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                                    </div>
+                                    <h4 className={`text-xs font-bold leading-snug line-clamp-2 sm:line-clamp-3 break-words ${isOut ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                                       {item.name}
                                     </h4>
                                   </div>
