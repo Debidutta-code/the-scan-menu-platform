@@ -38,6 +38,7 @@ import { Counter } from '../models/Counter';
 import { Shift } from '../models/Shift';
 import { LoyaltyLedger } from '../models/LoyaltyLedger';
 import { PlatformSettings } from '../models/PlatformSettings';
+import { cacheService } from './cacheService';
 import { logger } from './logger';
 import config from '../config';
 
@@ -202,6 +203,7 @@ export const cleanDatabase = async (options: { operationalOnly?: boolean } = {})
     const countsAfter = await getCounts();
     console.table(countsAfter);
 
+    cacheService.clear();
     logger.info(
       !isOperationalOnly
         ? 'Full database wipe completed successfully! Entire database is empty.'

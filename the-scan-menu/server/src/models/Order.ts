@@ -8,16 +8,19 @@ import { RestaurantSettings } from './RestaurantSettings';
 
 export interface IOrderCounter extends Document {
   restaurantId: Types.ObjectId;
+  dateKey: string;
   seq: number;
 }
 
 const orderCounterSchema = new Schema<IOrderCounter>(
   {
-    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, unique: true },
+    restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    dateKey: { type: String, required: true },
     seq: { type: Number, required: true, default: 0 },
   },
   { collection: 'order_counters' }
 );
+orderCounterSchema.index({ restaurantId: 1, dateKey: 1 }, { unique: true });
 
 export const OrderCounter =
   (mongoose.models.OrderCounter as mongoose.Model<IOrderCounter>) ||
@@ -84,7 +87,8 @@ export interface IOrder extends Document {
   deliveryAddress?: IDeliveryAddress;
   roundNumber?: number;
   isMerged: boolean;
-  orderNumber: number; // Monotonically increasing per restaurant
+  orderDate?: string; // YYYY-MM-DD format for daily sequence
+  orderNumber: number; // Daily sequential number (starts at 1 per restaurant per day)
   items: IOrderItem[];
   subtotal: number; // in cents/paise
   tax: number; // in cents/paise
@@ -168,6 +172,7 @@ const orderSchema = new Schema<IOrder>(
     },
     roundNumber: { type: Number, required: false },
     isMerged: { type: Boolean, required: true, default: false },
+    orderDate: { type: String, required: false, index: true },
     orderNumber: { type: Number, required: true },
     items: [orderItemSchema],
     subtotal: { type: Number, required: true },
@@ -260,12 +265,26 @@ const orderSchema = new Schema<IOrder>(
   }
 );
 
-// Sync sessionId with diningSessionId for backwards compatibility
+// Sync sessionId with diningSessionId for backwards compatibility and auto-populate orderDate
 orderSchema.pre('validate', function (this: any, next) {
   if (this.diningSessionId && !this.sessionId) {
     this.sessionId = this.diningSessionId;
   } else if (this.sessionId && !this.diningSessionId) {
     this.diningSessionId = this.sessionId;
+  }
+  if (!this.orderDate) {
+    const dateObj = this.createdAt || new Date();
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      this.orderDate = formatter.format(dateObj);
+    } catch (e) {
+      this.orderDate = dateObj.toISOString().split('T')[0];
+    }
   }
   next();
 });
@@ -309,7 +328,7 @@ orderSchema.pre('save', async function (this: any, next) {
 });
 
 // Indexes
-orderSchema.index({ restaurantId: 1, orderNumber: 1 }, { unique: true });
+orderSchema.index({ restaurantId: 1, orderDate: 1, orderNumber: 1 }, { unique: true });
 orderSchema.index({ diningSessionId: 1, roundNumber: 1 });
 orderSchema.index({ restaurantId: 1, isCleared: 1, status: 1 });
 orderSchema.index({ restaurantId: 1, status: 1 });

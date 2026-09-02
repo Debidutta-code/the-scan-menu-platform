@@ -1,12 +1,15 @@
 import mongoose from 'mongoose';
 import config from '../config';
+import { getTodayDateKey } from './orderCounter';
 
 const orderSchema = new mongoose.Schema({
   restaurantId: mongoose.Schema.Types.ObjectId,
+  orderDate: String,
   orderNumber: Number,
 });
 const orderCounterSchema = new mongoose.Schema({
-  restaurantId: { type: mongoose.Schema.Types.ObjectId, unique: true },
+  restaurantId: mongoose.Schema.Types.ObjectId,
+  dateKey: String,
   seq: Number,
 });
 
@@ -17,17 +20,18 @@ async function syncCounters() {
   await mongoose.connect(config.db.mongoUri);
   console.log('Connected. Syncing order counters...');
 
+  const dateKey = getTodayDateKey();
   const restaurants = await Order.distinct('restaurantId');
   for (const restId of restaurants) {
-    const max = await Order.findOne({ restaurantId: restId }).sort({ orderNumber: -1 }).select('orderNumber').lean() as any;
+    const max = await Order.findOne({ restaurantId: restId, orderDate: dateKey }).sort({ orderNumber: -1 }).select('orderNumber').lean() as any;
     const maxNum: number = max?.orderNumber ?? 0;
 
     const result = await OrderCounter.findOneAndUpdate(
-      { restaurantId: restId },
+      { restaurantId: restId, dateKey },
       { $max: { seq: maxNum } },
       { upsert: true, new: true }
     );
-    console.log(`  Restaurant ${restId} → counter synced to ${result!.seq} (max orderNumber was ${maxNum})`);
+    console.log(`  Restaurant ${restId} → counter synced to ${result!.seq} for date ${dateKey}`);
   }
 
   await mongoose.disconnect();

@@ -33,6 +33,8 @@ import { AuditLog } from '../models/AuditLog';
 import { PlatformSettings } from '../models/PlatformSettings';
 import { subscriptionService } from '../services/subscription.service';
 import { restaurantStatsService } from '../services/restaurantStats.service';
+import { getTodayDateKey } from './orderCounter';
+import { cacheService } from './cacheService';
 import { logger } from './logger';
 import config from '../config';
 
@@ -1070,9 +1072,10 @@ export const seedDatabase = async () => {
     // 8. Seed Sample Active & Completed Orders with Live Statuses
     // ------------------------------------------------------------------------
     logger.info('Seeding sample active orders & kitchen tickets...');
-    let orderCounter = await OrderCounter.findOne({ restaurantId: restaurant._id });
+    const todayDateKey = getTodayDateKey();
+    let orderCounter = await OrderCounter.findOne({ restaurantId: restaurant._id, dateKey: todayDateKey });
     if (!orderCounter) {
-      orderCounter = new OrderCounter({ restaurantId: restaurant._id, seq: 100 });
+      orderCounter = new OrderCounter({ restaurantId: restaurant._id, dateKey: todayDateKey, seq: 100 });
       await orderCounter.save();
     }
 
@@ -1652,6 +1655,7 @@ export const seedDatabase = async () => {
       `RestaurantStats Synced: ${updatedStats?.menuItemsCount} items, ${updatedStats?.tablesCount} tables, ${updatedStats?.staffCount} staff, ${updatedStats?.ordersCount} orders, ₹${((updatedStats?.revenue || 0) / 100).toFixed(2)} total revenue.`
     );
 
+    cacheService.clear();
     logger.info('================================================================');
     logger.info('IDEMPOTENT DATABASE SEED COMPLETED SUCCESSFULLY!');
     logger.info(`SUPER ADMIN Email: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD} (PIN: ${DEFAULT_PIN})`);
