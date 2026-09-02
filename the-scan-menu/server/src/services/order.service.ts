@@ -108,7 +108,10 @@ export class OrderService {
         continue;
       }
 
-      const category = categoryMap.get(menuItem.categoryId.toString());
+      const catIdStr = (menuItem.categoryId as any)?._id
+        ? (menuItem.categoryId as any)._id.toString()
+        : menuItem.categoryId.toString();
+      const category = categoryMap.get(catIdStr);
       if (!menuItem.isAvailable || menuItem.isDraft || menuItem.isArchived) {
         failedItems.push({ itemId: item.itemId, menuItemId: item.itemId, name: menuItem.name, reason: 'unavailable' });
         continue;

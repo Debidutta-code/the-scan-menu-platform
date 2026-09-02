@@ -209,9 +209,12 @@ export class PublicController {
       });
 
       const categoriesWithItems = categories.map((category) => {
-        const items = menuItems.filter(
-          (item) => item.categoryId.toString() === category._id.toString()
-        );
+        const items = menuItems.filter((item) => {
+          const itemCatId = (item.categoryId as any)?._id
+            ? (item.categoryId as any)._id.toString()
+            : item.categoryId?.toString();
+          return itemCatId === category._id.toString();
+        });
         return {
           _id: category._id,
           name: category.name,
@@ -772,9 +775,12 @@ export class PublicController {
       });
 
       const categoriesWithItems = categories.map((category) => {
-        const items = menuItems.filter(
-          (item) => item.categoryId.toString() === category._id.toString()
-        );
+        const items = menuItems.filter((item) => {
+          const itemCatId = (item.categoryId as any)?._id
+            ? (item.categoryId as any)._id.toString()
+            : item.categoryId?.toString();
+          return itemCatId === category._id.toString();
+        });
         return {
           _id: category._id,
           name: category.name,
