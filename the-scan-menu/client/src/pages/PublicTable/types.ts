@@ -96,6 +96,7 @@ export interface LandingTabProps {
   activeOrdersIds: string[];
   isCustomerAuthenticated: boolean;
   customer: any;
+  customerOtpEnabled?: boolean;
   restaurantSlug?: string;
   rawCategories: import('../../services/restaurant.service').PublicCategory[];
   onExploreMenu: () => void;

@@ -28,6 +28,7 @@ export const LandingTab: React.FC<LandingTabProps> = ({
   activeOrdersIds,
   isCustomerAuthenticated,
   customer,
+  customerOtpEnabled = false,
   restaurantSlug,
   rawCategories,
   onExploreMenu,
@@ -77,8 +78,8 @@ export const LandingTab: React.FC<LandingTabProps> = ({
       </div>
 
       <div className="max-w-md mx-auto px-4 space-y-6 pb-6">
-        {/* Diner Profile & Sign In Banner */}
-        {(() => {
+        {/* Diner Profile & Sign In Banner (Only shown when customer OTP verification is enabled) */}
+        {customerOtpEnabled && (() => {
           const loyaltyActive = Boolean(restaurant?.loyaltyConfig?.enabled !== false);
           return (
             <div className="bg-white rounded-3xl p-4 border border-slate-150 shadow-xs flex items-center justify-between gap-3 animate-fade-in">

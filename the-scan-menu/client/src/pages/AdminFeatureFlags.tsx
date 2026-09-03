@@ -109,7 +109,7 @@ const FLAG_DEPENDENCIES: Record<string, string[]> = {
   pos: ['ordering', 'qr_menu'],
   payments: ['ordering', 'qr_menu'],
   coupons: ['crm'],
-  loyalty: ['crm'],
+  loyalty: ['crm', 'customer_otp'],
 };
 
 export interface AdminFeatureFlagsProps {
@@ -238,8 +238,9 @@ export const AdminFeatureFlags: React.FC<AdminFeatureFlagsProps> = ({
     const dependenciesToDisable: string[] = [];
 
     if (newStatus === false) {
-      if (flagKey === 'qr_menu') dependenciesToDisable.push('ordering', 'customer_otp', 'waiter_call', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
-      if (flagKey === 'ordering') dependenciesToDisable.push('customer_otp', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
+      if (flagKey === 'qr_menu') dependenciesToDisable.push('ordering', 'customer_otp', 'waiter_call', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments', 'loyalty');
+      if (flagKey === 'ordering') dependenciesToDisable.push('customer_otp', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments', 'loyalty');
+      if (flagKey === 'customer_otp') dependenciesToDisable.push('loyalty');
       if (flagKey === 'crm') dependenciesToDisable.push('coupons', 'loyalty');
     }
 

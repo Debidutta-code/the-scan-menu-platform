@@ -1081,6 +1081,7 @@ export const PublicTable: React.FC = () => {
           activeOrdersIds={activeOrdersIds}
           isCustomerAuthenticated={isCustomerAuthenticated}
           customer={customer}
+          customerOtpEnabled={isCustomerOtpEnabled}
           restaurantSlug={restaurantSlug}
           rawCategories={rawCategories}
           onExploreMenu={() => setActiveTab('menu')}
@@ -1155,7 +1156,7 @@ export const PublicTable: React.FC = () => {
           customerNote={customerNote}
           useLoyaltyPoints={useLoyaltyPoints}
           onToggleLoyaltyPoints={toggleUseLoyaltyPoints}
-          isLoyaltyEnabled={Boolean(restaurant.loyaltyConfig?.enabled)}
+          isLoyaltyEnabled={Boolean(isCustomerOtpEnabled && restaurant.loyaltyConfig?.enabled)}
           loyaltyConfig={restaurant.loyaltyConfig}
           cartSubtotal={cartSubtotal}
           cartTaxBreakdown={cartTaxBreakdown}
