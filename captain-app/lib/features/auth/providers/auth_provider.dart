@@ -47,6 +47,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final PushNotificationService _pushNotificationService = PushNotificationService();
 
   AuthNotifier() : super(AuthState.initial()) {
+    _apiClient.onMobileDisabled = (message) {
+      if (state.status != AuthStatus.mobileDisabled) {
+        state = state.copyWith(
+          status: AuthStatus.mobileDisabled,
+          errorMessage: message,
+        );
+      }
+    };
     checkSession();
   }
 

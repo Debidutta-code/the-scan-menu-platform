@@ -3,6 +3,7 @@ import { TokenService, TokenUserPayload } from '../services/token.service';
 import { UserRepository } from '../repositories/user.repository';
 import { RestaurantStaff } from '../models/RestaurantStaff';
 import { Restaurant } from '../models/Restaurant';
+import { featureFlagRepository } from '../repositories/featureFlag.repository';
 import { sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -132,6 +133,26 @@ export const requireRestaurantAccess = async (
         403
       );
       return;
+    }
+
+    // Enforce Mobile App feature flag when request originates from Mobile Captain App
+    const clientType = req.headers['x-client-type'];
+    if (clientType === 'mobile' && req.user.role !== 'SUPER_ADMIN') {
+      const enabledFlag = await featureFlagRepository.findByKey(restaurant._id, 'mobile_app');
+      if (!enabledFlag || !enabledFlag.enabled) {
+        sendError(
+          res,
+          'MOBILE_APP_DISABLED',
+          'Mobile application access is disabled for this restaurant. Please contact superadmin.',
+          {
+            supportEmail: 'hello@pixorastudios.com',
+            supportPhone: '+91 6371875968',
+            feature: 'mobile_app',
+          },
+          403
+        );
+        return;
+      }
     }
 
     // Search for active join table record

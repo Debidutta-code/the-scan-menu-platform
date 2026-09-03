@@ -10,6 +10,7 @@ class ApiClient {
   late final Dio dio;
   bool _isRefreshing = false;
   final List<void Function(String token)> _refreshQueue = [];
+  void Function(String message)? onMobileDisabled;
 
   ApiClient._internal() {
     dio = Dio(
@@ -62,6 +63,18 @@ class ApiClient {
           final response = error.response;
           // ignore: avoid_print
           print('[HTTP ERR ${response?.statusCode}] ${error.requestOptions.baseUrl}${error.requestOptions.path} => Response Body: ${response?.data}');
+
+          // Check if Mobile App access was disabled mid-session (403 with MOBILE_APP_DISABLED)
+          final isMobileDisabled = response?.statusCode == 403 &&
+              response?.data is Map &&
+              response?.data['error']?['code'] == 'MOBILE_APP_DISABLED';
+
+          if (isMobileDisabled) {
+            final msg = response?.data['error']?['message'] ??
+                'Mobile application access has been disabled for your restaurant.';
+            onMobileDisabled?.call(msg);
+            return handler.next(error);
+          }
 
           // Check if token expired (401 with TOKEN_EXPIRED code)
           final isTokenExpired = response?.statusCode == 401 &&
