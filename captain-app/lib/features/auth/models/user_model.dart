@@ -104,10 +104,15 @@ class RestaurantProfile {
 
     List<String> parsedFlags = [];
     if (json['featureFlags'] is List) {
-      parsedFlags = (json['featureFlags'] as List)
-          .where((f) => f['enabled'] == true)
-          .map((f) => f['key'].toString())
-          .toList();
+      parsedFlags = (json['featureFlags'] as List).map<String>((f) {
+        if (f is String) return f;
+        if (f is Map) {
+          if (f['enabled'] != false) {
+            return f['key']?.toString() ?? '';
+          }
+        }
+        return '';
+      }).where((s) => s.isNotEmpty).toList();
     }
 
     return RestaurantProfile(

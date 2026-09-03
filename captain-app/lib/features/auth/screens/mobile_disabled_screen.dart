@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
+import '../../screens/main_shell_screen.dart';
 
 class MobileDisabledScreen extends ConsumerStatefulWidget {
   final String? restaurantName;
@@ -45,6 +46,13 @@ class _MobileDisabledScreenState extends ConsumerState<MobileDisabledScreen> {
     setState(() => _isChecking = true);
     try {
       await ref.read(authProvider.notifier).checkSession();
+      final updatedState = ref.read(authProvider);
+      if (updatedState.status == AuthStatus.authenticated && mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainShellScreen()),
+          (route) => false,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isChecking = false);
@@ -64,6 +72,15 @@ class _MobileDisabledScreenState extends ConsumerState<MobileDisabledScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next.status == AuthStatus.authenticated) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainShellScreen()),
+          (route) => false,
+        );
+      }
+    });
+
     final authState = ref.watch(authProvider);
     final restName = widget.restaurantName ?? authState.activeRestaurant?.name ?? 'your restaurant';
 
