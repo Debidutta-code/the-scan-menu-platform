@@ -283,9 +283,10 @@ export class OrderService {
         // Check if a Bill has been generated for this round's session.
         // A SUPERSEDED bill signals that the session went through a bill-request/reopen cycle,
         // which closes the merge window — new orders must start a new round.
-        const priorBill = pendingRound.diningSessionId
-          ? await billRepository.findByDiningSessionId(pendingRound.diningSessionId)
-          : null;
+        const priorBill =
+          pendingRound.diningSessionId && Types.ObjectId.isValid(pendingRound.diningSessionId.toString())
+            ? await billRepository.findByDiningSessionId(pendingRound.diningSessionId)
+            : null;
 
         if (!priorBill) {
           // Always append as separate line items — never accumulate quantity.
@@ -479,37 +480,8 @@ export class OrderService {
       console.error('Failed to notify order created via socket:', err);
     }
 
-    // 8. Auto-Accept Workflow Trigger
-    const settings = restaurantSettings;
-    const autoAcceptConfig = settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 };
-    const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
-    const isPrepaid = (settings?.paymentConfig?.activeMode || 'POSTPAID') === 'PREPAID';
-
-    if (autoAcceptConfig.enabled && !isPrepaid) {
-      const delayMs = (autoAcceptConfig.delaySeconds || 10) * 1000;
-      const orderIdStr = order._id.toString();
-      const restIdStr = restaurantId.toString();
-
-      setTimeout(async () => {
-        try {
-          const freshOrder = await orderRepository.findById(orderIdStr);
-          if (!freshOrder || freshOrder.status !== 'PENDING') return;
-
-          const nextStatus = workflowMode === 'FIVE_STEP' ? 'ACCEPTED' : 'PREPARING';
-          freshOrder.status = nextStatus as any;
-          await orderRepository.save(freshOrder);
-
-          NotificationService.getInstance().notifyOrderStatusUpdated(
-            restIdStr,
-            orderIdStr,
-            nextStatus,
-            freshOrder.updatedAt
-          );
-        } catch (e) {
-          console.error('[AutoAccept] Failed to auto-accept order:', e);
-        }
-      }, delayMs);
-    }
+    // 8. Auto-Accept Workflow Trigger: Intentionally disabled for beta.
+    // Customer orders must remain in PENDING until explicit manual waiter or manager confirmation.
 
     return order;
   }

@@ -19,7 +19,7 @@ router.get('/:restaurantId/orders/:orderId', requireFeature('ordering') as any, 
 router.patch('/:restaurantId/orders/:orderId/status', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.updateOrderStatus);
 router.patch('/:restaurantId/orders/:orderId/payment-status', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.updateOrderPaymentStatus);
 router.post('/:restaurantId/orders/:orderId/verify-manual', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, paymentController.verifyManualPayment);
-router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.cancelOrder);
+router.post('/:restaurantId/orders/:orderId/cancel', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.cancelOrder);
 router.post('/:restaurantId/orders/:orderId/clear', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.clearOrder);
 router.post('/:restaurantId/orders/:orderId/retry-pos', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.retryPosSync);
 

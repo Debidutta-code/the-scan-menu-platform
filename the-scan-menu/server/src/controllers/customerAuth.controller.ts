@@ -103,7 +103,8 @@ export class CustomerAuthController {
         restaurant._id,
         verification.phone,
         name,
-        email
+        email,
+        true
       );
 
       if (customer.isBlocked) {

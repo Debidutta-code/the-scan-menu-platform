@@ -70,6 +70,8 @@ export class PublicController {
       const settings = await restaurantSettingsRepository.findByRestaurantId(resolution.restaurant._id);
       const featureFlags = await featureFlagRepository.findByRestaurantId(resolution.restaurant._id);
       const loyaltyConfig = await loyaltyService.getLoyaltyConfig(resolution.restaurant._id);
+      const isOtpFeatureEnabled = await featureFlagService.isEnabled(resolution.restaurant._id.toString(), 'customer_otp');
+      const isCustomerOtpActive = isOtpFeatureEnabled || (settings?.orderConfig?.customerOtpEnabled ?? false);
 
       const responseData = {
         restaurant: {
@@ -93,7 +95,12 @@ export class PublicController {
           taxRatePercent: settings?.paymentConfig?.taxRatePercent || 0,
           paymentConfig: settings?.paymentConfig || { activeProvider: 'CASH', activeMode: 'POSTPAID' },
           orderWorkflowMode: settings?.workflow?.orderWorkflowMode || 'FIVE_STEP',
-          autoAcceptConfig: settings?.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+          autoAcceptConfig: { enabled: false, delaySeconds: 10 },
+          customerOtpEnabled: isCustomerOtpActive,
+          orderConfig: {
+            ...(settings?.orderConfig || {}),
+            customerOtpEnabled: isCustomerOtpActive,
+          },
           loyaltyConfig: loyaltyConfig || { enabled: false },
           featureFlags: featureFlags || [],
         },
@@ -791,6 +798,9 @@ export class PublicController {
         };
       });
 
+      const isOtpFeatureEnabled = await featureFlagService.isEnabled(restaurant._id.toString(), 'customer_otp');
+      const isCustomerOtpActive = isOtpFeatureEnabled || (settings?.orderConfig?.customerOtpEnabled ?? false);
+
       const responseData = {
         restaurant: {
           id: restaurant._id.toString(),
@@ -809,6 +819,11 @@ export class PublicController {
           },
           currency: settings?.currency || 'INR',
           timezone: settings?.timezone || 'Asia/Kolkata',
+          customerOtpEnabled: isCustomerOtpActive,
+          orderConfig: {
+            ...(settings?.orderConfig || {}),
+            customerOtpEnabled: isCustomerOtpActive,
+          },
           paymentConfig: settings?.paymentConfig || { activeProvider: 'CASH', activeMode: 'POSTPAID' },
         },
         categories: categoriesWithItems,

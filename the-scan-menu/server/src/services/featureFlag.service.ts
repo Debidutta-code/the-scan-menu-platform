@@ -38,6 +38,12 @@ export const DEFAULT_FLAGS: FeatureFlagMeta[] = [
     category: 'GUEST_EXPERIENCE',
     description: 'Customer-facing live order queue and kitchen status tracking screen.',
   },
+  {
+    key: 'customer_otp',
+    name: 'Customer SMS OTP Verification',
+    category: 'GUEST_EXPERIENCE',
+    description: 'Mandatory 4-digit SMS OTP verification for diners before placing orders.',
+  },
 
   // 2. Kitchen & Operations
   {

@@ -9,6 +9,7 @@ export const OtpModal: React.FC<OtpModalProps> = ({
   isVerifyingOtp,
   isSendingOtp,
   otpSent,
+  customerOtpEnabled = false,
   customerName,
   phoneNumber,
   otpDigits,
@@ -21,10 +22,13 @@ export const OtpModal: React.FC<OtpModalProps> = ({
   onSendOtp,
   onVerifyOtpAndPlaceOrder,
   onVerifyOtp,
+  onDirectPlaceOrder,
   onOtpDigitsChange,
   onResetOtpSent,
 }) => {
   const handleVerify = onVerifyOtp || onVerifyOtpAndPlaceOrder;
+  const handleDirectPlace = onDirectPlaceOrder || onVerifyOtpAndPlaceOrder || onVerifyOtp;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -35,7 +39,7 @@ export const OtpModal: React.FC<OtpModalProps> = ({
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => {
-              if (!isPlacingOrder && !isVerifyingOtp) onClose();
+              if (!isPlacingOrder && !isVerifyingOtp && !isSendingOtp) onClose();
             }}
           />
 
@@ -53,18 +57,70 @@ export const OtpModal: React.FC<OtpModalProps> = ({
               <div className="flex justify-between items-center pb-2 border-b border-slate-50">
                 <h3 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2">
                   <Lock className="w-5 h-5 text-amber-500" strokeWidth={2} />
-                  <span>Verify Phone to Order</span>
+                  <span>{customerOtpEnabled ? 'Verify Phone to Order' : 'Your Details'}</span>
                 </h3>
                 <button
                   onClick={onClose}
-                  disabled={isPlacingOrder || isVerifyingOtp}
+                  disabled={isPlacingOrder || isVerifyingOtp || isSendingOtp}
                   className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                 >
                   <X className="w-5 h-5" strokeWidth={1.75} />
                 </button>
               </div>
 
-              {!otpSent ? (
+              {/* ── Mode 1: OTP Disabled (Direct Name + Phone Entry) ── */}
+              {!customerOtpEnabled ? (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-500 leading-normal">
+                    Enter your name and mobile number to place your order at <strong className="text-slate-700">{tableDisplayName}</strong>.
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">
+                      Your Name <span className="text-amber-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="E.g., Alice Sharma"
+                      value={customerName}
+                      onChange={(e) => onNameChange(e.target.value)}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-sans"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">
+                      Mobile Number <span className="text-amber-500">*</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-xs font-mono font-bold text-slate-400 select-none">+91</span>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        placeholder="98765 43210"
+                        value={phoneNumber}
+                        onChange={(e) => onPhoneChange(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 font-mono font-bold tracking-wide"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" strokeWidth={2} />
+                    <span>Your contact details are used for order confirmation and dining updates.</span>
+                  </p>
+
+                  <button
+                    onClick={handleDirectPlace}
+                    disabled={isPlacingOrder || phoneNumber.length < 10 || !customerName.trim()}
+                    className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer"
+                  >
+                    {isPlacingOrder && <Loader className="w-4 h-4 animate-spin text-slate-950" />}
+                    <span>{isPlacingOrder ? 'Placing Order...' : 'Place Order'}</span>
+                  </button>
+                </div>
+              ) : !otpSent ? (
+                /* ── Mode 2: OTP Enabled - Step 1: Request OTP ── */
                 <div className="space-y-4">
                   <p className="text-xs text-slate-500 leading-normal">
                     Enter your name and mobile number to unlock your loyalty points and order at {tableDisplayName}.

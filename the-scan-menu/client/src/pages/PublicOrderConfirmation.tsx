@@ -222,14 +222,14 @@ export const PublicOrderConfirmation: React.FC = () => {
 
   const statusDetails: Record<string, { title: string; desc: string; icon: React.ReactNode; color: string }> = {
     PENDING: {
-      title: 'Order Placed',
-      desc: 'Waiting for the kitchen to accept your order.',
+      title: 'Order Received',
+      desc: 'The restaurant is reviewing your order before sending it to the kitchen.',
       icon: <Clock className="w-6 h-6 text-amber-500" strokeWidth={1.75} />,
       color: 'bg-amber-50 border-amber-100 text-amber-800',
     },
     ACCEPTED: {
-      title: 'Order Accepted',
-      desc: 'Our staff has accepted your order and is queuing it.',
+      title: 'Order Confirmed',
+      desc: 'Our staff has accepted your order and queued it for preparation.',
       icon: <CheckCircle2 className="w-6 h-6 text-emerald-500" strokeWidth={1.75} />,
       color: 'bg-emerald-50 border-emerald-100 text-emerald-800',
     },

@@ -22,7 +22,8 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
   restaurantId: propRestaurantId,
   onSaved,
 }) => {
-  const { activeRestaurantId } = useAuth();
+  const { activeRestaurantId, user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const { isEnabled } = useFeatureFlags();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -40,15 +41,14 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
   });
   const hasActiveOrders = activeOrdersData?.success && activeOrdersData.data.length > 0;
 
-  // Order Workflow & Automation
+  // Order Workflow & Customer Verification (OTP)
   const [orderWorkflowMode, setOrderWorkflowMode] = useState<'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP'>(() => {
     if (!targetRestaurantId) return 'FIVE_STEP';
     const cached = localStorage.getItem(`pixora_workflow_mode_${targetRestaurantId}`);
     return (cached as any) || 'FIVE_STEP';
   });
   const [orderingPaymentPolicy, setOrderingPaymentPolicy] = useState<'PREPAID' | 'POSTPAID'>('POSTPAID');
-  const [autoAcceptEnabled, setAutoAcceptEnabled] = useState(false);
-  const [autoAcceptDelay, setAutoAcceptDelay] = useState(10);
+  const [customerOtpEnabled, setCustomerOtpEnabled] = useState(false);
 
   const { data: restaurantResponse, isLoading } = useQuery({
     queryKey: ['restaurantProfileInfo', targetRestaurantId],
@@ -69,8 +69,7 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
       }
       const mode = raw.paymentConfig?.activeMode || raw.activeMode || 'POSTPAID';
       setOrderingPaymentPolicy(mode);
-      setAutoAcceptEnabled(mode === 'PREPAID' ? false : !!raw.autoAcceptConfig?.enabled);
-      setAutoAcceptDelay(raw.autoAcceptConfig?.delaySeconds ?? 10);
+      setCustomerOtpEnabled(Boolean(raw.orderConfig?.customerOtpEnabled ?? raw.customerOtpEnabled ?? false));
     }
   }, [restaurantResponse, targetRestaurantId]);
 
@@ -83,7 +82,7 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
       if (targetRestaurantId) {
         localStorage.setItem(`pixora_workflow_mode_${targetRestaurantId}`, orderWorkflowMode);
       }
-      toast('Order Workflow & Automation rules saved!', 'success');
+      toast('Order Workflow & Verification rules saved!', 'success');
       queryClient.invalidateQueries({ queryKey: ['restaurantProfileInfo', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminRestaurantDetail', targetRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['adminSetupAudit', targetRestaurantId] });
@@ -104,9 +103,9 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
     updateMutation.mutate({
       orderWorkflowMode,
       activeMode: orderingPaymentPolicy,
-      autoAcceptConfig: {
-        enabled: orderingPaymentPolicy === 'PREPAID' ? false : autoAcceptEnabled,
-        delaySeconds: autoAcceptDelay,
+      customerOtpEnabled,
+      orderConfig: {
+        customerOtpEnabled,
       },
     });
   };
@@ -124,9 +123,9 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
       <div className="border-b border-slate-100 pb-2.5">
         <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider font-mono">
           <GitBranch className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
-          <span>Order Workflow &amp; Auto-Accept Rules</span>
+          <span>Order Workflow &amp; Verification Rules</span>
         </h4>
-        <p className="text-[11px] text-slate-500 mt-0.5">Define order step lifecycle and auto-dispatch timers.</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">Define order step lifecycle, manual waiter acceptance, and customer SMS verification.</p>
       </div>
 
       {hasActiveOrders && (
@@ -216,63 +215,63 @@ export const WorkflowAutomationSection: React.FC<WorkflowAutomationSectionProps>
         })}
       </div>
 
-      {/* Auto-Accept Automation */}
-      <div className={`pt-3 border-t border-slate-100 space-y-3 transition ${orderingPaymentPolicy === 'PREPAID' ? 'opacity-40 filter blur-[0.5px] pointer-events-none' : ''}`}>
+      {/* Customer Verification (OTP) Config */}
+      <div className="pt-3 border-t border-slate-100 space-y-3">
         <div className="flex items-center justify-between">
           <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5">
             <Timer className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
-            <span>Auto-Accept Orders</span>
+            <span>Customer Phone Verification</span>
           </h5>
-          {orderingPaymentPolicy === 'PREPAID' && (
-            <span className="text-[9px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full">
-              Available only in Postpaid Mode
-            </span>
-          )}
+          <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full ${
+            isSuperAdmin ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+          }`}>
+            {isSuperAdmin ? 'Super Admin Configurable' : 'Platform Managed (Super Admin Only)'}
+          </span>
         </div>
 
-        <label className="flex items-start gap-2.5 p-3 border border-slate-200/80 rounded-xl cursor-pointer hover:bg-slate-50 transition shadow-2xs">
+        <label className={`flex items-start gap-2.5 p-3 border border-slate-200/80 rounded-xl transition shadow-2xs ${
+          isSuperAdmin && !hasActiveOrders ? 'cursor-pointer hover:bg-slate-50' : 'bg-slate-50/70 opacity-80 cursor-not-allowed'
+        }`}>
           <div className="mt-0.5">
             <input
               type="checkbox"
-              disabled={hasActiveOrders || orderingPaymentPolicy === 'PREPAID'}
-              checked={orderingPaymentPolicy !== 'PREPAID' && autoAcceptEnabled}
-              onChange={(e) => !hasActiveOrders && orderingPaymentPolicy !== 'PREPAID' && setAutoAcceptEnabled(e.target.checked)}
-              className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${hasActiveOrders || orderingPaymentPolicy === 'PREPAID' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!isSuperAdmin || hasActiveOrders}
+              checked={customerOtpEnabled}
+              onChange={(e) => isSuperAdmin && !hasActiveOrders && setCustomerOtpEnabled(e.target.checked)}
+              className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${
+                !isSuperAdmin || hasActiveOrders ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-900">Automatically accept new incoming orders</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-slate-900">Require OTP (SMS PIN) verification for customer orders</p>
+              {!isSuperAdmin && (
+                <span className="text-[9px] font-bold bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono">
+                  Locked
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">
-              New orders will be auto-accepted and moved to{' '}
-              <strong className="text-slate-700">{orderWorkflowMode === 'FIVE_STEP' ? 'Accepted' : 'Preparing'}</strong> after delay.
+              {customerOtpEnabled
+                ? 'Diners must verify their phone number via a 4-digit PIN before placing orders.'
+                : 'Diners provide their name and phone number without SMS OTP. Reduces checkout friction and eliminates SMS costs.'}
+              {!isSuperAdmin && (
+                <span className="block text-[10px] text-slate-400 italic mt-0.5">
+                  Contact Platform Super Administrator to toggle this module in the tenant feature flags.
+                </span>
+              )}
             </p>
           </div>
         </label>
 
-        {autoAcceptEnabled && (
-          <div className="ml-1 space-y-2">
-            <label className="block text-[11px] font-semibold text-slate-600 font-mono">Auto-accept timer delay</label>
-            <div className="flex flex-wrap gap-1.5">
-              {[5, 10, 15, 30, 60, 120].map((sec) => (
-                <button
-                  key={sec}
-                  type="button"
-                  disabled={hasActiveOrders}
-                  onClick={() => !hasActiveOrders && setAutoAcceptDelay(sec)}
-                  className={`h-7 px-3 rounded-lg text-xs font-bold border transition cursor-pointer font-mono ${
-                    autoAcceptDelay === sec
-                      ? 'bg-amber-500 border-amber-500 text-slate-950 shadow-2xs font-black'
-                      : hasActiveOrders
-                      ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300'
-                  }`}
-                >
-                  {sec < 60 ? `${sec}s` : `${sec / 60}m`}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Operational Notice */}
+        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-2 text-xs text-slate-600">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1" />
+          <p className="text-[11px] leading-relaxed">
+            <strong>Manual Staff Confirmation Active:</strong> All incoming customer orders will arrive in the <span className="font-semibold text-slate-800">Pending Review</span> queue. A waiter or manager must review and explicitly accept them before tickets are sent to the kitchen.
+          </p>
+        </div>
       </div>
 
       <div className="pt-2 flex justify-end">

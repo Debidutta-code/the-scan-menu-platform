@@ -45,6 +45,7 @@ export interface OtpModalProps {
   isVerifyingOtp: boolean;
   isSendingOtp: boolean;
   otpSent: boolean;
+  customerOtpEnabled?: boolean;
   customerName: string;
   phoneNumber: string;
   otpDigits: string[];
@@ -57,6 +58,7 @@ export interface OtpModalProps {
   onSendOtp: () => void;
   onVerifyOtpAndPlaceOrder?: () => void;
   onVerifyOtp: () => void;
+  onDirectPlaceOrder?: () => void;
   onOtpDigitsChange: (digits: string[]) => void;
   onResetOtpSent: () => void;
 }

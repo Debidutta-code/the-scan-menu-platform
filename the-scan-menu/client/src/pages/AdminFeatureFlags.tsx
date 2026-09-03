@@ -80,6 +80,7 @@ const FLAG_ICON_MAP: Record<string, any> = {
   ordering: ShoppingBag,
   waiter_call: Bell,
   customer_display: Tv,
+  customer_otp: ShieldCheck,
   mobile_app: Smartphone,
   kds: Flame,
   inventory: Boxes,
@@ -99,6 +100,7 @@ const FLAG_ICON_MAP: Record<string, any> = {
 
 const FLAG_DEPENDENCIES: Record<string, string[]> = {
   ordering: ['qr_menu'],
+  customer_otp: ['ordering', 'qr_menu'],
   kds: ['ordering', 'qr_menu'],
   customer_display: ['ordering', 'qr_menu'],
   waiter_call: ['qr_menu'],
@@ -236,8 +238,8 @@ export const AdminFeatureFlags: React.FC<AdminFeatureFlagsProps> = ({
     const dependenciesToDisable: string[] = [];
 
     if (newStatus === false) {
-      if (flagKey === 'qr_menu') dependenciesToDisable.push('ordering', 'waiter_call', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
-      if (flagKey === 'ordering') dependenciesToDisable.push('kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
+      if (flagKey === 'qr_menu') dependenciesToDisable.push('ordering', 'customer_otp', 'waiter_call', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
+      if (flagKey === 'ordering') dependenciesToDisable.push('customer_otp', 'kds', 'customer_display', 'takeaway', 'delivery', 'pos', 'payments');
       if (flagKey === 'crm') dependenciesToDisable.push('coupons', 'loyalty');
     }
 
@@ -309,7 +311,7 @@ export const AdminFeatureFlags: React.FC<AdminFeatureFlagsProps> = ({
                   Control Center
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  18 Modules Supported
+                  19 Modules Supported
                 </span>
               </div>
               <h2 className="font-display text-3xl font-bold mt-1">Tenant Module Feature Flags</h2>

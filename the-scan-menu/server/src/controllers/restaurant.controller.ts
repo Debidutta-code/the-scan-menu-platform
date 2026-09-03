@@ -433,7 +433,9 @@ export class RestaurantController {
         upiId: settings.paymentConfig?.upiId || settings.printerConfig?.upiId || '',
         preferredMethodOrder: settings.paymentConfig?.preferredMethodOrder || ['UPI', 'CASH', 'CARD', 'RAZORPAY'],
         orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
-        autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+        autoAcceptConfig: { enabled: false, delaySeconds: 10 },
+        customerOtpEnabled: settings.orderConfig?.customerOtpEnabled ?? false,
+        orderConfig: settings.orderConfig || { customerOtpEnabled: false },
         timings: settings.timings || { open: '09:00', close: '23:00' },
         googleReviewUrl: settings.branding?.googleReviewUrl || '',
         whatsapp: settings.branding?.whatsapp || '',
@@ -469,6 +471,19 @@ export class RestaurantController {
         
         attemptedStoreKeys.forEach((k) => delete updateData[k]);
 
+        // Strip Razorpay gateway secrets and enable flag if not Super Admin
+        delete updateData.razorpayConfig;
+        if (updateData.paymentConfig) {
+          delete updateData.paymentConfig.razorpayConfig;
+          delete updateData.paymentConfig.razorpayEnabled;
+        }
+
+        // Strip Customer OTP Verification config if not Super Admin (Official Module Managed by Super Admin)
+        delete updateData.customerOtpEnabled;
+        if (updateData.orderConfig) {
+          delete updateData.orderConfig.customerOtpEnabled;
+        }
+
         // If the manager sent ONLY store profile fields, reject with 403
         if (hasStoreFields && Object.keys(updateData).length === 0) {
           sendError(res, 'FORBIDDEN', 'Store profile, identity, and physical details can only be configured by SuperAdmin.', null, 403);
@@ -480,19 +495,6 @@ export class RestaurantController {
       if (updateData.orderWorkflowMode && !['FIVE_STEP', 'FOUR_STEP', 'THREE_STEP'].includes(updateData.orderWorkflowMode)) {
         sendError(res, 'BAD_REQUEST', 'Invalid orderWorkflowMode. Must be FIVE_STEP, FOUR_STEP, or THREE_STEP', null, 400);
         return;
-      }
-
-      // Validate autoAcceptConfig if provided
-      if (updateData.autoAcceptConfig !== undefined) {
-        const { enabled, delaySeconds } = updateData.autoAcceptConfig || {};
-        if (typeof enabled !== 'boolean') {
-          sendError(res, 'BAD_REQUEST', 'autoAcceptConfig.enabled must be a boolean', null, 400);
-          return;
-        }
-        if (delaySeconds !== undefined && (typeof delaySeconds !== 'number' || delaySeconds < 1 || delaySeconds > 300)) {
-          sendError(res, 'BAD_REQUEST', 'autoAcceptConfig.delaySeconds must be a number between 1 and 300', null, 400);
-          return;
-        }
       }
 
       // Validate active orders/sessions before allowing rounding configuration changes
@@ -531,30 +533,63 @@ export class RestaurantController {
       if (updateData.currency) settings.currency = updateData.currency;
       if (updateData.timezone) settings.timezone = updateData.timezone;
       if (updateData.taxRatePercent !== undefined) settings.paymentConfig.taxRatePercent = updateData.taxRatePercent;
-      if (updateData.paymentMethods) settings.paymentConfig.paymentMethods = { ...settings.paymentConfig.paymentMethods, ...updateData.paymentMethods };
-      if (updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
+      
+      if (updateData.paymentMethods) {
+        const superAdminRazorpayEnabled = settings.paymentConfig.razorpayEnabled ?? false;
+        settings.paymentConfig.paymentMethods = {
+          ...settings.paymentConfig.paymentMethods,
+          ...updateData.paymentMethods,
+          razorpay: isSuperAdmin
+            ? (updateData.paymentMethods.razorpay !== undefined ? Boolean(updateData.paymentMethods.razorpay) : settings.paymentConfig.paymentMethods.razorpay)
+            : (superAdminRazorpayEnabled && updateData.paymentMethods.razorpay ? true : false),
+        };
+      }
+
+      if (isSuperAdmin && updateData.razorpayConfig) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...updateData.razorpayConfig };
       if (updateData.integrationConfig) settings.paymentConfig.integrationConfig = updateData.integrationConfig;
       if (updateData.activeMode) settings.paymentConfig.activeMode = updateData.activeMode;
       if (updateData.activeProvider) settings.paymentConfig.activeProvider = updateData.activeProvider;
-      if (updateData.paymentConfig) settings.paymentConfig = { ...settings.paymentConfig, ...updateData.paymentConfig };
+      if (updateData.paymentConfig) {
+        const { razorpayConfig: rzpCfg, razorpayEnabled: rzpEn, ...restPaymentConfig } = updateData.paymentConfig;
+        settings.paymentConfig = { ...settings.paymentConfig, ...restPaymentConfig };
+        if (isSuperAdmin) {
+          if (rzpCfg) settings.paymentConfig.razorpayConfig = { ...settings.paymentConfig.razorpayConfig, ...rzpCfg };
+          if (rzpEn !== undefined) settings.paymentConfig.razorpayEnabled = Boolean(rzpEn);
+        }
+      }
+
       if (updateData.roundingConfig) settings.roundingConfig = { ...(settings.roundingConfig || { enabled: true, strategy: 'NEAREST' }), ...updateData.roundingConfig };
       if (updateData.preferredMethodOrder) settings.paymentConfig.preferredMethodOrder = updateData.preferredMethodOrder;
       if (updateData.gstNumber !== undefined) settings.paymentConfig.gstNumber = updateData.gstNumber;
       if (updateData.fssaiNumber !== undefined) settings.paymentConfig.fssaiNumber = updateData.fssaiNumber;
       if (updateData.upiId !== undefined) settings.paymentConfig.upiId = updateData.upiId;
       if (updateData.orderWorkflowMode) settings.workflow.orderWorkflowMode = updateData.orderWorkflowMode;
-      if (updateData.autoAcceptConfig) settings.workflow.autoAcceptConfig = updateData.autoAcceptConfig;
+      
+      // Auto-accept is globally disabled for beta
+      settings.workflow.autoAcceptConfig = { enabled: false, delaySeconds: 10 };
+
+      // Update orderConfig and customerOtpEnabled
+      if (updateData.orderConfig || updateData.customerOtpEnabled !== undefined) {
+        settings.orderConfig = {
+          ...(settings.orderConfig || {
+            minOrderAmount: 0,
+            allowSpecialInstructions: true,
+            enableTableOrdering: true,
+            enableTakeaway: true,
+            enableDelivery: false,
+            customerOtpEnabled: false,
+          }),
+          ...(updateData.orderConfig || {}),
+          ...(updateData.customerOtpEnabled !== undefined ? { customerOtpEnabled: Boolean(updateData.customerOtpEnabled) } : {}),
+        };
+      }
+
       if (updateData.timings) settings.timings = updateData.timings;
       if (updateData.googleReviewUrl !== undefined) settings.branding.googleReviewUrl = updateData.googleReviewUrl;
       if (updateData.whatsapp !== undefined) settings.branding.whatsapp = updateData.whatsapp;
       if (updateData.socialLinks) settings.branding.socialLinks = { ...settings.branding.socialLinks, ...updateData.socialLinks };
       if (updateData.printerConfig) settings.printerConfig = { ...(settings.printerConfig || {}), ...updateData.printerConfig };
       if (updateData.qrCodeStyle) settings.qrCodeStyle = { ...(settings.qrCodeStyle || {}), ...updateData.qrCodeStyle };
-
-      // Strictly disable auto-accept in database if PREPAID mode is active
-      if (settings.paymentConfig.activeMode === 'PREPAID') {
-        settings.workflow.autoAcceptConfig.enabled = false;
-      }
 
       await restaurantSettingsRepository.save(settings);
 
@@ -572,7 +607,9 @@ export class RestaurantController {
         upiId: settings.paymentConfig?.upiId || settings.printerConfig?.upiId || '',
         preferredMethodOrder: settings.paymentConfig?.preferredMethodOrder || ['UPI', 'CASH', 'CARD', 'RAZORPAY'],
         orderWorkflowMode: settings.workflow?.orderWorkflowMode || 'FIVE_STEP',
-        autoAcceptConfig: settings.workflow?.autoAcceptConfig || { enabled: false, delaySeconds: 10 },
+        autoAcceptConfig: { enabled: false, delaySeconds: 10 },
+        customerOtpEnabled: settings.orderConfig?.customerOtpEnabled ?? false,
+        orderConfig: settings.orderConfig || { customerOtpEnabled: false },
         timings: settings.timings || { open: '09:00', close: '23:00' },
         googleReviewUrl: settings.branding?.googleReviewUrl || '',
         whatsapp: settings.branding?.whatsapp || '',

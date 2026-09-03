@@ -5,6 +5,7 @@ export interface ICustomer extends Document {
   name: string;
   phone: string;
   email?: string;
+  isPhoneVerified: boolean;
   totalOrdersCount: number;
   totalSpent: number;
   loyaltyPoints: number;
@@ -41,6 +42,11 @@ const customerSchema = new Schema<ICustomer>(
       type: String,
       trim: true,
       lowercase: true,
+    },
+    isPhoneVerified: {
+      type: Boolean,
+      required: true,
+      default: false,
     },
     totalOrdersCount: {
       type: Number,

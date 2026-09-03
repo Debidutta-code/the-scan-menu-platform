@@ -348,8 +348,11 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                   <input
                     type="checkbox"
                     checked={isChecked}
+                    disabled={meta.id === 'RAZORPAY' && razorpayStatus !== 'CONNECTED'}
                     onChange={(e) => setMethodChecked(meta.key, e.target.checked)}
-                    className="h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 cursor-pointer"
+                    className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${
+                      meta.id === 'RAZORPAY' && razorpayStatus !== 'CONNECTED' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
                   />
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     isChecked ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'
@@ -362,6 +365,13 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                       <span className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
                         {meta.badge}
                       </span>
+                      {meta.id === 'RAZORPAY' && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                          razorpayStatus === 'CONNECTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {razorpayStatus === 'CONNECTED' ? 'Super Admin Enabled' : 'Requires Super Admin'}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5">{meta.subtitle}</p>
                   </div>

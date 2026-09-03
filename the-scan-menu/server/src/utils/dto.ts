@@ -91,6 +91,7 @@ export interface CustomerSafeCustomerDTO {
   name: string;
   phone: string;
   email?: string;
+  isPhoneVerified?: boolean;
   totalOrdersCount: number;
   totalSpent: number;
   loyaltyPoints: number;
@@ -243,6 +244,7 @@ export function toCustomerSafeCustomerDTO(customer: any): CustomerSafeCustomerDT
     name: raw.name || '',
     phone: raw.phone || '',
     email: raw.email || undefined,
+    isPhoneVerified: !!raw.isPhoneVerified,
     totalOrdersCount: raw.totalOrdersCount || 0,
     totalSpent: raw.totalSpent || 0,
     loyaltyPoints: pts,

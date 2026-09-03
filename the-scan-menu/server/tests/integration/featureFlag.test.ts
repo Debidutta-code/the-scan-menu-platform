@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import { FeatureFlag } from '../../src/models/FeatureFlag';
 import { featureFlagService } from '../../src/services/featureFlag.service';
 import { requireFeature } from '../../src/middleware/featureFlag';
+import { featureFlagRepository } from '../../src/repositories/featureFlag.repository';
 import { Restaurant } from '../../src/models/Restaurant';
 import { RestaurantStaff } from '../../src/models/RestaurantStaff';
 
@@ -61,62 +62,53 @@ describe('FeatureFlag Service & Middleware Tests', () => {
     });
 
     it('should seed default flags if none exist', async () => {
-      vi.spyOn(FeatureFlag, 'find')
+      vi.spyOn(featureFlagRepository, 'findByRestaurantId')
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ key: 'qr_menu', enabled: false }] as any);
-      vi.spyOn(FeatureFlag as any, 'insertMany').mockResolvedValueOnce([] as any);
+      vi.spyOn(featureFlagRepository, 'upsert').mockResolvedValue({} as any);
 
       const flags = await featureFlagService.getRestaurantFlags(mockRestaurantId);
-      expect(FeatureFlag.insertMany).toHaveBeenCalled();
+      expect(featureFlagRepository.upsert).toHaveBeenCalled();
       expect(flags.length).toBeGreaterThan(0);
     });
 
     it('should check if a feature is enabled', async () => {
-      vi.spyOn(FeatureFlag, 'findOne').mockResolvedValueOnce({ enabled: true } as any);
+      vi.spyOn(featureFlagRepository, 'findByKeyAndRestaurant').mockResolvedValueOnce({ enabled: true } as any);
       const isEnabled = await featureFlagService.isEnabled(mockRestaurantId, 'qr_menu');
       expect(isEnabled).toBe(true);
     });
 
     it('should return false if a feature is not found', async () => {
-      vi.spyOn(FeatureFlag, 'findOne').mockResolvedValueOnce(null);
+      vi.spyOn(featureFlagRepository, 'findByKeyAndRestaurant').mockResolvedValueOnce(null);
       const isEnabled = await featureFlagService.isEnabled(mockRestaurantId, 'not_found');
       expect(isEnabled).toBe(false);
     });
   });
 
-
     it('should enable a specific feature flag', async () => {
       const updatedFlag = { key: 'qr_menu', enabled: true };
-      vi.spyOn(FeatureFlag, 'findOneAndUpdate').mockResolvedValueOnce(updatedFlag as any);
+      vi.spyOn(featureFlagRepository, 'upsert').mockResolvedValueOnce(updatedFlag as any);
       const result = await featureFlagService.enable(mockRestaurantId, 'qr_menu');
       expect(result).toEqual(updatedFlag);
-      expect(FeatureFlag.findOneAndUpdate).toHaveBeenCalledWith(
-        { restaurantId: mockRestaurantId, key: 'qr_menu' },
-        { enabled: true },
-        { new: true, upsert: true }
-      );
+      expect(featureFlagRepository.upsert).toHaveBeenCalledWith(mockRestaurantId, 'qr_menu', true);
     });
 
     it('should disable a specific feature flag', async () => {
       const updatedFlag = { key: 'qr_menu', enabled: false };
-      vi.spyOn(FeatureFlag, 'findOneAndUpdate').mockResolvedValueOnce(updatedFlag as any);
+      vi.spyOn(featureFlagRepository, 'upsert').mockResolvedValueOnce(updatedFlag as any);
       const result = await featureFlagService.disable(mockRestaurantId, 'qr_menu');
       expect(result).toEqual(updatedFlag);
-      expect(FeatureFlag.findOneAndUpdate).toHaveBeenCalledWith(
-        { restaurantId: mockRestaurantId, key: 'qr_menu' },
-        { enabled: false },
-        { new: true, upsert: true }
-      );
+      expect(featureFlagRepository.upsert).toHaveBeenCalledWith(mockRestaurantId, 'qr_menu', false);
     });
 
     it('should bulk update multiple feature flags', async () => {
       const mockFlags = [{ key: 'qr_menu', enabled: true }, { key: 'analytics', enabled: false }];
-      vi.spyOn(FeatureFlag, 'bulkWrite').mockResolvedValueOnce({} as any);
+      vi.spyOn(featureFlagRepository, 'upsert').mockResolvedValue({} as any);
       vi.spyOn(featureFlagService, 'getRestaurantFlags').mockResolvedValueOnce(mockFlags as any);
 
       const result = await featureFlagService.bulkUpdate(mockRestaurantId, mockFlags);
 
-      expect(FeatureFlag.bulkWrite).toHaveBeenCalled();
+      expect(featureFlagRepository.upsert).toHaveBeenCalled();
       expect(result).toEqual(mockFlags);
     });
 

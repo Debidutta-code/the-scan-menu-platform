@@ -14,7 +14,8 @@ export class CustomerService {
     restaurantId: Types.ObjectId | string,
     phone: string,
     name?: string,
-    email?: string
+    email?: string,
+    isPhoneVerified: boolean = false
   ): Promise<ICustomer> {
     const cleanPhone = normalizeIndianPhoneNumber(phone);
 
@@ -27,6 +28,9 @@ export class CustomerService {
       if (email && email.trim() && email.trim() !== customer.email) {
         customer.email = email.trim();
       }
+      if (isPhoneVerified && !customer.isPhoneVerified) {
+        customer.isPhoneVerified = true;
+      }
       customer.lastSeenAt = new Date();
       await customerRepository.save(customer);
       return customer;
@@ -38,6 +42,7 @@ export class CustomerService {
       phone: cleanPhone,
       name: (name && name.trim()) ? name.trim() : 'Guest Diner',
       email: email ? email.trim() : undefined,
+      isPhoneVerified: !!isPhoneVerified,
       totalOrdersCount: 0,
       totalSpent: 0,
       lastSeenAt: new Date(),

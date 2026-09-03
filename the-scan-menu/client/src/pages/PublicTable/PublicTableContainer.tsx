@@ -878,6 +878,13 @@ export const PublicTable: React.FC = () => {
     }
   };
 
+  const isCustomerOtpEnabled = Boolean(
+    tableData?.data?.restaurant?.customerOtpEnabled ??
+    tableData?.data?.restaurant?.orderConfig?.customerOtpEnabled ??
+    tableData?.data?.restaurant?.settings?.orderConfig?.customerOtpEnabled ??
+    false
+  );
+
   // Trigger checkout: 1-Tap for returning diners, or modal for new diners
   const handleCheckoutTrigger = () => {
     if (cartItems.length === 0) return;
@@ -886,9 +893,18 @@ export const PublicTable: React.FC = () => {
       // Returning customer: 1-Tap place order without OTP
       submitOrderPayload(customer.name, customer.phone, customerToken);
     } else {
-      // New diner: Open OTP verification modal
+      // New diner: Open verification/details modal
       setIsOtpModalOpen(true);
     }
+  };
+
+  // Direct Order Placement when OTP verification is disabled for outlet
+  const handleDirectPlaceOrder = () => {
+    if (!customerName || customerName.trim().length === 0) return;
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10) return;
+
+    submitOrderPayload(customerName.trim(), cleanPhone);
   };
 
   // Send 4-Digit PIN
@@ -1242,6 +1258,7 @@ export const PublicTable: React.FC = () => {
         isVerifyingOtp={isVerifyingOtp}
         isSendingOtp={isSendingOtp}
         otpSent={otpSent}
+        customerOtpEnabled={isCustomerOtpEnabled}
         customerName={customerName}
         phoneNumber={phoneNumber}
         otpDigits={otpDigits}
@@ -1253,6 +1270,7 @@ export const PublicTable: React.FC = () => {
         onPhoneChange={setPhoneNumber}
         onSendOtp={handleSendOtp}
         onVerifyOtp={handleVerifyOtp}
+        onDirectPlaceOrder={handleDirectPlaceOrder}
         onOtpDigitsChange={setOtpDigits}
         onResetOtpSent={() => {
           setOtpSent(false);

@@ -283,6 +283,17 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
         status: 'ACTIVE',
       });
 
+      await FeatureFlag.create({
+        restaurantId: restaurant._id,
+        key: 'ordering',
+        enabled: true,
+      });
+      await FeatureFlag.create({
+        restaurantId: restaurant._id,
+        key: 'qr_menu',
+        enabled: true,
+      });
+
       await RestaurantSettings.create({
         restaurantId: restaurant._id,
         paymentConfig: {
@@ -410,6 +421,17 @@ describe('Phase 10 Petpooja POS Integration Test Suite', () => {
         name: 'Standalone Diner',
         slug: 'standalone-diner',
         status: 'ACTIVE',
+      });
+
+      await FeatureFlag.create({
+        restaurantId: restaurant._id,
+        key: 'ordering',
+        enabled: true,
+      });
+      await FeatureFlag.create({
+        restaurantId: restaurant._id,
+        key: 'qr_menu',
+        enabled: true,
       });
 
       await RestaurantSettings.create({

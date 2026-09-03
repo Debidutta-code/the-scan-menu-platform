@@ -71,6 +71,7 @@ export interface IRestaurantSettingsOrderConfig {
   enableTableOrdering: boolean;
   enableTakeaway: boolean;
   enableDelivery: boolean;
+  customerOtpEnabled?: boolean;
 }
 
 export interface IRestaurantSettingsUi {
@@ -238,7 +239,7 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       preferredMethodOrder: { type: [String], default: ['UPI', 'CASH', 'CARD', 'RAZORPAY'] },
     },
     roundingConfig: {
-      enabled: { type: Boolean, default: true },
+      enabled: { type: Boolean, default: false },
       strategy: { type: String, enum: ['NEAREST', 'UP', 'DOWN'], default: 'NEAREST' },
     },
     notificationPreferences: {
@@ -252,6 +253,7 @@ const restaurantSettingsSchema = new Schema<IRestaurantSettings>(
       enableTableOrdering: { type: Boolean, default: true },
       enableTakeaway: { type: Boolean, default: true },
       enableDelivery: { type: Boolean, default: false },
+      customerOtpEnabled: { type: Boolean, default: false },
     },
     inventoryConfig: {
       enableLowStockAlerts: { type: Boolean, default: true },
