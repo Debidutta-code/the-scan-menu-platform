@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../models/table_model.dart';
@@ -28,16 +27,16 @@ class TableCard extends StatelessWidget {
     }
   }
 
-  String _getStatusLabel() {
+  String _getStatusShortLabel() {
     switch (table.status) {
       case TableStatus.occupied:
-        return 'Occupied';
+        return 'BUSY';
       case TableStatus.billRequested:
-        return 'Bill Req';
+        return 'BILL';
       case TableStatus.reserved:
-        return 'Reserved';
+        return 'RSVD';
       case TableStatus.available:
-        return 'Available';
+        return 'FREE';
     }
   }
 
@@ -47,18 +46,26 @@ class TableCard extends StatelessWidget {
     final isOccupied = table.status == TableStatus.occupied ||
         table.status == TableStatus.billRequested;
 
+    final displayNameClean = table.displayName.trim();
+    final hasCustomName = displayNameClean.isNotEmpty &&
+        displayNameClean.toLowerCase() !=
+            'table ${table.tableNumber}'.toLowerCase() &&
+        displayNameClean != table.tableNumber;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
+            color: isOccupied
+                ? statusColor.withValues(alpha: 0.08)
+                : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isOccupied
-                  ? statusColor.withValues(alpha: 0.5)
+                  ? statusColor.withValues(alpha: 0.6)
                   : AppColors.cardBorder,
               width: isOccupied ? 1.5 : 1,
             ),
@@ -66,49 +73,54 @@ class TableCard extends StatelessWidget {
                 ? [
                     BoxShadow(
                       color: statusColor.withValues(alpha: 0.12),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                   ]
                 : null,
           ),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header: Table Number & Status Pill
+              // Top Row: Table Number Badge + Micro Status Pill
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
+                  // Table Number Badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: isOccupied ? statusColor : AppColors.surfaceLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                     child: Text(
-                      table.displayName,
+                      table.tableNumber,
                       style: GoogleFonts.outfit(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: isOccupied ? Colors.white : AppColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+
+                  // Mini Status Label
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: statusColor.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      _getStatusLabel(),
+                      _getStatusShortLabel(),
                       style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
                         color: statusColor,
                       ),
                     ),
@@ -116,86 +128,59 @@ class TableCard extends StatelessWidget {
                 ],
               ),
 
-              // Middle: Seated time or Seating info
-              if (isOccupied) ...[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Middle: Full Display Name (allows up to 2 lines so full table names are shown without truncation)
+              if (hasCustomName)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: Text(
+                    displayNameClean,
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      height: 1.15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+              // Bottom Row: Active order count & total amount if occupied
+              if (isOccupied)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (table.seatedAt != null)
-                      Row(
-                        children: [
-                          const Icon(
-                            LucideIcons.clock,
-                            size: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            Formatters.formatTimeAgo(table.seatedAt!),
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 4),
-                    if (table.totalAmountInPaise > 0)
+                    if (table.activeOrderCount > 0)
                       Text(
-                        Formatters.formatCurrency(table.totalAmountInPaise),
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
+                        '${table.activeOrderCount} ord',
+                        style: GoogleFonts.inter(
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: statusColor,
+                        ),
+                      )
+                    else if (table.seatedAt != null)
+                      Text(
+                        Formatters.formatTimeAgo(table.seatedAt!),
+                        style: GoogleFonts.inter(
+                          fontSize: 8.5,
+                          color: AppColors.textMuted,
                         ),
                       ),
-                  ],
-                ),
-              ] else ...[
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+                    if (table.totalAmountInPaise > 0)
+                      Expanded(
+                        child: Text(
+                          Formatters.formatCurrency(table.totalAmountInPaise),
+                          style: GoogleFonts.outfit(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                          textAlign: TextAlign.end,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: const Icon(
-                        LucideIcons.plus,
-                        size: 14,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Take Order',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.success,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-
-              // Footer: Active orders count if occupied
-              if (isOccupied && table.activeOrderCount > 0)
-                Row(
-                  children: [
-                    const Icon(
-                      LucideIcons.shoppingBag,
-                      size: 13,
-                      color: AppColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${table.activeOrderCount} round${table.activeOrderCount > 1 ? 's' : ''}',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
                   ],
                 ),
             ],

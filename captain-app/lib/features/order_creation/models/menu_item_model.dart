@@ -86,10 +86,18 @@ class MenuItemModel {
   });
 
   factory MenuItemModel.fromJson(Map<String, dynamic> json) {
+    final catRaw = json['categoryId'] ?? json['category'];
+    String parsedCatId = '';
+    if (catRaw is Map) {
+      parsedCatId = (catRaw['_id'] ?? catRaw['id'] ?? '').toString();
+    } else if (catRaw != null) {
+      parsedCatId = catRaw.toString();
+    }
+
     return MenuItemModel(
       id: json['_id'] ?? json['id'] ?? '',
       restaurantId: json['restaurantId']?.toString() ?? '',
-      categoryId: json['categoryId']?.toString() ?? '',
+      categoryId: parsedCatId,
       name: json['name'] ?? '',
       description: json['description'],
       price: json['price'] is int

@@ -33,7 +33,13 @@ class MenuState {
   List<MenuItemModel> get filteredItems {
     var items = menuItems;
     if (selectedCategoryId != null) {
-      items = items.where((item) => item.categoryId == selectedCategoryId).toList();
+      items = items
+          .where((item) =>
+              item.categoryId == selectedCategoryId ||
+              (item.categoryId.isNotEmpty &&
+                  (selectedCategoryId!.contains(item.categoryId) ||
+                      item.categoryId.contains(selectedCategoryId!))))
+          .toList();
     }
     
     if (searchQuery.isNotEmpty) {

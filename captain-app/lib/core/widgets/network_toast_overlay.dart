@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -18,27 +19,62 @@ class NetworkToastOverlay extends ConsumerStatefulWidget {
 class _NetworkToastOverlayState extends ConsumerState<NetworkToastOverlay> {
   SocketConnectionState _connectionState = SocketConnectionState.disconnected;
   bool _isRetrying = false;
+  bool _showToast = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
-    _connectionState = SocketService().connectionState.value;
+    _evaluateConnectionState();
     SocketService().connectionState.addListener(_onConnectionStateChanged);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     SocketService().connectionState.removeListener(_onConnectionStateChanged);
     super.dispose();
   }
 
   void _onConnectionStateChanged() {
-    setState(() {
-      _connectionState = SocketService().connectionState.value;
-      if (_connectionState == SocketConnectionState.connected) {
-        _isRetrying = false;
+    _evaluateConnectionState();
+  }
+
+  void _evaluateConnectionState() {
+    final newState = SocketService().connectionState.value;
+
+    if (newState == SocketConnectionState.connected) {
+      _debounceTimer?.cancel();
+      if (_showToast || _isRetrying || _connectionState != newState) {
+        setState(() {
+          _connectionState = newState;
+          _showToast = false;
+          _isRetrying = false;
+        });
       }
-    });
+    } else if (newState == SocketConnectionState.connecting) {
+      _debounceTimer?.cancel();
+      if (_connectionState != newState) {
+        setState(() {
+          _connectionState = newState;
+        });
+      }
+    } else {
+      // Disconnected
+      if (_connectionState != newState) {
+        _connectionState = newState;
+      }
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted &&
+            SocketService().connectionState.value ==
+                SocketConnectionState.disconnected) {
+          setState(() {
+            _showToast = true;
+          });
+        }
+      });
+    }
   }
 
   Future<void> _handleRetry() async {
@@ -46,7 +82,6 @@ class _NetworkToastOverlayState extends ConsumerState<NetworkToastOverlay> {
       _isRetrying = true;
     });
     await SocketService().reconnect();
-    // Stop spinning after a brief moment if not connected
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && _connectionState != SocketConnectionState.connected) {
         setState(() {
@@ -59,15 +94,15 @@ class _NetworkToastOverlayState extends ConsumerState<NetworkToastOverlay> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    // ONLY show socket disconnection toast when logged in (authenticated) and actively monitoring orders
-    final showToast = authState.status == AuthStatus.authenticated &&
-        _connectionState == SocketConnectionState.disconnected;
+    final shouldDisplay = authState.status == AuthStatus.authenticated &&
+        _connectionState == SocketConnectionState.disconnected &&
+        _showToast;
 
     return Stack(
       textDirection: TextDirection.ltr,
       children: [
         widget.child,
-        if (showToast)
+        if (shouldDisplay)
           Positioned(
             bottom: 24,
             left: 16,
@@ -75,7 +110,7 @@ class _NetworkToastOverlayState extends ConsumerState<NetworkToastOverlay> {
             child: Material(
               color: Colors.transparent,
               child: AnimatedOpacity(
-                opacity: showToast ? 1.0 : 0.0,
+                opacity: shouldDisplay ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

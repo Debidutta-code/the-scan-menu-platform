@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../models/category_model.dart';
 import '../models/menu_item_model.dart';
 import '../providers/cart_provider.dart';
 import '../providers/menu_provider.dart';
@@ -524,15 +525,10 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                           ),
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                        itemCount: menuState.filteredItems.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (ctx, idx) {
-                          final item = menuState.filteredItems[idx];
-                          final qty = cartState.getItemQuantity(item.id);
-                          return _buildMenuItemTile(item, qty);
-                        },
+                    : _buildGroupedMenuList(
+                        menuState.filteredItems,
+                        menuState.categories,
+                        cartState,
                       ),
           ),
         ],
@@ -593,6 +589,116 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
               ),
             )
           : null,
+    );
+  }
+
+  Widget _buildGroupedMenuList(
+    List<MenuItemModel> items,
+    List<CategoryModel> categories,
+    CartState cartState,
+  ) {
+    final Map<String, List<MenuItemModel>> categoryMap = {};
+    for (final cat in categories) {
+      categoryMap[cat.name] = [];
+    }
+
+    final List<MenuItemModel> uncategorized = [];
+
+    for (final item in items) {
+      CategoryModel? matchedCat;
+      for (final cat in categories) {
+        if (cat.id == item.categoryId ||
+            (item.categoryId.isNotEmpty &&
+                (cat.id.contains(item.categoryId) ||
+                    item.categoryId.contains(cat.id)))) {
+          matchedCat = cat;
+          break;
+        }
+      }
+      if (matchedCat != null) {
+        categoryMap.putIfAbsent(matchedCat.name, () => []).add(item);
+      } else {
+        uncategorized.add(item);
+      }
+    }
+
+    if (uncategorized.isNotEmpty) {
+      categoryMap['Other Items'] = uncategorized;
+    }
+
+    final activeCategories =
+        categoryMap.entries.where((e) => e.value.isNotEmpty).toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: activeCategories.length,
+      itemBuilder: (ctx, catIdx) {
+        final catEntry = activeCategories[catIdx];
+        final catName = catEntry.key;
+        final catItems = catEntry.value;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: catIdx == 0 ? 4 : 18, bottom: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    catName,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${catItems.length}',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Divider(color: AppColors.cardBorder, height: 1),
+                  ),
+                ],
+              ),
+            ),
+            ListView.separated(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              itemCount: catItems.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (ctx, itemIdx) {
+                final item = catItems[itemIdx];
+                final qty = cartState.getItemQuantity(item.id);
+                return _buildMenuItemTile(item, qty);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -684,7 +790,10 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                       ),
                     ],
                     const SizedBox(height: 6),
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
                         Text(
                           item.pricingType == 'PORTION' && item.variants.isNotEmpty
@@ -696,11 +805,10 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                             color: AppColors.primary,
                           ),
                         ),
-                        if (item.pricingType == 'PORTION' && item.variants.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                        if (item.pricingType == 'PORTION' && item.variants.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(6),
@@ -716,12 +824,10 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                               ),
                             ),
                           ),
-                        ],
-                        if (item.addOns.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                        if (item.addOns.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF3C7),
                               borderRadius: BorderRadius.circular(6),
@@ -737,7 +843,6 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                               ),
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ],

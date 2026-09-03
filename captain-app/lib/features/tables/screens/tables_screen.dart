@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:fuzzy/fuzzy.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/sockets/socket_service.dart';
 import '../../../core/widgets/quick_reload_button.dart';
@@ -12,6 +13,18 @@ import '../models/table_model.dart';
 import '../providers/tables_provider.dart';
 import '../widgets/table_card.dart';
 import '../widgets/table_orders_bottom_sheet.dart';
+
+class _CaptainZoneGroup {
+  final String id;
+  final String name;
+  final List<TableModel> tables;
+
+  _CaptainZoneGroup({
+    required this.id,
+    required this.name,
+    required this.tables,
+  });
+}
 
 class TablesScreen extends ConsumerStatefulWidget {
   const TablesScreen({super.key});
@@ -35,7 +48,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
 
     if (table.status == TableStatus.available) {
       if (!hasOrdering) return; // Feature disabled
-      
+
       // Direct to take order
       ref.read(cartProvider.notifier).setTable(table);
       Navigator.of(context).push(
@@ -54,6 +67,87 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
     }
   }
 
+  List<_CaptainZoneGroup> _getZoneGroups(TablesState state) {
+    List<TableModel> matchingTables =
+        state.tables.where((t) => t.isActive).toList();
+
+    final query = state.searchQuery.trim();
+    if (query.isNotEmpty) {
+      final fuse = Fuzzy<TableModel>(
+        matchingTables,
+        options: FuzzyOptions(
+          keys: [
+            WeightedKey(
+              name: 'displayName',
+              getter: (TableModel t) => t.displayName,
+              weight: 1.0,
+            ),
+            WeightedKey(
+              name: 'tableNumber',
+              getter: (TableModel t) => t.tableNumber,
+              weight: 0.9,
+            ),
+            WeightedKey(
+              name: 'status',
+              getter: (TableModel t) {
+                switch (t.status) {
+                  case TableStatus.available:
+                    return 'Available Free Open Vacant';
+                  case TableStatus.occupied:
+                    return 'Occupied Busy Seated';
+                  case TableStatus.billRequested:
+                    return 'Bill Requested Payment Check';
+                  case TableStatus.reserved:
+                    return 'Reserved Booked';
+                }
+              },
+              weight: 0.6,
+            ),
+          ],
+          threshold: 0.45,
+        ),
+      );
+      final results = fuse.search(query);
+      matchingTables = results.map((r) => r.item).toList();
+    }
+
+    final List<_CaptainZoneGroup> groups = [];
+    final selectedZone = state.selectedZoneId;
+
+    // 1. Group by defined zones
+    for (final zone in state.zones) {
+      if (selectedZone != null && selectedZone != zone.id) continue;
+      final zoneTables =
+          matchingTables.where((t) => t.zoneId == zone.id).toList();
+      if (zoneTables.isNotEmpty) {
+        groups.add(_CaptainZoneGroup(
+          id: zone.id,
+          name: zone.name,
+          tables: zoneTables,
+        ));
+      }
+    }
+
+    // 2. Unassigned or general tables
+    if (selectedZone == null || selectedZone == 'unassigned') {
+      final unassigned = matchingTables.where((t) {
+        return t.zoneId == null ||
+            t.zoneId!.isEmpty ||
+            !state.zones.any((z) => z.id == t.zoneId);
+      }).toList();
+
+      if (unassigned.isNotEmpty) {
+        groups.add(_CaptainZoneGroup(
+          id: 'unassigned',
+          name: 'Main Dining / General',
+          tables: unassigned,
+        ));
+      }
+    }
+
+    return groups;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tablesState = ref.watch(tablesProvider);
@@ -62,6 +156,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
 
     final restaurantName =
         authState.activeRestaurant?.name ?? 'ScanMenu Floor';
+    final zoneGroups = _getZoneGroups(tablesState);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -214,49 +309,28 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                           const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
                   ),
-                  const SizedBox(height: 10),
-
-                  // Occupancy Stats Row
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildStatChip(
-                          'Available (${tablesState.availableCount})',
-                          AppColors.tableAvailable,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStatChip(
-                          'Occupied (${tablesState.occupiedCount})',
-                          AppColors.tableOccupied,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStatChip(
-                          'Bill Req (${tablesState.billRequestedCount})',
-                          AppColors.tableBillRequested,
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
 
-            // Zone Tabs Bar
+            // Zone Section Filter Chips Bar
             if (tablesState.zones.isNotEmpty)
               Container(
-                height: 42,
+                height: 38,
                 margin: const EdgeInsets.only(bottom: 6),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: tablesState.zones.length + 1,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
                   itemBuilder: (ctx, idx) {
                     if (idx == 0) {
                       final isSelected = tablesState.selectedZoneId == null;
+                      final totalActive = tablesState.tables
+                          .where((t) => t.isActive)
+                          .length;
                       return _buildZonePill(
-                        'All Zones',
+                        'All Zones ($totalActive)',
                         isSelected: isSelected,
                         onTap: () => ref
                             .read(tablesProvider.notifier)
@@ -264,10 +338,13 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                       );
                     }
                     final zone = tablesState.zones[idx - 1];
+                    final countInZone = tablesState.tables
+                        .where((t) => t.isActive && t.zoneId == zone.id)
+                        .length;
                     final isSelected =
                         tablesState.selectedZoneId == zone.id;
                     return _buildZonePill(
-                      zone.name,
+                      '${zone.name} ($countInZone)',
                       isSelected: isSelected,
                       onTap: () => ref
                           .read(tablesProvider.notifier)
@@ -277,7 +354,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                 ),
               ),
 
-            // Grid Content / Loading / Error
+            // Sectioned Zone View Content / Loading / Error
             Expanded(
               child: tablesState.isLoading
                   ? const Center(
@@ -329,7 +406,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                             ),
                           ),
                         )
-                      : tablesState.filteredTables.isEmpty
+                      : zoneGroups.isEmpty
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -347,7 +424,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Try changing your search or zone filter',
+                                    'Try changing your search or zone section filter',
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       color: AppColors.textMuted,
@@ -358,45 +435,111 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
                                 ],
                               ),
                             )
-                          : GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 1.15,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                              ),
-                              itemCount: tablesState.filteredTables.length,
-                              itemBuilder: (ctx, idx) {
-                                final table = tablesState.filteredTables[idx];
-                                return TableCard(
-                                  table: table,
-                                  onTap: () => _onTableSelected(table),
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                              itemCount: zoneGroups.length,
+                              itemBuilder: (ctx, groupIdx) {
+                                final group = zoneGroups[groupIdx];
+                                final occupiedCount = group.tables
+                                    .where((t) =>
+                                        t.status == TableStatus.occupied ||
+                                        t.status == TableStatus.billRequested)
+                                    .length;
+                                final availableCount =
+                                    group.tables.length - occupiedCount;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Zone Section Header
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          top: 6, bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: AppColors.primary,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            group.name,
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surfaceLight,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                  color: AppColors.cardBorder),
+                                            ),
+                                            child: Text(
+                                              '${group.tables.length}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            '$occupiedCount busy • $availableCount free',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // High-density Grid fitting 4 to 5 tables per row
+                                    GridView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount:
+                                            MediaQuery.of(context).size.width >
+                                                    600
+                                                ? 5
+                                                : 4,
+                                        childAspectRatio: 0.90,
+                                        crossAxisSpacing: 8,
+                                        mainAxisSpacing: 8,
+                                      ),
+                                      itemCount: group.tables.length,
+                                      itemBuilder: (ctx, idx) {
+                                        final table = group.tables[idx];
+                                        return TableCard(
+                                          table: table,
+                                          onTap: () => _onTableSelected(table),
+                                        );
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 12),
+                                  ],
                                 );
                               },
                             ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: color,
         ),
       ),
     );
@@ -413,7 +556,7 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(20),
@@ -425,8 +568,8 @@ class _TablesScreenState extends ConsumerState<TablesScreen> {
           child: Text(
             name,
             style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 11.5,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
               color: isSelected ? AppColors.textDark : AppColors.textPrimary,
             ),
           ),

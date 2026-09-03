@@ -14,6 +14,7 @@ import '../profile/screens/profile_screen.dart';
 import '../tables/screens/tables_screen.dart';
 import '../waiter_calls/providers/waiter_calls_provider.dart';
 import '../waiter_calls/screens/waiter_calls_screen.dart';
+import '../waiter_calls/widgets/incoming_waiter_call_modal.dart';
 
 class MainShellScreen extends ConsumerStatefulWidget {
   const MainShellScreen({super.key});
@@ -210,22 +211,24 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
     // Ensure _currentIndex is valid for the dynamically built list
     final safeIndex = _currentIndex >= activeScreens.length ? 0 : _currentIndex;
 
-    return Scaffold(
-      body: IndexedStack(
-        index: safeIndex,
-        children: activeScreens,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: AppColors.cardBorder, width: 1),
-          ),
+    return IncomingWaiterCallModal(
+      child: Scaffold(
+        body: IndexedStack(
+          index: safeIndex,
+          children: activeScreens,
         ),
-        child: BottomNavigationBar(
-          currentIndex: safeIndex,
-          onTap: _onTabSelected,
-          items: navItems,
-          type: BottomNavigationBarType.fixed,
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorder, width: 1),
+            ),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: safeIndex,
+            onTap: _onTabSelected,
+            items: navItems,
+            type: BottomNavigationBarType.fixed,
+          ),
         ),
       ),
     );

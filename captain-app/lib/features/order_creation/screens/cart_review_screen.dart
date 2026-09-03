@@ -32,12 +32,17 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
     _customerPhoneController.text = cartState.customerPhone;
     _customerNoteController.text = cartState.customerNote;
 
-    if (isPrepaid) {
-      ref.read(cartProvider.notifier).setPaymentStatus('PAID');
-      if (authState.activeRestaurant?.upiId != null) {
-        ref.read(cartProvider.notifier).setPaymentMethod('UPI');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (isPrepaid) {
+        ref.read(cartProvider.notifier).setPaymentStatus('PAID');
+        if (authState.activeRestaurant?.upiId != null) {
+          ref.read(cartProvider.notifier).setPaymentMethod('UPI');
+        }
+      } else {
+        ref.read(cartProvider.notifier).setPaymentStatus('PENDING');
       }
-    }
+    });
   }
 
   @override
@@ -474,34 +479,53 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                   if (!isPrepaid) ...[
                                     Expanded(
                                       child: ChoiceChip(
-                                        label: const Center(child: Text('Pay Later (Tab)')),
+                                        visualDensity: VisualDensity.compact,
+                                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                        label: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            'Pay Later (Tab)',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: cartState.paymentStatus == 'PENDING'
+                                                  ? AppColors.warning
+                                                  : AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ),
                                         selected: cartState.paymentStatus == 'PENDING',
                                         onSelected: (sel) {
                                           if (sel) {
                                             ref.read(cartProvider.notifier).setPaymentStatus('PENDING');
                                           }
                                         },
-                                        selectedColor: AppColors.warning.withOpacity(0.2),
-                                        labelStyle: TextStyle(
-                                          color: cartState.paymentStatus == 'PENDING'
-                                              ? AppColors.warning
-                                              : AppColors.textSecondary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
+                                        selectedColor: AppColors.warning.withValues(alpha: 0.2),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                   ],
                                   Expanded(
                                     child: ChoiceChip(
-                                      label: Center(
+                                      visualDensity: VisualDensity.compact,
+                                      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                      label: FittedBox(
+                                        fit: BoxFit.scaleDown,
                                         child: Row(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
                                             const Icon(LucideIcons.checkCircle2, size: 14),
                                             const SizedBox(width: 4),
-                                            Text(isPrepaid ? 'Collect & Verify Payment' : 'Paid Now'),
+                                            Text(
+                                              isPrepaid ? 'Upfront Payment' : 'Paid Now',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: cartState.paymentStatus == 'PAID'
+                                                    ? AppColors.success
+                                                    : AppColors.textSecondary,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -511,18 +535,68 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                           ref.read(cartProvider.notifier).setPaymentStatus('PAID');
                                         }
                                       },
-                                      selectedColor: AppColors.success.withOpacity(0.2),
-                                      labelStyle: TextStyle(
-                                        color: cartState.paymentStatus == 'PAID'
-                                            ? AppColors.success
-                                            : AppColors.textSecondary,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
+                                      selectedColor: AppColors.success.withValues(alpha: 0.2),
                                     ),
                                   ),
                                 ],
                               ),
+
+                              // Informational Mode Banner
+                              if (!isPrepaid && cartState.paymentStatus == 'PENDING') ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warning.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(LucideIcons.receipt, size: 16, color: AppColors.warning),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Dine-In Tab: Items will be posted directly to Table tab. Guests settle payment at the end.',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textDark,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              if (isPrepaid) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.success.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(LucideIcons.shieldCheck, size: 16, color: AppColors.success),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Prepaid Outlet Mode: Upfront payment collection is required before sending order ticket to kitchen.',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textDark,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
 
                               if (cartState.paymentStatus == 'PAID') ...[
                                 const SizedBox(height: 12),
