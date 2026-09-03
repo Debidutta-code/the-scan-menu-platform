@@ -57,7 +57,7 @@ export const seedDatabase = async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 1. Seed Subscription Plans with All 17 Core Feature Flags
+    // 1. Seed Subscription Plans with All 19 Core Feature Flags
     // ------------------------------------------------------------------------
     logger.info('Seeding Subscription Plans...');
     const subscriptionPlansData = [
@@ -76,10 +76,11 @@ export const seedDatabase = async () => {
       {
         key: 'PROFESSIONAL',
         name: 'Professional Plan',
-        description: 'Full Dine-In & Takeaway ordering, Payments, Customer Display, Mobile App, and Analytics.',
+        description: 'Full Dine-In & Takeaway ordering, Customer OTP, Payments, Customer Display, Mobile App, and Analytics.',
         includedFeatureKeys: [
           'qr_menu',
           'ordering',
+          'customer_otp',
           'waiter_call',
           'mobile_app',
           'payments',
@@ -93,10 +94,11 @@ export const seedDatabase = async () => {
       {
         key: 'ENTERPRISE',
         name: 'Enterprise Plan',
-        description: 'All features including Mobile App, KDS, White Labeling, POS Integrations, CRM, and Developer APIs.',
+        description: 'All features including Customer OTP, Mobile App, KDS, White Labeling, POS Integrations, CRM, and Developer APIs.',
         includedFeatureKeys: [
           'qr_menu',
           'ordering',
+          'customer_otp',
           'waiter_call',
           'mobile_app',
           'payments',
@@ -251,6 +253,11 @@ export const seedDatabase = async () => {
         enableTableOrdering: true,
         enableTakeaway: true,
         enableDelivery: false,
+        customerOtpEnabled: false,
+      },
+      roundingConfig: {
+        enabled: false,
+        strategy: 'NEAREST',
       },
       inventoryConfig: {
         enableLowStockAlerts: true,
@@ -1087,6 +1094,7 @@ export const seedDatabase = async () => {
         phone: '9876543210',
         name: 'Alice Johnson',
         email: 'alice@example.com',
+        isPhoneVerified: true,
         totalOrdersCount: 2,
         totalSpent: 42000,
         loyaltyPoints: 420,
@@ -1098,6 +1106,7 @@ export const seedDatabase = async () => {
         phone: '9811223344',
         name: 'Rahul Sharma',
         email: 'rahul@example.com',
+        isPhoneVerified: false,
         totalOrdersCount: 1,
         totalSpent: 28500,
         loyaltyPoints: 280,
@@ -1109,6 +1118,7 @@ export const seedDatabase = async () => {
         phone: '9870011223',
         name: 'Priya Patel',
         email: 'priya@example.com',
+        isPhoneVerified: false,
         totalOrdersCount: 1,
         totalSpent: 16000,
         loyaltyPoints: 150,
@@ -1542,7 +1552,7 @@ export const seedDatabase = async () => {
           actorRole: 'SUPER_ADMIN',
           restaurantId: restaurant._id.toString(),
           restaurantName: restaurant.name,
-          details: { planKey: 'ENTERPRISE', flagsCount: 17 },
+          details: { planKey: 'ENTERPRISE', flagsCount: 19 },
           severity: 'INFO',
         },
       ]);
