@@ -1229,12 +1229,12 @@ export class RestaurantController {
       const { restaurantId } = req.params;
       const { name } = req.body;
 
-      if (!name) {
+      if (!name || typeof name !== 'string' || !name.trim()) {
         sendError(res, 'BAD_REQUEST', 'Zone name is required', null, 400);
         return;
       }
 
-      const existingZone = await tableZoneRepository.findByIdAndRestaurant(name.trim(), restaurantId);
+      const existingZone = await tableZoneRepository.findByNameAndRestaurant(name.trim(), restaurantId);
       if (existingZone) {
         sendError(res, 'CONFLICT', 'Zone with this name already exists', null, 409);
         return;

@@ -11,9 +11,17 @@ export class TableZoneRepository {
   }
 
   async findByIdAndRestaurant(id: string | Types.ObjectId, restaurantId: string | Types.ObjectId): Promise<ITableZone | null> {
+    if (!Types.ObjectId.isValid(id.toString())) return null;
     return TableZone.findOne({
       _id: new Types.ObjectId(id.toString()),
       restaurantId: new Types.ObjectId(restaurantId.toString()),
+    });
+  }
+
+  async findByNameAndRestaurant(name: string, restaurantId: string | Types.ObjectId): Promise<ITableZone | null> {
+    return TableZone.findOne({
+      restaurantId: new Types.ObjectId(restaurantId.toString()),
+      name: { $regex: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
     });
   }
 
