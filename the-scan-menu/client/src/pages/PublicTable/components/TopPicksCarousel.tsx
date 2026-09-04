@@ -150,10 +150,10 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
             <div
               key={item._id}
               onClick={() => onItemClick(item)}
-              className="snap-start shrink-0 w-[240px] sm:w-[260px] h-[255px] bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col overflow-hidden active:scale-[0.985]"
+              className="snap-start shrink-0 w-[240px] sm:w-[260px] bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col overflow-hidden active:scale-[0.985]"
             >
-              {/* Card Image Area - Fixed 128px height with uniform object-cover */}
-              <div className="relative w-full h-32 shrink-0 bg-slate-100 overflow-hidden">
+              {/* Card Image Area - Fixed 144px height */}
+              <div className="relative w-full h-36 shrink-0 bg-slate-100 overflow-hidden">
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
@@ -197,8 +197,8 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
                 </div>
               </div>
 
-              {/* Card Content */}
-              <div className="p-3 flex-1 flex flex-col justify-between min-h-0 space-y-1.5">
+              {/* Card Content - Compact snug layout without awkward gaps */}
+              <div className="p-3 flex flex-col gap-2">
                 <div>
                   <h4 className="font-bold text-xs sm:text-sm text-slate-900 line-clamp-1 leading-snug">
                     {item.name}
@@ -206,18 +206,18 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
 
                   {/* Bundled Sub-Items or Description */}
                   {isCombo && item.comboItems && item.comboItems.length > 0 ? (
-                    <p className="text-[10px] text-amber-800 font-semibold line-clamp-1 mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200/50">
+                    <p className="text-[10px] text-amber-800 font-semibold line-clamp-1 mt-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200/50">
                       Includes: {item.comboItems.map((c) => `${c.quantity > 1 ? `${c.quantity}x ` : ''}${c.name}`).join(' + ')}
                     </p>
                   ) : item.description ? (
-                    <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-tight">
+                    <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
                       {item.description}
                     </p>
                   ) : null}
                 </div>
 
                 {/* Pricing & Add Row */}
-                <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 mt-auto">
                   <div className="flex flex-col">
                     {hasDiscount && (
                       <span className="text-[11px] text-slate-400 line-through font-mono leading-none">
