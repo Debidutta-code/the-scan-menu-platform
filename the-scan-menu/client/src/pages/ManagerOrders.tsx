@@ -901,11 +901,29 @@ export const ManagerOrders: React.FC = () => {
                               {item.quantity}x
                             </span>
                             <div className="min-w-0">
-                              <span className="font-semibold text-slate-800 block truncate">
-                                {item.nameSnapshot || (item as any).name}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-semibold text-slate-800 block truncate">
+                                  {item.nameSnapshot || (item as any).name}
+                                </span>
+                                {item.isCombo && (
+                                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                    Combo
+                                  </span>
+                                )}
+                              </div>
+                              {item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0 && (
+                                <div className="text-[11px] text-indigo-900 bg-indigo-50/70 border border-indigo-150 rounded px-1.5 py-0.5 mt-1 space-y-0.5">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600 block">Includes:</span>
+                                  {item.comboItemsSnapshot.map((c: any, cIdx: number) => (
+                                    <div key={cIdx} className="flex items-center gap-1 pl-1">
+                                      <span className="text-indigo-400 font-mono">↳</span>
+                                      <span className="font-medium">{c.quantity}x {c.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                               {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                <div className="text-[11px] text-slate-500">
+                                <div className="text-[11px] text-slate-500 mt-0.5">
                                   + {item.selectedAddOns.map((a) => a.name).join(', ')}
                                 </div>
                               )}

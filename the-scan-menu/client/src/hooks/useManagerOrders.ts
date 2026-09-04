@@ -15,6 +15,8 @@ export interface OrderItem {
   specialInstructions?: string;
   prepTimeMinutesSnapshot?: number;
   itemStatus?: string;
+  isCombo?: boolean;
+  comboItemsSnapshot?: { menuItemId?: string; name: string; quantity: number; categoryName?: string }[];
 }
 
 export interface Order {

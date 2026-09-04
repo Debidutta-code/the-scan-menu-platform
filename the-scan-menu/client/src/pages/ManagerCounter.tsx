@@ -422,6 +422,8 @@ export const ManagerCounter: React.FC = () => {
           name: targetName,
           price: targetPrice,
           quantity: 1,
+          isCombo: !!item.isCombo,
+          comboItemsSnapshot: item.comboItems || undefined,
         },
       ];
     });
@@ -1181,8 +1183,10 @@ export const ManagerCounter: React.FC = () => {
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
                         {catItems.map((item: any) => {
                           const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
+                          const isCombo = !!item.isCombo;
                           const hasCustomization =
                             isPortion ||
+                            isCombo ||
                             (Array.isArray(item.addOns) && item.addOns.length > 0) ||
                             (Array.isArray(item.customizationGroups) && item.customizationGroups.length > 0);
 
@@ -1196,6 +1200,7 @@ export const ManagerCounter: React.FC = () => {
                           const isTracked = !!item.trackStock;
                           const qty = item.stockQuantity || 0;
                           const isOut = !item.isAvailable || (isTracked && qty <= 0);
+                          const hasDiscount = item.originalPrice && item.originalPrice > item.price;
 
                           return (
                             <div
@@ -1217,6 +1222,26 @@ export const ManagerCounter: React.FC = () => {
                               }`}
                             >
                               <div className="min-w-0">
+                                {/* Badges */}
+                                {(item.isChefsSpecial || isCombo || item.isTopPick) && (
+                                  <div className="flex items-center gap-1 flex-wrap mb-1">
+                                    {item.isChefsSpecial && (
+                                      <span className="text-[8px] font-black text-amber-950 uppercase tracking-tight px-1.5 py-0.2 bg-amber-300 rounded font-mono">
+                                        Special
+                                      </span>
+                                    )}
+                                    {isCombo && (
+                                      <span className="text-[8px] font-black text-indigo-950 uppercase tracking-tight px-1.5 py-0.2 bg-indigo-200 rounded font-mono">
+                                        Combo
+                                      </span>
+                                    )}
+                                    {item.isTopPick && !item.isChefsSpecial && (
+                                      <span className="text-[8px] font-black text-amber-950 uppercase tracking-tight px-1.5 py-0.2 bg-amber-200 rounded font-mono">
+                                        Top
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                                 <div className="flex items-start justify-between gap-1">
                                   <div className="flex items-start gap-1.5 min-w-0">
                                     <span className="shrink-0 flex items-center h-4">
@@ -1235,9 +1260,16 @@ export const ManagerCounter: React.FC = () => {
                               </div>
 
                               <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-                                <span className="font-mono text-xs font-black text-slate-900">
-                                  ₹{(item.price / 100).toFixed(2)}
-                                </span>
+                                <div className="flex flex-col">
+                                  {hasDiscount && (
+                                    <span className="text-[10px] text-slate-400 line-through font-mono leading-none">
+                                      ₹{(item.originalPrice / 100).toFixed(2)}
+                                    </span>
+                                  )}
+                                  <span className="font-mono text-xs font-black text-slate-900">
+                                    ₹{(item.price / 100).toFixed(2)}
+                                  </span>
+                                </div>
 
                                 {isOut ? null : selectedItem && !hasCustomization ? (
                                   <div className="flex items-center gap-1 bg-amber-200/80 p-0.5 rounded-lg">
@@ -1400,6 +1432,11 @@ export const ManagerCounter: React.FC = () => {
                               {item.variantName}
                             </span>
                           )}
+                          {(item as any).isCombo && (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">
+                              Combo
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
@@ -1421,6 +1458,20 @@ export const ManagerCounter: React.FC = () => {
                         <MessageSquare className="w-3 h-3" />
                       </button>
                     </div>
+
+                    {/* Combo items snapshot breakdown */}
+                    {(item as any).comboItemsSnapshot && (item as any).comboItemsSnapshot.length > 0 && (
+                      <div className="mt-1 text-[10px] text-indigo-900 bg-indigo-50/80 border border-indigo-150 rounded-md px-2 py-1 space-y-0.5">
+                        <span className="font-bold uppercase tracking-wider text-[9px] text-indigo-700 block">Includes:</span>
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          {(item as any).comboItemsSnapshot.map((c: any, cIdx: number) => (
+                            <span key={cIdx} className="font-medium">
+                              {c.quantity}x {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Selected Add-ons List */}
                     {Array.isArray(item.selectedAddOns) && item.selectedAddOns.length > 0 && (
@@ -2093,6 +2144,8 @@ export const ManagerCounter: React.FC = () => {
                 quantity: customizedItem.quantity,
                 selectedAddOns: customizedItem.selectedAddOns,
                 specialInstructions: customizedItem.specialInstructions,
+                isCombo: !!selectedItemForVariants.isCombo,
+                comboItemsSnapshot: selectedItemForVariants.comboItems || undefined,
               },
             ];
           });

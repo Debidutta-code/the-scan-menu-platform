@@ -11,6 +11,8 @@ import {
   Utensils,
   CornerDownLeft,
   MessageSquare,
+  PackageCheck,
+  Star,
 } from 'lucide-react';
 import { MenuBadge } from '../../pages/PublicTable/components/MenuBadge';
 
@@ -323,22 +325,52 @@ export const ItemModifierModal: React.FC<ItemModifierModalProps> = ({
         >
           {/* Header */}
           <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white flex items-start justify-between">
-            <div className="space-y-1 min-w-0 pr-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md">
-                  <Sparkles className="w-3 h-3 text-amber-600" />
-                  Customize Dish
-                </span>
+            <div className="space-y-1.5 min-w-0 pr-3 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
+                {item.isChefsSpecial && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md shadow-2xs">
+                    <Sparkles className="w-3 h-3 text-amber-600 fill-amber-600" />
+                    Chef's Special
+                  </span>
+                )}
+                {item.isCombo && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-900 bg-indigo-100/90 border border-indigo-300/80 px-2 py-0.5 rounded-md shadow-2xs">
+                    <PackageCheck className="w-3 h-3 text-indigo-600" />
+                    Combo Bundle
+                  </span>
+                )}
+                {item.isTopPick && !item.isChefsSpecial && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md shadow-2xs">
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    Top Pick
+                  </span>
+                )}
               </div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
                 {item.name}
               </h3>
               {item.description && (
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   {item.description}
                 </p>
               )}
+              {/* Pricing & Discount info */}
+              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                {item.originalPrice && item.originalPrice > unitPricePaise && (
+                  <span className="text-xs text-slate-400 line-through font-mono">
+                    ₹{(item.originalPrice / 100).toFixed(2)}
+                  </span>
+                )}
+                <span className="text-sm font-black text-slate-900 font-mono">
+                  ₹{(unitPricePaise / 100).toFixed(2)}
+                </span>
+                {item.originalPrice && item.originalPrice > unitPricePaise && (
+                  <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.2 rounded font-mono">
+                    Save ₹{((item.originalPrice - unitPricePaise) / 100).toFixed(2)}
+                  </span>
+                )}
+              </div>
             </div>
 
             <button
@@ -356,6 +388,40 @@ export const ItemModifierModal: React.FC<ItemModifierModalProps> = ({
 
           {/* Body Content */}
           <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4.5 scrollbar-none">
+            {/* Combo Bundled Items List */}
+            {item.isCombo && Array.isArray(item.comboItems) && item.comboItems.length > 0 && (
+              <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <PackageCheck className="w-4 h-4 text-indigo-700" />
+                  <span className="text-xs font-black uppercase text-indigo-950 tracking-wider font-mono">
+                    Combo Bundle Includes
+                  </span>
+                  <span className="text-[10px] font-bold font-mono bg-indigo-200/80 text-indigo-950 px-2 py-0.2 rounded-full">
+                    {item.comboItems.length} items
+                  </span>
+                </div>
+                <div className="divide-y divide-indigo-200/60 bg-white/70 rounded-xl p-2 border border-indigo-100">
+                  {item.comboItems.map((cItem: any, cIdx: number) => (
+                    <div key={cIdx} className="py-1.5 flex items-center justify-between text-xs font-medium">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="px-1.5 py-0.2 bg-indigo-600 text-white rounded text-[10px] font-mono font-bold">
+                          {cItem.quantity}x
+                        </span>
+                        <span className="text-slate-900 font-semibold truncate">
+                          {cItem.name}
+                        </span>
+                      </div>
+                      {cItem.categoryName && (
+                        <span className="text-[10px] text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200 shrink-0 font-medium">
+                          {cItem.categoryName}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 1. Portion Sizes (if variants exist) */}
             {variants.length > 0 && (
               <div className="space-y-2">
