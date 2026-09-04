@@ -244,14 +244,54 @@ class OrderDetailScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  item.name,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                  ),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.name,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    if (item.isCombo) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF3E8FF),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: const Color(0xFFE9D5FF)),
+                                        ),
+                                        child: Text(
+                                          'Combo Deal',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF7E22CE),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
+                                if (item.isCombo && item.comboItems.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  ...item.comboItems.map((sub) => Padding(
+                                        padding: const EdgeInsets.only(left: 4, top: 1),
+                                        child: Text(
+                                          '↳ ${sub.quantity}x ${sub.name}${sub.categoryName != null ? ' (${sub.categoryName})' : ''}',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xFF6B21A8),
+                                          ),
+                                        ),
+                                      )),
+                                ],
                                 if (item.selectedAddOns.isNotEmpty)
                                   Text(
                                     'Add-ons: ${item.selectedAddOns.join(', ')}',

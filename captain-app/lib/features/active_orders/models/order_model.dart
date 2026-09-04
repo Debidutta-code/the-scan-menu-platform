@@ -1,7 +1,37 @@
+class OrderComboSubItemSnapshot {
+  final String name;
+  final int quantity;
+  final String? categoryName;
+  final int? priceSnapshot;
+
+  OrderComboSubItemSnapshot({
+    required this.name,
+    this.quantity = 1,
+    this.categoryName,
+    this.priceSnapshot,
+  });
+
+  factory OrderComboSubItemSnapshot.fromJson(Map<String, dynamic> json) {
+    return OrderComboSubItemSnapshot(
+      name: json['name'] ?? '',
+      quantity: json['quantity'] is int
+          ? json['quantity']
+          : (json['quantity'] as num?)?.toInt() ?? 1,
+      categoryName: json['categoryName'],
+      priceSnapshot: json['priceSnapshot'] is int
+          ? json['priceSnapshot']
+          : (json['priceSnapshot'] as num?)?.toInt(),
+    );
+  }
+}
+
 class OrderItemSnapshot {
   final String name;
   final int unitPrice;
+  final int? originalPrice;
   final int quantity;
+  final bool isCombo;
+  final List<OrderComboSubItemSnapshot> comboItems;
   final List<String> selectedAddOns;
   final String? specialInstructions;
   final String itemStatus; // PENDING, PREPARING, READY, SERVED
@@ -9,7 +39,10 @@ class OrderItemSnapshot {
   OrderItemSnapshot({
     required this.name,
     required this.unitPrice,
+    this.originalPrice,
     required this.quantity,
+    this.isCombo = false,
+    this.comboItems = const [],
     required this.selectedAddOns,
     this.specialInstructions,
     required this.itemStatus,
@@ -19,7 +52,15 @@ class OrderItemSnapshot {
     return OrderItemSnapshot(
       name: json['nameSnapshot'] ?? json['name'] ?? '',
       unitPrice: json['unitPriceSnapshot'] ?? json['unitPrice'] ?? 0,
+      originalPrice: json['originalPriceSnapshot'] is int
+          ? json['originalPriceSnapshot']
+          : (json['originalPriceSnapshot'] as num?)?.toInt(),
       quantity: json['quantity'] ?? 1,
+      isCombo: json['isCombo'] ?? false,
+      comboItems: (json['comboItemsSnapshot'] as List<dynamic>?)
+              ?.map((e) => OrderComboSubItemSnapshot.fromJson(e))
+              .toList() ??
+          [],
       selectedAddOns: (json['selectedAddOns'] as List<dynamic>?)
               ?.map((e) => e is Map ? e['name'].toString() : e.toString())
               .toList() ??

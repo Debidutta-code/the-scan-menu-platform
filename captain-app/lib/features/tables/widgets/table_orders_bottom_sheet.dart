@@ -204,34 +204,78 @@ class _TableOrdersBottomSheetState
                           final qty = it['quantity'] ?? 1;
                           final price = (it['itemTotal'] ??
                                   (it['unitPriceSnapshot'] ?? 0) * qty) as num;
+                          final isCombo = it['isCombo'] == true;
+                          final comboSubItems = (it['comboItemsSnapshot'] as List<dynamic>?) ?? [];
+
                           return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  '${qty}x ',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '${qty}x ',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isCombo) ...[
+                                            const SizedBox(width: 4),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF3E8FF),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'Combo',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: const Color(0xFF7E22CE),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      Formatters.formatCurrency(price.toInt()),
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Expanded(
-                                  child: Text(
-                                    name,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13,
-                                      color: AppColors.textSecondary,
+                                if (isCombo && comboSubItems.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 24, top: 2),
+                                    child: Text(
+                                      comboSubItems.map((s) => '${s['quantity'] ?? 1}x ${s['name'] ?? ''}').join(' • '),
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10.5,
+                                        color: const Color(0xFF7E22CE),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Text(
-                                  Formatters.formatCurrency(price.toInt()),
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
                               ],
                             ),
                           );

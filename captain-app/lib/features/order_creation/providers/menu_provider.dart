@@ -12,6 +12,7 @@ class MenuState {
   final List<CategoryModel> categories;
   final List<MenuItemModel> menuItems;
   final String? selectedCategoryId;
+  final String? selectedFilterTag; // 'ALL', 'VEG', 'NON_VEG', 'TOP_PICKS', 'SPECIALS', 'COMBOS'
   final String searchQuery;
   final String? errorMessage;
 
@@ -20,6 +21,7 @@ class MenuState {
     required this.categories,
     required this.menuItems,
     this.selectedCategoryId,
+    this.selectedFilterTag,
     this.searchQuery = '',
     this.errorMessage,
   });
@@ -40,6 +42,26 @@ class MenuState {
                   (selectedCategoryId!.contains(item.categoryId) ||
                       item.categoryId.contains(selectedCategoryId!))))
           .toList();
+    }
+
+    if (selectedFilterTag != null && selectedFilterTag != 'ALL') {
+      switch (selectedFilterTag) {
+        case 'VEG':
+          items = items.where((i) => i.isVegetarian).toList();
+          break;
+        case 'NON_VEG':
+          items = items.where((i) => !i.isVegetarian).toList();
+          break;
+        case 'TOP_PICKS':
+          items = items.where((i) => i.isTopPick).toList();
+          break;
+        case 'SPECIALS':
+          items = items.where((i) => i.isChefsSpecial).toList();
+          break;
+        case 'COMBOS':
+          items = items.where((i) => i.isCombo).toList();
+          break;
+      }
     }
     
     if (searchQuery.isNotEmpty) {
@@ -75,6 +97,8 @@ class MenuState {
     List<MenuItemModel>? menuItems,
     String? selectedCategoryId,
     bool clearCategory = false,
+    String? selectedFilterTag,
+    bool clearFilterTag = false,
     String? searchQuery,
     String? errorMessage,
   }) {
@@ -83,6 +107,7 @@ class MenuState {
       categories: categories ?? this.categories,
       menuItems: menuItems ?? this.menuItems,
       selectedCategoryId: clearCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
+      selectedFilterTag: clearFilterTag ? null : (selectedFilterTag ?? this.selectedFilterTag),
       searchQuery: searchQuery ?? this.searchQuery,
       errorMessage: errorMessage,
     );
@@ -175,6 +200,14 @@ class MenuNotifier extends StateNotifier<MenuState> {
 
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
+  }
+
+  void setFilterTag(String? filterTag) {
+    if (filterTag == null || filterTag == 'ALL') {
+      state = state.copyWith(clearFilterTag: true);
+    } else {
+      state = state.copyWith(selectedFilterTag: filterTag);
+    }
   }
 
   Future<bool> toggleItemAvailability(String itemId, bool currentAvailability) async {

@@ -50,6 +50,44 @@ class MenuItemVariantModel {
       };
 }
 
+class ComboSubItemModel {
+  final String? menuItemId;
+  final String name;
+  final int quantity;
+  final String? categoryName;
+  final int? priceSnapshot;
+
+  ComboSubItemModel({
+    this.menuItemId,
+    required this.name,
+    this.quantity = 1,
+    this.categoryName,
+    this.priceSnapshot,
+  });
+
+  factory ComboSubItemModel.fromJson(Map<String, dynamic> json) {
+    return ComboSubItemModel(
+      menuItemId: json['menuItemId']?.toString(),
+      name: json['name'] ?? '',
+      quantity: json['quantity'] is int
+          ? json['quantity']
+          : (json['quantity'] as num?)?.toInt() ?? 1,
+      categoryName: json['categoryName'],
+      priceSnapshot: json['priceSnapshot'] is int
+          ? json['priceSnapshot']
+          : (json['priceSnapshot'] as num?)?.toInt(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'menuItemId': menuItemId,
+        'name': name,
+        'quantity': quantity,
+        'categoryName': categoryName,
+        'priceSnapshot': priceSnapshot,
+      };
+}
+
 class MenuItemModel {
   final String id;
   final String restaurantId;
@@ -57,6 +95,7 @@ class MenuItemModel {
   final String name;
   final String? description;
   final int price; // in paise/cents
+  final int? originalPrice; // in paise/cents (MRP for discount strikethrough)
   final String pricingType; // 'SINGLE' | 'PORTION'
   final List<MenuItemVariantModel> variants;
   final String? imageUrl;
@@ -64,6 +103,9 @@ class MenuItemModel {
   final bool isVegetarian;
   final bool isSpicy;
   final bool isCombo;
+  final bool isTopPick;
+  final bool isChefsSpecial;
+  final List<ComboSubItemModel> comboItems;
   final int prepTimeMinutes;
   final List<AddOnModel> addOns;
 
@@ -74,6 +116,7 @@ class MenuItemModel {
     required this.name,
     this.description,
     required this.price,
+    this.originalPrice,
     this.pricingType = 'SINGLE',
     this.variants = const [],
     this.imageUrl,
@@ -81,6 +124,9 @@ class MenuItemModel {
     this.isVegetarian = true,
     this.isSpicy = false,
     this.isCombo = false,
+    this.isTopPick = false,
+    this.isChefsSpecial = false,
+    this.comboItems = const [],
     this.prepTimeMinutes = 15,
     required this.addOns,
   });
@@ -103,6 +149,9 @@ class MenuItemModel {
       price: json['price'] is int
           ? json['price']
           : (json['price'] as num?)?.toInt() ?? 0,
+      originalPrice: json['originalPrice'] is int
+          ? json['originalPrice']
+          : (json['originalPrice'] as num?)?.toInt(),
       pricingType: json['pricingType'] ?? 'SINGLE',
       variants: (json['variants'] as List<dynamic>?)
               ?.map((e) => MenuItemVariantModel.fromJson(e))
@@ -113,6 +162,12 @@ class MenuItemModel {
       isVegetarian: json['isVegetarian'] ?? true,
       isSpicy: json['isSpicy'] ?? false,
       isCombo: json['isCombo'] ?? false,
+      isTopPick: json['isTopPick'] ?? false,
+      isChefsSpecial: json['isChefsSpecial'] ?? false,
+      comboItems: (json['comboItems'] as List<dynamic>?)
+              ?.map((e) => ComboSubItemModel.fromJson(e))
+              .toList() ??
+          [],
       prepTimeMinutes: json['prepTimeMinutes'] ?? 15,
       addOns: (json['addOns'] as List<dynamic>?)
               ?.map((e) => AddOnModel.fromJson(e))
@@ -123,6 +178,9 @@ class MenuItemModel {
 
   MenuItemModel copyWith({
     bool? isAvailable,
+    bool? isTopPick,
+    bool? isChefsSpecial,
+    bool? isCombo,
   }) {
     return MenuItemModel(
       id: id,
@@ -131,13 +189,17 @@ class MenuItemModel {
       name: name,
       description: description,
       price: price,
+      originalPrice: originalPrice,
       pricingType: pricingType,
       variants: variants,
       imageUrl: imageUrl,
       isAvailable: isAvailable ?? this.isAvailable,
       isVegetarian: isVegetarian,
       isSpicy: isSpicy,
-      isCombo: isCombo,
+      isCombo: isCombo ?? this.isCombo,
+      isTopPick: isTopPick ?? this.isTopPick,
+      isChefsSpecial: isChefsSpecial ?? this.isChefsSpecial,
+      comboItems: comboItems,
       prepTimeMinutes: prepTimeMinutes,
       addOns: addOns,
     );

@@ -475,7 +475,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
           // Categories horizontal bar
           if (menuState.categories.isNotEmpty)
             Container(
-              height: 42,
+              height: 38,
               margin: const EdgeInsets.only(bottom: 6),
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
@@ -486,7 +486,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                   if (idx == 0) {
                     final isSelected = menuState.selectedCategoryId == null;
                     return _buildCategoryChip(
-                      'All Items',
+                      'All Categories',
                       isSelected: isSelected,
                       onTap: () => ref
                           .read(menuProvider.notifier)
@@ -505,6 +505,64 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                 },
               ),
             ),
+
+          // Dietary & Highlights quick filter bar
+          Container(
+            height: 34,
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                _buildQuickFilterChip(
+                  label: 'All Items',
+                  tag: 'ALL',
+                  isSelected: menuState.selectedFilterTag == null || menuState.selectedFilterTag == 'ALL',
+                  icon: LucideIcons.layers,
+                ),
+                const SizedBox(width: 6),
+                _buildQuickFilterChip(
+                  label: 'Veg',
+                  tag: 'VEG',
+                  isSelected: menuState.selectedFilterTag == 'VEG',
+                  color: AppColors.success,
+                  icon: LucideIcons.leaf,
+                ),
+                const SizedBox(width: 6),
+                _buildQuickFilterChip(
+                  label: 'Non-Veg',
+                  tag: 'NON_VEG',
+                  isSelected: menuState.selectedFilterTag == 'NON_VEG',
+                  color: AppColors.error,
+                  icon: LucideIcons.drumstick,
+                ),
+                const SizedBox(width: 6),
+                _buildQuickFilterChip(
+                  label: 'Top Picks',
+                  tag: 'TOP_PICKS',
+                  isSelected: menuState.selectedFilterTag == 'TOP_PICKS',
+                  color: const Color(0xFFD97706),
+                  icon: LucideIcons.star,
+                ),
+                const SizedBox(width: 6),
+                _buildQuickFilterChip(
+                  label: "Chef's Specials",
+                  tag: 'SPECIALS',
+                  isSelected: menuState.selectedFilterTag == 'SPECIALS',
+                  color: const Color(0xFFB45309),
+                  icon: LucideIcons.sparkles,
+                ),
+                const SizedBox(width: 6),
+                _buildQuickFilterChip(
+                  label: 'Combo Deals',
+                  tag: 'COMBOS',
+                  isSelected: menuState.selectedFilterTag == 'COMBOS',
+                  color: const Color(0xFF7E22CE),
+                  icon: LucideIcons.packageCheck,
+                ),
+              ],
+            ),
+          ),
 
           // Menu Items List
           Expanded(
@@ -704,6 +762,8 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
 
   Widget _buildMenuItemTile(MenuItemModel item, int quantity) {
     final isSelected = quantity > 0;
+    final hasDiscount = item.originalPrice != null && item.originalPrice! > item.price;
+    final savingsPaise = hasDiscount ? (item.originalPrice! - item.price) : 0;
 
     return Material(
       color: Colors.transparent,
@@ -761,11 +821,104 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
               ),
               const SizedBox(width: 12),
 
-              // Title, description, price, custom badge
+              // Title, badges, description, combo breakdown, price, custom badge
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Badges row: Special, Top Pick, Combo
+                    if (item.isChefsSpecial || item.isTopPick || item.isCombo)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (item.isChefsSpecial)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: const Color(0xFFFDE68A)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.sparkles,
+                                        size: 10, color: Color(0xFFB45309)),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      "Chef's Special",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (item.isTopPick)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF7ED),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: const Color(0xFFFFEDD5)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.star,
+                                        size: 10, color: Color(0xFFD97706)),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Top Pick',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFD97706),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (item.isCombo)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3E8FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: const Color(0xFFE9D5FF)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.packageCheck,
+                                        size: 10, color: Color(0xFF7E22CE)),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Combo Bundle',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF7E22CE),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
                     Text(
                       item.name,
                       style: GoogleFonts.outfit(
@@ -789,12 +942,53 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
+
+                    // Combo Contents Pill Breakdown
+                    if (item.isCombo && item.comboItems.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAF5FF),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFF3E8FF)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Includes:',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF7E22CE),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.comboItems
+                                  .map((c) => '${c.quantity}x ${c.name}')
+                                  .join(' • '),
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF581C87),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+
                     const SizedBox(height: 6),
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,
                       runSpacing: 4,
                       children: [
+                        // Current Selling Price
                         Text(
                           item.pricingType == 'PORTION' && item.variants.isNotEmpty
                               ? 'From ${Formatters.formatCurrency(item.variants.map((v) => v.price).reduce((a, b) => a < b ? a : b))}'
@@ -805,6 +999,38 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                             color: AppColors.primary,
                           ),
                         ),
+
+                        // Original Price MRP (Crossed out)
+                        if (hasDiscount)
+                          Text(
+                            Formatters.formatCurrency(item.originalPrice!),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              decoration: TextDecoration.lineThrough,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+
+                        // Savings Badge
+                        if (hasDiscount)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFBBF7D0)),
+                            ),
+                            child: Text(
+                              'Save ${Formatters.formatCurrency(savingsPaise)}',
+                              style: GoogleFonts.inter(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+
                         if (item.pricingType == 'PORTION' && item.variants.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -967,6 +1193,59 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                     ),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickFilterChip({
+    required String label,
+    required String tag,
+    required bool isSelected,
+    Color? color,
+    IconData? icon,
+  }) {
+    final activeColor = color ?? AppColors.primary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => ref.read(menuProvider.notifier).setFilterTag(tag),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? activeColor.withValues(alpha: 0.15)
+                : AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? activeColor : AppColors.cardBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 12,
+                  color: isSelected ? activeColor : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? activeColor : AppColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),

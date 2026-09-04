@@ -208,14 +208,79 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        cartItem.item.name,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.textPrimary,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              cartItem.item.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
+                                      if (cartItem.item.isCombo || cartItem.item.isChefsSpecial)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Wrap(
+                                            spacing: 4,
+                                            children: [
+                                              if (cartItem.item.isCombo)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFF3E8FF),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: const Color(0xFFE9D5FF)),
+                                                  ),
+                                                  child: Text(
+                                                    '🍱 Combo Bundle',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: const Color(0xFF7E22CE),
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (cartItem.item.isChefsSpecial)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFFEF3C7),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: const Color(0xFFFDE68A)),
+                                                  ),
+                                                  child: Text(
+                                                    "👨‍🍳 Chef's Special",
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: const Color(0xFFB45309),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      if (cartItem.item.isCombo && cartItem.item.comboItems.isNotEmpty) ...[
+                                        const SizedBox(height: 3),
+                                        ...cartItem.item.comboItems.map((sub) => Padding(
+                                              padding: const EdgeInsets.only(left: 4, top: 1),
+                                              child: Text(
+                                                '↳ ${sub.quantity}x ${sub.name}${sub.categoryName != null ? ' (${sub.categoryName})' : ''}',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: const Color(0xFF6B21A8),
+                                                ),
+                                              ),
+                                            )),
+                                      ],
                                       if (cartItem.selectedVariant != null)
                                         Padding(
                                           padding: const EdgeInsets.only(top: 2),
@@ -266,13 +331,29 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                     ],
                                   ),
                                 ),
-                                Text(
-                                  Formatters.formatCurrency(cartItem.itemTotal),
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      Formatters.formatCurrency(cartItem.itemTotal),
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    if (cartItem.item.originalPrice != null &&
+                                        cartItem.item.originalPrice! > cartItem.unitPrice)
+                                      Text(
+                                        Formatters.formatCurrency(
+                                            cartItem.item.originalPrice! * cartItem.quantity),
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          decoration: TextDecoration.lineThrough,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -440,9 +521,9 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.warning.withOpacity(0.15),
+                                  color: AppColors.warning.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -629,7 +710,7 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                             padding: const EdgeInsets.symmetric(vertical: 8),
                                             decoration: BoxDecoration(
                                               color: cartState.paymentMethod == method['key']
-                                                  ? AppColors.primary.withOpacity(0.12)
+                                                  ? AppColors.primary.withValues(alpha: 0.12)
                                                   : AppColors.background,
                                               borderRadius: BorderRadius.circular(10),
                                               border: Border.all(
@@ -683,7 +764,7 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                         border: Border.all(color: Colors.black12),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withOpacity(0.04),
+                                            color: Colors.black.withValues(alpha: 0.04),
                                             blurRadius: 8,
                                             offset: const Offset(0, 2),
                                           ),
@@ -804,9 +885,9 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: AppColors.error.withOpacity(0.08),
+                                        color: AppColors.error.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
                                         children: [
@@ -833,9 +914,9 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      color: AppColors.success.withOpacity(0.08),
+                                      color: AppColors.success.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                                      border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                                     ),
                                     child: Row(
                                       children: [
@@ -874,9 +955,9 @@ class _CartReviewScreenState extends ConsumerState<CartReviewScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.08),
+                                      color: AppColors.primary.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                                     ),
                                     child: Row(
                                       children: [
