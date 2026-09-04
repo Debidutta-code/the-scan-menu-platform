@@ -150,10 +150,10 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
             <div
               key={item._id}
               onClick={() => onItemClick(item)}
-              className="snap-start shrink-0 w-[240px] sm:w-[260px] bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col overflow-hidden active:scale-[0.985]"
+              className="snap-start shrink-0 w-[240px] sm:w-[260px] h-[255px] bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col overflow-hidden active:scale-[0.985]"
             >
-              {/* Card Image Area */}
-              <div className="relative w-full h-34 bg-slate-100 overflow-hidden">
+              {/* Card Image Area - Fixed 128px height with uniform object-cover */}
+              <div className="relative w-full h-32 shrink-0 bg-slate-100 overflow-hidden">
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
@@ -198,7 +198,7 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
               </div>
 
               {/* Card Content */}
-              <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+              <div className="p-3 flex-1 flex flex-col justify-between min-h-0 space-y-1.5">
                 <div>
                   <h4 className="font-bold text-xs sm:text-sm text-slate-900 line-clamp-1 leading-snug">
                     {item.name}
