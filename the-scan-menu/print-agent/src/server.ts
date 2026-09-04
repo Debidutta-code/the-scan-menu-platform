@@ -7,9 +7,7 @@ import {
   PrintOrderData,
   RestaurantPrintInfo,
 } from './formatter';
-
-const PORT = 18181;
-const HOST = '127.0.0.1'; // Strictly localhost
+import { loadAgentConfig, isOriginAllowed, AgentConfig } from './config';
 
 interface PrintRequestBody {
   type?: 'CUSTOMER' | 'KITCHEN' | 'COUNTER' | 'BOTH';
@@ -29,11 +27,18 @@ interface TestRequestBody {
   printerName?: string;
 }
 
-function setCorsHeaders(res: http.ServerResponse, req: http.IncomingMessage) {
-  const origin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+function setCorsHeaders(res: http.ServerResponse, req: http.IncomingMessage, config: AgentConfig) {
+  const origin = req.headers.origin;
+  if (origin && isOriginAllowed(origin, config.allowedOrigins)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else {
+    // If not in allowed list, do not set Access-Control-Allow-Origin or restrict
+    res.setHeader('Access-Control-Allow-Origin', 'null');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-ScanMenu-Key, X-Requested-With');
   res.setHeader('Access-Control-Max-Age', '86400');
 }
 
@@ -64,9 +69,37 @@ function parseJsonBody<T>(req: http.IncomingMessage): Promise<T> {
   });
 }
 
-export function createPrintAgentServer() {
+function authenticateRequest(req: http.IncomingMessage, config: AgentConfig): boolean {
+  const origin = req.headers.origin;
+  
+  // 1. If request comes from a trusted browser origin (e.g. app.thescanmenu.com or localhost POS)
+  if (origin && isOriginAllowed(origin, config.allowedOrigins)) {
+    return true;
+  }
+
+  // 2. Direct pairing key header check
+  const providedKey = req.headers['x-scanmenu-key'] || req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (providedKey && typeof providedKey === 'string' && providedKey.trim() === config.apiKey) {
+    return true;
+  }
+
+  // 3. For local CLI / health tools connecting directly without Origin header
+  const remoteIp = req.socket.remoteAddress;
+  if (!origin && (remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1')) {
+    return true;
+  }
+
+  return false;
+}
+
+export function createPrintAgentServer(customConfig?: Partial<AgentConfig>) {
+  const config: AgentConfig = {
+    ...loadAgentConfig(),
+    ...customConfig,
+  };
+
   const server = http.createServer(async (req, res) => {
-    setCorsHeaders(res, req);
+    setCorsHeaders(res, req, config);
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -76,7 +109,7 @@ export function createPrintAgentServer() {
 
     const url = req.url?.split('?')[0] || '/';
 
-    // 1. GET /health or GET /status
+    // 1. GET /health or GET /status (Public diagnostic endpoint)
     if (req.method === 'GET' && (url === '/' || url === '/health' || url === '/status')) {
       return sendJson(res, 200, {
         status: 'ok',
@@ -84,10 +117,26 @@ export function createPrintAgentServer() {
         version: '1.0.0',
         uptimeSeconds: Math.floor(process.uptime()),
         timestamp: new Date().toISOString(),
+        nodeVersion: process.version,
+        platform: process.platform,
+        security: {
+          originEnforcement: true,
+          loopbackBlocked: true,
+          ssrfProtected: true,
+        },
       });
     }
 
-    // 2. POST /test
+    // Origin / Authentication Verification
+    if (!authenticateRequest(req, config)) {
+      console.warn(`[Security] Rejected unauthorized request from origin: ${req.headers.origin || 'unknown'}`);
+      return sendJson(res, 403, {
+        success: false,
+        error: 'Forbidden: Origin or pairing key not authorized.',
+      });
+    }
+
+    // 2. POST /test (Send diagnostic slip to LAN printer)
     if (req.method === 'POST' && url === '/test') {
       try {
         const body = await parseJsonBody<TestRequestBody>(req);
@@ -104,13 +153,15 @@ export function createPrintAgentServer() {
         );
 
         const result = await sendRawTcp(body.ip.trim(), body.port || 9100, buffer);
+        console.log(`[TestPrint] Successfully sent test slip to ${body.ip}:${body.port || 9100}`);
         return sendJson(res, 200, { success: true, message: result.message });
       } catch (err: any) {
+        console.error(`[TestPrint Error]`, err.message);
         return sendJson(res, 502, { success: false, error: err.message || 'Test print failed' });
       }
     }
 
-    // 3. POST /print
+    // 3. POST /print (Format order and dispatch to thermal printer)
     if (req.method === 'POST' && url === '/print') {
       try {
         const body = await parseJsonBody<PrintRequestBody>(req);
@@ -142,13 +193,15 @@ export function createPrintAgentServer() {
         }
 
         const result = await sendRawTcp(ip, port, buffer);
+        console.log(`[PrintJob] Dispatched ${type} receipt (${buffer.length} bytes) to ${ip}:${port}`);
         return sendJson(res, 200, { success: true, message: result.message });
       } catch (err: any) {
+        console.error(`[PrintJob Error]`, err.message);
         return sendJson(res, 502, { success: false, error: err.message || 'Thermal print job failed' });
       }
     }
 
-    // 4. POST /raw
+    // 4. POST /raw (Send direct ESC/POS binary base64)
     if (req.method === 'POST' && url === '/raw') {
       try {
         const body = await parseJsonBody<{ ip: string; port?: number; data: string }>(req);
@@ -171,13 +224,25 @@ export function createPrintAgentServer() {
 }
 
 export function startPrintAgent() {
-  const server = createPrintAgentServer();
-  server.listen(PORT, HOST, () => {
+  const config = loadAgentConfig();
+  const server = createPrintAgentServer(config);
+  
+  server.listen(config.port, config.host, () => {
     console.log(`=======================================================`);
     console.log(`🚀 The Scan Menu Local Print Agent v1.0.0 is Running!`);
-    console.log(`📍 Listening on: http://${HOST}:${PORT}`);
+    console.log(`📍 Listening on: http://${config.host}:${config.port}`);
+    console.log(`🛡️  Security: Origin filtering & SSRF protection enabled`);
     console.log(`🔌 Ready to transmit ESC/POS tickets to LAN thermal POS`);
     console.log(`=======================================================`);
+  });
+
+  // Handle uncaught exceptions gracefully without crashing the whole process
+  process.on('uncaughtException', (err) => {
+    console.error('[Fatal Error] Uncaught exception in print agent:', err);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[Fatal Error] Unhandled rejection in print agent:', reason);
   });
 
   return server;

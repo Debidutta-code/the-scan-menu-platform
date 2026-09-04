@@ -6,8 +6,16 @@
   "scripts": {
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
+    "build:exe": "tsc && npx @yao-pkg/pkg dist/index.js --target node18-win-x64 --output dist/scanmenu-print-agent.exe",
     "start": "node dist/index.js",
     "test": "vitest run"
+  },
+  "pkg": {
+    "scripts": "dist/**/*.js",
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
   },
   "keywords": [
     "pos",
@@ -21,6 +29,7 @@
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "@yao-pkg/pkg": "^5.14.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5",
     "vitest": "^1.6.1"
