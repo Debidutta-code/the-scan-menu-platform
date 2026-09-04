@@ -31,10 +31,17 @@ import {
   CheckCheck,
   TrendingUp,
   Printer,
+  Maximize2,
+  Minimize2,
+  LayoutGrid,
+  Columns3,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  Timer,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 import { PrintOrderModal } from '../components/PrintOrderModal';
-import { Button } from '../components/ui/Button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,13 +50,19 @@ interface AddOn {
   priceDelta: number;
 }
 
+interface KDSComboItem {
+  name: string;
+  quantity: number;
+  categoryName?: string;
+}
+
 interface KDSItem {
   menuItemId: string;
   nameSnapshot: string;
   unitPriceSnapshot: number;
   originalPriceSnapshot?: number;
   isCombo?: boolean;
-  comboItemsSnapshot?: { name: string; quantity: number; categoryName?: string }[];
+  comboItemsSnapshot?: KDSComboItem[];
   quantity: number;
   selectedAddOns: AddOn[];
   specialInstructions?: string;
@@ -79,6 +92,7 @@ interface CategoryOption {
 }
 
 type KDSTab = 'STATION' | 'ALL_DAY' | 'RECALL' | 'ANALYTICS';
+type KDSLayoutMode = 'KANBAN' | 'GRID';
 
 // ─── Web Audio API Chime ──────────────────────────────────────────────────────
 
@@ -95,7 +109,7 @@ const playKitchenBell = () => {
     osc.frequency.setValueAtTime(880.0, ctx.currentTime + 0.12); // A5
     osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.24); // D6
 
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
 
     osc.connect(gain);
@@ -117,15 +131,18 @@ export const ManagerKDS: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Screen Tabs
+  // Screen Tabs & View Modes
   const [activeTab, setActiveTab] = useState<KDSTab>('STATION');
+  const [layoutMode, setLayoutMode] = useState<KDSLayoutMode>('KANBAN');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedOrderMode, setSelectedOrderMode] = useState<string>('ALL');
   const [now, setNow] = useState<Date>(new Date());
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
   const [recallSearch, setRecallSearch] = useState<string>('');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const kdsContainerRef = useRef<HTMLDivElement>(null);
+  const kanbanScrollRef = useRef<HTMLDivElement>(null);
   const prevTicketCountRef = useRef<number>(0);
 
   // Socket setup
@@ -133,12 +150,32 @@ export const ManagerKDS: React.FC = () => {
   const { socket, status } = useSocket(token);
   const isConnected = status === 'connected';
 
-  // Live Timer
+  // Live Stopwatch Timer (updates every 5 seconds)
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 10000);
+    const timer = setInterval(() => setNow(new Date()), 5000);
     return () => clearInterval(timer);
   }, []);
 
+  // Listen for fullscreen change
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // 1. Fetch Categories for Station filter
   const { data: categoriesResponse } = useQuery({
@@ -165,16 +202,19 @@ export const ManagerKDS: React.FC = () => {
     staleTime: 60_000,
   });
 
-  const restaurantInfo = useMemo(() => ({
-    name: restaurantResponse?.data?.name,
-    address: restaurantResponse?.data?.address,
-    phone: restaurantResponse?.data?.phone,
-    gstNumber: restaurantResponse?.data?.gstNumber,
-    logoUrl: restaurantResponse?.data?.branding?.logoUrl,
-    currency: restaurantResponse?.data?.currency || 'INR',
-    headerMessage: restaurantResponse?.data?.settings?.receiptHeader || 'Welcome!',
-    footerMessage: restaurantResponse?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
-  }), [restaurantResponse]);
+  const restaurantInfo = useMemo(
+    () => ({
+      name: restaurantResponse?.data?.name,
+      address: restaurantResponse?.data?.address,
+      phone: restaurantResponse?.data?.phone,
+      gstNumber: restaurantResponse?.data?.gstNumber,
+      logoUrl: restaurantResponse?.data?.branding?.logoUrl,
+      currency: restaurantResponse?.data?.currency || 'INR',
+      headerMessage: restaurantResponse?.data?.settings?.receiptHeader || 'Welcome!',
+      footerMessage: restaurantResponse?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
+    }),
+    [restaurantResponse]
+  );
 
   const workflowMode: 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP' =
     restaurantResponse?.data?.orderWorkflowMode || 'FIVE_STEP';
@@ -253,7 +293,15 @@ export const ManagerKDS: React.FC = () => {
 
   // Update Item Status Mutation
   const updateItemStatusMutation = useMutation({
-    mutationFn: async ({ orderId, itemIndex, nextStatus }: { orderId: string; itemIndex: number; nextStatus: string }) => {
+    mutationFn: async ({
+      orderId,
+      itemIndex,
+      nextStatus,
+    }: {
+      orderId: string;
+      itemIndex: number;
+      nextStatus: string;
+    }) => {
       const res = await apiClient.patch(
         `/restaurants/${activeRestaurantId}/kds/tickets/${orderId}/items/${itemIndex}/status`,
         { itemStatus: nextStatus }
@@ -275,7 +323,7 @@ export const ManagerKDS: React.FC = () => {
       return res.data;
     },
     onSuccess: () => {
-      toast('Ticket bumped and served!', 'success');
+      toast('Ticket bumped and marked served!', 'success');
       queryClient.invalidateQueries({ queryKey: ['kdsTickets', activeRestaurantId] });
       queryClient.invalidateQueries({ queryKey: ['kdsHistory', activeRestaurantId] });
     },
@@ -317,31 +365,61 @@ export const ManagerKDS: React.FC = () => {
 
     tickets.forEach((ticket) => {
       ticket.items.forEach((item, idx) => {
-        const key = item.nameSnapshot.toLowerCase().trim();
-        const existing = map.get(key) || {
-          name: item.nameSnapshot,
-          totalQuantity: 0,
-          pendingQuantity: 0,
-          preparingQuantity: 0,
-          readyQuantity: 0,
-          orders: [],
-        };
+        // If it's a combo, aggregate individual bundle items for the prep line
+        if (item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0) {
+          item.comboItemsSnapshot.forEach((ci) => {
+            const bundleKey = ci.name.toLowerCase().trim();
+            const existing = map.get(bundleKey) || {
+              name: ci.name,
+              totalQuantity: 0,
+              pendingQuantity: 0,
+              preparingQuantity: 0,
+              readyQuantity: 0,
+              orders: [],
+            };
+            const itemStatus = item.itemStatus || 'PENDING';
+            const bundleQty = ci.quantity * item.quantity;
+            existing.totalQuantity += bundleQty;
+            if (itemStatus === 'PENDING') existing.pendingQuantity += bundleQty;
+            else if (itemStatus === 'PREPARING') existing.preparingQuantity += bundleQty;
+            else if (itemStatus === 'READY') existing.readyQuantity += bundleQty;
 
-        const itemStatus = item.itemStatus || 'PENDING';
-        existing.totalQuantity += item.quantity;
-        if (itemStatus === 'PENDING') existing.pendingQuantity += item.quantity;
-        else if (itemStatus === 'PREPARING') existing.preparingQuantity += item.quantity;
-        else if (itemStatus === 'READY') existing.readyQuantity += item.quantity;
+            existing.orders.push({
+              orderNumber: ticket.orderNumber,
+              orderId: ticket._id,
+              itemIndex: idx,
+              qty: bundleQty,
+              status: itemStatus,
+            });
+            map.set(bundleKey, existing);
+          });
+        } else {
+          const key = item.nameSnapshot.toLowerCase().trim();
+          const existing = map.get(key) || {
+            name: item.nameSnapshot,
+            totalQuantity: 0,
+            pendingQuantity: 0,
+            preparingQuantity: 0,
+            readyQuantity: 0,
+            orders: [],
+          };
 
-        existing.orders.push({
-          orderNumber: ticket.orderNumber,
-          orderId: ticket._id,
-          itemIndex: idx,
-          qty: item.quantity,
-          status: itemStatus,
-        });
+          const itemStatus = item.itemStatus || 'PENDING';
+          existing.totalQuantity += item.quantity;
+          if (itemStatus === 'PENDING') existing.pendingQuantity += item.quantity;
+          else if (itemStatus === 'PREPARING') existing.preparingQuantity += item.quantity;
+          else if (itemStatus === 'READY') existing.readyQuantity += item.quantity;
 
-        map.set(key, existing);
+          existing.orders.push({
+            orderNumber: ticket.orderNumber,
+            orderId: ticket._id,
+            itemIndex: idx,
+            qty: item.quantity,
+            status: itemStatus,
+          });
+
+          map.set(key, existing);
+        }
       });
     });
 
@@ -350,100 +428,50 @@ export const ManagerKDS: React.FC = () => {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
-  const getNextItemStatus = (current?: string) => {
-    switch (current) {
-      case 'PREPARING':
-        return workflowMode === 'THREE_STEP' ? 'SERVED' : 'READY';
-      case 'READY':
-        return 'SERVED';
-      case 'PENDING':
-      default:
-        return 'PREPARING';
-    }
-  };
-
-  const getAgingBadge = (createdAtStr: string) => {
-    const elapsedMins = Math.floor((now.getTime() - new Date(createdAtStr).getTime()) / 60000);
-
-    if (elapsedMins >= 15) {
-      return (
-        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-black bg-rose-50 border border-rose-200 text-rose-600 animate-pulse flex items-center gap-1">
-          <Flame className="w-3.5 h-3.5" strokeWidth={2} /> {elapsedMins}m AGED
-        </span>
-      );
-    }
-    if (elapsedMins >= 5) {
-      return (
-        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-50 border border-amber-200 text-amber-700 flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" strokeWidth={2} /> {elapsedMins}m
-        </span>
-      );
-    }
-    return (
-      <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
-        <Clock className="w-3.5 h-3.5" strokeWidth={2} /> {elapsedMins}m
-      </span>
-    );
-  };
-
-  const getOrderModeBadge = (mode: string) => {
-    switch (mode) {
-      case 'TAKEAWAY':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
-            <ShoppingBag className="w-3 h-3" strokeWidth={2} />
-            <span>Takeaway</span>
-          </span>
-        );
-      case 'COUNTER':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800">
-            <CreditCard className="w-3 h-3" strokeWidth={2} />
-            <span>POS</span>
-          </span>
-        );
-      case 'DINE_IN':
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800">
-            <Utensils className="w-3 h-3" strokeWidth={2} />
-            <span>Dine-In</span>
-          </span>
-        );
-    }
-  };
-
   const getTableOrCustomerLabel = (ticket: KDSTicket) => {
     if (ticket.tableId) {
       const rawName = ticket.tableId.displayName || ticket.tableId.tableNumber || 'Table';
       const cleanName = rawName.toString().toLowerCase().startsWith('table') ? rawName : `Table ${rawName}`;
       return (
-        <span className="font-extrabold text-xs flex items-center gap-1 text-slate-900">
-          <MapPin className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
+        <div className="flex items-center gap-1.5 text-slate-900 font-extrabold text-xs">
+          <div className="w-5 h-5 rounded-md bg-amber-500 text-slate-950 flex items-center justify-center shrink-0">
+            <MapPin className="w-3 h-3" strokeWidth={2.5} />
+          </div>
           <span className="truncate">{cleanName}</span>
-        </span>
+        </div>
       );
     }
     return (
-      <span className="font-bold text-xs flex items-center gap-1 text-slate-800 truncate">
-        <UserIcon className="w-3.5 h-3.5 text-slate-500" strokeWidth={2} />
+      <div className="flex items-center gap-1.5 text-slate-800 font-extrabold text-xs">
+        <div className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+          <UserIcon className="w-3 h-3" strokeWidth={2.5} />
+        </div>
         <span className="truncate">{ticket.customerName || 'Walk-in Guest'}</span>
-      </span>
+      </div>
     );
+  };
+
+  const scrollKanban = (direction: 'left' | 'right') => {
+    if (!kanbanScrollRef.current) return;
+    const amount = 360;
+    kanbanScrollRef.current.scrollBy({
+      left: direction === 'left' ? -amount : amount,
+      behavior: 'smooth',
+    });
   };
 
   // Feature Gate
   if (!isEnabled('kds')) {
     return (
-      <div className="w-full space-y-8 font-sans">
-        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4 shadow-sm">
+      <div className="h-full flex items-center justify-center p-6 font-sans">
+        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4 shadow-sm max-w-md">
           <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mx-auto">
             <ShieldAlert className="w-8 h-8" strokeWidth={1.75} />
           </div>
           <div>
             <h2 className="text-xl font-bold font-display text-slate-900">Kitchen Display System Locked</h2>
             <p className="text-slate-500 max-w-md mx-auto mt-1 text-xs leading-relaxed">
-              The KDS module is gated on your current subscription plan. Please upgrade to unlock kitchen display tickets.
+              The KDS module is gated on your current subscription plan. Please upgrade to unlock commercial kitchen display tickets.
             </p>
           </div>
         </div>
@@ -464,528 +492,439 @@ export const ManagerKDS: React.FC = () => {
   return (
     <div
       ref={kdsContainerRef}
-      className="w-full space-y-2.5 sm:space-y-3 font-sans select-none pb-8 transition-colors duration-200"
+      className="h-full flex flex-col min-h-0 overflow-hidden select-none font-sans bg-[#F4F5F7] p-2 sm:p-3 gap-2.5"
     >
-      {/* ── Top Kitchen Navigation & Controls ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 md:px-5 rounded-2xl border border-slate-200/80 bg-white shadow-xs">
-        {/* Title and View Tabs */}
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* ── Top Header Toolbar ── */}
+      <header className="shrink-0 flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:px-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
+        {/* Left: Branding & Main Tab Switcher */}
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-inner shrink-0">
-              <ChefHat className="w-4 h-4 text-amber-400" strokeWidth={2} />
+            <div className="h-8 w-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center shadow-inner shrink-0">
+              <ChefHat className="w-4 h-4" strokeWidth={2.2} />
             </div>
             <div>
-              <h1 className="font-display tracking-tight text-lg sm:text-xl font-bold leading-tight text-slate-900">Kitchen Operations (KDS)</h1>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{tickets.length} active ticket{tickets.length === 1 ? '' : 's'}</span>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display tracking-tight text-base sm:text-lg font-black text-slate-950 leading-none">
+                  Kitchen Display
+                </h1>
+                <span className="flex items-center gap-1 font-mono text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  {tickets.length} Active
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Screen Tabs & Kiosk Mode */}
-          <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-2">
-            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 text-xs font-bold">
-              <button
-                onClick={() => setActiveTab('STATION')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeTab === 'STATION'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" strokeWidth={2} />
-                <span>Station View</span>
-                {tickets.length > 0 && (
-                  <span className="bg-slate-900 text-white font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                    {tickets.length}
-                  </span>
-                )}
-              </button>
+          {/* Screen Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+            <button
+              onClick={() => setActiveTab('STATION')}
+              className={`flex items-center gap-1.5 px-3 py-1.2 rounded-lg transition cursor-pointer ${
+                activeTab === 'STATION'
+                  ? 'bg-white text-slate-950 shadow-xs font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-500" strokeWidth={2.2} />
+              <span>Live Tickets</span>
+              {tickets.length > 0 && (
+                <span className="bg-slate-950 text-white font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black ml-0.5">
+                  {tickets.length}
+                </span>
+              )}
+            </button>
 
-              <button
-                onClick={() => setActiveTab('ALL_DAY')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeTab === 'ALL_DAY'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
-                <span>All-Day Prep Tally</span>
-                {allDayAggregatedItems.length > 0 && (
-                  <span className="bg-amber-100 text-amber-900 font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                    {allDayAggregatedItems.length}
-                  </span>
-                )}
-              </button>
+            <button
+              onClick={() => setActiveTab('ALL_DAY')}
+              className={`flex items-center gap-1.5 px-3 py-1.2 rounded-lg transition cursor-pointer ${
+                activeTab === 'ALL_DAY'
+                  ? 'bg-white text-slate-950 shadow-xs font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-amber-600" strokeWidth={2.2} />
+              <span>Master Prep Tally</span>
+              {allDayAggregatedItems.length > 0 && (
+                <span className="bg-amber-500 text-slate-950 font-mono text-[10px] px-1.5 py-0.2 rounded-full font-black ml-0.5">
+                  {allDayAggregatedItems.length}
+                </span>
+              )}
+            </button>
 
-              <button
-                onClick={() => setActiveTab('RECALL')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeTab === 'RECALL'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-indigo-500" strokeWidth={2} />
-                <span>Recall Bumped</span>
-              </button>
+            <button
+              onClick={() => setActiveTab('RECALL')}
+              className={`flex items-center gap-1.5 px-3 py-1.2 rounded-lg transition cursor-pointer ${
+                activeTab === 'RECALL'
+                  ? 'bg-white text-slate-950 shadow-xs font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-indigo-600" strokeWidth={2.2} />
+              <span>Recall Bumped</span>
+            </button>
 
-              <button
-                onClick={() => setActiveTab('ANALYTICS')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                  activeTab === 'ANALYTICS'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" strokeWidth={2} />
-                <span>Kitchen Health</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setActiveTab('ANALYTICS')}
+              className={`flex items-center gap-1.5 px-3 py-1.2 rounded-lg transition cursor-pointer ${
+                activeTab === 'ANALYTICS'
+                  ? 'bg-white text-slate-950 shadow-xs font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.2} />
+              <span>Pace &amp; Speed</span>
+            </button>
           </div>
         </div>
 
-        {/* Action Controls Toolbar */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Station / Category Filter */}
-          {activeTab === 'STATION' && categories.length > 0 && (
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-sm"
-            >
-              <option value="">All Stations ({categories.length})</option>
-              {categories.map((cat) => (
-                <option key={cat._id} value={cat._id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+        {/* Right: Station Filter, View Switcher & Hardware Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeTab === 'STATION' && (
+            <>
+              {/* Station Filter */}
+              {categories.length > 0 && (
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-900 text-xs font-bold px-2.5 py-1.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer shadow-2xs"
+                >
+                  <option value="">All Kitchen Stations ({categories.length})</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* View Mode Toggle: Kanban vs Grid */}
+              <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode('KANBAN')}
+                  className={`p-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 text-xs font-bold ${
+                    layoutMode === 'KANBAN'
+                      ? 'bg-white text-slate-950 shadow-xs font-black'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Expediter Line Kanban View (Horizontal Flow)"
+                >
+                  <Columns3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Line Kanban</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode('GRID')}
+                  className={`p-1.5 rounded-lg transition cursor-pointer flex items-center gap-1 text-xs font-bold ${
+                    layoutMode === 'GRID'
+                      ? 'bg-white text-slate-950 shadow-xs font-black'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Overview Grid View (TV / Wall Mount)"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">TV Grid</span>
+                </button>
+              </div>
+            </>
           )}
 
-          {/* Global UI Text Size / Font Scale Switcher */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-0.5 border border-slate-200" title="Global UI Font Size">
-            <button
-              type="button"
-              onClick={() => setFontScale('SMALL')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-black transition ${
-                fontScale === 'SMALL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Small Text (81.25% - 13px Base)"
-            >
-              A⁻
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('NORMAL')}
-              className={`px-2 py-0.5 rounded-lg text-xs font-black transition ${
-                fontScale === 'NORMAL'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Normal Text (87.5% - 14px Base)"
-            >
-              A
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale('LARGE')}
-              className={`px-2 py-0.5 rounded-lg text-sm font-black transition ${
-                fontScale === 'LARGE'
-                  ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Large Text (100% - 16px Base)"
-            >
-              A⁺
-            </button>
+          {/* Text Size Switcher */}
+          <div className="bg-slate-100 p-0.5 rounded-xl flex items-center border border-slate-200" title="Font Scale">
+            {(['SMALL', 'NORMAL', 'LARGE'] as const).map((scale) => (
+              <button
+                key={scale}
+                type="button"
+                onClick={() => setFontScale(scale)}
+                className={`px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer ${
+                  fontScale === scale
+                    ? 'bg-white text-slate-950 shadow-2xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {scale === 'SMALL' ? 'A⁻' : scale === 'NORMAL' ? 'A' : 'A⁺'}
+              </button>
+            ))}
           </div>
 
-          {/* Sound Toggle */}
+          {/* Audio Chime Button */}
           <button
             onClick={() => {
               setAudioEnabled(!audioEnabled);
               if (!audioEnabled) playKitchenBell();
             }}
-            className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+            className={`p-1.5 px-2 rounded-xl border text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer ${
               audioEnabled
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-slate-50 border-slate-200 text-slate-500'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                : 'bg-slate-100 border-slate-200 text-slate-400'
             }`}
-            title={audioEnabled ? 'Kitchen audio alert enabled' : 'Muted'}
+            title={audioEnabled ? 'Kitchen sound chime enabled' : 'Kitchen chime muted'}
           >
-            {audioEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+            {audioEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Socket Indicator */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 border border-slate-200">
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <button
-              onClick={() => refetch()}
-              disabled={isRefetching}
-              className="p-0.5 hover:bg-slate-200 rounded transition text-slate-500"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-3 h-3 ${isRefetching ? 'animate-spin text-amber-500' : ''}`} />
-            </button>
-          </div>
+          {/* Fullscreen TV Mode */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-1.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter TV Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Refresh / Sync Button */}
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-950 transition cursor-pointer shadow-2xs"
+            title="Refresh active tickets"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin text-amber-500' : ''}`} />
+          </button>
         </div>
-      </div>
+      </header>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 1: ACTIVE STATION TICKETS (GRID / CARD MODE)
+          SCREEN 1: LIVE KITCHEN TICKETS (KANBAN / GRID)
           ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'STATION' && (
-        <div className="space-y-4">
-          {/* Order Mode Filter Bar */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
-              {['ALL', 'DINE_IN', 'TAKEAWAY', 'COUNTER'].map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setSelectedOrderMode(mode)}
-                  className={`px-3 py-1.5 rounded-lg transition ${
-                    selectedOrderMode === mode
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {mode === 'ALL' ? 'All Channels' : mode === 'DINE_IN' ? 'Dine-In' : mode === 'TAKEAWAY' ? 'Takeaway' : 'POS'}
-                </button>
-              ))}
-            </div>
-
-            <span className="text-xs text-slate-400 font-mono font-bold">
-              Showing {tickets.length} active ticket{tickets.length === 1 ? '' : 's'}
-            </span>
-          </div>
-
-          {isLoading ? (
-            <div className="h-64 flex flex-col items-center justify-center text-slate-400">
-              <Loader className="w-8 h-8 animate-spin text-slate-500 mb-2" strokeWidth={2} />
-              <span className="text-xs font-semibold">Loading kitchen tickets...</span>
-            </div>
-          ) : tickets.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 p-16 text-center space-y-3 shadow-sm flex flex-col items-center justify-center min-h-[360px]">
-              <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
-                <CheckCircle2 className="w-9 h-9" strokeWidth={2} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 font-display">Kitchen Station Clear!</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                No active tickets in queue. Incoming orders from QR menu, waiter calls, or counter POS will ring here instantly.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {tickets.map((ticket) => {
-                const allServed = ticket.items.every((i) => i.itemStatus === 'SERVED');
-
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden gap-2">
+          {/* Secondary Sub-Bar: Channels Filter & Live Quick Batch Tally Strip */}
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 bg-white/80 backdrop-blur-md p-2 rounded-xl border border-slate-200 shadow-2xs">
+            {/* Channel Filters */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(['ALL', 'DINE_IN', 'TAKEAWAY', 'COUNTER', 'DELIVERY'] as const).map((mode) => {
+                const count =
+                  mode === 'ALL' ? tickets.length : tickets.filter((t) => t.orderMode === mode).length;
                 return (
-                  <motion.div
-                    key={ticket._id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className={`rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden border ${
-                      allServed
-                        ? 'border-emerald-300 bg-emerald-50/30 opacity-75'
-                        : 'bg-white border-slate-200/90'
+                  <button
+                    key={mode}
+                    onClick={() => setSelectedOrderMode(mode)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      selectedOrderMode === mode
+                        ? 'bg-slate-950 text-white shadow-xs font-black'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    {/* Header Row */}
-                    <div className="space-y-3.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-mono font-black bg-slate-950 text-white px-3 py-1 rounded-xl shadow-inner">
-                            #{ticket.orderNumber}
-                          </span>
-                          {getOrderModeBadge(ticket.orderMode)}
-                        </div>
-                        {getAgingBadge(ticket.createdAt)}
-                      </div>
-
-                      {/* Table / Customer Details */}
-                      <div className="flex items-center justify-between text-xs font-semibold border-b border-slate-150 pb-3">
-                        {getTableOrCustomerLabel(ticket)}
-
-                        {ticket.roundNumber && (
-                          <span className="font-mono text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200 font-black">
-                            Round {ticket.roundNumber}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Customer General Note */}
-                      {ticket.customerNote && (
-                        <div className="p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 italic font-medium">
-                          "{ticket.customerNote}"
-                        </div>
-                      )}
-
-                      {/* Items List */}
-                      <div className="space-y-2.5">
-                        {ticket.items.map((item, idx) => {
-                          const statusVal = item.itemStatus || 'PENDING';
-                          const isDone = statusVal === 'SERVED';
-                          const isReady = statusVal === 'READY';
-                          const isPrep = statusVal === 'PREPARING';
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`p-3 rounded-2xl border transition-all ${
-                                isDone
-                                  ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
-                                  : isReady
-                                  ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-xs'
-                                  : isPrep
-                                  ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 shadow-xs'
-                                  : 'bg-white border-slate-200 text-slate-900 shadow-xs'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                {/* Prominent High-Visibility Quantity Pill & Name */}
-                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                  <div
-                                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono font-black text-xs shrink-0 shadow-inner ${
-                                      isDone
-                                        ? 'bg-slate-200 text-slate-500'
-                                        : isReady
-                                        ? 'bg-emerald-600 text-white'
-                                        : isPrep
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-slate-900 text-white'
-                                    }`}
-                                  >
-                                    {item.quantity}x
-                                  </div>
-
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span
-                                        className={`text-xs font-bold leading-tight block break-words ${
-                                          isDone ? 'line-through text-slate-400' : 'text-slate-900'
-                                        }`}
-                                      >
-                                        {item.nameSnapshot}
-                                      </span>
-                                      {item.isCombo && (
-                                        <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.2 rounded font-mono">
-                                          Combo
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Combo Items breakdown for Kitchen */}
-                                    {item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0 && (
-                                      <div className="mt-1 pl-2 border-l-2 border-amber-400 space-y-0.5 bg-amber-50/70 p-1.5 rounded-r-lg">
-                                        <div className="text-[9px] font-black uppercase text-amber-900 tracking-wider">
-                                          Prepare Bundle Items:
-                                        </div>
-                                        {item.comboItemsSnapshot.map((ci: any, cIdx: number) => (
-                                          <div key={cIdx} className="text-xs font-black text-amber-950">
-                                            ↳ {ci.quantity * item.quantity}x {ci.name} {ci.categoryName ? `(${ci.categoryName})` : ''}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-
-                                    {/* Add-ons */}
-                                    {item.selectedAddOns && item.selectedAddOns.length > 0 && (
-                                      <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                                        + {item.selectedAddOns.map((a: any) => a.name).join(', ')}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Item Action Button */}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateItemStatusMutation.mutate({
-                                      orderId: ticket._id,
-                                      itemIndex: idx,
-                                      nextStatus: getNextItemStatus(statusVal),
-                                    })
-                                  }
-                                  disabled={isDone || updateItemStatusMutation.isPending}
-                                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition shrink-0 flex items-center gap-1 shadow-sm active:scale-95 ${
-                                    isDone
-                                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                                      : isReady
-                                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                      : isPrep
-                                      ? workflowMode === 'THREE_STEP'
-                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black'
-                                  }`}
-                                >
-                                  {isDone ? (
-                                    <>
-                                      <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.5} />
-                                      <span>Done</span>
-                                    </>
-                                  ) : isReady ? (
-                                    <>
-                                      <Utensils className="w-3.5 h-3.5" strokeWidth={2} />
-                                      <span>Serve</span>
-                                    </>
-                                  ) : isPrep ? (
-                                    workflowMode === 'THREE_STEP' ? (
-                                      <>
-                                        <Utensils className="w-3.5 h-3.5" strokeWidth={2} />
-                                        <span>Serve</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Sparkles className="w-3.5 h-3.5" strokeWidth={2} />
-                                        <span>Ready</span>
-                                      </>
-                                    )
-                                  ) : (
-                                    <>
-                                      <ChefHat className="w-3.5 h-3.5" strokeWidth={2} />
-                                      <span>Prep</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-
-                              {/* Special Instructions callout */}
-                              {item.specialInstructions && (
-                                <div className="mt-2 ml-10.5 p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-bold text-amber-900 flex items-start gap-1.5 italic">
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" strokeWidth={2} />
-                                  <span>"{item.specialInstructions}"</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Bump Ticket Footer Button */}
-                    <div className="pt-4 border-t border-slate-150 mt-4 flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon-lg"
-                        onClick={() => setPrintModalOrder(ticket)}
-                        title="Print Kitchen Ticket or Bill"
-                      >
-                        <Printer className="w-4 h-4 text-amber-600" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="lg"
-                        fullWidth
-                        onClick={() => bumpTicketMutation.mutate(ticket._id)}
-                        disabled={allServed}
-                        isLoading={bumpTicketMutation.isPending}
-                        leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                      >
-                        Bump Entire Ticket
-                      </Button>
-                    </div>
-                  </motion.div>
+                    <span>
+                      {mode === 'ALL'
+                        ? 'All Orders'
+                        : mode === 'DINE_IN'
+                        ? 'Dine-In'
+                        : mode === 'TAKEAWAY'
+                        ? 'Takeaway'
+                        : mode === 'COUNTER'
+                        ? 'POS'
+                        : 'Delivery'}
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-black ${
+                        selectedOrderMode === mode ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
                 );
               })}
+            </div>
+
+            {/* Quick Batch Tally Collapsible Preview */}
+            {allDayAggregatedItems.length > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 px-3 py-1 rounded-lg">
+                  <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" strokeWidth={2.5} />
+                  <span className="font-extrabold text-amber-950">Top Prep:</span>
+                  <div className="flex items-center gap-1.5 truncate max-w-md">
+                    {allDayAggregatedItems.slice(0, 4).map((item, idx) => (
+                      <span key={idx} className="font-bold text-amber-900 bg-amber-200/60 px-1.5 py-0.2 rounded text-[11px]">
+                        {item.totalQuantity}x {item.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {layoutMode === 'KANBAN' && tickets.length > 3 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => scrollKanban('left')}
+                      className="p-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer shadow-2xs"
+                      title="Scroll Left"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollKanban('right')}
+                      className="p-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer shadow-2xs"
+                      title="Scroll Right"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Tickets Viewport */}
+          {isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+              <Loader className="w-8 h-8 animate-spin text-amber-500 mb-2" strokeWidth={2.5} />
+              <span className="text-xs font-bold text-slate-600">Loading active kitchen line...</span>
+            </div>
+          ) : tickets.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-white rounded-2xl border border-dashed border-slate-300 shadow-xs space-y-3">
+              <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-inner">
+                <CheckCircle2 className="w-9 h-9" strokeWidth={2} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold font-display text-slate-900">Kitchen Station Clear!</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
+                  No pending kitchen tickets. As soon as orders arrive from QR menus, captain POS, or counter checkout, they will ring here instantly.
+                </p>
+              </div>
+            </div>
+          ) : layoutMode === 'KANBAN' ? (
+            /* ─── KANBAN HORIZONTAL EXPEDITER LINE ─── */
+            <div
+              ref={kanbanScrollRef}
+              className="flex-1 min-h-0 flex flex-row gap-3.5 overflow-x-auto overflow-y-hidden pb-2 items-stretch scroll-smooth custom-scrollbar"
+            >
+              {tickets.map((ticket) => (
+                <KDSTicketCard
+                  key={ticket._id}
+                  ticket={ticket}
+                  now={now}
+                  workflowMode={workflowMode}
+                  onUpdateItemStatus={(itemIdx, nextStatus) =>
+                    updateItemStatusMutation.mutate({
+                      orderId: ticket._id,
+                      itemIndex: itemIdx,
+                      nextStatus,
+                    })
+                  }
+                  onBumpTicket={() => bumpTicketMutation.mutate(ticket._id)}
+                  onPrintTicket={() => setPrintModalOrder(ticket)}
+                  isUpdating={updateItemStatusMutation.isPending}
+                  isBumping={bumpTicketMutation.isPending}
+                  className="w-[320px] sm:w-[350px] shrink-0 h-full flex flex-col"
+                />
+              ))}
+            </div>
+          ) : (
+            /* ─── RESPONSIVE TV OVERVIEW GRID ─── */
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5">
+                {tickets.map((ticket) => (
+                  <KDSTicketCard
+                    key={ticket._id}
+                    ticket={ticket}
+                    now={now}
+                    workflowMode={workflowMode}
+                    onUpdateItemStatus={(itemIdx, nextStatus) =>
+                      updateItemStatusMutation.mutate({
+                        orderId: ticket._id,
+                        itemIndex: itemIdx,
+                        nextStatus,
+                      })
+                    }
+                    onBumpTicket={() => bumpTicketMutation.mutate(ticket._id)}
+                    onPrintTicket={() => setPrintModalOrder(ticket)}
+                    isUpdating={updateItemStatusMutation.isPending}
+                    isBumping={bumpTicketMutation.isPending}
+                    className="min-h-[420px] max-h-[560px] flex flex-col"
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 2: ALL-DAY PREP AGGREGATOR / EXPEDITER TALLY
+          SCREEN 2: MASTER ALL-DAY PREP AGGREGATOR
           ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'ALL_DAY' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-amber-500" strokeWidth={2} />
-                  <span>All-Day Cooking Aggregator &amp; Master Tally</span>
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  Total portions required right now across all active tickets. Helps chefs fire bulk orders together.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-2xl border border-slate-200">
-                <span className="text-xs font-bold text-slate-700">Total Items in Queue:</span>
-                <span className="font-mono font-black text-sm text-slate-950 bg-white px-2.5 py-0.5 rounded-xl shadow-inner">
-                  {allDayAggregatedItems.reduce((acc, curr) => acc + curr.totalQuantity, 0)} portions
-                </span>
-              </div>
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 overflow-y-auto shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div>
+              <h2 className="font-display text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-amber-500" strokeWidth={2.5} />
+                <span>Master Batch Prep Tally (All-Day Aggregator)</span>
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Total item portions required right now across all active tickets. Helps chefs bulk fire items simultaneously.
+              </p>
             </div>
 
-            {allDayAggregatedItems.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <CheckCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2" strokeWidth={2} />
-                <p className="text-sm font-bold text-slate-700">No active prep items in kitchen!</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allDayAggregatedItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col justify-between gap-3 shadow-xs hover:border-amber-400 transition"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-bold text-sm text-slate-900 block">{item.name}</span>
-                        <span className="font-mono text-base font-black bg-slate-900 text-amber-400 px-3 py-1 rounded-xl shadow-inner shrink-0">
-                          {item.totalQuantity}x
-                        </span>
-                      </div>
+            <div className="flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-xl shadow-xs shrink-0 font-mono text-xs font-black">
+              <span>TOTAL PORTIONS ON LINE:</span>
+              <span className="text-amber-400 text-sm">
+                {allDayAggregatedItems.reduce((acc, curr) => acc + curr.totalQuantity, 0)}
+              </span>
+            </div>
+          </div>
 
-                      {/* Status distribution badges */}
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {item.pendingQuantity > 0 && (
-                          <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md">
-                            {item.pendingQuantity} Pending
-                          </span>
-                        )}
-                        {item.preparingQuantity > 0 && (
-                          <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md">
-                            {item.preparingQuantity} In Prep
-                          </span>
-                        )}
-                        {item.readyQuantity > 0 && (
-                          <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md">
-                            {item.readyQuantity} Ready
-                          </span>
-                        )}
-                      </div>
+          {allDayAggregatedItems.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-16">
+              <CheckCheck className="w-10 h-10 text-emerald-500 mx-auto mb-2" strokeWidth={2} />
+              <p className="text-sm font-bold text-slate-700">No active prep items in kitchen!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 pt-4">
+              {allDayAggregatedItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between gap-3 shadow-2xs hover:border-amber-400 hover:bg-amber-50/20 transition-all"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-extrabold text-sm text-slate-950 leading-tight block">{item.name}</span>
+                      <span className="font-mono text-base font-black bg-slate-950 text-amber-400 px-3 py-0.5 rounded-xl shadow-inner shrink-0">
+                        {item.totalQuantity}x
+                      </span>
                     </div>
 
-                    {/* Associated tickets */}
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-mono">
-                      <span>Across Tickets:</span>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {item.orders.map((o, oIdx) => (
-                          <span
-                            key={oIdx}
-                            className="bg-white border border-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-black text-[11px]"
-                          >
-                            #{o.orderNumber} ({o.qty})
-                          </span>
-                        ))}
-                      </div>
+                    {/* Status distribution badges */}
+                    <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+                      {item.pendingQuantity > 0 && (
+                        <span className="text-[10px] font-extrabold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md border border-amber-300">
+                          {item.pendingQuantity} Pending
+                        </span>
+                      )}
+                      {item.preparingQuantity > 0 && (
+                        <span className="text-[10px] font-extrabold bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-300">
+                          {item.preparingQuantity} In Prep
+                        </span>
+                      )}
+                      {item.readyQuantity > 0 && (
+                        <span className="text-[10px] font-extrabold bg-purple-100 text-purple-900 px-2 py-0.5 rounded-md border border-purple-300">
+                          {item.readyQuantity} Ready
+                        </span>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  {/* Associated tickets */}
+                  <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                    <span className="font-bold text-slate-600">On Tickets:</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {item.orders.map((o, oIdx) => (
+                        <span
+                          key={oIdx}
+                          className="bg-white border border-slate-300 text-slate-900 px-1.5 py-0.2 rounded font-black text-[10px]"
+                        >
+                          #{o.orderNumber} ({o.qty})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -993,15 +932,15 @@ export const ManagerKDS: React.FC = () => {
           SCREEN 3: BUMPED TICKETS & RECALL HISTORY
           ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'RECALL' && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 overflow-y-auto shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h2 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
-                <RotateCcw className="w-5 h-5 text-indigo-500" strokeWidth={2} />
+              <h2 className="font-display text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-indigo-600" strokeWidth={2.5} />
                 <span>Bumped Ticket History &amp; Instant Recall</span>
               </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Accidentally bumped a ticket? Recall it back onto the active kitchen board with 1 click.
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Accidentally bumped a ticket? Recall it back onto the active kitchen line with 1 click.
               </p>
             </div>
 
@@ -1018,42 +957,42 @@ export const ManagerKDS: React.FC = () => {
           </div>
 
           {isFetchingHistory && historyTickets.length === 0 ? (
-            <div className="py-16 flex flex-col items-center justify-center text-slate-400">
-              <Loader className="w-8 h-8 animate-spin text-slate-500 mb-2" strokeWidth={2} />
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-16">
+              <Loader className="w-8 h-8 animate-spin text-amber-500 mb-2" strokeWidth={2.5} />
               <span className="text-xs font-semibold">Loading bumped history...</span>
             </div>
           ) : filteredHistory.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
               <RotateCcw className="w-8 h-8 text-slate-300 mx-auto mb-2" strokeWidth={1.5} />
               <p className="text-sm font-bold text-slate-700">No recently bumped tickets</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
               {filteredHistory.map((ticket) => (
                 <div
                   key={ticket._id}
-                  className="p-5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between gap-4 shadow-xs"
+                  className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between gap-3 shadow-2xs"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-base font-black bg-slate-900 text-white px-3 py-1 rounded-xl">
+                      <span className="font-mono text-sm font-black bg-slate-950 text-white px-2.5 py-1 rounded-xl">
                         #{ticket.orderNumber}
                       </span>
                       <span className="text-[11px] font-mono text-slate-500">
-                        Served at {new Date(ticket.updatedAt || ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(ticket.updatedAt || ticket.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </span>
                     </div>
 
-                    <div className="text-xs font-bold text-slate-800">
-                      {getTableOrCustomerLabel(ticket)}
-                    </div>
+                    <div className="text-xs font-bold text-slate-800">{getTableOrCustomerLabel(ticket)}</div>
 
-                    {/* Items preview */}
                     <div className="space-y-1 pt-2 border-t border-slate-200/80">
                       {ticket.items.map((it, i) => (
-                        <div key={i} className="flex justify-between text-xs text-slate-600">
-                          <span>{it.nameSnapshot}</span>
-                          <span className="font-mono font-bold">x{it.quantity}</span>
+                        <div key={i} className="flex justify-between text-xs text-slate-600 font-medium">
+                          <span className="truncate">{it.nameSnapshot}</span>
+                          <span className="font-mono font-bold ml-2">x{it.quantity}</span>
                         </div>
                       ))}
                     </div>
@@ -1063,9 +1002,9 @@ export const ManagerKDS: React.FC = () => {
                     type="button"
                     onClick={() => recallTicketMutation.mutate(ticket._id)}
                     disabled={recallTicketMutation.isPending}
-                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-40"
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer disabled:opacity-40"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
+                    <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.5} />
                     <span>Recall to Active Line</span>
                   </button>
                 </div>
@@ -1076,24 +1015,34 @@ export const ManagerKDS: React.FC = () => {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SCREEN 4: KITCHEN HEALTH & SPEED METRICS
-          ══════════════════════════════════════════════ */}
+          SCREEN 4: SPEED & HEALTH METRICS
+          ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'ANALYTICS' && (
-        <div className="space-y-6">
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 overflow-y-auto shadow-xs space-y-4">
+          <div className="pb-3 border-b border-slate-100">
+            <h2 className="font-display text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600" strokeWidth={2.5} />
+              <span>Kitchen Pace &amp; Speed of Service</span>
+            </h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Live telemetry on ticket aging, kitchen throughput, and line efficiency.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
                 Active Ticket Load
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black font-mono text-slate-900">{tickets.length}</span>
-                <span className="text-xs text-slate-400 font-medium">tickets</span>
+                <span className="text-3xl font-black font-mono text-slate-950">{tickets.length}</span>
+                <span className="text-xs text-slate-500 font-bold">tickets</span>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                Oldest Active Wait
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                Oldest Active Ticket
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black font-mono text-amber-600">
@@ -1101,34 +1050,35 @@ export const ManagerKDS: React.FC = () => {
                     ? `${Math.floor((now.getTime() - new Date(tickets[0].createdAt).getTime()) / 60000)}m`
                     : '0m'}
                 </span>
-                <span className="text-xs text-slate-400 font-medium">since fired</span>
+                <span className="text-xs text-slate-500 font-bold">in kitchen</span>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
                 Portions in Cooking
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-black font-mono text-indigo-600">
                   {allDayAggregatedItems.reduce((acc, curr) => acc + curr.preparingQuantity, 0)}
                 </span>
-                <span className="text-xs text-slate-400 font-medium">dishes on stove</span>
+                <span className="text-xs text-slate-500 font-bold">dishes firing</span>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                Station Pace
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-1">
+                Sync Status
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black font-display text-emerald-600">Optimal</span>
-                <span className="text-xs text-slate-400 font-medium">real-time sync</span>
+                <span className="text-2xl font-black font-display text-emerald-600">Connected</span>
+                <span className="text-xs text-slate-500 font-bold">0ms latency</span>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {/* ── Print Order Modal ────────────────────────────────────────────────── */}
       <PrintOrderModal
         isOpen={!!printModalOrder}
@@ -1137,6 +1087,377 @@ export const ManagerKDS: React.FC = () => {
         restaurantInfo={restaurantInfo}
       />
     </div>
+  );
+};
+
+// ─── Sub-Component: Commercial KDS Ticket Card ────────────────────────────────
+
+interface KDSTicketCardProps {
+  ticket: KDSTicket;
+  now: Date;
+  workflowMode: 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP';
+  onUpdateItemStatus: (itemIndex: number, nextStatus: string) => void;
+  onBumpTicket: () => void;
+  onPrintTicket: () => void;
+  isUpdating?: boolean;
+  isBumping?: boolean;
+  className?: string;
+}
+
+const KDSTicketCard: React.FC<KDSTicketCardProps> = ({
+  ticket,
+  now,
+  workflowMode,
+  onUpdateItemStatus,
+  onBumpTicket,
+  onPrintTicket,
+  isUpdating,
+  isBumping,
+  className = '',
+}) => {
+  const elapsedMins = Math.floor((now.getTime() - new Date(ticket.createdAt).getTime()) / 60000);
+  const elapsedSecs = Math.floor(((now.getTime() - new Date(ticket.createdAt).getTime()) % 60000) / 1000);
+  const timeStr = `${elapsedMins}m ${elapsedSecs < 10 ? '0' : ''}${elapsedSecs}s`;
+
+  const isRush = elapsedMins >= 15;
+  const isWarning = elapsedMins >= 8 && !isRush;
+
+  const allItemsServed = ticket.items.every((i) => i.itemStatus === 'SERVED');
+  const allItemsReady = ticket.items.every((i) => i.itemStatus === 'READY' || i.itemStatus === 'SERVED');
+  const readyCount = ticket.items.filter((i) => i.itemStatus === 'READY' || i.itemStatus === 'SERVED').length;
+
+  const getNextItemStatus = (current?: string) => {
+    switch (current) {
+      case 'PREPARING':
+        return workflowMode === 'THREE_STEP' ? 'SERVED' : 'READY';
+      case 'READY':
+        return 'SERVED';
+      case 'PENDING':
+      default:
+        return 'PREPARING';
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.15 }}
+      className={`rounded-2xl flex flex-col bg-white border shadow-xs overflow-hidden select-none transition-all ${
+        isRush
+          ? 'border-rose-400 ring-2 ring-rose-400/30'
+          : isWarning
+          ? 'border-amber-400'
+          : 'border-slate-200 hover:border-slate-300'
+      } ${className}`}
+    >
+      {/* ── Top Urgency Header Bar ── */}
+      <div
+        className={`px-3.5 py-2 flex items-center justify-between border-b shrink-0 ${
+          isRush
+            ? 'bg-rose-500 text-white border-rose-600'
+            : isWarning
+            ? 'bg-amber-400 text-slate-950 border-amber-500'
+            : 'bg-slate-900 text-white border-slate-950'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-mono text-base font-black tracking-tight leading-none">
+            #{ticket.orderNumber}
+          </span>
+          {ticket.roundNumber && (
+            <span
+              className={`font-mono text-[10px] font-black uppercase px-1.5 py-0.2 rounded-md ${
+                isRush
+                  ? 'bg-rose-700 text-white'
+                  : isWarning
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-slate-800 text-amber-300'
+              }`}
+            >
+              R{ticket.roundNumber}
+            </span>
+          )}
+        </div>
+
+        {/* Live Elapsed Stopwatch */}
+        <div className="flex items-center gap-1 font-mono text-xs font-black">
+          {isRush ? (
+            <span className="flex items-center gap-1 bg-rose-700 px-2 py-0.5 rounded-lg text-white animate-pulse">
+              <Flame className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <span>{timeStr} RUSH</span>
+            </span>
+          ) : isWarning ? (
+            <span className="flex items-center gap-1 bg-amber-500 px-2 py-0.5 rounded-lg text-slate-950 font-black">
+              <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <span>{timeStr}</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-slate-300">
+              <Timer className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2.5} />
+              <span>{timeStr}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Ticket Metadata: Channel + Table / Customer ── */}
+      <div className="px-3 py-2 bg-slate-50/90 border-b border-slate-150 flex items-center justify-between gap-2 shrink-0">
+        <div className="min-w-0 flex-1">
+          {ticket.tableId ? (
+            <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 truncate">
+              <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" strokeWidth={2.5} />
+              <span className="truncate">
+                {ticket.tableId.displayName || ticket.tableId.tableNumber
+                  ? `${ticket.tableId.displayName || ticket.tableId.tableNumber}`
+                  : 'Table'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 truncate">
+              <UserIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" strokeWidth={2.5} />
+              <span className="truncate">{ticket.customerName || 'Walk-in Guest'}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0">
+          {ticket.orderMode === 'TAKEAWAY' ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+              <ShoppingBag className="w-3 h-3" />
+              <span>Takeaway</span>
+            </span>
+          ) : ticket.orderMode === 'COUNTER' ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 border border-indigo-200">
+              <CreditCard className="w-3 h-3" />
+              <span>POS</span>
+            </span>
+          ) : ticket.orderMode === 'DELIVERY' ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-sky-100 text-sky-900 border border-sky-200">
+              <Package className="w-3 h-3" />
+              <span>Delivery</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-200">
+              <Utensils className="w-3 h-3" />
+              <span>Dine-In</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Customer Note / Special Instructions Banner ── */}
+      {ticket.customerNote && (
+        <div className="mx-3 mt-2.5 p-2 bg-amber-50 border border-amber-300 rounded-xl text-xs font-extrabold text-amber-950 flex items-start gap-1.5 shrink-0 shadow-2xs">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" strokeWidth={2.5} />
+          <span className="leading-tight">"{ticket.customerNote}"</span>
+        </div>
+      )}
+
+      {/* ── Scrollable Items Checklist Area ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+        {ticket.items.map((item, idx) => {
+          const statusVal = item.itemStatus || 'PENDING';
+          const isDone = statusVal === 'SERVED';
+          const isReady = statusVal === 'READY';
+          const isPrep = statusVal === 'PREPARING';
+
+          return (
+            <div
+              key={idx}
+              className={`p-2.5 rounded-xl border transition-all ${
+                isDone
+                  ? 'bg-slate-100/70 border-slate-200 opacity-60'
+                  : isReady
+                  ? 'bg-emerald-50/90 border-emerald-300 shadow-2xs ring-1 ring-emerald-400/20'
+                  : isPrep
+                  ? 'bg-indigo-50/90 border-indigo-300 shadow-2xs ring-1 ring-indigo-400/20'
+                  : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                {/* Quantity Badge & Item Details */}
+                <div className="flex items-start gap-2 min-w-0 flex-1">
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-black text-xs shrink-0 shadow-inner ${
+                      isDone
+                        ? 'bg-slate-300 text-slate-600'
+                        : isReady
+                        ? 'bg-emerald-600 text-white'
+                        : isPrep
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-900 text-amber-300'
+                    }`}
+                  >
+                    {item.quantity}x
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={`text-xs font-black leading-snug block break-words ${
+                          isDone ? 'line-through text-slate-400' : 'text-slate-950'
+                        }`}
+                      >
+                        {item.nameSnapshot}
+                      </span>
+                      {item.isCombo && (
+                        <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-300 px-1.5 py-0.2 rounded font-mono">
+                          COMBO
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Clean Itemized Combo Breakdown */}
+                    {item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0 && (
+                      <div className="mt-1.5 p-2 bg-amber-50/90 border border-amber-200 rounded-lg space-y-1">
+                        <div className="text-[9px] font-black uppercase text-amber-900 tracking-wider flex items-center gap-1">
+                          <Package className="w-3 h-3 text-amber-600" />
+                          <span>Includes ({item.quantity} portions):</span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {item.comboItemsSnapshot.map((ci, cIdx) => (
+                            <div
+                              key={cIdx}
+                              className="flex items-center gap-1.5 text-xs font-bold text-amber-950 leading-tight"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                              <span className="font-mono font-black text-amber-900">
+                                {ci.quantity * item.quantity}x
+                              </span>
+                              <span className="truncate">{ci.name}</span>
+                              {ci.categoryName && (
+                                <span className="text-[9px] font-semibold text-amber-700/80">
+                                  • {ci.categoryName}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add-ons */}
+                    {item.selectedAddOns && item.selectedAddOns.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap mt-1">
+                        {item.selectedAddOns.map((addon, aIdx) => (
+                          <span
+                            key={aIdx}
+                            className="text-[10px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded border border-slate-200"
+                          >
+                            +{addon.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Item-level Special Instructions */}
+                    {item.specialInstructions && (
+                      <div className="mt-1 p-1.5 bg-amber-100/70 border border-amber-300 rounded-md text-[10px] font-extrabold text-amber-950 flex items-start gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                        <span>"{item.specialInstructions}"</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tap-to-Advance Status Button */}
+                <button
+                  type="button"
+                  onClick={() => onUpdateItemStatus(idx, getNextItemStatus(statusVal))}
+                  disabled={isDone || isUpdating}
+                  className={`px-2.5 py-1 text-xs font-black rounded-lg transition shrink-0 flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
+                    isDone
+                      ? 'bg-slate-200 text-slate-500 border border-slate-300'
+                      : isReady
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      : isPrep
+                      ? workflowMode === 'THREE_STEP'
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black'
+                  }`}
+                  title="Click to advance item prep status"
+                >
+                  {isDone ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-700" strokeWidth={3} />
+                      <span>Done</span>
+                    </>
+                  ) : isReady ? (
+                    <>
+                      <Utensils className="w-3 h-3" strokeWidth={2.5} />
+                      <span>Serve</span>
+                    </>
+                  ) : isPrep ? (
+                    workflowMode === 'THREE_STEP' ? (
+                      <>
+                        <Utensils className="w-3 h-3" strokeWidth={2.5} />
+                        <span>Serve</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3" strokeWidth={2.5} />
+                        <span>Ready</span>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <ChefHat className="w-3 h-3" strokeWidth={2.5} />
+                      <span>Prep</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Pinned Card Footer ── */}
+      <div className="p-2.5 bg-slate-50 border-t border-slate-200 shrink-0 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onPrintTicket}
+          className="h-9 w-9 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs shrink-0"
+          title="Print KOT / Kitchen Order Ticket"
+        >
+          <Printer className="w-4 h-4 text-amber-600" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onBumpTicket}
+          disabled={allItemsServed || isBumping}
+          className={`flex-1 h-9 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
+            allItemsServed
+              ? 'bg-slate-200 text-slate-400 border border-slate-300'
+              : allItemsReady
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+              : 'bg-slate-950 hover:bg-slate-800 text-amber-400'
+          }`}
+        >
+          {isBumping ? (
+            <Loader className="w-4 h-4 animate-spin text-amber-400" />
+          ) : (
+            <>
+              <CheckCircle2
+                className={`w-4 h-4 ${allItemsReady ? 'text-white' : 'text-emerald-400'}`}
+                strokeWidth={2.5}
+              />
+              <span>
+                {allItemsServed
+                  ? 'Ticket Served'
+                  : allItemsReady
+                  ? 'Serve All (Ready)'
+                  : `Bump Order (${readyCount}/${ticket.items.length})`}
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+    </motion.div>
   );
 };
 
