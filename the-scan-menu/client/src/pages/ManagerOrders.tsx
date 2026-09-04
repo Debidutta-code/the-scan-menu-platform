@@ -344,6 +344,12 @@ export const ManagerOrders: React.FC = () => {
   };
 
   const handleFreeTable = useCallback((order: Order, printBill = true) => {
+    const timestamp = Date.now();
+    if (timestamp - lastAdvanceTimestampRef.current < 250) {
+      return;
+    }
+    lastAdvanceTimestampRef.current = timestamp;
+
     if (printBill) {
       printOrderTicket(order, restaurantInfo, 'CUSTOMER');
     }

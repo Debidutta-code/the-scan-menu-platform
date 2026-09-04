@@ -523,6 +523,12 @@ export class OrderService {
     const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
     const workflowMode = settings?.workflow?.orderWorkflowMode || 'FIVE_STEP';
 
+    // If order has already reached terminal COMPLETED status (e.g. cleared/settled by cashier in rapid sequence),
+    // treat incoming intermediate status updates as idempotent no-ops rather than throwing 400 errors.
+    if (order.status === 'COMPLETED') {
+      return order;
+    }
+
     const validation = validateStatusTransition(order.status, nextStatus, userRole, workflowMode);
     if (!validation.isValid) {
       const statusCode = validation.errorCode === 'CANNOT_CANCEL_UNAUTHORIZED' ? 403 : 400;

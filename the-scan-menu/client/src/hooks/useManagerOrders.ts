@@ -347,11 +347,11 @@ export function useManagerOrders({
       }
     },
     onSettled: (_data, _error, variables) => {
-      mutationQueueRef.current.delete(variables.orderId);
       const current = inFlightMutationsRef.current.get(variables.orderId);
       if (current) {
         const newCount = Math.max(0, current.count - 1);
         if (newCount === 0) {
+          mutationQueueRef.current.delete(variables.orderId);
           // Grace buffer to avoid trailing WebSocket bounces
           setTimeout(() => {
             const latest = inFlightMutationsRef.current.get(variables.orderId);
@@ -362,6 +362,8 @@ export function useManagerOrders({
         } else {
           inFlightMutationsRef.current.set(variables.orderId, { ...current, count: newCount });
         }
+      } else {
+        mutationQueueRef.current.delete(variables.orderId);
       }
     },
   });
@@ -423,8 +425,21 @@ export function useManagerOrders({
   // C. Optimistic Clear / Settle Order Mutation (Free Table & Clear from Live Board)
   const clearOrderMutation = useMutation({
     mutationFn: async ({ orderId }: { orderId: string }) => {
-      const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/clear`);
-      return res.data;
+      // 1. Sequence strictly behind any in-flight status mutations for this orderId
+      const previousPromise = mutationQueueRef.current.get(orderId) || Promise.resolve();
+      const currentPromise = previousPromise.then(
+        async () => {
+          const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/clear`);
+          return res.data;
+        },
+        async () => {
+          // Even if an intermediate status transition failed or was noop, still execute clear
+          const res = await apiClient.post(`/restaurants/${activeRestaurantId}/orders/${orderId}/clear`);
+          return res.data;
+        }
+      );
+      mutationQueueRef.current.set(orderId, currentPromise.catch(() => {}));
+      return currentPromise;
     },
     onMutate: async ({ orderId }) => {
       await queryClient.cancelQueries({ queryKey: ['activeOrdersQueue', activeRestaurantId] });
@@ -454,6 +469,8 @@ export function useManagerOrders({
       toast(`Table freed & Order #${orderNum} cleared!`, 'success');
     },
     onSettled: (_data, _error, variables) => {
+      mutationQueueRef.current.delete(variables.orderId);
+      inFlightMutationsRef.current.delete(variables.orderId);
       setPendingOrderIds((prev) => {
         const next = new Set(prev);
         next.delete(variables.orderId);
