@@ -83,7 +83,6 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
   const targetRestaurantId = propRestaurantId || activeRestaurantId;
 
   const [activePaymentMode, setActivePaymentMode] = useState<'POSTPAID' | 'PREPAID'>('POSTPAID');
-  const [serverActiveMode, setServerActiveMode] = useState<'POSTPAID' | 'PREPAID'>('POSTPAID');
 
   const [cashEnabled, setCashEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
@@ -152,7 +151,6 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         setPostpaidAllowed(cfg.ordering.postpaidEnabled !== false);
         const resolvedMode = cfg.ordering.activeMode || cfg.activeMode || 'POSTPAID';
         setActivePaymentMode(resolvedMode);
-        setServerActiveMode(resolvedMode);
       }
 
       if (cfg.preferredMethodOrder && Array.isArray(cfg.preferredMethodOrder)) {
@@ -191,8 +189,8 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (hasActiveOrders && activePaymentMode !== serverActiveMode) {
-      toast('Cannot change dining payment policy while active orders are processing', 'error');
+    if (hasActiveOrders) {
+      toast('Cannot update payment configuration while active orders are processing', 'error');
       return;
     }
 
@@ -371,9 +369,16 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
       <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
         <div className="border-b border-slate-100 pb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
-              Accepted Payment Methods &amp; Priority Sorting
-            </h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+                Accepted Payment Methods &amp; Priority Sorting
+              </h4>
+              {hasActiveOrders && (
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono bg-amber-200/70 text-amber-900 border border-amber-300">
+                  Locked ({activeOrdersCount} Active Orders)
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Enable channels and use the <span className="font-bold text-slate-700">▲ / ▼ arrows</span> to control which payment option appears first on the order screen.
             </p>
@@ -391,12 +396,16 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             const Icon = meta.icon;
             const isFirst = index === 0;
             const isLast = index === methodOrder.length - 1;
+            const isCheckboxDisabled =
+              hasActiveOrders || (meta.id === 'RAZORPAY' && razorpayStatus !== 'CONNECTED');
 
             return (
               <div
                 key={meta.id}
                 className={`p-2.5 sm:p-3 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs ${
-                  isChecked
+                  hasActiveOrders
+                    ? 'border-slate-200/80 bg-slate-50/60 opacity-60'
+                    : isChecked
                     ? 'border-slate-200 bg-white hover:border-slate-300'
                     : 'border-slate-150 bg-slate-50/70 opacity-60'
                 }`}
@@ -406,10 +415,10 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                   <input
                     type="checkbox"
                     checked={isChecked}
-                    disabled={meta.id === 'RAZORPAY' && razorpayStatus !== 'CONNECTED'}
+                    disabled={isCheckboxDisabled}
                     onChange={(e) => setMethodChecked(meta.key, e.target.checked)}
                     className={`h-4 w-4 rounded text-amber-500 accent-amber-500 border-slate-300 ${
-                      meta.id === 'RAZORPAY' && razorpayStatus !== 'CONNECTED' ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                      isCheckboxDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                   />
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
@@ -418,7 +427,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                     <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-bold text-slate-900">{meta.name}</span>
                       <span className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
                         {meta.badge}
@@ -428,6 +437,11 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                           razorpayStatus === 'CONNECTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                         }`}>
                           {razorpayStatus === 'CONNECTED' ? 'Super Admin Enabled' : 'Requires Super Admin'}
+                        </span>
+                      )}
+                      {hasActiveOrders && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono bg-amber-100 text-amber-800">
+                          Locked
                         </span>
                       )}
                     </div>
@@ -448,7 +462,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                   <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                     <button
                       type="button"
-                      disabled={isFirst}
+                      disabled={hasActiveOrders || isFirst}
                       onClick={() => moveMethod(index, 'up')}
                       title="Move Up (Higher Priority)"
                       className="p-1 rounded hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
@@ -457,7 +471,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
                     </button>
                     <button
                       type="button"
-                      disabled={isLast}
+                      disabled={hasActiveOrders || isLast}
                       onClick={() => moveMethod(index, 'down')}
                       title="Move Down (Lower Priority)"
                       className="p-1 rounded hover:bg-white text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition"
@@ -475,16 +489,28 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         {upiEnabled && (
           <div className="pt-2">
             <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-3 sm:p-3.5 space-y-2 shadow-2xs">
-              <label className="block text-xs font-bold text-slate-900">
-                Merchant UPI ID (VPA) <span className="text-amber-600">*</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-900">
+                  Merchant UPI ID (VPA) <span className="text-amber-600">*</span>
+                </label>
+                {hasActiveOrders && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono bg-amber-200/70 text-amber-900 border border-amber-300">
+                    Locked during active service
+                  </span>
+                )}
+              </div>
               <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center">
                 <input
                   type="text"
                   value={upiId}
+                  disabled={hasActiveOrders}
                   onChange={(e) => setUpiId(e.target.value)}
                   placeholder="e.g. democafe@okhdfcbank"
-                  className="w-full sm:max-w-md px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-amber-400 font-mono font-bold text-slate-900 shadow-2xs"
+                  className={`w-full sm:max-w-md px-3 py-1.5 border rounded-xl text-xs font-mono font-bold shadow-2xs ${
+                    hasActiveOrders
+                      ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
+                      : 'bg-white text-slate-900 border-slate-200 focus:outline-none focus:border-amber-400'
+                  }`}
                 />
                 <span className="text-[11px] text-slate-500 leading-relaxed">
                   Instant scan-and-pay UPI QR codes generated dynamically on customer tables and printed bills.
@@ -527,10 +553,11 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
         <div className="pt-2 flex justify-end">
           <Button
             type="submit"
+            disabled={hasActiveOrders}
             isLoading={updateMutation.isPending}
             leftIcon={<Save className="w-3.5 h-3.5" />}
           >
-            Save Payment Preferences
+            {hasActiveOrders ? `Locked (${activeOrdersCount} Active Orders)` : 'Save Payment Preferences'}
           </Button>
         </div>
       </div>

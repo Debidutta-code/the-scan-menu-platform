@@ -497,8 +497,16 @@ export class RestaurantController {
         return;
       }
 
-      // Validate active orders/sessions before allowing rounding configuration changes
-      if (updateData.roundingConfig !== undefined) {
+      // Validate active orders/sessions before allowing workflow, payment, or rounding configuration changes
+      const isModifyingWorkflowOrPayment =
+        updateData.orderWorkflowMode !== undefined ||
+        updateData.activeMode !== undefined ||
+        updateData.paymentMethods !== undefined ||
+        updateData.paymentConfig !== undefined ||
+        updateData.preferredMethodOrder !== undefined ||
+        updateData.upiId !== undefined;
+
+      if (isModifyingWorkflowOrPayment || updateData.roundingConfig !== undefined) {
         const activeOrdersCount = await orderRepository.count(restaurantId, {
           status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
         });
@@ -510,7 +518,7 @@ export class RestaurantController {
           sendError(
             res,
             'ACTIVE_ORDERS_EXIST',
-            'Cannot modify bill rounding configuration while active dining sessions or open orders exist. Please settle or complete active orders first.',
+            'Cannot modify workflow or payment configuration while active dining sessions or open orders exist. Please settle or complete active orders first.',
             { activeOrdersCount, activeSessionsCount },
             400
           );

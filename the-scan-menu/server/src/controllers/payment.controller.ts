@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { paymentService } from '../services/payment.service';
 import { restaurantSettingsRepository } from '../repositories/restaurantSettings.repository';
+import { orderRepository } from '../repositories/order.repository';
+import { diningSessionRepository } from '../repositories/diningSession.repository';
 import { encrypt } from '../utils/encryption';
 
 class CustomError extends Error {
@@ -172,6 +174,21 @@ export class PaymentController {
       const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
       if (!settings) {
         throw new CustomError('Settings not found', 404);
+      }
+
+      // Server-side active orders & sessions guard: Prevent changing payment configuration during live service
+      const activeOrdersCount = await orderRepository.count(restaurantId, {
+        status: { $in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'] },
+      });
+      const activeSessionsCount = await diningSessionRepository.countByRestaurantId(restaurantId, {
+        status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+      });
+
+      if (activeOrdersCount > 0 || activeSessionsCount > 0) {
+        throw new CustomError(
+          'Cannot modify payment configuration while active dining sessions or open orders exist. Please settle or complete active orders first.',
+          400
+        );
       }
 
       if (activeMode) {
