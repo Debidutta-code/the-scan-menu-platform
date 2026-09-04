@@ -137,6 +137,8 @@ export const MenuTab: React.FC<MenuTabProps> = ({
             getItemCartQuantity={getItemCartQuantity}
             onItemClick={onItemCardClick}
             onQuickAdd={onQuickAdd}
+            onQuickIncrement={onQuickIncrement}
+            onQuickDecrement={onQuickDecrement}
           />
         </div>
       )}
@@ -263,27 +265,30 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                                 <Sparkles className="w-5 h-5 opacity-40" strokeWidth={1.75} />
                               </div>
                             )}
-                            {badge && item.isAvailable && (
-                              <div className="absolute top-1 left-1">
-                                <span className="text-[8px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-slate-950/85 rounded-full backdrop-blur-sm">
-                                  {badge}
-                                </span>
+
+                            {/* Badges on Thumbnail (Clean single-line pills) */}
+                            {item.isAvailable && (
+                              <div className="absolute top-1 left-1 z-10">
+                                {item.isChefsSpecial ? (
+                                  <span className="text-[8px] font-black text-amber-950 uppercase tracking-tight px-1.5 py-0.5 bg-amber-400/95 backdrop-blur-xs rounded-full shadow-2xs flex items-center gap-0.5 whitespace-nowrap">
+                                    <Sparkles className="w-2 h-2 fill-amber-950 text-amber-950" /> Special
+                                  </span>
+                                ) : isCombo ? (
+                                  <span className="text-[8px] font-black text-indigo-950 uppercase tracking-tight px-1.5 py-0.5 bg-indigo-300/95 backdrop-blur-xs rounded-full shadow-2xs whitespace-nowrap">
+                                    Combo
+                                  </span>
+                                ) : item.isTopPick ? (
+                                  <span className="text-[8px] font-black text-amber-950 uppercase tracking-tight px-1.5 py-0.5 bg-amber-300/95 backdrop-blur-xs rounded-full shadow-2xs whitespace-nowrap">
+                                    ⭐ Top
+                                  </span>
+                                ) : badge ? (
+                                  <span className="text-[8px] font-bold text-white uppercase tracking-tight px-1.5 py-0.5 bg-slate-900/90 backdrop-blur-xs rounded-full shadow-2xs whitespace-nowrap">
+                                    {badge}
+                                  </span>
+                                ) : null}
                               </div>
                             )}
-                            {isCombo && item.isAvailable && !badge && (
-                              <div className="absolute top-1 left-1">
-                                <span className="text-[8px] font-black text-amber-950 uppercase tracking-wider px-1.5 py-0.5 bg-amber-400 rounded-full shadow-2xs">
-                                  Combo
-                                </span>
-                              </div>
-                            )}
-                            {item.isChefsSpecial && item.isAvailable && !badge && !isCombo && (
-                              <div className="absolute top-1 left-1">
-                                <span className="text-[8px] font-black text-amber-950 uppercase tracking-wider px-1.5 py-0.5 bg-amber-400 rounded-full shadow-2xs flex items-center gap-0.5">
-                                  <Sparkles className="w-2.5 h-2.5" /> Chef's Special
-                                </span>
-                              </div>
-                            )}
+
                             {!item.isAvailable && (
                               <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
                                 <span className="text-[9px] font-bold text-white uppercase tracking-wider px-1.5 py-0.5 bg-black/60 rounded">
@@ -296,9 +301,31 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                           {/* Details Header */}
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-start justify-between gap-2">
-                              <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug break-words">
-                                {item.name}
-                              </h4>
+                              <div className="min-w-0 flex-1">
+                                {(item.isChefsSpecial || isCombo || item.isTopPick) && (
+                                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                    {item.isChefsSpecial && (
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-1.5 py-0.5 rounded-md">
+                                        <Sparkles className="w-2.5 h-2.5 text-amber-600 fill-amber-600" />
+                                        Chef's Special
+                                      </span>
+                                    )}
+                                    {isCombo && (
+                                      <span className="inline-flex items-center text-[9px] font-extrabold text-indigo-900 bg-indigo-100/90 border border-indigo-300/80 px-1.5 py-0.5 rounded-md">
+                                        Combo Meal
+                                      </span>
+                                    )}
+                                    {item.isTopPick && !item.isChefsSpecial && (
+                                      <span className="inline-flex items-center text-[9px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-1.5 py-0.5 rounded-md">
+                                        ⭐ Top Pick
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug break-words">
+                                  {item.name}
+                                </h4>
+                              </div>
                               <div className="flex items-center gap-1 shrink-0 pt-0.5">
                                 <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
                                 {item.isSpicy && <MenuBadge variant="spicy" />}

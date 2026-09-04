@@ -133,6 +133,24 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
             </div>
 
             <div className="space-y-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {selectedItem.isChefsSpecial && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md shadow-2xs">
+                    <Sparkles className="w-3 h-3 text-amber-600 fill-amber-600" />
+                    Chef's Special
+                  </span>
+                )}
+                {selectedItem.isCombo && (
+                  <span className="inline-flex items-center text-[10px] font-extrabold text-indigo-900 bg-indigo-100/90 border border-indigo-300/80 px-2 py-0.5 rounded-md shadow-2xs">
+                    Combo Meal Bundle
+                  </span>
+                )}
+                {selectedItem.isTopPick && !selectedItem.isChefsSpecial && (
+                  <span className="inline-flex items-center text-[10px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md shadow-2xs">
+                    ⭐ Top Pick
+                  </span>
+                )}
+              </div>
               <h3 className="font-display text-3xl font-normal text-slate-900 leading-tight">{selectedItem.name}</h3>
               {selectedItem.description && <p className="text-slate-500 text-sm leading-relaxed">{selectedItem.description}</p>}
               <div className="flex items-center gap-2 flex-wrap">

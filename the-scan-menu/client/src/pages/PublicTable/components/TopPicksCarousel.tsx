@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, Plus, Check } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MenuItem } from '../../../services/restaurant.service';
-import { MenuBadge } from './MenuBadge';
+import { MenuBadge, QuickAddControl } from './MenuBadge';
 import { formatPrice } from '../utils';
 
 interface TopPicksCarouselProps {
@@ -11,6 +11,8 @@ interface TopPicksCarouselProps {
   getItemCartQuantity: (itemId: string) => number;
   onItemClick: (item: MenuItem) => void;
   onQuickAdd: (item: MenuItem, e: React.MouseEvent) => void;
+  onQuickIncrement: (item: MenuItem, e: React.MouseEvent) => void;
+  onQuickDecrement: (item: MenuItem, e: React.MouseEvent) => void;
 }
 
 export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
@@ -20,6 +22,8 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
   getItemCartQuantity,
   onItemClick,
   onQuickAdd,
+  onQuickIncrement,
+  onQuickDecrement,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -83,15 +87,15 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
       {/* Carousel Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600">
-            <Sparkles className="w-4 h-4 fill-amber-500 text-amber-500" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 shadow-xs shrink-0">
+            <Sparkles className="w-4 h-4 fill-slate-950 text-slate-950" />
           </div>
           <div>
             <h3 className="font-bold text-sm text-slate-900 leading-tight">
-              Top Picks &amp; Combos
+              Chef's Specials &amp; Top Picks
             </h3>
             <p className="text-[10px] text-slate-500 font-medium">
-              Handpicked bundles &amp; special savings
+              Handcrafted specials &amp; value bundles
             </p>
           </div>
         </div>
@@ -104,7 +108,7 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
             disabled={!canScrollLeft}
             className={`w-7 h-7 rounded-full flex items-center justify-center border transition ${
               canScrollLeft
-                ? 'bg-white border-slate-200 text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer'
+                ? 'bg-white border-slate-200 text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer active:scale-90'
                 : 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
             }`}
             aria-label="Scroll left"
@@ -117,7 +121,7 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
             disabled={!canScrollRight}
             className={`w-7 h-7 rounded-full flex items-center justify-center border transition ${
               canScrollRight
-                ? 'bg-white border-slate-200 text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer'
+                ? 'bg-white border-slate-200 text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer active:scale-90'
                 : 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
             }`}
             aria-label="Scroll right"
@@ -131,7 +135,7 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
       <div
         ref={scrollContainerRef}
         onScroll={checkScrollability}
-        className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory py-1 px-1 -mx-1"
+        className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory py-1.5 px-1 -mx-1"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {topPicks.map((item) => {
@@ -139,15 +143,17 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
           const hasDiscount = item.originalPrice && item.originalPrice > item.price;
           const savingsAmount = hasDiscount ? item.originalPrice! - item.price : 0;
           const isCombo = !!item.isCombo;
+          const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
+          const isCustomizable = (isPortion && !!item.variants && item.variants.length > 0) || (!!item.addOns && item.addOns.length > 0);
 
           return (
             <div
               key={item._id}
               onClick={() => onItemClick(item)}
-              className="snap-start shrink-0 w-[240px] sm:w-[260px] bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col overflow-hidden active:scale-[0.985]"
+              className="snap-start shrink-0 w-[240px] sm:w-[260px] bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col overflow-hidden active:scale-[0.985]"
             >
               {/* Card Image Area */}
-              <div className="relative w-full h-32 bg-slate-100 overflow-hidden">
+              <div className="relative w-full h-34 bg-slate-100 overflow-hidden">
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
@@ -169,26 +175,26 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
                   <MenuBadge variant={item.isVegetarian ? 'veg' : 'nonveg'} />
                 </div>
 
-                {/* Savings Pill or Combo Pill in Top-Right */}
-                {hasDiscount ? (
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className="text-[10px] font-black text-emerald-950 bg-emerald-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-emerald-400">
+                {/* Priority Badges in Top-Right */}
+                <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+                  {item.isChefsSpecial ? (
+                    <span className="text-[9px] font-black text-amber-950 bg-amber-400/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-amber-500/30 flex items-center gap-0.5">
+                      <Sparkles className="w-2.5 h-2.5 fill-amber-950 text-amber-950" /> Chef's Special
+                    </span>
+                  ) : hasDiscount ? (
+                    <span className="text-[9px] font-black text-emerald-950 bg-emerald-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-emerald-400">
                       Save {formatPrice(savingsAmount, currency)}
                     </span>
-                  </div>
-                ) : isCombo ? (
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide">
+                  ) : isCombo ? (
+                    <span className="text-[9px] font-black text-indigo-950 bg-indigo-200/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-indigo-300">
                       Combo Deal
                     </span>
-                  </div>
-                ) : item.isTopPick ? (
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className="text-[10px] font-black text-amber-950 bg-amber-300 px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide">
+                  ) : item.isTopPick ? (
+                    <span className="text-[9px] font-black text-amber-950 bg-amber-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-amber-400">
                       ⭐ Top Pick
                     </span>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
 
               {/* Card Content */}
@@ -224,30 +230,13 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
                   </div>
 
                   {isOrderingEnabled && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickAdd(item, e);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 cursor-pointer shadow-xs ${
-                        cartQty > 0
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          : 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold active:scale-95'
-                      }`}
-                    >
-                      {cartQty > 0 ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          <span>{cartQty} in Cart</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                          <span>ADD</span>
-                        </>
-                      )}
-                    </button>
+                    <QuickAddControl
+                      cartQty={cartQty}
+                      isCustomizable={isCustomizable}
+                      onAdd={(e) => onQuickAdd(item, e)}
+                      onIncrement={(e) => onQuickIncrement(item, e)}
+                      onDecrement={(e) => onQuickDecrement(item, e)}
+                    />
                   )}
                 </div>
               </div>

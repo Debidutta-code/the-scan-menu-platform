@@ -1293,7 +1293,7 @@ export const seedDatabase = async () => {
       },
       {
         orderNumber: 105,
-        table: seededTables[0],
+        table: seededTables[4],
         mode: 'DINE_IN',
         source: 'QR',
         status: 'PREPARING',
