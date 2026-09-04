@@ -128,16 +128,16 @@ export class PaymentController {
       }
 
       const p = settings.paymentConfig;
-      const isRazorpayConfigured = Boolean(p?.razorpayConfig?.keyId && p?.razorpayConfig?.keySecret);
+      const isRazorpayConfigured = Boolean(p?.razorpayEnabled && p?.razorpayConfig?.keyId && p?.razorpayConfig?.keySecret);
 
       const safeConfig = {
         activeProvider: p?.activeProvider || 'CASH',
         activeMode: p?.activeMode || 'POSTPAID',
-        paymentMethods: p?.paymentMethods || {
-          cash: true,
-          card: true,
-          upi: true,
-          razorpay: false,
+        paymentMethods: {
+          cash: p?.paymentMethods?.cash ?? true,
+          card: p?.paymentMethods?.card ?? true,
+          upi: p?.paymentMethods?.upi ?? true,
+          razorpay: Boolean(p?.razorpayEnabled && p?.paymentMethods?.razorpay),
         },
         manualUpi: {
           enabled: p?.manualUpiEnabled ?? p?.paymentMethods?.upi ?? true,
@@ -145,9 +145,9 @@ export class PaymentController {
           displayName: p?.upiDisplayName || '',
         },
         razorpay: {
-          enabled: p?.razorpayEnabled ?? p?.paymentMethods?.razorpay ?? false,
+          enabled: Boolean(p?.razorpayEnabled && p?.paymentMethods?.razorpay),
           status: isRazorpayConfigured ? 'CONNECTED' : 'NOT_CONFIGURED',
-          keyId: p?.razorpayConfig?.keyId || '',
+          keyId: isRazorpayConfigured ? (p?.razorpayConfig?.keyId || '') : '',
         },
         ordering: {
           prepaidEnabled: p?.prepaidEnabled ?? true,

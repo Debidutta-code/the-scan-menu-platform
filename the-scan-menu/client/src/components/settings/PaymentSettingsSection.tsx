@@ -113,21 +113,21 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
     if (configResponse?.data) {
       const cfg = configResponse.data;
 
+      if (cfg.razorpay) {
+        setRazorpayStatus(cfg.razorpay.status || 'NOT_CONFIGURED');
+        setRazorpayKeyId(cfg.razorpay.keyId || '');
+      }
+
       if (cfg.paymentMethods) {
         setCashEnabled(cfg.paymentMethods.cash !== false);
         setCardEnabled(cfg.paymentMethods.card !== false);
         setUpiEnabled(cfg.paymentMethods.upi !== false);
-        setRazorpayEnabled(!!cfg.paymentMethods.razorpay);
+        setRazorpayEnabled(cfg.razorpay?.status === 'CONNECTED' && !!cfg.paymentMethods.razorpay);
       }
 
       if (cfg.manualUpi) {
         setUpiId(cfg.manualUpi.upiId || '');
         setUpiDisplayName(cfg.manualUpi.displayName || '');
-      }
-
-      if (cfg.razorpay) {
-        setRazorpayStatus(cfg.razorpay.status || 'NOT_CONFIGURED');
-        setRazorpayKeyId(cfg.razorpay.keyId || '');
       }
 
       if (cfg.ordering) {
@@ -199,7 +199,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
     if (key === 'upi') return upiEnabled;
     if (key === 'cash') return cashEnabled;
     if (key === 'card') return cardEnabled;
-    if (key === 'razorpay') return razorpayEnabled;
+    if (key === 'razorpay') return razorpayStatus === 'CONNECTED' && razorpayEnabled;
     return false;
   };
 
