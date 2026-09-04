@@ -41,7 +41,7 @@ export class EscPosBuilder {
   }
 
   doubleSize(enable: boolean = true): this {
-    this.buffer.push(0x1d, 0x21, enable ? 0x11 : 0x00); // GS ! (Double height & width)
+    this.buffer.push(0x1d, 0x21, enable ? 0x11 : 0x00); // GS !
     return this;
   }
 
@@ -91,23 +91,6 @@ export class EscPosBuilder {
     return this;
   }
 
-  threeColumnRow(col1: string, col2: string, col3: string): this {
-    // E.g. Item (28 chars) | Qty (6 chars) | Price (12 chars)
-    const col2Width = 6;
-    const col3Width = 10;
-    const col1Width = this.maxChars - col2Width - col3Width;
-
-    const c1 = col1.length > col1Width ? col1.substring(0, col1Width - 1) : col1.padEnd(col1Width);
-    const c2 = col2.padStart(col2Width);
-    const c3 = col3.padStart(col3Width);
-
-    this.line(c1 + c2 + c3);
-    return this;
-  }
-
-  /**
-   * Helper to wrap long strings into chunks of specified maximum width
-   */
   wordWrap(text: string, maxWidth: number): string[] {
     if (!text) return [];
     const words = text.split(' ');
@@ -130,10 +113,6 @@ export class EscPosBuilder {
     return lines;
   }
 
-  /**
-   * Formats a line item with clean column wrapping for 80mm / 58mm thermal receipts
-   * Ensures item description never overlaps the amount or quantity columns
-   */
   multilineItemRow(
     qty: number | string,
     name: string,
@@ -143,7 +122,7 @@ export class EscPosBuilder {
   ): this {
     const qtyWidth = this.maxChars === 32 ? 3 : 4;
     const priceWidth = this.maxChars === 32 ? 9 : 11;
-    const nameWidth = this.maxChars - qtyWidth - priceWidth - 2; // 2 spaces for padding
+    const nameWidth = this.maxChars - qtyWidth - priceWidth - 2;
 
     const qtyStr = String(qty).padEnd(qtyWidth);
     const pricePadded = priceStr.padStart(priceWidth);
@@ -152,15 +131,12 @@ export class EscPosBuilder {
     if (nameLines.length === 0) {
       this.line(`${qtyStr} ${''.padEnd(nameWidth)} ${pricePadded}`);
     } else {
-      // First line includes Qty, first chunk of Name, and Price
       this.line(`${qtyStr} ${nameLines[0].padEnd(nameWidth)} ${pricePadded}`);
-      // Subsequent name lines indented past the Qty column
       for (let i = 1; i < nameLines.length; i++) {
         this.line(`${' '.repeat(qtyWidth + 1)}${nameLines[i]}`);
       }
     }
 
-    // Add-on lines
     if (addOns && addOns.length > 0) {
       for (const addon of addOns) {
         const addonLines = this.wordWrap(`+ ${addon}`, nameWidth + priceWidth);
@@ -170,7 +146,6 @@ export class EscPosBuilder {
       }
     }
 
-    // Special instruction notes
     if (notes) {
       const noteLines = this.wordWrap(`* ${notes}`, nameWidth + priceWidth);
       for (const nl of noteLines) {

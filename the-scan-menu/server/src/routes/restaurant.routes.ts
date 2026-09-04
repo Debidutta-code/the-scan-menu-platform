@@ -88,5 +88,6 @@ router.post('/:restaurantId/kds/tickets/:orderId/recall', requireAuth as any, re
 // Direct Network Printer Endpoints (LAN / Thermal)
 router.post('/:restaurantId/printers/test', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, printerController.testPrinter);
 router.post('/:restaurantId/printers/print-kot', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printKOT);
+router.post('/:restaurantId/printers/print-bill', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printBill);
 
 export default router;

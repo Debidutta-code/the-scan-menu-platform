@@ -246,22 +246,29 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
 
             {/* Collapsible Thermal Preview (Optional inspection) */}
             <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center justify-between w-full text-xs font-bold text-slate-500 hover:text-slate-800 py-1.5 transition cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                >
                   {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showPreview ? 'Hide Thermal Preview' : 'Show Thermal Ticket Preview'}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {resolvedPaperWidth} template
-                </span>
-              </button>
+                  <span>{showPreview ? 'Hide Preview' : 'Show Ticket Preview'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePrint('A4_INVOICE')}
+                  className="flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-indigo-600 px-2 py-1 rounded bg-slate-100 hover:bg-indigo-50 border border-slate-200 transition cursor-pointer"
+                  title="Print Formal A4 Laser Sheet / Tax Invoice"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>A4 Full Page</span>
+                </button>
+              </div>
 
               {showPreview && (
-                <div className="mt-3 space-y-2">
+                <div className="mt-2 space-y-2">
                   <div className="flex bg-slate-100 p-0.5 rounded-xl text-xs font-bold">
                     {(['CUSTOMER', 'KITCHEN', 'COUNTER', 'BOTH'] as TicketPrintType[]).map((t) => (
                       <button
@@ -325,7 +332,7 @@ export const PrintOrderModal: React.FC<PrintOrderModalProps> = ({
               onClick={() => handlePrint('CUSTOMER')}
               leftIcon={<Receipt className="w-3.5 h-3.5" />}
             >
-              Print Customer Bill
+              Print Customer Bill (80mm)
             </Button>
           </div>
         </motion.div>

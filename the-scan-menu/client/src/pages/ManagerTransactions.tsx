@@ -109,11 +109,29 @@ export const ManagerTransactions: React.FC = () => {
   const { data: settingsData } = useQuery({
     queryKey: ['restaurantSettings', activeRestaurantId],
     queryFn: async () => {
-      const res = await apiClient.get(`/restaurants/${activeRestaurantId}/settings`);
+      const res = await apiClient.get(`/restaurants/${activeRestaurantId}`);
       return res.data;
     },
     enabled: !!activeRestaurantId,
   });
+
+  const restaurantInfo = useMemo(() => {
+    const s = settingsData?.data || {};
+    return {
+      _id: activeRestaurantId,
+      name: s.name || s.branding?.name || 'Restaurant',
+      address: s.address,
+      phone: s.phone,
+      gstNumber: s.gstNumber || s.paymentConfig?.gstNumber || s.printerConfig?.gstNumber,
+      fssaiNumber: s.fssaiNumber || s.paymentConfig?.fssaiNumber || s.printerConfig?.fssaiNumber,
+      logoUrl: s.branding?.logoUrl || s.logoUrl,
+      currency: s.currency || 'INR',
+      settings: s.settings || s,
+      printerConfig: s.printerConfig || s.settings?.printerConfig,
+      headerMessage: s.settings?.receiptHeader || s.printerConfig?.receiptHeader,
+      footerMessage: s.settings?.receiptFooter || s.printerConfig?.receiptFooter,
+    };
+  }, [settingsData, activeRestaurantId]);
 
   // Fetch Transactions List & Aggregates
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -795,12 +813,12 @@ export const ManagerTransactions: React.FC = () => {
                                             orderMode: tx.mode === 'POSTPAID' ? 'DINE_IN' : 'COUNTER',
                                             createdAt: tx.createdAt,
                                           };
-                                          printOrderTicket(targetOrd, settingsData?.data, 'CUSTOMER');
+                                          printOrderTicket(targetOrd, restaurantInfo, 'CUSTOMER');
                                         }}
                                         className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                                       >
                                         <Printer className="w-3.5 h-3.5 text-amber-400" />
-                                        <span>Print Customer Invoice</span>
+                                        <span>Print Customer Receipt (80mm)</span>
                                       </button>
                                     </div>
                                   </div>
@@ -850,7 +868,7 @@ export const ManagerTransactions: React.FC = () => {
           isOpen={!!printModalOrder}
           onClose={() => setPrintModalOrder(null)}
           order={printModalOrder}
-          restaurantInfo={settingsData?.data}
+          restaurantInfo={restaurantInfo}
         />
       )}
     </div>

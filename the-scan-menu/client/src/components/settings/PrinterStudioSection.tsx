@@ -13,7 +13,12 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { PrintOrderModal } from '../PrintOrderModal';
-import { PrintOrderData } from '../../utils/printReceipt';
+import {
+  PrintOrderData,
+  checkLocalPrintAgentStatus,
+  testLocalPrintAgent,
+  AgentStatusResult,
+} from '../../utils/printReceipt';
 
 export interface PrinterStudioSectionProps {
   restaurantId?: string;
@@ -64,9 +69,27 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
   const [counterPrinterIp, setCounterPrinterIp] = useState('');
   const [counterPrinterPort, setCounterPrinterPort] = useState(9100);
   const [isTestingPrinter, setIsTestingPrinter] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<AgentStatusResult | null>(null);
+  const [isCheckingAgent, setIsCheckingAgent] = useState(false);
 
   // Test Print modal state
   const [testPrintData, setTestPrintData] = useState<PrintOrderData | null>(null);
+
+  const checkAgent = async () => {
+    setIsCheckingAgent(true);
+    try {
+      const res = await checkLocalPrintAgentStatus();
+      setAgentStatus(res);
+    } catch {
+      setAgentStatus({ isOnline: false });
+    } finally {
+      setIsCheckingAgent(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAgent();
+  }, []);
 
   const { data: restaurantResponse, isLoading } = useQuery({
     queryKey: ['restaurantProfileInfo', targetRestaurantId],
@@ -128,9 +151,32 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
     }
     setIsTestingPrinter(true);
     try {
+      // 1. If Local Print Agent is active on 127.0.0.1:18181, test directly via LAN
+      const currentAgentStatus = await checkLocalPrintAgentStatus();
+      setAgentStatus(currentAgentStatus);
+
+      if (currentAgentStatus.isOnline) {
+        const res = await testLocalPrintAgent(
+          ip.trim(),
+          Number(port) || 9100,
+          paperWidth,
+          storeName || 'The Scan Menu',
+          target === 'KITCHEN' ? 'Kitchen Printer' : 'Counter Printer'
+        );
+        if (res.success) {
+          toast(`✓ Test slip printed via Local Agent to ${target.toLowerCase()} printer (${ip}:${port})!`, 'success');
+        } else {
+          toast(res.message || 'Local print agent could not reach printer on LAN', 'error');
+        }
+        return;
+      }
+
+      // 2. Fallback to server endpoint
       const res = await apiClient.post(`/restaurants/${targetRestaurantId}/printers/test`, {
-        ipAddress: ip.trim(),
+        ip: ip.trim(),
         port: Number(port) || 9100,
+        paperWidth,
+        printerName: target === 'KITCHEN' ? 'Kitchen Printer' : 'Counter Printer',
       });
       if (res.data?.success) {
         toast(`Test slip sent to ${target.toLowerCase()} printer (${ip}:${port})!`, 'success');
@@ -668,6 +714,44 @@ export const PrinterStudioSection: React.FC<PrinterStudioSectionProps> = ({
                 </span>
               </div>
             </label>
+
+            {/* Local Print Agent Bridge Status */}
+            <div className="p-3.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-3 h-3 rounded-full shrink-0 ${
+                    agentStatus?.isOnline ? 'bg-emerald-500 ring-4 ring-emerald-100' : 'bg-amber-400 ring-4 ring-amber-100'
+                  }`}
+                />
+                <div>
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                    <span>ScanMenu Print Agent (127.0.0.1:18181):</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        agentStatus?.isOnline
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {agentStatus?.isOnline ? `Online (v${agentStatus.version || '1.0.0'})` : 'Offline / Browser Print Fallback'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {agentStatus?.isOnline
+                      ? 'Local Print Agent is active. Silent ESC/POS printing over private LAN is connected.'
+                      : 'Agent not detected. The POS will seamlessly fall back to 80mm browser thermal printing.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={checkAgent}
+                disabled={isCheckingAgent}
+                className="px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {isCheckingAgent ? 'Checking...' : 'Refresh Status'}
+              </button>
+            </div>
 
             {silentPrintingEnabled && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-200">

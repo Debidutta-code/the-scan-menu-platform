@@ -270,6 +270,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   });
 
   const restaurantInfo = useMemo(() => ({
+    _id: targetRestaurantId,
     name: restaurantData?.data?.name,
     slug: restaurantData?.data?.slug,
     address: restaurantData?.data?.address,
@@ -281,7 +282,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     printerConfig: restaurantData?.data?.printerConfig || restaurantData?.data?.settings?.printerConfig,
     headerMessage: restaurantData?.data?.settings?.receiptHeader || 'Welcome!',
     footerMessage: restaurantData?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
-  }), [restaurantData]);
+  }), [restaurantData, targetRestaurantId]);
 
   const fetchTableConsolidatedOrder = async (
     tableId: string,

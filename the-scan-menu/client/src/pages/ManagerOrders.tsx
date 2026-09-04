@@ -223,6 +223,7 @@ export const ManagerOrders: React.FC = () => {
   }, [restaurantData]);
 
   const restaurantInfo = useMemo(() => ({
+    _id: activeRestaurantId,
     name: restaurantData?.data?.name || 'Restaurant',
     address: restaurantData?.data?.address,
     phone: restaurantData?.data?.phone,
@@ -233,7 +234,7 @@ export const ManagerOrders: React.FC = () => {
     printerConfig: restaurantData?.data?.printerConfig || restaurantData?.data?.settings?.printerConfig,
     headerMessage: restaurantData?.data?.settings?.receiptHeader || 'Welcome!',
     footerMessage: restaurantData?.data?.settings?.receiptFooter || 'Thank you for dining with us!',
-  }), [restaurantData]);
+  }), [restaurantData, activeRestaurantId]);
 
   const workflowSteps = WORKFLOW_STEPS[workflowMode] || WORKFLOW_STEPS['THREE_STEP'];
 
