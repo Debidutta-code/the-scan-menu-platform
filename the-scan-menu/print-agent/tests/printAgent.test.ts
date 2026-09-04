@@ -113,4 +113,26 @@ describe('ScanMenu Local Print Agent Unit & Integration Tests', () => {
     expect(testText).toContain('192.168.1.100:9100');
     expect(testText).toContain('Connection successful');
   });
+
+  it('rejects SSRF attacks to localhost, cloud metadata, or reserved system ports', async () => {
+    const { validatePrinterAddress } = await import('../src/tcpClient');
+
+    // Rejects loopback / local system probing
+    expect(() => validatePrinterAddress('127.0.0.1', 9100)).toThrow(/loopback address/);
+    expect(() => validatePrinterAddress('localhost', 9100)).toThrow(/loopback address/);
+    expect(() => validatePrinterAddress('0.0.0.0', 9100)).toThrow(/loopback address/);
+
+    // Rejects AWS / GCP metadata probing
+    expect(() => validatePrinterAddress('169.254.169.254', 9100)).toThrow(/link-local/);
+
+    // Rejects non-printer sensitive ports (e.g. SSH, HTTP, DB)
+    expect(() => validatePrinterAddress('192.168.1.100', 22)).toThrow(/reserved system service/);
+    expect(() => validatePrinterAddress('192.168.1.100', 80)).toThrow(/reserved system service/);
+    expect(() => validatePrinterAddress('192.168.1.100', 443)).toThrow(/reserved system service/);
+    expect(() => validatePrinterAddress('192.168.1.100', 3306)).toThrow(/reserved system service/);
+
+    // Accepts valid LAN printer ports
+    expect(() => validatePrinterAddress('192.168.1.100', 9100)).not.toThrow();
+    expect(() => validatePrinterAddress('10.0.0.55', 9100)).not.toThrow();
+  });
 });
