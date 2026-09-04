@@ -655,6 +655,8 @@ export const seedDatabase = async () => {
         name: 'Madras Filter Coffee',
         pricingType: 'SINGLE' as const,
         price: 12000,
+        originalPrice: 15000,
+        isTopPick: true,
         veg: true,
         spicy: false,
         prep: 4,
@@ -669,6 +671,8 @@ export const seedDatabase = async () => {
         name: 'Nutella Mocha Latte',
         pricingType: 'SINGLE' as const,
         price: 21000,
+        originalPrice: 24000,
+        isTopPick: false,
         veg: true,
         spicy: false,
         prep: 5,
@@ -697,6 +701,8 @@ export const seedDatabase = async () => {
         name: 'Artisan Cold Brew on Draft',
         pricingType: 'PORTION' as const,
         price: 16000,
+        originalPrice: 19000,
+        isTopPick: true,
         variants: [
           { name: 'Regular 250ml', price: 16000, isDefault: true },
           { name: 'Large 400ml', price: 22000, isDefault: false },
@@ -737,6 +743,8 @@ export const seedDatabase = async () => {
         name: 'Classic Margherita Sourdough',
         pricingType: 'PORTION' as const,
         price: 34900,
+        originalPrice: 39900,
+        isTopPick: true,
         variants: [
           { name: '8" Personal', price: 34900, isDefault: true },
           { name: '10" Medium', price: 49900, isDefault: false },
@@ -756,6 +764,8 @@ export const seedDatabase = async () => {
         name: 'Spicy Paneer Tikka Furnace Pizza',
         pricingType: 'SINGLE' as const,
         price: 54900,
+        originalPrice: 59900,
+        isTopPick: false,
         veg: true,
         spicy: true,
         prep: 15,
@@ -770,6 +780,8 @@ export const seedDatabase = async () => {
         name: 'Smoked Pepperoni & Meat Pizza',
         pricingType: 'PORTION' as const,
         price: 59900,
+        originalPrice: 69900,
+        isTopPick: true,
         variants: [
           { name: 'Regular 10"', price: 59900, isDefault: true },
           { name: 'Large 14"', price: 79900, isDefault: false },
@@ -790,6 +802,8 @@ export const seedDatabase = async () => {
         name: 'Crispy Veg Patty Brioche Slider',
         pricingType: 'SINGLE' as const,
         price: 29900,
+        originalPrice: 34900,
+        isTopPick: false,
         veg: true,
         spicy: false,
         prep: 10,
@@ -804,6 +818,8 @@ export const seedDatabase = async () => {
         name: 'Grilled Chicken & Bacon Brioche Slider',
         pricingType: 'SINGLE' as const,
         price: 37900,
+        originalPrice: 42900,
+        isTopPick: true,
         veg: false, // Non-Veg
         spicy: true,
         prep: 11,
@@ -834,6 +850,8 @@ export const seedDatabase = async () => {
         name: 'Paneer Butter Masala',
         pricingType: 'PORTION' as const,
         price: 18000,
+        originalPrice: 22000,
+        isTopPick: true,
         variants: [
           { name: 'Half', price: 18000, isDefault: true },
           { name: 'Full', price: 32000, isDefault: false },
@@ -852,6 +870,8 @@ export const seedDatabase = async () => {
         name: 'Smoked Butter Chicken',
         pricingType: 'PORTION' as const,
         price: 24000,
+        originalPrice: 28000,
+        isTopPick: true,
         variants: [
           { name: 'Half', price: 24000, isDefault: true },
           { name: 'Full', price: 42000, isDefault: false },
@@ -870,6 +890,7 @@ export const seedDatabase = async () => {
         name: 'Butter Garlic Naan',
         pricingType: 'SINGLE' as const,
         price: 7000,
+        originalPrice: 8500,
         veg: true,
         spicy: false,
         prep: 5,
@@ -886,6 +907,8 @@ export const seedDatabase = async () => {
         name: 'Woodfired Hot Fudge Skillet Cookie',
         pricingType: 'SINGLE' as const,
         price: 26000,
+        originalPrice: 29900,
+        isTopPick: true,
         veg: true,
         spicy: false,
         prep: 10,
@@ -900,6 +923,8 @@ export const seedDatabase = async () => {
         name: 'Saffron Pistachio Tres Leches',
         pricingType: 'SINGLE' as const,
         price: 32000,
+        originalPrice: 36000,
+        isTopPick: false,
         veg: true,
         spicy: false,
         prep: 6,
@@ -916,6 +941,8 @@ export const seedDatabase = async () => {
         name: 'Cold Pressed Orange Zest Mojito',
         pricingType: 'SINGLE' as const,
         price: 16000,
+        originalPrice: 19000,
+        isTopPick: true,
         veg: true,
         spicy: false,
         prep: 4,
@@ -946,11 +973,13 @@ export const seedDatabase = async () => {
         name: 'North Indian Deluxe Feast Combo',
         pricingType: 'SINGLE' as const,
         price: 49900,
+        originalPrice: 63000,
         isCombo: true,
+        isTopPick: true,
         comboItems: [
-          { name: 'Butter Garlic Naan', quantity: 2, categoryName: 'North Indian Curries & Breads' },
-          { name: 'Paneer Butter Masala', quantity: 1, categoryName: 'North Indian Curries & Breads' },
-          { name: 'Saffron Pistachio Tres Leches', quantity: 1, categoryName: 'Artisanal Desserts' },
+          { name: 'Butter Garlic Naan', quantity: 2, categoryName: 'North Indian Curries & Breads', priceSnapshot: 7000 },
+          { name: 'Paneer Butter Masala', quantity: 1, categoryName: 'North Indian Curries & Breads', priceSnapshot: 18000 },
+          { name: 'Saffron Pistachio Tres Leches', quantity: 1, categoryName: 'Artisanal Desserts', priceSnapshot: 32000 },
         ],
         veg: true,
         spicy: true,
@@ -965,11 +994,13 @@ export const seedDatabase = async () => {
         cat: 'Chef Combos & Value Packs',
         name: 'Pizza & Craft Mojito Duo Pack',
         pricingType: 'SINGLE' as const,
-        price: 54900,
+        price: 44900,
+        originalPrice: 50900,
         isCombo: true,
+        isTopPick: true,
         comboItems: [
-          { name: 'Classic Margherita Sourdough', quantity: 1, categoryName: 'House Baked Pizzas' },
-          { name: 'Cold Pressed Orange Zest Mojito', quantity: 1, categoryName: 'Refreshing Tonics' },
+          { name: 'Classic Margherita Sourdough', quantity: 1, categoryName: 'House Baked Pizzas', priceSnapshot: 34900 },
+          { name: 'Cold Pressed Orange Zest Mojito', quantity: 1, categoryName: 'Refreshing Tonics', priceSnapshot: 16000 },
         ],
         veg: true,
         spicy: false,
@@ -979,6 +1010,30 @@ export const seedDatabase = async () => {
         lowStock: 4,
         imageUrl: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=600&auto=format&fit=crop&q=80',
         addOns: [{ name: 'Extra Dip Assortment', priceDelta: 4000 }],
+        isDraft: false,
+        completedStep: 5,
+        totalSteps: 5,
+      },
+      {
+        cat: 'Chef Combos & Value Packs',
+        name: 'Ultimate Burger & Cold Brew Meal',
+        pricingType: 'SINGLE' as const,
+        price: 46900,
+        originalPrice: 53900,
+        isCombo: true,
+        isTopPick: true,
+        comboItems: [
+          { name: 'Grilled Chicken & Bacon Brioche Slider', quantity: 1, categoryName: 'Gourmet Sliders', priceSnapshot: 37900 },
+          { name: 'Artisan Cold Brew on Draft', quantity: 1, categoryName: 'Coffee Specialties', priceSnapshot: 16000 },
+        ],
+        veg: false,
+        spicy: true,
+        prep: 12,
+        trackStock: true,
+        stock: 15,
+        lowStock: 3,
+        imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=600&auto=format&fit=crop&q=80',
+        addOns: [],
         isDraft: false,
         completedStep: 5,
         totalSteps: 5,
@@ -1007,11 +1062,12 @@ export const seedDatabase = async () => {
         name: 'Weekend Family Fiesta Feast (Draft)',
         pricingType: 'SINGLE' as const,
         price: 89900,
+        originalPrice: 119900,
         isCombo: true,
         comboItems: [
-          { name: 'Classic Margherita Sourdough', quantity: 2, categoryName: 'House Baked Pizzas' },
-          { name: 'Crispy Veg Patty Brioche Slider', quantity: 4, categoryName: 'Gourmet Sliders' },
-          { name: 'Cold Pressed Orange Zest Mojito', quantity: 4, categoryName: 'Refreshing Tonics' },
+          { name: 'Classic Margherita Sourdough', quantity: 2, categoryName: 'House Baked Pizzas', priceSnapshot: 34900 },
+          { name: 'Crispy Veg Patty Brioche Slider', quantity: 4, categoryName: 'Gourmet Sliders', priceSnapshot: 29900 },
+          { name: 'Cold Pressed Orange Zest Mojito', quantity: 4, categoryName: 'Refreshing Tonics', priceSnapshot: 16000 },
         ],
         veg: true,
         spicy: false,
@@ -1044,6 +1100,7 @@ export const seedDatabase = async () => {
         description: `Signature house specialty ${item.name.toLowerCase()} prepared fresh with artisan ingredients.`,
         pricingType: item.pricingType || 'SINGLE',
         price: item.price,
+        originalPrice: item.originalPrice,
         variants: item.variants || [],
         isCombo: !!item.isCombo,
         comboItems: item.comboItems || [],
@@ -1051,6 +1108,8 @@ export const seedDatabase = async () => {
         isAvailable: true,
         isVegetarian: item.veg,
         isSpicy: !!item.spicy,
+        isChefsSpecial: !!item.isTopPick,
+        isTopPick: !!item.isTopPick,
         prepTimeMinutes: item.prep,
         trackStock: !!item.trackStock,
         stockQuantity: item.stock || 0,
@@ -1173,6 +1232,8 @@ export const seedDatabase = async () => {
       }
     }
 
+    const comboDeluxeItem = seededMenuItems.find((i) => i.name === 'North Indian Deluxe Feast Combo') || seededMenuItems[0];
+
     const sampleOrdersData = [
       {
         orderNumber: 101,
@@ -1230,6 +1291,20 @@ export const seedDatabase = async () => {
         customerName: 'Priya Patel',
         customerPhone: '9870011223',
       },
+      {
+        orderNumber: 105,
+        table: seededTables[0],
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'PREPARING',
+        paymentStatus: 'PAID',
+        paymentProvider: 'RAZORPAY',
+        item: comboDeluxeItem,
+        qty: 1,
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
+      },
     ];
 
     const seededOrders: any[] = [];
@@ -1237,7 +1312,8 @@ export const seedDatabase = async () => {
       let existingOrder = await Order.findOne({ restaurantId: restaurant._id, orderNumber: ord.orderNumber });
       if (!existingOrder && ord.table && ord.item) {
         const isClosed = ord.status === 'SERVED';
-        const subtotal = ord.item.price * ord.qty;
+        const unitPrice = ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].price : ord.item.price;
+        const subtotal = unitPrice * ord.qty;
         const taxAmount = Math.round(subtotal * 0.05);
         const total = subtotal + taxAmount;
 
@@ -1301,12 +1377,24 @@ export const seedDatabase = async () => {
             {
               menuItemId: ord.item._id,
               nameSnapshot: ord.item.name,
-              unitPriceSnapshot: ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].price : ord.item.price,
+              unitPriceSnapshot: unitPrice,
+              originalPriceSnapshot: ord.item.originalPrice,
+              isCombo: !!ord.item.isCombo,
+              comboItemsSnapshot: ord.item.comboItems && ord.item.comboItems.length > 0
+                ? ord.item.comboItems.map((ci: any) => ({
+                    name: ci.name,
+                    quantity: ci.quantity || 1,
+                    categoryName: ci.categoryName,
+                  }))
+                : undefined,
               variantName: ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].name : undefined,
               quantity: ord.qty,
               selectedAddOns: [],
               specialInstructions: 'Make extra hot & spicy, less oil',
               prepTimeMinutesSnapshot: ord.item.prepTimeMinutes,
+              itemSubtotal: subtotal,
+              itemTax: taxAmount,
+              itemTotal: total,
               itemStatus:
                 ord.status === 'SERVED'
                   ? 'SERVED'
