@@ -12,6 +12,9 @@ export interface CustomerSafeOrderItemDTO {
   quantity: number;
   unitPrice: number;
   unitPriceSnapshot?: number;
+  originalPriceSnapshot?: number;
+  isCombo?: boolean;
+  comboItemsSnapshot?: { name: string; quantity: number; categoryName?: string }[];
   selectedAddOns: { name: string; priceDelta: number }[];
   specialInstructions?: string;
   prepTimeMinutes?: number;
@@ -140,6 +143,9 @@ export function toCustomerSafeOrderDTO(
         quantity: item.quantity || 1,
         unitPrice,
         unitPriceSnapshot: unitPrice,
+        originalPriceSnapshot: item.originalPriceSnapshot,
+        isCombo: Boolean(item.isCombo),
+        comboItemsSnapshot: item.comboItemsSnapshot,
         selectedAddOns: item.selectedAddOns || [],
         specialInstructions: item.specialInstructions || '',
         prepTimeMinutes: prepTime,

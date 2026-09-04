@@ -146,12 +146,23 @@ export class OrderService {
       }
 
       const itemSubtotal = unitPriceSnapshot * (item.quantity || 1);
+      const isCombo = Boolean(menuItem.isCombo);
+      const comboItemsSnapshot = isCombo && Array.isArray(menuItem.comboItems)
+        ? menuItem.comboItems.map((ci: any) => ({
+            name: ci.name,
+            quantity: ci.quantity || 1,
+            categoryName: ci.categoryName,
+          }))
+        : undefined;
 
       validatedItems.push({
         menuItemId: menuItem._id,
         nameSnapshot: menuItem.name,
         variantName,
         unitPriceSnapshot,
+        originalPriceSnapshot: menuItem.originalPrice,
+        isCombo,
+        comboItemsSnapshot,
         quantity: item.quantity || 1,
         selectedAddOns,
         specialInstructions: item.specialInstructions || '',

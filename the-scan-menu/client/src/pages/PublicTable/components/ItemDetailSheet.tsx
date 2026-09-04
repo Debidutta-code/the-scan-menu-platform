@@ -135,9 +135,23 @@ export const ItemDetailSheet: React.FC<ItemDetailSheetProps> = ({
             <div className="space-y-2">
               <h3 className="font-display text-3xl font-normal text-slate-900 leading-tight">{selectedItem.name}</h3>
               {selectedItem.description && <p className="text-slate-500 text-sm leading-relaxed">{selectedItem.description}</p>}
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold text-slate-900">{formatPrice(currentBasePrice, currency)}</span>
-                {selectedItem.prepTimeMinutes && <span className="text-xs text-slate-400 font-medium">• {selectedItem.prepTimeMinutes} mins prep</span>}
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedItem.originalPrice && selectedItem.originalPrice > currentBasePrice && (
+                  <span className="text-base text-slate-400 line-through font-mono">
+                    {formatPrice(selectedItem.originalPrice, currency)}
+                  </span>
+                )}
+                <span className="text-xl font-black text-slate-900 font-mono">
+                  {formatPrice(currentBasePrice, currency)}
+                </span>
+                {selectedItem.originalPrice && selectedItem.originalPrice > currentBasePrice && (
+                  <span className="text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-mono">
+                    Save {formatPrice(selectedItem.originalPrice - currentBasePrice, currency)}
+                  </span>
+                )}
+                {selectedItem.prepTimeMinutes && (
+                  <span className="text-xs text-slate-400 font-medium">• {selectedItem.prepTimeMinutes} mins prep</span>
+                )}
               </div>
             </div>
 

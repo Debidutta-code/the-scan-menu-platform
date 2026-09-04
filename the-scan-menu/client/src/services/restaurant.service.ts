@@ -105,6 +105,7 @@ export interface ComboItem {
   name: string;
   categoryName?: string;
   quantity: number;
+  priceSnapshot?: number;
   imageUrl?: string;
 }
 
@@ -116,6 +117,7 @@ export interface MenuItem {
   description?: string;
   pricingType?: 'SINGLE' | 'PORTION';
   price: number; // in cents/paise
+  originalPrice?: number; // in cents/paise (MRP / bundle sum before discount)
   variants?: MenuItemVariant[];
   imageUrl?: string;
   isAvailable: boolean;
@@ -125,6 +127,7 @@ export interface MenuItem {
   isVegetarian: boolean;
   isSpicy: boolean;
   isChefsSpecial?: boolean;
+  isTopPick?: boolean;
   prepTimeMinutes?: number;
   sortOrder: number;
   addOns?: AddOn[];

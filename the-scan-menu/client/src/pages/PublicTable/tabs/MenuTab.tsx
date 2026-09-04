@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Search as SearchIcon, X, Clock, ChevronRight, Sparkles } from 'lucide-react';
 import { MenuTabProps } from '../types';
 import { MenuBadge, MenuSkeleton, QuickAddControl } from '../components/MenuBadge';
+import { TopPicksCarousel } from '../components/TopPicksCarousel';
 import { formatPrice } from '../utils';
 
 export const MenuTab: React.FC<MenuTabProps> = ({
@@ -34,6 +35,10 @@ export const MenuTab: React.FC<MenuTabProps> = ({
   featureFlags,
 }) => {
   const isOrderingEnabled = featureFlags.some(f => f.key === 'ordering' && f.enabled);
+
+  const allMenuItems = React.useMemo(() => {
+    return filteredCategories.flatMap((c) => c.menuItems || []);
+  }, [filteredCategories]);
 
   return (
     <motion.div
@@ -121,6 +126,20 @@ export const MenuTab: React.FC<MenuTabProps> = ({
           </select>
         </div>
       </div>
+
+      {/* Top Picks / Combos Auto-Scrolling Carousel */}
+      {!searchQuery && allMenuItems.length > 0 && !isMenuLoading && (
+        <div className="max-w-md mx-auto px-4 pt-1">
+          <TopPicksCarousel
+            items={allMenuItems}
+            currency={currency}
+            isOrderingEnabled={isOrderingEnabled}
+            getItemCartQuantity={getItemCartQuantity}
+            onItemClick={onItemCardClick}
+            onQuickAdd={onQuickAdd}
+          />
+        </div>
+      )}
 
       {/* Track Orders Banner */}
       {activeOrderCount > 0 && (
@@ -313,6 +332,20 @@ export const MenuTab: React.FC<MenuTabProps> = ({
                                   From {formatPrice(Math.min(...item.variants.map((v) => v.price)), currency)}
                                 </span>
                               </>
+                            ) : item.originalPrice && item.originalPrice > item.price ? (
+                              <div className="flex flex-col">
+                                <span className="text-[11px] text-slate-400 line-through font-mono leading-none">
+                                  {formatPrice(item.originalPrice, currency)}
+                                </span>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-sm font-black text-slate-900 font-mono leading-none">
+                                    {formatPrice(item.price, currency)}
+                                  </span>
+                                  <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300/80 px-1 py-0.2 rounded font-mono">
+                                    Save {formatPrice(item.originalPrice - item.price, currency)}
+                                  </span>
+                                </div>
+                              </div>
                             ) : item.addOns && item.addOns.length > 0 ? (
                               <>
                                 <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">

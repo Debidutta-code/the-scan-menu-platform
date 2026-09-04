@@ -12,6 +12,9 @@ export interface CartItem {
   variantName?: string; // e.g. "Half", "Full", "Small", "Large"
   price: number; // snapshot of base + selected add-on deltas (per-unit in cents/paise)
   basePrice: number; // base price of the item or selected variant
+  originalPrice?: number;
+  isCombo?: boolean;
+  comboItemsSnapshot?: { name: string; quantity: number; categoryName?: string }[];
   quantity: number;
   specialInstructions?: string;
   selectedAddOns: CartAddOn[];

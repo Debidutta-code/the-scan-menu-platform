@@ -652,6 +652,11 @@ export const PublicTable: React.FC = () => {
       name: nameToUse,
       variantName: chosenVariant ? chosenVariant.name : undefined,
       basePrice,
+      originalPrice: selectedItem.originalPrice,
+      isCombo: Boolean(selectedItem.isCombo),
+      comboItemsSnapshot: selectedItem.isCombo && selectedItem.comboItems
+        ? selectedItem.comboItems.map((c) => ({ name: c.name, quantity: c.quantity, categoryName: c.categoryName }))
+        : undefined,
       quantity: detailQuantity,
       selectedAddOns: detailSelectedAddOns,
       specialInstructions: detailSpecialInstructions,
@@ -660,8 +665,6 @@ export const PublicTable: React.FC = () => {
     setSelectedItem(null);
     setSelectedVariant(null);
   };
-
-  // Helper to directly add a specific portion variant
 
   // Helper to compute total quantity of an item in cart
   const getItemCartQuantity = (itemId: string): number => {
@@ -687,6 +690,11 @@ export const PublicTable: React.FC = () => {
       itemId: item._id,
       name: item.name,
       basePrice: item.price,
+      originalPrice: item.originalPrice,
+      isCombo: Boolean(item.isCombo),
+      comboItemsSnapshot: item.isCombo && item.comboItems
+        ? item.comboItems.map((c) => ({ name: c.name, quantity: c.quantity, categoryName: c.categoryName }))
+        : undefined,
       quantity: 1,
       selectedAddOns: [],
       specialInstructions: '',

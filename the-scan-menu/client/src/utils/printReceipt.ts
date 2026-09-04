@@ -6,7 +6,10 @@ export interface PrintItem {
   nameSnapshot?: string;
   name?: string;
   unitPriceSnapshot?: number;
+  originalPriceSnapshot?: number;
   price?: number;
+  isCombo?: boolean;
+  comboItemsSnapshot?: { name: string; quantity: number; categoryName?: string }[];
   quantity: number;
   selectedAddOns?: { name: string; priceDelta?: number; price?: number }[];
   specialInstructions?: string;
@@ -133,6 +136,12 @@ export function generateKOTHtml(
 
   const itemsHtml = order.items.map((item, idx) => {
     const itemName = item.nameSnapshot || item.name || `Item #${idx + 1}`;
+    const comboTag = item.isCombo ? ` <span style="font-size:11px;background:#000;color:#fff;padding:1px 4px;border-radius:3px;">[COMBO]</span>` : '';
+    const comboSubItems = item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0
+      ? `<div style="font-size:12px;font-weight:900;color:#000;padding-left:10px;margin-top:3px;border-left:3px solid #000;padding-top:2px;padding-bottom:2px;">
+          ${item.comboItemsSnapshot.map(ci => `<div>↳ ${ci.quantity * item.quantity}x ${ci.name} ${ci.categoryName ? `(${ci.categoryName})` : ''}</div>`).join('')}
+         </div>`
+      : '';
     const addOns = item.selectedAddOns && item.selectedAddOns.length > 0
       ? `<div style="font-size:11px;color:#333;padding-left:14px;margin-top:2px;">+ ${item.selectedAddOns.map(a => a.name).join(', ')}</div>`
       : '';
@@ -144,7 +153,8 @@ export function generateKOTHtml(
       <tr style="border-bottom:1px dashed #ccc;">
         <td style="padding:6px 0;vertical-align:top;font-weight:900;font-size:17px;width:38px;">[${item.quantity}x]</td>
         <td style="padding:6px 0;vertical-align:top;">
-          <div style="font-size:14px;font-weight:bold;color:#000;">${itemName}</div>
+          <div style="font-size:14px;font-weight:bold;color:#000;">${itemName}${comboTag}</div>
+          ${comboSubItems}
           ${addOns}
           ${note}
         </td>
@@ -240,6 +250,13 @@ export function generateCounterBillHtml(
     const itemName = item.nameSnapshot || item.name || `Item #${idx + 1}`;
     const unitPrice = item.unitPriceSnapshot ?? item.price ?? 0;
     const itemTotal = unitPrice * item.quantity;
+    const comboTag = item.isCombo ? ` <span style="font-size:10px;font-weight:bold;color:#4338ca;">(Combo)</span>` : '';
+
+    const comboSubItems = item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0
+      ? `<div style="font-size:10px;color:#555;padding-left:8px;border-left:2px solid #cbd5e1;margin-top:2px;">
+          ${item.comboItemsSnapshot.map(ci => `<div>↳ ${ci.quantity * item.quantity}x ${ci.name}</div>`).join('')}
+         </div>`
+      : '';
 
     let addOnsPrice = 0;
     const addOnLines = (item.selectedAddOns || []).map(a => {
@@ -258,7 +275,8 @@ export function generateCounterBillHtml(
       <tr style="border-bottom:1px dashed ${theme === 'modern' ? '#e2e8f0' : '#ccc'};">
         <td style="padding:4px 0;vertical-align:top;font-size:12px;font-weight:bold;width:24px;">${item.quantity}</td>
         <td style="padding:4px 0;vertical-align:top;font-size:12px;">
-          <div>${itemName}</div>
+          <div>${itemName}${comboTag}</div>
+          ${comboSubItems}
           ${addOnLines}
           ${itemNoteLine}
         </td>

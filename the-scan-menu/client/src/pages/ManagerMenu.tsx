@@ -804,7 +804,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   });
 
   const handleCreateComboFromSelected = () => {
-    navigate('/manager/menu/new?type=bundle' + (selectedCatId ? `&categoryId=${selectedCatId}` : ''));
+    const params = new URLSearchParams();
+    params.set('type', 'bundle');
+    if (selectedCatId) params.set('categoryId', selectedCatId);
+    if (selectedItemIds.length > 0) params.set('selectedItems', selectedItemIds.join(','));
+    navigate(`/manager/menu/new?${params.toString()}`);
   };
 
   const groupForm = useForm<any>({
@@ -1423,10 +1427,15 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                     )}
                                     {item.isSpicy && <MenuBadge variant="spicy" />}
                                     {item.isChefsSpecial && (
-                                      <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.5 rounded-full">Special</span>
+                                       <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.5 rounded-full">Special</span>
+                                    )}
+                                    {item.isTopPick && (
+                                       <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-300 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                         ⭐ Top Pick
+                                       </span>
                                     )}
                                     {item.isCombo && (
-                                      <span className="text-[9px] font-black uppercase text-violet-900 bg-violet-100 px-1.5 py-0.5 rounded-full">Combo</span>
+                                       <span className="text-[9px] font-black uppercase text-violet-900 bg-violet-100 px-1.5 py-0.5 rounded-full">Combo</span>
                                     )}
                                   </div>
 
@@ -1457,7 +1466,14 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                     <span className="text-sm font-black text-slate-900 font-mono">₹{(minPrice / 100).toFixed(0)}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-sm font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
+                                  <div>
+                                    {item.originalPrice && item.originalPrice > item.price && (
+                                      <span className="text-[10px] text-slate-400 line-through font-mono block leading-none">
+                                        ₹{(item.originalPrice / 100).toFixed(0)}
+                                      </span>
+                                    )}
+                                    <span className="text-sm font-black text-slate-900 font-mono">₹{(item.price / 100).toFixed(0)}</span>
+                                  </div>
                                 )}
                               </div>
 

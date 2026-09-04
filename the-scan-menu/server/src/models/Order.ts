@@ -49,11 +49,20 @@ export interface IOrderAddOn {
   priceDelta: number; // in cents/paise
 }
 
+export interface IOrderComboSubItem {
+  name: string;
+  quantity: number;
+  categoryName?: string;
+}
+
 export interface IOrderItem {
   menuItemId: Types.ObjectId;
   nameSnapshot: string;
   variantName?: string;
   unitPriceSnapshot: number; // in cents/paise (base item price)
+  originalPriceSnapshot?: number; // in cents/paise (bundle price before discount)
+  isCombo?: boolean;
+  comboItemsSnapshot?: IOrderComboSubItem[];
   quantity: number;
   selectedAddOns: IOrderAddOn[];
   specialInstructions?: string;
@@ -124,12 +133,24 @@ const orderAddOnSchema = new Schema<IOrderAddOn>(
   { _id: false }
 );
 
+const orderComboSubItemSchema = new Schema<IOrderComboSubItem>(
+  {
+    name: { type: String, required: true, trim: true },
+    quantity: { type: Number, required: true, default: 1 },
+    categoryName: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const orderItemSchema = new Schema<IOrderItem>(
   {
     menuItemId: { type: Schema.Types.ObjectId, ref: 'MenuItem', required: true },
     nameSnapshot: { type: String, required: true, trim: true },
     variantName: { type: String, trim: true },
     unitPriceSnapshot: { type: Number, required: true },
+    originalPriceSnapshot: { type: Number },
+    isCombo: { type: Boolean, default: false },
+    comboItemsSnapshot: [orderComboSubItemSchema],
     quantity: { type: Number, required: true, min: 1 },
     selectedAddOns: [orderAddOnSchema],
     specialInstructions: { type: String, trim: true },

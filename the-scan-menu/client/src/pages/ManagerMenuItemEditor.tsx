@@ -47,6 +47,10 @@ const menuItemEditorSchema = z.object({
     (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
     z.number().min(0, 'Price must be non-negative').default(0)
   ),
+  originalPrice: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().min(0, 'Original price must be non-negative').optional()
+  ),
   variants: z
     .array(
       z.object({
@@ -63,6 +67,7 @@ const menuItemEditorSchema = z.object({
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
   isChefsSpecial: z.boolean().default(false),
+  isTopPick: z.boolean().default(false),
   prepTimeMinutes: z.preprocess(
     (val) => (val === '' || val === null || val === undefined || Number(val) === 0 ? undefined : Number(val)),
     z.number().int().positive('Prep time must be a positive number').optional()
@@ -86,6 +91,10 @@ const menuItemEditorSchema = z.object({
         quantity: z.preprocess(
           (val) => (val === '' || val === null || val === undefined ? 1 : Number(val)),
           z.number().int().min(1).default(1)
+        ),
+        priceSnapshot: z.preprocess(
+          (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+          z.number().min(0).optional()
         ),
         imageUrl: z.string().optional(),
       })
@@ -276,6 +285,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
         description: baselineItem.description || '',
         pricingType: baselineItem.pricingType || 'SINGLE',
         price: (baselineItem.price || 0) / 100,
+        originalPrice: baselineItem.originalPrice ? (baselineItem.originalPrice / 100) : undefined,
         variants: (baselineItem.variants || []).map((v: any) => ({
           name: v.name,
           price: (v.price || 0) / 100,
@@ -285,6 +295,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
         isVegetarian: !!baselineItem.isVegetarian,
         isSpicy: !!baselineItem.isSpicy,
         isChefsSpecial: !!baselineItem.isChefsSpecial,
+        isTopPick: !!baselineItem.isTopPick,
         prepTimeMinutes: baselineItem.prepTimeMinutes || undefined,
         trackStock: !!baselineItem.trackStock,
         stockQuantity: baselineItem.stockQuantity !== undefined ? baselineItem.stockQuantity : 0,
@@ -295,6 +306,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
           name: c.name,
           categoryName: c.categoryName,
           quantity: c.quantity || 1,
+          priceSnapshot: c.priceSnapshot ? c.priceSnapshot / 100 : undefined,
           imageUrl: c.imageUrl || '',
         })),
         addOns: (baselineItem.addOns || []).map((a: any) => ({
@@ -314,10 +326,34 @@ export const ManagerMenuItemEditor: React.FC = () => {
       if (initialVals.isDraft && initialVals.completedStep > 1 && initialVals.completedStep <= 6) {
         setCurrentStep(initialVals.completedStep);
       }
-    } else if (!isEditMode && categories.length > 0 && !getValues('categoryId')) {
-      setValue('categoryId', initialCategoryParam || categories[0]._id);
+    } else if (!isEditMode && categories.length > 0) {
+      if (!getValues('categoryId')) {
+        setValue('categoryId', initialCategoryParam || categories[0]._id);
+      }
+      const selectedItemsParam = searchParams.get('selectedItems');
+      if (selectedItemsParam && allMenuItems.length > 0 && !getValues('isCombo')) {
+        const itemIds = selectedItemsParam.split(',').filter(Boolean);
+        const dishes = allMenuItems.filter((d: any) => itemIds.includes(d._id));
+        if (dishes.length > 0) {
+          setValue('isCombo', true);
+          const comboList = dishes.map((d: any) => ({
+            menuItemId: d._id,
+            name: d.name,
+            categoryName: typeof d.categoryId === 'object' ? d.categoryId?.name : categories.find((c: any) => c._id === d.categoryId)?.name || 'Dish',
+            quantity: 1,
+            priceSnapshot: (d.price || 0) / 100,
+            imageUrl: d.imageUrl || '',
+          }));
+          setValue('comboItems', comboList);
+          const bundleTotal = dishes.reduce((sum: number, d: any) => sum + (d.price || 0) / 100, 0);
+          setValue('originalPrice', bundleTotal);
+          setValue('price', Math.round(bundleTotal * 0.85));
+          setValue('name', `${dishes.map((d: any) => d.name).slice(0, 2).join(' + ')} Combo`);
+          setCurrentStep(4);
+        }
+      }
     }
-  }, [baselineItem, categories, isEditMode, reset, getValues, setValue, initialCategoryParam]);
+  }, [baselineItem, categories, allMenuItems, isEditMode, reset, getValues, setValue, initialCategoryParam, searchParams]);
 
   // Check LocalStorage Crash Recovery on mount
   useEffect(() => {
@@ -644,17 +680,30 @@ export const ManagerMenuItemEditor: React.FC = () => {
       description: values.description?.trim(),
       pricingType: isPortion ? 'PORTION' : 'SINGLE',
       price: priceInPaise,
+      originalPrice: values.originalPrice ? Math.round(Number(values.originalPrice) * 100) : undefined,
       variants: variantsInPaise,
       imageUrl: values.imageUrl?.trim(),
       isVegetarian: !!values.isVegetarian,
       isSpicy: !!values.isSpicy,
       isChefsSpecial: !!values.isChefsSpecial,
+      isTopPick: !!values.isTopPick,
       prepTimeMinutes: values.prepTimeMinutes ? Number(values.prepTimeMinutes) : undefined,
       trackStock: !!values.trackStock,
       stockQuantity: Number(values.stockQuantity || 0),
       lowStockThreshold: Number(values.lowStockThreshold || 5),
       isCombo: !!values.isCombo,
-      comboItems: values.isCombo ? (values.comboItems || []).filter((c: any) => c.name?.trim()) : undefined,
+      comboItems: values.isCombo
+        ? (values.comboItems || [])
+            .filter((c: any) => c.name?.trim())
+            .map((c: any) => ({
+              menuItemId: c.menuItemId,
+              name: c.name.trim(),
+              categoryName: c.categoryName,
+              quantity: Number(c.quantity || 1),
+              priceSnapshot: c.priceSnapshot ? Math.round(Number(c.priceSnapshot) * 100) : undefined,
+              imageUrl: c.imageUrl,
+            }))
+        : undefined,
       addOns: addOnsInPaise,
       attachedAddOnGroupIds: values.attachedAddOnGroupIds || [],
       isAvailable: true,
@@ -1044,6 +1093,18 @@ export const ManagerMenuItemEditor: React.FC = () => {
                         <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                         <span>Chef&apos;s Special</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setValue('isTopPick', !watchedValues.isTopPick)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                          watchedValues.isTopPick
+                            ? 'bg-amber-400/20 text-amber-950 border-amber-400 shadow-2xs font-extrabold'
+                            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>⭐ Top Pick Banner</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1156,28 +1217,63 @@ export const ManagerMenuItemEditor: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Single Price Input */}
+                    {/* Single Price Input + Original MRP */}
                     {watchedValues.pricingType === 'SINGLE' ? (
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                          <span>Dish Price (₹)</span>
-                          <span className="text-rose-500">*</span>
-                          {isFieldModified('price') && (
-                            <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md">
-                              Modified
-                            </span>
-                          )}
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="150.00"
-                            {...register('price')}
-                            className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-slate-900"
-                          />
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                              <span>Selling Price (₹)</span>
+                              <span className="text-rose-500">*</span>
+                              {isFieldModified('price') && (
+                                <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md">
+                                  Modified
+                                </span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="150.00"
+                                {...register('price')}
+                                className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-slate-900"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                              <span className="flex items-center gap-1">
+                                <span>Original MRP (₹)</span>
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-normal">(Crossed out)</span>
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="e.g. 199.00"
+                                {...register('originalPrice')}
+                                className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono text-slate-600 focus:outline-none focus:border-slate-900"
+                              />
+                            </div>
+                          </div>
                         </div>
+
+                        {watchedValues.originalPrice && Number(watchedValues.originalPrice) > Number(watchedValues.price || 0) && (
+                          <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs text-emerald-900 font-bold">
+                            <span className="flex items-center gap-1.5 font-mono">
+                              <span className="line-through text-slate-400">₹{Number(watchedValues.originalPrice).toFixed(0)}</span>
+                              <span className="text-emerald-700 font-black">₹{Number(watchedValues.price || 0).toFixed(0)}</span>
+                            </span>
+                            <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                              Save ₹{(Number(watchedValues.originalPrice) - Number(watchedValues.price || 0)).toFixed(0)} ({Math.round(((Number(watchedValues.originalPrice) - Number(watchedValues.price || 0)) / Number(watchedValues.originalPrice)) * 100)}% OFF)
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       /* Portion Sizes Configuration */
@@ -1337,6 +1433,45 @@ export const ManagerMenuItemEditor: React.FC = () => {
                           <span className="text-sm font-black text-emerald-700 font-mono">
                             ₹{customerSavingsAmount.toFixed(0)} ({customerSavingsPercent}%)
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Combo Pricing & Discount Controls */}
+                      <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                          <span>Combo Bundle Pricing</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setValue('originalPrice', bundledRegularTotal);
+                              setValue('price', Math.round(bundledRegularTotal * 0.8));
+                            }}
+                            className="text-[10px] font-bold text-amber-800 bg-amber-200/70 hover:bg-amber-200 px-2 py-0.5 rounded-md cursor-pointer transition"
+                          >
+                            Auto-Apply 20% Discount
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Original Sum (Crossed out ₹)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Original Total"
+                              {...register('originalPrice')}
+                              className="w-full px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-mono font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-900 block mb-0.5">Combo Deal Price (₹) *</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Discounted Price"
+                              {...register('price')}
+                              className="w-full px-2.5 py-1.5 border border-amber-400 bg-white rounded-lg text-xs font-mono font-bold text-amber-900 focus:outline-none focus:border-amber-600"
+                            />
+                          </div>
                         </div>
                       </div>
 

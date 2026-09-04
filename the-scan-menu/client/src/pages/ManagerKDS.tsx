@@ -47,6 +47,9 @@ interface KDSItem {
   menuItemId: string;
   nameSnapshot: string;
   unitPriceSnapshot: number;
+  originalPriceSnapshot?: number;
+  isCombo?: boolean;
+  comboItemsSnapshot?: { name: string; quantity: number; categoryName?: string }[];
   quantity: number;
   selectedAddOns: AddOn[];
   specialInstructions?: string;
@@ -762,18 +765,39 @@ export const ManagerKDS: React.FC = () => {
                                   </div>
 
                                   <div className="min-w-0 flex-1">
-                                    <span
-                                      className={`text-xs font-bold leading-tight block break-words ${
-                                        isDone ? 'line-through text-slate-400' : 'text-slate-900'
-                                      }`}
-                                    >
-                                      {item.nameSnapshot}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        className={`text-xs font-bold leading-tight block break-words ${
+                                          isDone ? 'line-through text-slate-400' : 'text-slate-900'
+                                        }`}
+                                      >
+                                        {item.nameSnapshot}
+                                      </span>
+                                      {item.isCombo && (
+                                        <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.2 rounded font-mono">
+                                          Combo
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Combo Items breakdown for Kitchen */}
+                                    {item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0 && (
+                                      <div className="mt-1 pl-2 border-l-2 border-amber-400 space-y-0.5 bg-amber-50/70 p-1.5 rounded-r-lg">
+                                        <div className="text-[9px] font-black uppercase text-amber-900 tracking-wider">
+                                          Prepare Bundle Items:
+                                        </div>
+                                        {item.comboItemsSnapshot.map((ci: any, cIdx: number) => (
+                                          <div key={cIdx} className="text-xs font-black text-amber-950">
+                                            ↳ {ci.quantity * item.quantity}x {ci.name} {ci.categoryName ? `(${ci.categoryName})` : ''}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
 
                                     {/* Add-ons */}
                                     {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                                       <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                                        + {item.selectedAddOns.map((a) => a.name).join(', ')}
+                                        + {item.selectedAddOns.map((a: any) => a.name).join(', ')}
                                       </div>
                                     )}
                                   </div>

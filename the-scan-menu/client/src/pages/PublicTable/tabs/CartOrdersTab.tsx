@@ -155,7 +155,24 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                               {item.variantName}
                             </span>
                           )}
+                          {item.isCombo && (
+                            <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.2 rounded font-mono">
+                              Combo
+                            </span>
+                          )}
                         </div>
+
+                        {/* Combo sub-items breakdown in Cart */}
+                        {item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0 && (
+                          <div className="pl-2 border-l-2 border-amber-300 space-y-0.5 my-1">
+                            {item.comboItemsSnapshot.map((ci, cIdx) => (
+                              <p key={cIdx} className="text-[10px] text-amber-900 font-medium">
+                                ↳ {ci.quantity * item.quantity}x {ci.name} {ci.categoryName ? `(${ci.categoryName})` : ''}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
                         {item.selectedAddOns.length > 0 && (
                           <p className="text-[10px] text-slate-500 font-medium">
                             + {item.selectedAddOns.map((x) => `${x.name}${x.priceDelta > 0 ? ` (${formatPrice(x.priceDelta, currency)})` : ''}`).join(', ')}
@@ -167,7 +184,15 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                           </p>
                         )}
                         {isFailed && <p className="text-[10px] font-bold text-red-600 mt-1">⚠️ Item is currently unavailable.</p>}
-                        <p className="text-[11px] font-semibold text-slate-400 font-mono">{formatPrice(item.price, currency)} each</p>
+                        
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {item.originalPrice && item.originalPrice > item.price && (
+                            <span className="text-[10px] text-slate-400 line-through font-mono">
+                              {formatPrice(item.originalPrice, currency)}
+                            </span>
+                          )}
+                          <span className="text-[11px] font-semibold text-slate-500 font-mono">{formatPrice(item.price, currency)} each</span>
+                        </div>
                       </div>
 
                       <div className="flex flex-col items-end justify-between shrink-0">
@@ -643,9 +668,28 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                                           )}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                          <h6 className={`font-bold text-slate-900 leading-tight ${isServed ? 'line-through text-slate-400 font-normal' : ''}`}>
-                                            {item.nameSnapshot} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
-                                          </h6>
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <h6 className={`font-bold text-slate-900 leading-tight ${isServed ? 'line-through text-slate-400 font-normal' : ''}`}>
+                                              {item.nameSnapshot} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
+                                            </h6>
+                                            {item.isCombo && (
+                                              <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.2 rounded font-mono">
+                                                Combo
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Combo sub-items breakdown in Placed Orders */}
+                                          {item.isCombo && item.comboItemsSnapshot && item.comboItemsSnapshot.length > 0 && (
+                                            <div className="pl-2 border-l-2 border-amber-300 space-y-0.5 my-1">
+                                              {item.comboItemsSnapshot.map((ci: any, cIdx: number) => (
+                                                <p key={cIdx} className="text-[10px] text-amber-900 font-medium">
+                                                  ↳ {ci.quantity * item.quantity}x {ci.name} {ci.categoryName ? `(${ci.categoryName})` : ''}
+                                                </p>
+                                              ))}
+                                            </div>
+                                          )}
+
                                           {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                                             <p className="text-[10px] text-slate-500 font-medium mt-0.5">
                                               + {item.selectedAddOns.map((x: any) => {

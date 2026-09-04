@@ -14,6 +14,7 @@ export const createMenuItemSchema = z.object({
   description: z.string().trim().optional(),
   pricingType: z.enum(['SINGLE', 'PORTION']).default('SINGLE'),
   price: z.number().int().nonnegative('Price must be a non-negative integer (paise/cents)').optional().default(0),
+  originalPrice: z.number().int().nonnegative('Original price must be a non-negative integer (paise/cents)').optional(),
   variants: z
     .array(
       z.object({
@@ -31,6 +32,7 @@ export const createMenuItemSchema = z.object({
   isVegetarian: z.boolean().default(false),
   isSpicy: z.boolean().default(false),
   isChefsSpecial: z.boolean().default(false),
+  isTopPick: z.boolean().optional().default(false),
   prepTimeMinutes: z.number().int().positive().optional(),
   addOns: z
     .array(
@@ -49,6 +51,7 @@ export const createMenuItemSchema = z.object({
         name: z.string().trim().min(1, 'Combo item dish name is required'),
         categoryName: z.string().trim().optional(),
         quantity: z.number().int().positive().default(1),
+        priceSnapshot: z.number().int().nonnegative().optional(),
         imageUrl: z.string().trim().optional(),
       })
     )

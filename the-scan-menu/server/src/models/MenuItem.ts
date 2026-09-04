@@ -16,6 +16,7 @@ export interface IComboItem {
   name: string;
   categoryName?: string;
   quantity: number;
+  priceSnapshot?: number; // in cents/paise
   imageUrl?: string;
 }
 
@@ -25,7 +26,8 @@ export interface IMenuItem extends Document {
   name: string;
   description?: string;
   pricingType: 'SINGLE' | 'PORTION';
-  price: number; // Stored as integer cents/paise (base price or default variant price)
+  price: number; // Stored as integer cents/paise (selling price or default variant price)
+  originalPrice?: number; // Stored as integer cents/paise (MRP / bundle sum before discount)
   variants?: IVariant[];
   imageUrl?: string;
   isAvailable: boolean;
@@ -35,6 +37,7 @@ export interface IMenuItem extends Document {
   isVegetarian: boolean;
   isSpicy: boolean;
   isChefsSpecial: boolean;
+  isTopPick?: boolean;
   prepTimeMinutes?: number;
   sortOrder: number;
   addOns?: IAddOn[];
@@ -73,6 +76,7 @@ const comboItemSchema = new Schema<IComboItem>(
     name: { type: String, required: true, trim: true },
     categoryName: { type: String, trim: true },
     quantity: { type: Number, required: true, default: 1 },
+    priceSnapshot: { type: Number },
     imageUrl: { type: String, trim: true },
   },
   { _id: false }
@@ -86,6 +90,7 @@ const menuItemSchema = new Schema<IMenuItem>(
     description: { type: String, trim: true },
     pricingType: { type: String, enum: ['SINGLE', 'PORTION'], default: 'SINGLE' },
     price: { type: Number, required: true, default: 0 }, // positive integer validated via Zod
+    originalPrice: { type: Number },
     variants: [variantSchema],
     imageUrl: { type: String, trim: true },
     isAvailable: { type: Boolean, required: true, default: true },
@@ -95,6 +100,7 @@ const menuItemSchema = new Schema<IMenuItem>(
     isVegetarian: { type: Boolean, required: true, default: false },
     isSpicy: { type: Boolean, required: true, default: false },
     isChefsSpecial: { type: Boolean, required: true, default: false },
+    isTopPick: { type: Boolean, default: false },
     prepTimeMinutes: { type: Number },
     sortOrder: { type: Number, required: true, default: 0 },
     addOns: [addOnSchema],
