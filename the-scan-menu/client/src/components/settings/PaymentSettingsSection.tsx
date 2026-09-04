@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/featureFlags/useFeatureFlags';
 import { useToast } from '../../hooks/useToast';
 import { restaurantService } from '../../services/restaurant.service';
+import apiClient from '../../lib/api';
 import {
   CreditCard,
   Lock,
@@ -15,6 +16,7 @@ import {
   ChevronUp,
   ChevronDown,
   CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -81,6 +83,7 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
   const targetRestaurantId = propRestaurantId || activeRestaurantId;
 
   const [activePaymentMode, setActivePaymentMode] = useState<'POSTPAID' | 'PREPAID'>('POSTPAID');
+  const [serverActiveMode, setServerActiveMode] = useState<'POSTPAID' | 'PREPAID'>('POSTPAID');
 
   const [cashEnabled, setCashEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
@@ -99,6 +102,20 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
 
   // Priority Method Sorting State
   const [methodOrder, setMethodOrder] = useState<MethodKey[]>(['UPI', 'CASH', 'CARD', 'RAZORPAY']);
+
+  // Fetch active orders to block payment policy switching during live service
+  const { data: activeOrdersData } = useQuery({
+    queryKey: ['activeOrdersQueue', targetRestaurantId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/restaurants/${targetRestaurantId}/orders/active`);
+      return res.data;
+    },
+    enabled: !!targetRestaurantId && isEnabled('ordering'),
+    refetchInterval: 10000,
+  });
+  const activeOrdersCount =
+    activeOrdersData?.success && Array.isArray(activeOrdersData.data) ? activeOrdersData.data.length : 0;
+  const hasActiveOrders = activeOrdersCount > 0;
 
   const { data: configResponse, isLoading } = useQuery({
     queryKey: ['restaurantPaymentConfigSafe', targetRestaurantId],
@@ -133,7 +150,9 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
       if (cfg.ordering) {
         setPrepaidAllowed(cfg.ordering.prepaidEnabled !== false);
         setPostpaidAllowed(cfg.ordering.postpaidEnabled !== false);
-        setActivePaymentMode(cfg.ordering.activeMode || cfg.activeMode || 'POSTPAID');
+        const resolvedMode = cfg.ordering.activeMode || cfg.activeMode || 'POSTPAID';
+        setActivePaymentMode(resolvedMode);
+        setServerActiveMode(resolvedMode);
       }
 
       if (cfg.preferredMethodOrder && Array.isArray(cfg.preferredMethodOrder)) {
@@ -171,6 +190,11 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (hasActiveOrders && activePaymentMode !== serverActiveMode) {
+      toast('Cannot change dining payment policy while active orders are processing', 'error');
+      return;
+    }
 
     updateMutation.mutate({
       activeMode: activePaymentMode,
@@ -226,6 +250,18 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
           </div>
         </div>
 
+        {hasActiveOrders && (
+          <div className="bg-amber-50/90 border border-amber-300 text-amber-950 p-3 rounded-xl flex items-start gap-2.5 shadow-2xs">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+            <div>
+              <h5 className="font-bold text-xs">Payment Policy Locked: Active Service in Progress</h5>
+              <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                There are currently <strong>{activeOrdersCount} active order(s)</strong> processing in kitchen/dining service. Settle or serve all active orders before switching between Postpaid and Prepaid dining policies.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="relative">
           {!isEnabled('payments') && (
             <div className="absolute inset-0 z-10 bg-slate-50/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center border border-slate-200 rounded-xl">
@@ -243,21 +279,26 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
             {/* POSTPAID OPTION */}
             <button
               type="button"
-              disabled={!postpaidAllowed}
-              onClick={() => postpaidAllowed && setActivePaymentMode('POSTPAID')}
-              className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between ${
+              disabled={!postpaidAllowed || hasActiveOrders}
+              onClick={() => postpaidAllowed && !hasActiveOrders && setActivePaymentMode('POSTPAID')}
+              className={`p-3.5 rounded-xl border text-left transition relative flex flex-col justify-between ${
                 activePaymentMode === 'POSTPAID'
                   ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-xs'
                   : 'border-slate-200/80 bg-white hover:border-slate-300'
-              } ${!postpaidAllowed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              } ${!postpaidAllowed || hasActiveOrders ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-bold text-slate-900">Postpaid Mode</span>
                     <span className="text-[9px] font-black uppercase font-mono bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
                       Dine-in Standard
                     </span>
+                    {hasActiveOrders && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono bg-amber-200/70 text-amber-900 border border-amber-300">
+                        Locked ({activeOrdersCount} Active)
+                      </span>
+                    )}
                   </div>
                   {activePaymentMode === 'POSTPAID' && (
                     <CheckCircle2 className="w-4 h-4 text-amber-500" strokeWidth={2.5} />
@@ -269,28 +310,39 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
               </div>
               <div className="mt-2.5 pt-2 border-t border-slate-150 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>{!postpaidAllowed ? 'Disabled by platform admin' : 'Auto-accept orders supported'}</span>
+                <span>
+                  {!postpaidAllowed
+                    ? 'Disabled by platform admin'
+                    : hasActiveOrders
+                    ? 'Locked while active orders exist'
+                    : 'Auto-accept orders supported'}
+                </span>
               </div>
             </button>
 
             {/* PREPAID OPTION */}
             <button
               type="button"
-              disabled={!prepaidAllowed}
-              onClick={() => prepaidAllowed && setActivePaymentMode('PREPAID')}
-              className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative flex flex-col justify-between ${
+              disabled={!prepaidAllowed || hasActiveOrders}
+              onClick={() => prepaidAllowed && !hasActiveOrders && setActivePaymentMode('PREPAID')}
+              className={`p-3.5 rounded-xl border text-left transition relative flex flex-col justify-between ${
                 activePaymentMode === 'PREPAID'
                   ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/20 shadow-xs'
                   : 'border-slate-200/80 bg-white hover:border-slate-300'
-              } ${!prepaidAllowed ? 'opacity-40 cursor-not-allowed' : ''}`}
+              } ${!prepaidAllowed || hasActiveOrders ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-bold text-slate-900">Prepaid Mode</span>
                     <span className="text-[9px] font-black uppercase font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
                       QSR / Cafes
                     </span>
+                    {hasActiveOrders && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono bg-amber-200/70 text-amber-900 border border-amber-300">
+                        Locked ({activeOrdersCount} Active)
+                      </span>
+                    )}
                   </div>
                   {activePaymentMode === 'PREPAID' && (
                     <CheckCircle2 className="w-4 h-4 text-amber-500" strokeWidth={2.5} />
@@ -302,7 +354,13 @@ export const PaymentSettingsSection: React.FC<PaymentSettingsSectionProps> = ({
               </div>
               <div className="mt-2.5 pt-2 border-t border-slate-150 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                <span>{!prepaidAllowed ? 'Disabled by platform admin' : 'Zero unpaid order risk'}</span>
+                <span>
+                  {!prepaidAllowed
+                    ? 'Disabled by platform admin'
+                    : hasActiveOrders
+                    ? 'Locked while active orders exist'
+                    : 'Zero unpaid order risk'}
+                </span>
               </div>
             </button>
           </div>
