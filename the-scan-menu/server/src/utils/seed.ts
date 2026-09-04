@@ -1232,180 +1232,412 @@ export const seedDatabase = async () => {
       }
     }
 
-    const comboDeluxeItem = seededMenuItems.find((i) => i.name === 'North Indian Deluxe Feast Combo') || seededMenuItems[0];
+    const findItem = (name: string) => seededMenuItems.find((i) => i.name === name) || seededMenuItems[0];
 
     const sampleOrdersData = [
       {
         orderNumber: 101,
-        table: seededTables[0],
+        table: seededTables[0], // Table 1 (Window Side)
         mode: 'DINE_IN',
         source: 'QR',
         status: 'PENDING',
-        paymentStatus: 'PAID',
+        paymentStatus: 'PENDING',
         paymentProvider: 'RAZORPAY',
-        item: seededMenuItems[0],
-        qty: 2,
         customer: seededCustomers[0],
         customerName: 'Alice Johnson',
         customerPhone: '9876543210',
+        customerNote: 'Please serve fresh with extra napkins and mint chutney.',
+        orderItems: [
+          { item: findItem('North Indian Deluxe Feast Combo'), qty: 1, instructions: 'Make curry medium spicy, hot naan' },
+          { item: findItem('Cold Pressed Orange Zest Mojito'), qty: 2, instructions: 'Less ice, fresh mint' },
+        ],
       },
       {
         orderNumber: 102,
-        table: seededTables[1],
+        table: seededTables[1], // Table 2 (Lounge)
         mode: 'DINE_IN',
         source: 'QR',
-        status: 'PREPARING',
+        status: 'ACCEPTED',
         paymentStatus: 'PAID',
         paymentProvider: 'RAZORPAY',
-        item: seededMenuItems[4],
-        qty: 1,
         customer: seededCustomers[0],
         customerName: 'Alice Johnson',
         customerPhone: '9876543210',
+        customerNote: 'Make crust extra crispy. Bring cookie warm after main.',
+        orderItems: [
+          { item: findItem('Pizza & Craft Mojito Duo Pack'), qty: 1, instructions: 'Crispy sourdough base' },
+          { item: findItem('Woodfired Hot Fudge Skillet Cookie'), qty: 1, instructions: 'Serve warm with vanilla scoop on top' },
+        ],
       },
       {
         orderNumber: 103,
-        table: seededTables[2],
+        table: seededTables[2], // Table 3 (Bar Side)
+        mode: 'COUNTER',
+        source: 'POS',
+        status: 'PREPARING',
+        paymentStatus: 'PAID',
+        paymentProvider: 'CASH',
+        customer: seededCustomers[1],
+        customerName: 'Rahul Sharma',
+        customerPhone: '9811223344',
+        customerNote: 'Quick counter breakfast. Coffee extra strong.',
+        orderItems: [
+          { item: findItem('Artisan Cold Brew on Draft'), qty: 2, instructions: 'With oat milk substitute' },
+          { item: findItem('Artisanal French Butter Croissant'), qty: 1, instructions: 'Warm with butter brush' },
+        ],
+      },
+      {
+        orderNumber: 104,
+        table: seededTables[3], // Table 1 (Terrace)
+        mode: 'TAKEAWAY',
+        source: 'MANUAL',
+        status: 'READY',
+        paymentStatus: 'PAID',
+        paymentProvider: 'CASH',
+        customer: seededCustomers[2],
+        customerName: 'Priya Patel',
+        customerPhone: '9870011223',
+        customerNote: 'Pack in thermal takeaway bag with wooden cutlery.',
+        orderItems: [
+          { item: findItem('Ultimate Burger & Cold Brew Meal'), qty: 1, instructions: 'Slider well-done, bacon extra crispy' },
+          { item: findItem('Wild Berries Iced Hibiscus Tea'), qty: 1, instructions: 'Spill-proof takeaway cup' },
+        ],
+      },
+      {
+        orderNumber: 105,
+        table: seededTables[4], // Table 2 (VIP Cabin)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'PREPARING',
+        paymentStatus: 'PENDING',
+        paymentProvider: 'RAZORPAY',
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
+        customerNote: 'VIP Table Anniversary Dinner. Bring dessert at the end.',
+        orderItems: [
+          { item: findItem('North Indian Deluxe Feast Combo'), qty: 2, instructions: 'Extra rich butter paneer, piping hot naan' },
+          { item: findItem('Saffron Pistachio Tres Leches'), qty: 2, instructions: 'Extra saffron milk soak' },
+        ],
+      },
+      {
+        orderNumber: 106,
+        table: seededTables[0], // Table 1 (Window Side)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
+        paymentProvider: 'RAZORPAY',
+        customer: seededCustomers[1],
+        customerName: 'Rahul Sharma',
+        customerPhone: '9811223344',
+        customerNote: 'Customer requested extra chili flakes and oregano on side.',
+        orderItems: [
+          { item: findItem('Classic Margherita Sourdough'), qty: 1, instructions: 'Extra mozzarella melt topping' },
+          { item: findItem('Cold Pressed Orange Zest Mojito'), qty: 1, instructions: 'Chia seeds boost' },
+        ],
+      },
+      {
+        orderNumber: 107,
+        table: seededTables[1], // Table 2 (Lounge)
         mode: 'COUNTER',
         source: 'POS',
         status: 'READY',
         paymentStatus: 'PAID',
-        paymentProvider: 'CASH',
-        item: seededMenuItems[8],
-        qty: 3,
-        customer: seededCustomers[1],
-        customerName: 'Rahul Sharma',
-        customerPhone: '9811223344',
-      },
-      {
-        orderNumber: 104,
-        table: seededTables[3],
-        mode: 'TAKEAWAY',
-        source: 'MANUAL',
-        status: 'SERVED',
-        paymentStatus: 'PAID',
-        paymentProvider: 'CASH',
-        item: seededMenuItems[12],
-        qty: 2,
+        paymentProvider: 'CARD',
         customer: seededCustomers[2],
         customerName: 'Priya Patel',
         customerPhone: '9870011223',
+        customerNote: 'Express counter pick-up for office break.',
+        orderItems: [
+          { item: findItem('Woodfired Hot Fudge Skillet Cookie'), qty: 2, instructions: 'Pack with toasted hazelnuts' },
+          { item: findItem('Signature Espresso Macchiato'), qty: 2, instructions: 'Double espresso shot' },
+        ],
       },
       {
-        orderNumber: 105,
-        table: seededTables[4],
-        mode: 'DINE_IN',
-        source: 'QR',
+        orderNumber: 108,
+        table: seededTables[2], // Table 3 (Bar Side)
+        mode: 'TAKEAWAY',
+        source: 'MANUAL',
         status: 'PREPARING',
         paymentStatus: 'PAID',
         paymentProvider: 'RAZORPAY',
-        item: comboDeluxeItem,
-        qty: 1,
+        customer: seededCustomers[1],
+        customerName: 'Rahul Sharma',
+        customerPhone: '9811223344',
+        customerNote: 'Include extra peri-peri dips and napkins.',
+        orderItems: [
+          { item: findItem('Pizza & Craft Mojito Duo Pack'), qty: 1, instructions: 'Cut into 8 slices' },
+          { item: findItem('Wild Berries Iced Hibiscus Tea'), qty: 1, instructions: 'Less sugar, cold' },
+        ],
+      },
+      {
+        orderNumber: 109,
+        table: seededTables[3], // Table 1 (Terrace)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'READY',
+        paymentStatus: 'PAID',
+        paymentProvider: 'RAZORPAY',
         customer: seededCustomers[0],
         customerName: 'Alice Johnson',
         customerPhone: '9876543210',
+        customerNote: 'Terrace garden table. Please serve drinks first.',
+        orderItems: [
+          { item: findItem('Grilled Chicken & Bacon Brioche Slider'), qty: 2, instructions: 'Extra spicy aioli mayo' },
+          { item: findItem('Artisan Cold Brew on Draft'), qty: 2, instructions: 'Served over cracked ice' },
+        ],
+      },
+      {
+        orderNumber: 110,
+        table: seededTables[4], // Table 2 (VIP Cabin)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'SERVED',
+        paymentStatus: 'PAID',
+        paymentProvider: 'CASH',
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
+        customerNote: 'Lunch meeting completed and settled.',
+        orderItems: [
+          { item: findItem('North Indian Deluxe Feast Combo'), qty: 1, instructions: 'Served warm' },
+          { item: findItem('Saffron Pistachio Tres Leches'), qty: 1, instructions: 'Chilled dessert' },
+        ],
+      },
+      {
+        orderNumber: 111,
+        table: seededTables[0], // Table 1 (Window Side)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
+        paymentProvider: 'RAZORPAY',
+        customer: seededCustomers[2],
+        customerName: 'Priya Patel',
+        customerPhone: '9870011223',
+        customerNote: 'No onions or garlic in slider. Allergic to peanuts.',
+        orderItems: [
+          { item: findItem('Ultimate Burger & Cold Brew Meal'), qty: 1, instructions: 'Strictly no peanut oil, no onions' },
+          { item: findItem('Cold Pressed Orange Zest Mojito'), qty: 1, instructions: 'Extra fresh mint' },
+        ],
+      },
+      {
+        orderNumber: 112,
+        table: seededTables[1], // Table 2 (Lounge)
+        mode: 'COUNTER',
+        source: 'POS',
+        status: 'ACCEPTED',
+        paymentStatus: 'PAID',
+        paymentProvider: 'CASH',
+        customer: seededCustomers[1],
+        customerName: 'Rahul Sharma',
+        customerPhone: '9811223344',
+        customerNote: 'Takeaway box for office colleagues.',
+        orderItems: [
+          { item: findItem('Crispy Veg Patty Brioche Slider'), qty: 2, instructions: 'Extra cheese slice' },
+          { item: findItem('Wild Berries Iced Hibiscus Tea'), qty: 2, instructions: 'Sealed carry pack' },
+        ],
+      },
+      {
+        orderNumber: 113,
+        table: seededTables[2], // Table 3 (Bar Side)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'PREPARING',
+        paymentStatus: 'PENDING',
+        paymentProvider: 'RAZORPAY',
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
+        customerNote: 'Afternoon coffee and pastry relax.',
+        orderItems: [
+          { item: findItem('Classic Flat White'), qty: 2, instructions: 'Velvety microfoam, vanilla drizzle' },
+          { item: findItem('Artisanal French Butter Croissant'), qty: 2, instructions: 'Warm and crispy' },
+        ],
+      },
+      {
+        orderNumber: 114,
+        table: seededTables[3], // Table 1 (Terrace)
+        mode: 'DELIVERY',
+        source: 'MANUAL',
+        status: 'READY',
+        paymentStatus: 'PAID',
+        paymentProvider: 'RAZORPAY',
+        customer: seededCustomers[2],
+        customerName: 'Priya Patel',
+        customerPhone: '9870011223',
+        customerNote: 'Direct delivery: 402 Palm Heights. Ring bell twice.',
+        orderItems: [
+          { item: findItem('Pizza & Craft Mojito Duo Pack'), qty: 2, instructions: 'Keep pizzas flat during transit' },
+          { item: findItem('Woodfired Hot Fudge Skillet Cookie'), qty: 1, instructions: 'Pack gelato separately with ice bag' },
+        ],
+      },
+      {
+        orderNumber: 115,
+        table: seededTables[4], // Table 2 (VIP Cabin)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'SERVED',
+        paymentStatus: 'PAID',
+        paymentProvider: 'CARD',
+        customer: seededCustomers[1],
+        customerName: 'Rahul Sharma',
+        customerPhone: '9811223344',
+        customerNote: 'Table settled with corporate card.',
+        orderItems: [
+          { item: findItem('Classic Margherita Sourdough'), qty: 1, instructions: 'Thin crust' },
+          { item: findItem('Artisan Cold Brew on Draft'), qty: 1, instructions: 'Straight black' },
+        ],
+      },
+      {
+        orderNumber: 116,
+        table: seededTables[0], // Table 1 (Window Side)
+        mode: 'DINE_IN',
+        source: 'QR',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
+        paymentProvider: 'RAZORPAY',
+        customer: seededCustomers[0],
+        customerName: 'Alice Johnson',
+        customerPhone: '9876543210',
+        customerNote: 'Family celebration meal. Please bring high chair for toddler.',
+        orderItems: [
+          { item: findItem('North Indian Deluxe Feast Combo'), qty: 1, instructions: 'Extra butter on naan' },
+          { item: findItem('Pizza & Craft Mojito Duo Pack'), qty: 1, instructions: 'Kids love margherita pizza' },
+          { item: findItem('Saffron Pistachio Tres Leches'), qty: 1, instructions: 'With celebration sparkler if available' },
+        ],
       },
     ];
 
     const seededOrders: any[] = [];
     for (const ord of sampleOrdersData) {
       let existingOrder = await Order.findOne({ restaurantId: restaurant._id, orderNumber: ord.orderNumber });
-      if (!existingOrder && ord.table && ord.item) {
+      if (!existingOrder && ord.table && ord.orderItems && ord.orderItems.length > 0) {
         const isClosed = ord.status === 'SERVED';
-        const unitPrice = ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].price : ord.item.price;
-        const subtotal = unitPrice * ord.qty;
-        const taxAmount = Math.round(subtotal * 0.05);
-        const total = subtotal + taxAmount;
 
-        const session = await DiningSession.create({
-          restaurantId: restaurant._id,
-          tableId: ord.table._id,
-          sessionCode: `S-${1000 + ord.orderNumber}`,
-          joinPin: '1234',
-          status: isClosed ? 'SETTLED' : 'ACTIVE',
-          paymentMode: 'POSTPAID',
-          roundCount: 1,
-          guestCount: 1,
-          subtotal,
-          tax: taxAmount,
-          taxBreakdown: [
-            { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
-            { name: 'SGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
-          ],
-          discount: 0,
-          serviceCharge: 0,
-          total,
-          paidAmount: isClosed || ord.paymentStatus === 'PAID' ? total : 0,
-          balanceDue: isClosed || ord.paymentStatus === 'PAID' ? 0 : total,
-          openedAt: new Date(Date.now() - 30 * 60 * 1000),
-          closedAt: isClosed ? new Date() : undefined,
+        // Build item array and subtotal
+        let orderSubtotal = 0;
+        const mappedItems = ord.orderItems.map((oi) => {
+          const itemDoc = oi.item;
+          const unitPrice = itemDoc.variants && itemDoc.variants.length > 0 ? itemDoc.variants[0].price : itemDoc.price;
+          const itemSubtotal = unitPrice * oi.qty;
+          const itemTax = Math.round(itemSubtotal * 0.05);
+          const itemTotal = itemSubtotal + itemTax;
+          orderSubtotal += itemSubtotal;
+
+          return {
+            menuItemId: itemDoc._id,
+            nameSnapshot: itemDoc.name,
+            unitPriceSnapshot: unitPrice,
+            originalPriceSnapshot: itemDoc.originalPrice,
+            isCombo: !!itemDoc.isCombo,
+            comboItemsSnapshot: itemDoc.comboItems && itemDoc.comboItems.length > 0
+              ? itemDoc.comboItems.map((ci: any) => ({
+                  name: ci.name,
+                  quantity: ci.quantity || 1,
+                  categoryName: ci.categoryName,
+                }))
+              : undefined,
+            variantName: itemDoc.variants && itemDoc.variants.length > 0 ? itemDoc.variants[0].name : undefined,
+            quantity: oi.qty,
+            selectedAddOns: [],
+            specialInstructions: oi.instructions || undefined,
+            prepTimeMinutesSnapshot: itemDoc.prepTimeMinutes,
+            itemSubtotal,
+            itemTax,
+            itemTotal,
+            itemStatus:
+              ord.status === 'SERVED'
+                ? 'SERVED'
+                : ord.status === 'READY'
+                  ? 'READY'
+                  : ord.status === 'PREPARING'
+                    ? 'PREPARING'
+                    : 'PENDING',
+            servedAt: ord.status === 'SERVED' ? new Date() : undefined,
+          };
         });
 
-        const guestSession = await GuestSession.create({
-          diningSessionId: session._id,
-          restaurantId: restaurant._id,
-          tableId: ord.table._id,
-          guestToken: `guestTokenSeedOrd${ord.orderNumber}`,
-          guestName: 'Demo Guest',
-          isHost: true,
-          lastSeenAt: new Date(),
-        });
+        const taxAmount = Math.round(orderSubtotal * 0.05);
+        const total = orderSubtotal + taxAmount;
+
+        let session: any = null;
+        let guestSession: any = null;
+
+        if (ord.table) {
+          if (ord.mode === 'DINE_IN' && !isClosed) {
+            session = await DiningSession.findOne({
+              restaurantId: restaurant._id,
+              tableId: ord.table._id,
+              status: { $in: ['ACTIVE', 'BILL_REQUESTED'] },
+            });
+          }
+
+          if (!session) {
+            const isSessionActive = ord.mode === 'DINE_IN' && !isClosed;
+            session = await DiningSession.create({
+              restaurantId: restaurant._id,
+              tableId: ord.table._id,
+              sessionCode: `S-${1000 + ord.orderNumber}`,
+              joinPin: '1234',
+              status: isSessionActive ? 'ACTIVE' : 'SETTLED',
+              paymentMode: 'POSTPAID',
+              roundCount: 1,
+              guestCount: 2,
+              subtotal: orderSubtotal,
+              tax: taxAmount,
+              taxBreakdown: [
+                { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
+                { name: 'SGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
+              ],
+              discount: 0,
+              serviceCharge: 0,
+              total,
+              paidAmount: isClosed || ord.paymentStatus === 'PAID' ? total : 0,
+              balanceDue: isClosed || ord.paymentStatus === 'PAID' ? 0 : total,
+              openedAt: new Date(Date.now() - (120 - (ord.orderNumber - 100) * 5) * 60 * 1000),
+              closedAt: isSessionActive ? undefined : new Date(),
+            });
+          }
+
+          guestSession = await GuestSession.findOne({ diningSessionId: session._id });
+          if (!guestSession) {
+            guestSession = await GuestSession.create({
+              diningSessionId: session._id,
+              restaurantId: restaurant._id,
+              tableId: ord.table._id,
+              guestToken: `guestTokenSeedOrd${ord.orderNumber}`,
+              guestName: ord.customerName || 'Demo Guest',
+              isHost: true,
+              lastSeenAt: new Date(),
+            });
+          }
+        }
 
         existingOrder = await Order.create({
           restaurantId: restaurant._id,
           orderNumber: ord.orderNumber,
-          diningSessionId: session._id,
-          guestSessionId: guestSession._id,
+          diningSessionId: session?._id,
+          guestSessionId: guestSession?._id,
           customerId: ord.customer?._id,
           customerName: ord.customerName,
           customerPhone: ord.customerPhone,
-          tableId: ord.table._id,
-          tableNameSnapshot: ord.table.displayName,
+          tableId: ord.table?._id,
+          tableNameSnapshot: ord.table?.displayName,
           orderMode: ord.mode,
           source: ord.source,
           status: ord.status,
           paymentStatus: ord.paymentStatus,
-          subtotal,
+          subtotal: orderSubtotal,
           tax: taxAmount,
           total,
           taxBreakdown: [
             { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
             { name: 'SGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
           ],
-          customerNote: 'Please serve fresh with warm water and extra napkins.',
-          items: [
-            {
-              menuItemId: ord.item._id,
-              nameSnapshot: ord.item.name,
-              unitPriceSnapshot: unitPrice,
-              originalPriceSnapshot: ord.item.originalPrice,
-              isCombo: !!ord.item.isCombo,
-              comboItemsSnapshot: ord.item.comboItems && ord.item.comboItems.length > 0
-                ? ord.item.comboItems.map((ci: any) => ({
-                    name: ci.name,
-                    quantity: ci.quantity || 1,
-                    categoryName: ci.categoryName,
-                  }))
-                : undefined,
-              variantName: ord.item.variants && ord.item.variants.length > 0 ? ord.item.variants[0].name : undefined,
-              quantity: ord.qty,
-              selectedAddOns: [],
-              specialInstructions: 'Make extra hot & spicy, less oil',
-              prepTimeMinutesSnapshot: ord.item.prepTimeMinutes,
-              itemSubtotal: subtotal,
-              itemTax: taxAmount,
-              itemTotal: total,
-              itemStatus:
-                ord.status === 'SERVED'
-                  ? 'SERVED'
-                  : ord.status === 'READY'
-                    ? 'READY'
-                    : ord.status === 'PREPARING'
-                      ? 'PREPARING'
-                      : 'PENDING',
-              servedAt: ord.status === 'SERVED' ? new Date() : undefined,
-            },
-          ],
+          customerNote: ord.customerNote,
+          items: mappedItems,
           integrationMetadata: {
             petpoojaOrderId: `PP_ORD_${ord.orderNumber}`,
             syncedAt: new Date(),
@@ -1415,11 +1647,11 @@ export const seedDatabase = async () => {
         if (isClosed || ord.paymentStatus === 'PAID') {
           const bill = await Bill.create({
             restaurantId: restaurant._id,
-            tableId: ord.table._id,
-            diningSessionId: session._id,
+            tableId: ord.table?._id,
+            diningSessionId: session?._id,
             billNumber: `BILL-${ord.orderNumber}`,
             version: 1,
-            subtotal,
+            subtotal: orderSubtotal,
             taxAmount,
             taxBreakdown: [
               { name: 'CGST', percentage: 2.5, amount: Math.round(taxAmount / 2) },
@@ -1437,7 +1669,7 @@ export const seedDatabase = async () => {
 
           await Payment.create({
             restaurantId: restaurant._id,
-            diningSessionId: session._id,
+            diningSessionId: session?._id,
             billId: bill._id,
             orderId: existingOrder._id,
             amount: total,
@@ -1449,12 +1681,17 @@ export const seedDatabase = async () => {
             capturedAt: new Date(),
           });
         }
-        logger.info(`Sample order ORD-${ord.orderNumber} seeded.`);
+        logger.info(`Sample order ORD-${ord.orderNumber} seeded (${mappedItems.length} items, status: ${ord.status}, mode: ${ord.mode}).`);
       }
 
       if (existingOrder) {
         seededOrders.push({ order: existingOrder, meta: ord });
       }
+    }
+
+    if (orderCounter) {
+      orderCounter.seq = 120;
+      await orderCounter.save();
     }
 
     // ------------------------------------------------------------------------

@@ -8,8 +8,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { apiClient } from '../lib/api';
 import { ImageUploader } from '../components/ImageUploader';
-import { MenuBadge } from './PublicTable/components/MenuBadge';
 import { MenuItemEditorSkeleton } from '../components/menu/MenuItemEditorSkeleton';
+import { CustomerDishPreview } from '../components/menu/CustomerDishPreview';
 import { useFieldChangeTracker } from '../hooks/useFieldChangeTracker';
 import { Button } from '../components/ui/Button';
 import {
@@ -21,7 +21,6 @@ import {
   Trash2,
   Sparkles,
   Smartphone,
-  Tablet,
   Save,
   Send,
   Layers,
@@ -140,7 +139,6 @@ export const ManagerMenuItemEditor: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [completedStepLevel, setCompletedStepLevel] = useState<number>(1);
-  const [previewDeviceMode, setPreviewDeviceMode] = useState<'MOBILE' | 'KIOSK'>('MOBILE');
 
   // Automatic backend draft saving state
   const [persistedItemId, setPersistedItemId] = useState<string | undefined>(itemId);
@@ -1219,12 +1217,14 @@ export const ManagerMenuItemEditor: React.FC = () => {
 
                     {/* Single Price Input + Original MRP */}
                     {watchedValues.pricingType === 'SINGLE' ? (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                              <span>Selling Price (₹)</span>
-                              <span className="text-rose-500">*</span>
+                            <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1">
+                                <span>Selling / Show Price (₹)</span>
+                                <span className="text-rose-500">*</span>
+                              </span>
                               {isFieldModified('price') && (
                                 <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-md">
                                   Modified
@@ -1241,14 +1241,13 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                 className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-slate-900"
                               />
                             </div>
+                            <p className="text-[10px] text-slate-400">Final price charged to diner on customer bills.</p>
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                              <span className="flex items-center gap-1">
-                                <span>Original MRP (₹)</span>
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-normal">(Crossed out)</span>
+                            <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                              <span>Actual MRP / Strikethrough (₹)</span>
+                              <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
                             </label>
                             <div className="relative">
                               <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
@@ -1260,16 +1259,20 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                 className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono text-slate-600 focus:outline-none focus:border-slate-900"
                               />
                             </div>
+                            <p className="text-[10px] text-slate-400">Original price to strike out (e.g. ~₹199) highlighting diner savings.</p>
                           </div>
                         </div>
 
                         {watchedValues.originalPrice && Number(watchedValues.originalPrice) > Number(watchedValues.price || 0) && (
-                          <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs text-emerald-900 font-bold">
-                            <span className="flex items-center gap-1.5 font-mono">
-                              <span className="line-through text-slate-400">₹{Number(watchedValues.originalPrice).toFixed(0)}</span>
-                              <span className="text-emerald-700 font-black">₹{Number(watchedValues.price || 0).toFixed(0)}</span>
-                            </span>
-                            <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                          <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">Live Discount:</span>
+                              <span className="flex items-center gap-1.5 font-mono">
+                                <span className="line-through text-slate-400 text-[11px]">₹{Number(watchedValues.originalPrice).toFixed(2)}</span>
+                                <span className="text-emerald-700 font-black">₹{Number(watchedValues.price || 0).toFixed(2)}</span>
+                              </span>
+                            </div>
+                            <span className="text-[11px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-md font-mono">
                               Save ₹{(Number(watchedValues.originalPrice) - Number(watchedValues.price || 0)).toFixed(0)} ({Math.round(((Number(watchedValues.originalPrice) - Number(watchedValues.price || 0)) / Number(watchedValues.originalPrice)) * 100)}% OFF)
                             </span>
                           </div>
@@ -1832,129 +1835,22 @@ export const ManagerMenuItemEditor: React.FC = () => {
           {/* COLUMN 3: LIVE PREVIEW (4 cols)                           */}
           {/* ═════════════════════════════════════════════════════════ */}
           <div className="lg:col-span-4 h-full flex flex-col bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-2.5">
-            {/* Header & Switcher */}
+            {/* Header */}
             <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
                 <Smartphone className="w-3.5 h-3.5 text-amber-500" />
-                <span>Live Preview</span>
+                <span>Live Diner Preview</span>
               </div>
 
-              <div className="flex bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setPreviewDeviceMode('MOBILE')}
-                  className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                    previewDeviceMode === 'MOBILE' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  <Smartphone className="w-3 h-3" />
-                  <span>Customer</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDeviceMode('KIOSK')}
-                  className={`px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                    previewDeviceMode === 'KIOSK' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  <Tablet className="w-3 h-3" />
-                  <span>Kiosk</span>
-                </button>
-              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Sync
+              </span>
             </div>
 
-            {/* Realistic Customer Card Preview */}
-            <div className="bg-[#FAF9F6] border border-slate-200/80 rounded-xl p-3 shadow-inner space-y-2.5 flex-1 flex flex-col">
-              {/* Hero Thumbnail Image */}
-              <div className="w-full h-36 bg-slate-100 rounded-xl overflow-hidden relative border border-slate-200/60 flex items-center justify-center shrink-0">
-                {watchedValues.imageUrl ? (
-                  <img
-                    src={watchedValues.imageUrl}
-                    alt={watchedValues.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-center text-slate-400 space-y-1">
-                    <Sparkles className="w-5 h-5 mx-auto text-slate-300" />
-                    <span className="text-[10px] font-semibold block">Photo will appear here</span>
-                  </div>
-                )}
-
-                {watchedValues.isCombo && (
-                  <div className="absolute top-2 left-2">
-                    <span className="text-[8px] font-black uppercase text-amber-950 bg-amber-400 px-1.5 py-0.5 rounded-full shadow-xs">
-                      Combo Deal
-                    </span>
-                  </div>
-                )}
-
-                {watchedValues.isChefsSpecial && !watchedValues.isCombo && (
-                  <div className="absolute top-2 left-2">
-                    <span className="text-[8px] font-black uppercase text-white bg-slate-950/85 px-1.5 py-0.5 rounded-full">
-                      Chef&apos;s Special
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Dish Titles & Price */}
-              <div className="space-y-1 flex-1">
-                <div className="flex items-start justify-between gap-1.5">
-                  <h3 className="text-xs font-bold text-slate-900 leading-snug break-words">
-                    {watchedValues.name || 'Dish Name'}
-                  </h3>
-                  <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                    <MenuBadge variant={watchedValues.isVegetarian ? 'veg' : 'nonveg'} />
-                    {watchedValues.isSpicy && <MenuBadge variant="spicy" />}
-                  </div>
-                </div>
-
-                {/* Price */}
-                <div className="text-sm font-black text-slate-900 font-mono">
-                  {watchedValues.pricingType === 'PORTION' && (watchedValues.variants || []).length > 0 ? (
-                    <span>
-                      From ₹
-                      {Math.min(
-                        ...(watchedValues.variants || []).map((v: any) => Number(v.price || 0))
-                      ).toFixed(2)}
-                    </span>
-                  ) : (
-                    <span>₹{Number(watchedValues.price || 0).toFixed(2)}</span>
-                  )}
-                </div>
-
-                {/* Tags Pill Row */}
-                <div className="flex items-center gap-1 flex-wrap text-[9px] font-semibold text-slate-500 pt-0.5">
-                  {watchedValues.prepTimeMinutes && (
-                    <span className="flex items-center gap-0.5 bg-slate-100 px-1.5 py-0.5 rounded">
-                      <Clock className="w-2.5 h-2.5 text-slate-400" /> {watchedValues.prepTimeMinutes} mins
-                    </span>
-                  )}
-                  {watchedValues.isVegetarian && (
-                    <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded">Veg</span>
-                  )}
-                  {watchedValues.isChefsSpecial && (
-                    <span className="bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded">Chef&apos;s Special</span>
-                  )}
-                </div>
-
-                {/* Description */}
-                <p className="text-[10px] text-slate-500 leading-relaxed pt-0.5 line-clamp-2">
-                  {watchedValues.description || 'Description will appear here...'}
-                </p>
-
-                {/* Bundle Includes Box */}
-                {watchedValues.isCombo && (watchedValues.comboItems || []).length > 0 && (
-                  <div className="p-2 bg-amber-50/80 rounded-lg border border-amber-200/80 text-[9px] space-y-0.5 mt-1">
-                    <span className="font-bold text-amber-900 block">✨ Bundle Includes:</span>
-                    <div className="text-slate-700 leading-tight">
-                      {(watchedValues.comboItems || [])
-                        .map((c: any) => `${c.quantity > 1 ? `${c.quantity}x ` : ''}${c.name}`)
-                        .join(' + ')}
-                    </div>
-                  </div>
-                )}
-              </div>
+            {/* Rich Interactive Customer Experience Preview */}
+            <div className="flex-1">
+              <CustomerDishPreview item={watchedValues} isPaise={false} />
             </div>
           </div>
         </div>
