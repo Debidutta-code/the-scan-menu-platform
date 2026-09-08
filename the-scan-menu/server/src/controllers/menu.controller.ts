@@ -208,11 +208,13 @@ export class MenuController {
         description,
         pricingType,
         price,
+        originalPrice,
         variants,
         imageUrl,
         isVegetarian,
         isSpicy,
         isChefsSpecial,
+        isTopPick,
         prepTimeMinutes,
         sortOrder,
         addOns,
@@ -272,6 +274,7 @@ export class MenuController {
         description: description?.trim(),
         pricingType: isPortion ? 'PORTION' : 'SINGLE',
         price: finalPrice || 0,
+        originalPrice: originalPrice ? Number(originalPrice) : undefined,
         variants: isPortion ? variants : undefined,
         imageUrl: imageUrl?.trim(),
         isAvailable: isAvailable !== undefined ? !!isAvailable : true,
@@ -281,6 +284,7 @@ export class MenuController {
         isVegetarian: !!isVegetarian,
         isSpicy: !!isSpicy,
         isChefsSpecial: !!isChefsSpecial,
+        isTopPick: !!isTopPick,
         prepTimeMinutes: prepTimeMinutes ? parseInt(prepTimeMinutes) : undefined,
         sortOrder: finalSortOrder,
         addOns,
@@ -355,6 +359,10 @@ export class MenuController {
         item.price = updateData.price;
       }
 
+      if (updateData.originalPrice !== undefined) {
+        item.originalPrice = updateData.originalPrice && Number(updateData.originalPrice) > 0 ? Number(updateData.originalPrice) : undefined;
+      }
+      if (updateData.isTopPick !== undefined) item.isTopPick = !!updateData.isTopPick;
       if (updateData.name !== undefined) item.name = updateData.name.trim();
       if (updateData.description !== undefined) item.description = updateData.description.trim();
       if (updateData.imageUrl !== undefined) item.imageUrl = updateData.imageUrl.trim();

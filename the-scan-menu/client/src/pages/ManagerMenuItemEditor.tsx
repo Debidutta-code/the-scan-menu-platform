@@ -37,17 +37,29 @@ import {
   Loader,
 } from 'lucide-react';
 
+const toSafeNum = (val: any, fallback = 0): number => {
+  if (val === '' || val === null || val === undefined) return fallback;
+  const num = typeof val === 'number' ? val : parseFloat(String(val));
+  return isNaN(num) ? fallback : num;
+};
+
+const toSafeOptionalNum = (val: any): number | undefined => {
+  if (val === '' || val === null || val === undefined) return undefined;
+  const num = typeof val === 'number' ? val : parseFloat(String(val));
+  return isNaN(num) || num <= 0 ? undefined : num;
+};
+
 const menuItemEditorSchema = z.object({
   name: z.string().trim().min(1, 'Dish name is required'),
   categoryId: z.string().min(1, 'Category is required'),
   description: z.string().optional(),
   pricingType: z.enum(['SINGLE', 'PORTION']).default('SINGLE'),
   price: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+    (val) => toSafeNum(val, 0),
     z.number().min(0, 'Price must be non-negative').default(0)
   ),
   originalPrice: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    (val) => toSafeOptionalNum(val),
     z.number().min(0, 'Original price must be non-negative').optional()
   ),
   variants: z
@@ -55,7 +67,7 @@ const menuItemEditorSchema = z.object({
       z.object({
         name: z.string().trim().min(1, 'Size name is required'),
         price: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+          (val) => toSafeNum(val, 0),
           z.number().min(0, 'Price must be non-negative')
         ),
         isDefault: z.boolean().default(false),
@@ -68,16 +80,16 @@ const menuItemEditorSchema = z.object({
   isChefsSpecial: z.boolean().default(false),
   isTopPick: z.boolean().default(false),
   prepTimeMinutes: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined || Number(val) === 0 ? undefined : Number(val)),
+    (val) => toSafeOptionalNum(val),
     z.number().int().positive('Prep time must be a positive number').optional()
   ),
   trackStock: z.boolean().default(false),
   stockQuantity: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+    (val) => toSafeNum(val, 0),
     z.number().int().min(0).default(0)
   ),
   lowStockThreshold: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 5 : Number(val)),
+    (val) => toSafeNum(val, 5),
     z.number().int().min(0).default(5)
   ),
   isCombo: z.boolean().default(false),
@@ -88,11 +100,11 @@ const menuItemEditorSchema = z.object({
         name: z.string().trim().min(1, 'Combo item name is required'),
         categoryName: z.string().optional(),
         quantity: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? 1 : Number(val)),
+          (val) => toSafeNum(val, 1),
           z.number().int().min(1).default(1)
         ),
         priceSnapshot: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+          (val) => toSafeOptionalNum(val),
           z.number().min(0).optional()
         ),
         imageUrl: z.string().optional(),
@@ -104,7 +116,7 @@ const menuItemEditorSchema = z.object({
       z.object({
         name: z.string().trim().min(1, 'Add-on name is required'),
         priceDelta: z.preprocess(
-          (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+          (val) => toSafeNum(val, 0),
           z.number().min(0, 'Price delta must be non-negative')
         ),
       })
@@ -661,11 +673,12 @@ export const ManagerMenuItemEditor: React.FC = () => {
   const preparePayload = (values: any, isDraft: boolean) => {
     const isPortion = values.pricingType === 'PORTION';
 
-    let priceInPaise = Math.round(Number(values.price || 0) * 100);
+    const safePrice = toSafeNum(values.price, 0);
+    let priceInPaise = Math.round(safePrice * 100);
     const variantsInPaise = isPortion
       ? (values.variants || []).map((v: any) => ({
-          name: v.name.trim(),
-          price: Math.round(Number(v.price || 0) * 100),
+          name: (v.name || '').trim(),
+          price: Math.round(toSafeNum(v.price, 0) * 100),
           isDefault: !!v.isDefault,
         }))
       : undefined;
@@ -679,26 +692,28 @@ export const ManagerMenuItemEditor: React.FC = () => {
       .filter((addon: any) => addon.name?.trim())
       .map((addon: any) => ({
         name: addon.name.trim(),
-        priceDelta: Math.round(Number(addon.priceDelta || 0) * 100),
+        priceDelta: Math.round(toSafeNum(addon.priceDelta, 0) * 100),
       }));
 
+    const safeOriginalPrice = toSafeOptionalNum(values.originalPrice);
+
     return {
-      name: values.name.trim(),
+      name: (values.name || '').trim(),
       categoryId: values.categoryId,
       description: values.description?.trim(),
       pricingType: isPortion ? 'PORTION' : 'SINGLE',
       price: priceInPaise,
-      originalPrice: values.originalPrice ? Math.round(Number(values.originalPrice) * 100) : undefined,
+      originalPrice: safeOriginalPrice ? Math.round(safeOriginalPrice * 100) : undefined,
       variants: variantsInPaise,
       imageUrl: values.imageUrl?.trim(),
       isVegetarian: !!values.isVegetarian,
       isSpicy: !!values.isSpicy,
       isChefsSpecial: !!values.isChefsSpecial,
       isTopPick: !!values.isTopPick,
-      prepTimeMinutes: values.prepTimeMinutes ? Number(values.prepTimeMinutes) : undefined,
+      prepTimeMinutes: toSafeOptionalNum(values.prepTimeMinutes),
       trackStock: !!values.trackStock,
-      stockQuantity: Number(values.stockQuantity || 0),
-      lowStockThreshold: Number(values.lowStockThreshold || 5),
+      stockQuantity: toSafeNum(values.stockQuantity, 0),
+      lowStockThreshold: toSafeNum(values.lowStockThreshold, 5),
       isCombo: !!values.isCombo,
       comboItems: values.isCombo
         ? (values.comboItems || [])
@@ -707,8 +722,8 @@ export const ManagerMenuItemEditor: React.FC = () => {
               menuItemId: c.menuItemId,
               name: c.name.trim(),
               categoryName: c.categoryName,
-              quantity: Number(c.quantity || 1),
-              priceSnapshot: c.priceSnapshot ? Math.round(Number(c.priceSnapshot) * 100) : undefined,
+              quantity: toSafeNum(c.quantity, 1),
+              priceSnapshot: toSafeOptionalNum(c.priceSnapshot) ? Math.round(toSafeOptionalNum(c.priceSnapshot)! * 100) : undefined,
               imageUrl: c.imageUrl,
             }))
         : undefined,
@@ -1273,17 +1288,17 @@ export const ManagerMenuItemEditor: React.FC = () => {
                           </div>
                         </div>
 
-                        {Number(watchedValues.originalPrice || 0) > 0 && Number(watchedValues.originalPrice) > Number(watchedValues.price || 0) && (
+                        {toSafeNum(watchedValues.originalPrice) > 0 && toSafeNum(watchedValues.originalPrice) > toSafeNum(watchedValues.price) && (
                           <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">Live Discount:</span>
                               <span className="flex items-center gap-1.5 font-mono">
-                                <span className="line-through text-slate-400 text-[11px]">₹{Number(watchedValues.originalPrice).toFixed(2)}</span>
-                                <span className="text-emerald-700 font-black">₹{Number(watchedValues.price || 0).toFixed(2)}</span>
+                                <span className="line-through text-slate-400 text-[11px]">₹{toSafeNum(watchedValues.originalPrice).toFixed(2)}</span>
+                                <span className="text-emerald-700 font-black">₹{toSafeNum(watchedValues.price).toFixed(2)}</span>
                               </span>
                             </div>
                             <span className="text-[11px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-md font-mono">
-                              Save ₹{(Number(watchedValues.originalPrice) - Number(watchedValues.price || 0)).toFixed(0)} ({Math.round(((Number(watchedValues.originalPrice) - Number(watchedValues.price || 0)) / Number(watchedValues.originalPrice)) * 100)}% OFF)
+                              Save ₹{(toSafeNum(watchedValues.originalPrice) - toSafeNum(watchedValues.price)).toFixed(0)} ({Math.round(((toSafeNum(watchedValues.originalPrice) - toSafeNum(watchedValues.price)) / toSafeNum(watchedValues.originalPrice)) * 100)}% OFF)
                             </span>
                           </div>
                         )}
