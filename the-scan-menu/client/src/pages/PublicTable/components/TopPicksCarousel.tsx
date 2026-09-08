@@ -30,14 +30,11 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Filter only Top Picks or Combos or Chef's Specials with discount
+  // Filter only items explicitly marked as Top Picks or Chef's Specials
   const topPicks = items.filter(
     (item) =>
       item.isAvailable &&
-      (item.isTopPick ||
-        item.isCombo ||
-        (item.originalPrice && item.originalPrice > item.price) ||
-        item.isChefsSpecial)
+      (Boolean(item.isTopPick) || Boolean(item.isChefsSpecial))
   );
 
   // Auto-scroll loop
@@ -165,7 +162,7 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
                   <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 text-slate-400 gap-1">
                     <Sparkles className="w-7 h-7 text-amber-400/60" strokeWidth={1.5} />
                     <span className="text-[10px] font-bold text-amber-900/60 uppercase tracking-wider">
-                      {isCombo ? 'Meal Bundle' : "Chef's Special"}
+                      {item.isChefsSpecial ? "Chef's Special" : item.isTopPick ? "Top Pick" : isCombo ? "Meal Bundle" : "Featured"}
                     </span>
                   </div>
                 )}
@@ -181,17 +178,17 @@ export const TopPicksCarousel: React.FC<TopPicksCarouselProps> = ({
                     <span className="text-[9px] font-black text-amber-950 bg-amber-400/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-amber-500/30 flex items-center gap-0.5">
                       <Sparkles className="w-2.5 h-2.5 fill-amber-950 text-amber-950" /> Chef's Special
                     </span>
-                  ) : hasDiscount ? (
-                    <span className="text-[9px] font-black text-emerald-950 bg-emerald-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-emerald-400">
-                      Save {formatPrice(savingsAmount, currency)}
+                  ) : item.isTopPick ? (
+                    <span className="text-[9px] font-black text-amber-950 bg-amber-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-amber-400">
+                      ⭐ Top Pick
                     </span>
                   ) : isCombo ? (
                     <span className="text-[9px] font-black text-indigo-950 bg-indigo-200/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-indigo-300">
                       Combo Deal
                     </span>
-                  ) : item.isTopPick ? (
-                    <span className="text-[9px] font-black text-amber-950 bg-amber-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-amber-400">
-                      ⭐ Top Pick
+                  ) : hasDiscount ? (
+                    <span className="text-[9px] font-black text-emerald-950 bg-emerald-300/95 backdrop-blur-xs px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wide border border-emerald-400">
+                      Save {formatPrice(savingsAmount, currency)}
                     </span>
                   ) : null}
                 </div>

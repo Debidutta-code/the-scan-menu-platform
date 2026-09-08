@@ -49,11 +49,6 @@ export const formatCooldown = (seconds: number): string => {
  * Returns a promotional badge label for a menu item based on its index
  * and price, used for visual fidelity on menu cards.
  */
-export const getItemBadge = (item: { price: number; isChefsSpecial?: boolean; isTopPick?: boolean }, idx: number): string | null => {
-  if (item.isChefsSpecial) return null; // Handled with dedicated Chef Special badge
-  if (item.isTopPick) return null; // Handled with dedicated Top Pick badge
-  if (idx % 7 === 0) return 'Bestseller';
-  if (item.price > 35000) return 'Popular';
-  if (idx % 4 === 0) return 'New';
+export const getItemBadge = (_item: { price: number; isChefsSpecial?: boolean; isTopPick?: boolean }, _idx: number): string | null => {
   return null;
 };
