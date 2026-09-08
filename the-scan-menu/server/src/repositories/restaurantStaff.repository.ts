@@ -10,6 +10,10 @@ export class RestaurantStaffRepository {
     return RestaurantStaff.find({ restaurantId: new Types.ObjectId(restaurantId.toString()) }).populate('userId');
   }
 
+  async findAllPopulated(filter: Record<string, any> = {}): Promise<IRestaurantStaff[]> {
+    return RestaurantStaff.find(filter).populate('userId').populate('restaurantId');
+  }
+
   async findActiveByRestaurantId(restaurantId: string | Types.ObjectId): Promise<IRestaurantStaff[]> {
     return RestaurantStaff.find({ restaurantId: new Types.ObjectId(restaurantId.toString()), isActive: true });
   }

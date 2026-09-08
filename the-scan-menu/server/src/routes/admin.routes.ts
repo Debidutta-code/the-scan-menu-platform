@@ -47,4 +47,11 @@ router.get('/audit-logs', adminController.getAuditLogs);
 router.get('/platform-settings', adminController.getPlatformSettings);
 router.patch('/platform-settings/loyalty', adminController.updateGlobalLoyaltyPolicy);
 
+// Platform Staff & Managers Management
+router.get('/staff', adminController.listPlatformStaff);
+router.post('/staff', adminController.createPlatformStaff);
+router.patch('/staff/:staffId', adminController.updatePlatformStaff);
+router.delete('/staff/:staffId', adminController.deletePlatformStaff);
+router.post('/staff/:staffId/generate-pin', adminController.generateStaffPin);
+
 export default router;

@@ -66,6 +66,13 @@ export class AdminController {
     this.updateRestaurantPaymentConfig = this.updateRestaurantPaymentConfig.bind(this);
     this.testRazorpayCredentials = this.testRazorpayCredentials.bind(this);
     this.getAuditLogs = this.getAuditLogs.bind(this);
+
+    // Platform Staff & Managers Management
+    this.listPlatformStaff = this.listPlatformStaff.bind(this);
+    this.createPlatformStaff = this.createPlatformStaff.bind(this);
+    this.updatePlatformStaff = this.updatePlatformStaff.bind(this);
+    this.deletePlatformStaff = this.deletePlatformStaff.bind(this);
+    this.generateStaffPin = this.generateStaffPin.bind(this);
   }
 
   async provisionRestaurant(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
@@ -1421,7 +1428,7 @@ export class AdminController {
   }
 
   // 7c. Test Razorpay Credentials
-  async testRazorpayCredentials(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  async testRazorpayCredentials(req: AuthenticatedRequest, res: Response, _next: NextFunction): Promise<void> {
     try {
       const { restaurantId } = req.params;
       const { keyId, keySecret } = req.body;
@@ -1492,4 +1499,386 @@ export class AdminController {
       next(error);
     }
   }
+
+  // 11. List Platform Staff & Managers across all outlets
+  async listPlatformStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, role, status, search } = req.query as {
+        restaurantId?: string;
+        role?: string;
+        status?: string;
+        search?: string;
+      };
+
+      const filter: Record<string, any> = {};
+      if (restaurantId && restaurantId !== 'ALL') {
+        filter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      }
+
+      const staffJoins = await restaurantStaffRepository.findAllPopulated(filter);
+
+      const userMap = new Map<string, any>();
+
+      staffJoins.forEach((join: any) => {
+        if (join.userId && join.userId._id) {
+          const u = join.userId.toObject ? join.userId.toObject() : join.userId;
+          const r = join.restaurantId
+            ? (join.restaurantId.toObject ? join.restaurantId.toObject() : join.restaurantId)
+            : null;
+
+          const key = `${u._id}_${r?._id || 'none'}`;
+          userMap.set(key, {
+            _id: u._id,
+            staffJoinId: join._id,
+            name: u.name,
+            email: u.email,
+            role: join.role || u.role,
+            pin: u.pin,
+            isActive: join.isActive !== false && u.isActive !== false,
+            restaurantId: r?._id || join.restaurantId,
+            restaurant: r
+              ? {
+                  _id: r._id,
+                  name: r.name,
+                  slug: r.slug,
+                  logoUrl: r.logoUrl,
+                  status: r.status,
+                  plan: r.subscription?.planKey || 'FREE',
+                }
+              : null,
+            createdAt: u.createdAt,
+            updatedAt: u.updatedAt,
+          });
+        }
+      });
+
+      // Also get direct users with MANAGER/STAFF roles if any
+      const directQuery: Record<string, any> = {
+        role: { $in: ['MANAGER', 'STAFF'] },
+      };
+      if (restaurantId && restaurantId !== 'ALL') {
+        directQuery.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+      }
+      const directUsers = await userRepository.find(directQuery);
+      for (const u of directUsers) {
+        const uObj = u.toObject ? u.toObject() : u;
+        let restObj: any = null;
+        if (uObj.restaurantId) {
+          const r = await restaurantRepository.findById(uObj.restaurantId);
+          if (r) {
+            restObj = {
+              _id: r._id,
+              name: r.name,
+              slug: r.slug,
+              logoUrl: r.logoUrl,
+              status: r.status,
+              plan: r.subscription?.planKey || 'FREE',
+            };
+          }
+        }
+        const key = `${uObj._id}_${restObj?._id || 'none'}`;
+        if (!userMap.has(key)) {
+          userMap.set(key, {
+            _id: uObj._id,
+            name: uObj.name,
+            email: uObj.email,
+            role: uObj.role,
+            pin: uObj.pin,
+            isActive: uObj.isActive !== false,
+            restaurantId: restObj?._id || uObj.restaurantId,
+            restaurant: restObj,
+            createdAt: uObj.createdAt,
+            updatedAt: uObj.updatedAt,
+          });
+        }
+      }
+
+      let members = Array.from(userMap.values());
+
+      // Apply server filters
+      if (role && role !== 'ALL') {
+        members = members.filter((m) => m.role === role);
+      }
+      if (status && status !== 'ALL') {
+        if (status === 'ACTIVE') {
+          members = members.filter((m) => m.isActive);
+        } else if (status === 'SUSPENDED') {
+          members = members.filter((m) => !m.isActive);
+        }
+      }
+      if (search && search.trim()) {
+        const s = search.toLowerCase().trim();
+        members = members.filter(
+          (m) =>
+            m.name.toLowerCase().includes(s) ||
+            m.email.toLowerCase().includes(s) ||
+            (m.restaurant && m.restaurant.name.toLowerCase().includes(s)) ||
+            (m.restaurant && m.restaurant.slug && m.restaurant.slug.toLowerCase().includes(s))
+        );
+      }
+
+      // Compute platform summary statistics
+      const allList = Array.from(userMap.values());
+      const uniqueOutlets = new Set(allList.map((m) => m.restaurantId?.toString()).filter(Boolean));
+      const stats = {
+        totalStaff: allList.length,
+        totalManagers: allList.filter((m) => m.role === 'MANAGER').length,
+        totalFloorStaff: allList.filter((m) => m.role === 'STAFF').length,
+        activeCount: allList.filter((m) => m.isActive).length,
+        suspendedCount: allList.filter((m) => !m.isActive).length,
+        totalTenantsCovered: uniqueOutlets.size,
+      };
+
+      sendSuccess(res, { staff: members, stats }, 'Platform staff & managers retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // 12. Create a Manager or Staff member under any outlet
+  async createPlatformStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { restaurantId, name, email, password, pin, role, isActive } = req.body;
+
+      if (!restaurantId) {
+        sendError(res, 'BAD_REQUEST', 'Target restaurant outlet is required', null, 400);
+        return;
+      }
+      if (!name || !name.trim()) {
+        sendError(res, 'BAD_REQUEST', 'Staff member name is required', null, 400);
+        return;
+      }
+      if (!email || !email.trim()) {
+        sendError(res, 'BAD_REQUEST', 'Valid email is required', null, 400);
+        return;
+      }
+
+      const targetRestaurant = await restaurantRepository.findById(restaurantId);
+      if (!targetRestaurant) {
+        sendError(res, 'RESTAURANT_NOT_FOUND', 'Target restaurant not found', null, 404);
+        return;
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      let user = await userRepository.findOne({ email: normalizedEmail });
+
+      const selectedRole = role === 'MANAGER' ? 'MANAGER' : 'STAFF';
+      const staffPin = pin && pin.trim() ? pin.trim() : Math.floor(1000 + Math.random() * 9000).toString();
+
+      if (!user) {
+        const rawPassword = password && password.trim() ? password.trim() : 'Staff@12345';
+        const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+        user = await userRepository.create({
+          name: name.trim(),
+          email: normalizedEmail,
+          passwordHash,
+          role: selectedRole,
+          pin: staffPin,
+          isActive: isActive !== false,
+        });
+      } else {
+        // User exists: update details
+        user.name = name.trim();
+        user.role = selectedRole;
+        if (pin) user.pin = pin.trim();
+        if (password && password.trim()) {
+          user.passwordHash = await bcrypt.hash(password.trim(), 10);
+        }
+        if (isActive !== undefined) user.isActive = isActive;
+        await userRepository.save(user);
+      }
+
+      // Check or create restaurant staff join
+      let staffJoin = await restaurantStaffRepository.findByUserIdAndRestaurantId(
+        user._id,
+        targetRestaurant._id
+      );
+
+      if (staffJoin) {
+        staffJoin.role = selectedRole;
+        staffJoin.isActive = isActive !== false;
+        await restaurantStaffRepository.save(staffJoin);
+      } else {
+        staffJoin = await restaurantStaffRepository.create({
+          userId: user._id,
+          restaurantId: targetRestaurant._id,
+          role: selectedRole,
+          isActive: isActive !== false,
+        });
+      }
+
+      try {
+        await auditLogService.logEvent({
+          action: 'STAFF_CREATED_BY_SUPERADMIN',
+          actorId: req.user?.id || 'SUPER_ADMIN',
+          actorName: req.user?.name || 'Super Admin',
+          actorRole: req.user?.role || 'SUPER_ADMIN',
+          restaurantId: targetRestaurant._id.toString(),
+          restaurantName: targetRestaurant.name,
+          details: { name: user.name, email: user.email, role: selectedRole, restaurantName: targetRestaurant.name },
+          severity: 'INFO',
+        });
+      } catch (logErr) {
+        logger.warn(logErr, 'Failed to log staff creation audit');
+      }
+
+      sendSuccess(
+        res,
+        {
+          _id: user._id,
+          staffJoinId: staffJoin._id,
+          name: user.name,
+          email: user.email,
+          role: selectedRole,
+          pin: user.pin,
+          isActive: user.isActive,
+          restaurantId: targetRestaurant._id,
+          restaurant: {
+            _id: targetRestaurant._id,
+            name: targetRestaurant.name,
+            slug: targetRestaurant.slug,
+          },
+        },
+        'Staff member created successfully',
+        201
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // 13. Update staff or manager details from SuperAdmin
+  async updatePlatformStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { staffId } = req.params;
+      const { name, email, password, pin, role, isActive, restaurantId } = req.body;
+
+      const user = await userRepository.findById(staffId);
+      if (!user) {
+        sendError(res, 'USER_NOT_FOUND', 'User not found', null, 404);
+        return;
+      }
+
+      if (email && email.toLowerCase().trim() !== user.email) {
+        const existing = await userRepository.findOne({
+          email: email.toLowerCase().trim(),
+          _id: { $ne: staffId },
+        });
+        if (existing) {
+          sendError(res, 'USER_ALREADY_EXISTS', 'Email address is already in use by another account', null, 400);
+          return;
+        }
+        user.email = email.toLowerCase().trim();
+      }
+
+      if (name && name.trim()) user.name = name.trim();
+      if (password && password.trim()) user.passwordHash = await bcrypt.hash(password.trim(), 10);
+      if (pin !== undefined) user.pin = pin ? pin.trim() : undefined;
+      if (role && ['MANAGER', 'STAFF'].includes(role)) user.role = role;
+      if (isActive !== undefined) user.isActive = isActive;
+
+      await userRepository.save(user);
+
+      // Update restaurant staff joins
+      const staffJoins = await restaurantStaffRepository.findByUserId(staffId);
+      for (const join of staffJoins) {
+        if (role && ['MANAGER', 'STAFF'].includes(role)) join.role = role;
+        if (isActive !== undefined) join.isActive = isActive;
+        await restaurantStaffRepository.save(join);
+      }
+
+      // If restaurantId is provided and changed
+      if (restaurantId) {
+        const targetRest = await restaurantRepository.findById(restaurantId);
+        if (targetRest) {
+          const existingJoin = await restaurantStaffRepository.findByUserIdAndRestaurantId(
+            staffId,
+            restaurantId
+          );
+          if (!existingJoin) {
+            await restaurantStaffRepository.create({
+              userId: user._id,
+              restaurantId: targetRest._id,
+              role: (user.role as any) || 'STAFF',
+              isActive: user.isActive,
+            });
+          }
+        }
+      }
+
+      sendSuccess(
+        res,
+        {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          pin: user.pin,
+          isActive: user.isActive,
+        },
+        'Staff member updated successfully'
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // 14. Delete / Deactivate staff from SuperAdmin
+  async deletePlatformStaff(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { staffId } = req.params;
+      const { restaurantId } = req.query as { restaurantId?: string };
+
+      if (restaurantId) {
+        await restaurantStaffRepository.deactivateByUserAndRestaurant(staffId, restaurantId);
+      } else {
+        await restaurantStaffRepository.updateMany(
+          { userId: new mongoose.Types.ObjectId(staffId) },
+          { $set: { isActive: false } }
+        );
+      }
+
+      await userRepository.update(staffId, { isActive: false });
+
+      try {
+        await auditLogService.logEvent({
+          action: 'STAFF_DEACTIVATED_BY_SUPERADMIN',
+          actorId: req.user?.id || 'SUPER_ADMIN',
+          actorName: req.user?.name || 'Super Admin',
+          actorRole: req.user?.role || 'SUPER_ADMIN',
+          restaurantId: restaurantId || undefined,
+          details: { staffId, restaurantId },
+          severity: 'WARN',
+        });
+      } catch (logErr) {
+        logger.warn(logErr, 'Failed to log staff deactivation audit');
+      }
+
+      sendSuccess(res, {}, 'Staff member deactivated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // 15. Generate Random PIN for a Staff member
+  async generateStaffPin(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { staffId } = req.params;
+      const user = await userRepository.findById(staffId);
+      if (!user) {
+        sendError(res, 'USER_NOT_FOUND', 'User not found', null, 404);
+        return;
+      }
+
+      const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+      user.pin = newPin;
+      await userRepository.save(user);
+
+      sendSuccess(res, { pin: newPin }, 'New PIN generated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

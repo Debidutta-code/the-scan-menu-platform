@@ -13,6 +13,7 @@ import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminRestaurants from './pages/AdminRestaurants';
 import AdminRestaurantDetail from './pages/AdminRestaurantDetail';
+import AdminStaff from './pages/AdminStaff';
 import AdminSetupHub from './pages/AdminSetupHub';
 import AdminSubscriptions from './pages/AdminSubscriptions';
 import AdminPOSIntegrations from './pages/AdminPOSIntegrations';
@@ -117,6 +118,7 @@ export const App = () => {
                   <Route path="/admin/restaurants" element={<AdminRestaurants />} />
                   <Route path="/admin/restaurants/provision" element={<Navigate to="/admin/setup-hub" replace />} />
                   <Route path="/admin/restaurants/:id" element={<AdminRestaurantDetail />} />
+                  <Route path="/admin/staff" element={<AdminStaff />} />
                   <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                   <Route path="/admin/pos-integrations" element={<AdminPOSIntegrations />} />
                   <Route path="/admin/payments" element={<AdminPaymentGateways />} />

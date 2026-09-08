@@ -94,6 +94,39 @@ export interface Staff {
   updatedAt?: string;
 }
 
+export interface SuperAdminStaffMember {
+  _id: string;
+  staffJoinId?: string;
+  name: string;
+  email: string;
+  role: 'MANAGER' | 'STAFF' | 'SUPER_ADMIN';
+  pin?: string;
+  isActive: boolean;
+  restaurantId?: string;
+  restaurant?: {
+    _id: string;
+    name: string;
+    slug?: string;
+    logoUrl?: string;
+    status?: string;
+    plan?: string;
+  } | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PlatformStaffResponse {
+  staff: SuperAdminStaffMember[];
+  stats: {
+    totalStaff: number;
+    totalManagers: number;
+    totalFloorStaff: number;
+    activeCount: number;
+    suspendedCount: number;
+    totalTenantsCovered: number;
+  };
+}
+
 export interface MenuItemVariant {
   name: string;
   price: number;
@@ -355,6 +388,55 @@ export const adminService = {
   async getAuditLogs(params: { page?: number; limit?: number; action?: string; severity?: string; search?: string }) {
     const query = new URLSearchParams(params as any).toString();
     const res = await apiClient.get(`/admin/audit-logs?${query}`);
+    return res.data;
+  },
+
+  // Platform Staff & Managers Management
+  async listStaff(params?: { restaurantId?: string; role?: string; status?: string; search?: string }) {
+    const query = new URLSearchParams(
+      Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== '')
+    ).toString();
+    const res = await apiClient.get(`/admin/staff${query ? `?${query}` : ''}`);
+    return res.data;
+  },
+
+  async createStaff(data: {
+    restaurantId: string;
+    name: string;
+    email: string;
+    password?: string;
+    pin?: string;
+    role: 'MANAGER' | 'STAFF';
+    isActive?: boolean;
+  }) {
+    const res = await apiClient.post('/admin/staff', data);
+    return res.data;
+  },
+
+  async updateStaff(
+    staffId: string,
+    data: {
+      name?: string;
+      email?: string;
+      password?: string;
+      pin?: string;
+      role?: 'MANAGER' | 'STAFF';
+      isActive?: boolean;
+      restaurantId?: string;
+    }
+  ) {
+    const res = await apiClient.patch(`/admin/staff/${staffId}`, data);
+    return res.data;
+  },
+
+  async deleteStaff(staffId: string, restaurantId?: string) {
+    const query = restaurantId ? `?restaurantId=${restaurantId}` : '';
+    const res = await apiClient.delete(`/admin/staff/${staffId}${query}`);
+    return res.data;
+  },
+
+  async generatePin(staffId: string) {
+    const res = await apiClient.post(`/admin/staff/${staffId}/generate-pin`);
     return res.data;
   },
 };

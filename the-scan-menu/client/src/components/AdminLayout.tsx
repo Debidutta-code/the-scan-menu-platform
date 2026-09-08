@@ -7,6 +7,7 @@ import {
   Shield,
   LayoutGrid,
   Store,
+  Users,
   PlusCircle,
   CreditCard,
   BarChart3,
@@ -39,6 +40,8 @@ export const AdminLayout: React.FC = () => {
     ? 'setup-hub'
     : currentPath.startsWith('/admin/restaurants')
     ? 'restaurants'
+    : currentPath.startsWith('/admin/staff')
+    ? 'staff'
     : currentPath.startsWith('/admin/subscriptions')
     ? 'subscriptions'
     : currentPath.startsWith('/admin/pos-integrations')
@@ -64,6 +67,8 @@ export const AdminLayout: React.FC = () => {
       ? 'Outlet Onboarding & Setup Hub'
       : activeTab === 'restaurants'
       ? 'Tenants Directory'
+      : activeTab === 'staff'
+      ? 'Staff & Managers Directory'
       : activeTab === 'subscriptions'
       ? 'Subscription Plans'
       : activeTab === 'pos-integrations'
@@ -145,6 +150,19 @@ export const AdminLayout: React.FC = () => {
           >
             <Store className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Tenants Directory</span>
+          </button>
+
+          {/* Staff & Managers Directory */}
+          <button
+            onClick={() => navigate('/admin/staff')}
+            className={`flex items-center gap-2.5 w-full px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'staff'
+                ? 'bg-slate-950 text-white shadow-sm font-bold'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
+            <span>Staff & Managers</span>
           </button>
 
           {/* Subscriptions */}
@@ -387,6 +405,10 @@ export const AdminLayout: React.FC = () => {
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono">Audit</span>
               </button>
               <button onClick={() => { navigate('/admin/restaurants'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100">Tenants Directory</button>
+              <button onClick={() => { navigate('/admin/staff'); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 flex items-center justify-between text-slate-900">
+                <span>Staff & Managers</span>
+                <Users className="w-3.5 h-3.5 text-amber-500" />
+              </button>
               <button onClick={() => { setShowQuickOnboard(true); setMoreDrawerOpen(false); }} className="w-full text-left p-2.5 rounded-xl bg-amber-50 text-amber-900 font-extrabold flex items-center gap-2">
                 <PlusCircle className="w-3.5 h-3.5 text-amber-600" />
                 <span>+ Onboard Outlet</span>
