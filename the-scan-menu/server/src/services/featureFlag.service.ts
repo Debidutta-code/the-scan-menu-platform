@@ -47,6 +47,12 @@ export const DEFAULT_FLAGS: FeatureFlagMeta[] = [
 
   // 2. Kitchen & Operations
   {
+    key: 'staff_management',
+    name: 'Staff & Team Management',
+    category: 'OPERATIONS',
+    description: 'Staff & waiter accounts, custom PIN generation, role assignments, and permission controls.',
+  },
+  {
     key: 'mobile_app',
     name: 'Captain Mobile App Access',
     category: 'OPERATIONS',
@@ -155,6 +161,17 @@ export class FeatureFlagService {
     if (flags.length === 0) {
       await this.seedDefaultFlags(restaurantId, session);
       flags = await featureFlagRepository.findByRestaurantId(restaurantId);
+    } else {
+      const existingKeys = new Set(flags.map((f: any) => f.key));
+      const missingFlags = DEFAULT_FLAGS.filter((f) => !existingKeys.has(f.key));
+      if (missingFlags.length > 0) {
+        await Promise.all(
+          missingFlags.map((flag) =>
+            featureFlagRepository.upsert(restaurantId, flag.key, true, flag.description, session)
+          )
+        );
+        flags = await featureFlagRepository.findByRestaurantId(restaurantId);
+      }
     }
 
     return flags;

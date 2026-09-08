@@ -181,7 +181,7 @@ export const App = () => {
                       <Route path="/manager/menu/:itemId/edit" element={<ManagerMenuItemEditor />} />
                     </Route>
 
-                    <Route element={<FeatureProtectedRoute requiredAnyFeatures={['crm', 'pos']} featureName="Staff Management" />}>
+                    <Route element={<FeatureProtectedRoute requiredFeature="staff_management" featureName="Staff & Team Management" />}>
                       <Route path="/manager/staff" element={<ManagerStaff />} />
                     </Route>
 

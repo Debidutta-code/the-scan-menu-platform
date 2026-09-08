@@ -79,6 +79,7 @@ const FLAG_ICON_MAP: Record<string, any> = {
   qr_menu: QrCode,
   ordering: ShoppingBag,
   waiter_call: Bell,
+  staff_management: Users,
   customer_display: Tv,
   customer_otp: ShieldCheck,
   mobile_app: Smartphone,
@@ -312,7 +313,7 @@ export const AdminFeatureFlags: React.FC<AdminFeatureFlagsProps> = ({
                   Control Center
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  19 Modules Supported
+                  {totalFlagsCount > 0 ? `${totalFlagsCount} Modules Supported` : '20 Modules Supported'}
                 </span>
               </div>
               <h2 className="font-display text-3xl font-bold mt-1">Tenant Module Feature Flags</h2>

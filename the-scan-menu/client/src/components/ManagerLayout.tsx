@@ -607,7 +607,7 @@ export const ManagerLayout: React.FC = () => {
           )}
 
           {/* Staff tab (Manager/Super Admin only) */}
-          {!isStaff && (isEnabled('crm') || isEnabled('pos')) && (
+          {!isStaff && isEnabled('staff_management') && (
             <button
               onClick={() => navigate('/manager/staff')}
               className={`flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
