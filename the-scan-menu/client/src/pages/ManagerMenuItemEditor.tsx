@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -272,10 +272,17 @@ export const ManagerMenuItemEditor: React.FC = () => {
   });
 
   const baselineItem = useMemo(() => itemResponse?.data || null, [itemResponse]);
+  const initializedItemIdRef = useRef<string | null>(null);
 
-  // Set form baseline when existing dish data loads
+  // Set form baseline when existing dish data loads (runs ONCE per dish load)
   useEffect(() => {
-    if (baselineItem) {
+    if (isEditMode && baselineItem) {
+      const activeDishId = String(baselineItem._id || itemId);
+      if (initializedItemIdRef.current === activeDishId) {
+        return; // Already initialized this dish, do not overwrite dirty user inputs
+      }
+      initializedItemIdRef.current = activeDishId;
+
       const cId = typeof baselineItem.categoryId === 'object' ? baselineItem.categoryId?._id : baselineItem.categoryId;
       const initialVals = {
         name: baselineItem.name || '',
@@ -325,33 +332,36 @@ export const ManagerMenuItemEditor: React.FC = () => {
         setCurrentStep(initialVals.completedStep);
       }
     } else if (!isEditMode && categories.length > 0) {
-      if (!getValues('categoryId')) {
-        setValue('categoryId', initialCategoryParam || categories[0]._id);
-      }
-      const selectedItemsParam = searchParams.get('selectedItems');
-      if (selectedItemsParam && allMenuItems.length > 0 && !getValues('isCombo')) {
-        const itemIds = selectedItemsParam.split(',').filter(Boolean);
-        const dishes = allMenuItems.filter((d: any) => itemIds.includes(d._id));
-        if (dishes.length > 0) {
-          setValue('isCombo', true);
-          const comboList = dishes.map((d: any) => ({
-            menuItemId: d._id,
-            name: d.name,
-            categoryName: typeof d.categoryId === 'object' ? d.categoryId?.name : categories.find((c: any) => c._id === d.categoryId)?.name || 'Dish',
-            quantity: 1,
-            priceSnapshot: (d.price || 0) / 100,
-            imageUrl: d.imageUrl || '',
-          }));
-          setValue('comboItems', comboList);
-          const bundleTotal = dishes.reduce((sum: number, d: any) => sum + (d.price || 0) / 100, 0);
-          setValue('originalPrice', bundleTotal);
-          setValue('price', Math.round(bundleTotal * 0.85));
-          setValue('name', `${dishes.map((d: any) => d.name).slice(0, 2).join(' + ')} Combo`);
-          setCurrentStep(4);
+      if (!initializedItemIdRef.current) {
+        initializedItemIdRef.current = 'NEW';
+        if (!getValues('categoryId')) {
+          setValue('categoryId', initialCategoryParam || categories[0]._id);
+        }
+        const selectedItemsParam = searchParams.get('selectedItems');
+        if (selectedItemsParam && allMenuItems.length > 0 && !getValues('isCombo')) {
+          const itemIds = selectedItemsParam.split(',').filter(Boolean);
+          const dishes = allMenuItems.filter((d: any) => itemIds.includes(d._id));
+          if (dishes.length > 0) {
+            setValue('isCombo', true);
+            const comboList = dishes.map((d: any) => ({
+              menuItemId: d._id,
+              name: d.name,
+              categoryName: typeof d.categoryId === 'object' ? d.categoryId?.name : categories.find((c: any) => c._id === d.categoryId)?.name || 'Dish',
+              quantity: 1,
+              priceSnapshot: (d.price || 0) / 100,
+              imageUrl: d.imageUrl || '',
+            }));
+            setValue('comboItems', comboList);
+            const bundleTotal = dishes.reduce((sum: number, d: any) => sum + (d.price || 0) / 100, 0);
+            setValue('originalPrice', bundleTotal);
+            setValue('price', Math.round(bundleTotal * 0.85));
+            setValue('name', `${dishes.map((d: any) => d.name).slice(0, 2).join(' + ')} Combo`);
+            setCurrentStep(4);
+          }
         }
       }
     }
-  }, [baselineItem, categories, allMenuItems, isEditMode, reset, getValues, setValue, initialCategoryParam, searchParams]);
+  }, [baselineItem, categories, allMenuItems, isEditMode, reset, getValues, setValue, initialCategoryParam, searchParams, itemId]);
 
   // Check LocalStorage Crash Recovery on mount
   useEffect(() => {
@@ -1461,7 +1471,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                               type="number"
                               step="0.01"
                               placeholder="Original Total"
-                              {...register('originalPrice')}
+                              {...register('originalPrice', { valueAsNumber: true })}
                               className="w-full px-2.5 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-mono font-bold"
                             />
                           </div>
@@ -1471,7 +1481,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                               type="number"
                               step="0.01"
                               placeholder="Discounted Price"
-                              {...register('price')}
+                              {...register('price', { valueAsNumber: true })}
                               className="w-full px-2.5 py-1.5 border border-amber-400 bg-white rounded-lg text-xs font-mono font-bold text-amber-900 focus:outline-none focus:border-amber-600"
                             />
                           </div>
