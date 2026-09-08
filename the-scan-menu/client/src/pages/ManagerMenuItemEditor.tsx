@@ -1237,7 +1237,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                 type="number"
                                 step="0.01"
                                 placeholder="150.00"
-                                {...register('price')}
+                                {...register('price', { valueAsNumber: true })}
                                 className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-slate-900"
                               />
                             </div>
@@ -1255,7 +1255,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                 type="number"
                                 step="0.01"
                                 placeholder="e.g. 199.00"
-                                {...register('originalPrice')}
+                                {...register('originalPrice', { valueAsNumber: true })}
                                 className="w-full pl-7 pr-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-mono text-slate-600 focus:outline-none focus:border-slate-900"
                               />
                             </div>
@@ -1263,7 +1263,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                           </div>
                         </div>
 
-                        {watchedValues.originalPrice && Number(watchedValues.originalPrice) > Number(watchedValues.price || 0) && (
+                        {Number(watchedValues.originalPrice || 0) > 0 && Number(watchedValues.originalPrice) > Number(watchedValues.price || 0) && (
                           <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between text-xs text-emerald-900 font-bold shadow-2xs">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">Live Discount:</span>
@@ -1310,7 +1310,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                   type="number"
                                   step="0.01"
                                   placeholder="Price"
-                                  {...register(`variants.${idx}.price` as const)}
+                                  {...register(`variants.${idx}.price` as const, { valueAsNumber: true })}
                                   className="w-full pl-5 pr-2 py-1 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
                                 />
                               </div>
@@ -1644,7 +1644,7 @@ export const ManagerMenuItemEditor: React.FC = () => {
                                 type="number"
                                 step="0.01"
                                 placeholder="Price"
-                                {...register(`addOns.${idx}.priceDelta` as const)}
+                                {...register(`addOns.${idx}.priceDelta` as const, { valueAsNumber: true })}
                                 className="w-full pl-5 pr-2 py-1 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
                               />
                             </div>

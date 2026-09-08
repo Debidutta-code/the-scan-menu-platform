@@ -62,9 +62,11 @@ export const CustomerDishPreview: React.FC<CustomerDishPreviewProps> = ({
     return false;
   }, [explicitIsPaise, item]);
 
-  const toRupees = (val?: number) => {
-    if (val === undefined || val === null || isNaN(val)) return 0;
-    return isPaise ? val / 100 : val;
+  const toRupees = (val?: any): number => {
+    if (val === undefined || val === null || val === '') return 0;
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    if (isNaN(num)) return 0;
+    return isPaise ? num / 100 : num;
   };
 
   const isPortion = item.pricingType === 'PORTION' && Array.isArray(item.variants) && item.variants.length > 0;
@@ -80,14 +82,17 @@ export const CustomerDishPreview: React.FC<CustomerDishPreviewProps> = ({
 
   const rawOriginalPrice = toRupees(item.originalPrice);
   const hasDiscount = rawOriginalPrice > 0 && rawOriginalPrice > basePrice;
-  const savingsAmount = hasDiscount ? rawOriginalPrice - basePrice : 0;
+  const savingsAmount = hasDiscount ? Math.max(0, rawOriginalPrice - basePrice) : 0;
   const savingsPercent = hasDiscount && rawOriginalPrice > 0 ? Math.round((savingsAmount / rawOriginalPrice) * 100) : 0;
 
-  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + toRupees(a.priceDelta || 0), 0);
-  const totalPrice = (basePrice + addOnsTotal) * previewQty;
+  const addOnsTotal = (selectedAddOns || []).reduce((sum, a) => sum + toRupees(a.priceDelta || 0), 0);
+  const totalPrice = (Number(basePrice || 0) + addOnsTotal) * Number(previewQty || 1);
 
-  const minVariantPrice = isPortion && item.variants
-    ? Math.min(...item.variants.map((v) => toRupees(v.price || 0)))
+  const validVariantPrices = isPortion && item.variants
+    ? item.variants.map((v) => toRupees(v.price)).filter((p) => p > 0)
+    : [];
+  const minVariantPrice = validVariantPrices.length > 0
+    ? Math.min(...validVariantPrices)
     : basePrice;
 
   return (
