@@ -24,7 +24,7 @@ router.post('/:restaurantId/orders/:orderId/clear', requireFeature('ordering') a
 router.post('/:restaurantId/orders/:orderId/retry-pos', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, orderController.retryPosSync);
 
 // Rapid Counter Order Entry (Staff & Manager)
-router.post('/:restaurantId/orders/counter', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.createCounterOrder);
+router.post('/:restaurantId/orders/counter', requireFeature('pos') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.createCounterOrder);
 
 // Item status tick transitions
 router.patch('/:restaurantId/orders/:orderId/items/:itemIndex/status', requireFeature('ordering') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, orderController.updateItemStatus);

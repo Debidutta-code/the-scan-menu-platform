@@ -34,6 +34,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Tv,
+  GitMerge,
+  ToggleLeft,
 } from 'lucide-react';
 import apiClient from '../lib/api';
 
@@ -160,6 +162,8 @@ export const ManagerLayout: React.FC = () => {
     ? 'menu-availability'
     : currentPath.startsWith('/manager/menu')
     ? 'menu'
+    : currentPath.startsWith('/manager/tables/operations')
+    ? 'table-operations'
     : currentPath.startsWith('/manager/tables')
     ? 'tables'
     : currentPath.startsWith('/manager/staff')
@@ -555,6 +559,23 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
+          {/* Menu Availability tab (Staff only) */}
+          {isStaff && isEnabled('qr_menu') && (
+            <button
+              onClick={() => navigate('/manager/menu/availability')}
+              className={`flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'menu-availability'
+                  ? 'bg-slate-950 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <ToggleLeft className="w-3.5 h-3.5 shrink-0 text-amber-500" strokeWidth={1.75} />
+                <span className="truncate">Menu Availability</span>
+              </div>
+            </button>
+          )}
+
           {/* Menu tab (Manager/Super Admin only) */}
           {!isStaff && isEnabled('qr_menu') && (
             <button
@@ -585,6 +606,23 @@ export const ManagerLayout: React.FC = () => {
               <div className="flex items-center gap-2 min-w-0">
                 <Package className="w-3.5 h-3.5 shrink-0 text-amber-500" strokeWidth={1.75} />
                 <span className="truncate">Inventory & Stock</span>
+              </div>
+            </button>
+          )}
+
+          {/* Table Operations tab (Staff only) */}
+          {isStaff && isEnabled('qr_menu') && (
+            <button
+              onClick={() => navigate('/manager/tables/operations')}
+              className={`flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'table-operations'
+                  ? 'bg-slate-950 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <GitMerge className="w-3.5 h-3.5 shrink-0 text-amber-500" strokeWidth={1.75} />
+                <span className="truncate">Table Operations</span>
               </div>
             </button>
           )}
@@ -674,8 +712,8 @@ export const ManagerLayout: React.FC = () => {
             </button>
           )}
 
-          {/* Developer API & Webhooks tab (Super Admin only) */}
-          {user?.role === 'SUPER_ADMIN' && isEnabled('api_webhooks') && (
+          {/* Developer API & Webhooks tab (Manager / Super Admin) */}
+          {!isStaff && isEnabled('api_webhooks') && (
             <button
               onClick={() => navigate('/manager/developer')}
               className={`flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${

@@ -149,6 +149,10 @@ export const App = () => {
                     <Route path="/manager/menu/availability" element={<ManagerMenuAvailability />} />
                   </Route>
 
+                  <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Table Operations" />}>
+                    <Route path="/manager/tables/operations" element={<ManagerTableOperations />} />
+                  </Route>
+
                   <Route element={<FeatureProtectedRoute requiredFeature="waiter_call" featureName="Waiter Call Assistance" />}>
                     <Route path="/manager/waiter-calls" element={<ManagerWaiterCalls />} />
                   </Route>
@@ -172,7 +176,6 @@ export const App = () => {
 
                     <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Table Management" />}>
                       <Route path="/manager/tables" element={<ManagerTables />} />
-                      <Route path="/manager/tables/operations" element={<ManagerTableOperations />} />
                     </Route>
 
                     <Route element={<FeatureProtectedRoute requiredFeature="qr_menu" featureName="Digital Menu Management" />}>
@@ -196,10 +199,7 @@ export const App = () => {
                     <Route element={<FeatureProtectedRoute requiredFeature="analytics" featureName="Analytics & Insights" />}>
                       <Route path="/manager/analytics" element={<ManagerAnalytics />} />
                     </Route>
-                  </Route>
 
-                  {/* Super Admin only routes inside layout */}
-                  <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
                     <Route element={<FeatureProtectedRoute requiredFeature="api_webhooks" featureName="Developer APIs & Webhooks" />}>
                       <Route path="/manager/developer" element={<ManagerDeveloper />} />
                     </Route>

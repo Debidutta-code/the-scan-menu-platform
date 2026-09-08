@@ -56,18 +56,18 @@ router.delete('/:restaurantId/taxes/:taxId', requireFeature('ordering') as any, 
 // Customer Directory & Loyalty Routes (Manager/Staff/Super Admin)
 router.get('/:restaurantId/customers', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listCustomers);
 router.get('/:restaurantId/customers/:customerId', requireFeature('crm') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerDetails);
-router.get('/:restaurantId/loyalty/lookup', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyInfo);
-router.get('/:restaurantId/loyalty/leaderboard', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyLeaderboard);
-router.get('/:restaurantId/loyalty/config', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyConfig);
-router.patch('/:restaurantId/loyalty/config', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateLoyaltyConfig);
-router.post('/:restaurantId/loyalty/adjust', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.adjustLoyaltyPoints);
-router.get('/:restaurantId/customers/:customerId/loyalty-ledger', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerLoyaltyLedger);
+router.get('/:restaurantId/loyalty/lookup', requireFeature('loyalty') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyInfo);
+router.get('/:restaurantId/loyalty/leaderboard', requireFeature('loyalty') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyLeaderboard);
+router.get('/:restaurantId/loyalty/config', requireFeature('loyalty') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getLoyaltyConfig);
+router.patch('/:restaurantId/loyalty/config', requireFeature('loyalty') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateLoyaltyConfig);
+router.post('/:restaurantId/loyalty/adjust', requireFeature('loyalty') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.adjustLoyaltyPoints);
+router.get('/:restaurantId/customers/:customerId/loyalty-ledger', requireFeature('loyalty') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.getCustomerLoyaltyLedger);
 
 // Waiter Staff Management Endpoints (Manager-only)
-router.post('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);
-router.get('/:restaurantId/staff', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listStaff);
-router.patch('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateStaff);
-router.delete('/:restaurantId/staff/:staffId', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteStaff);
+router.post('/:restaurantId/staff', requireFeature('staff_management') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.createStaff);
+router.get('/:restaurantId/staff', requireFeature('staff_management') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.listStaff);
+router.patch('/:restaurantId/staff/:staffId', requireFeature('staff_management') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.updateStaff);
+router.delete('/:restaurantId/staff/:staffId', requireFeature('staff_management') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, restaurantController.deleteStaff);
 
 // POS PIN Fast Unlock & Manager Authorization Endpoints
 router.post('/:restaurantId/pos/unlock', requireAuth as any, requireRestaurantAccess as any, restaurantController.unlockPosByPin);
@@ -86,8 +86,8 @@ router.post('/:restaurantId/kds/tickets/:orderId/bump', requireAuth as any, requ
 router.post('/:restaurantId/kds/tickets/:orderId/recall', requireAuth as any, requireFeature('kds') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, kdsController.recallTicket);
 
 // Direct Network Printer Endpoints (LAN / Thermal)
-router.post('/:restaurantId/printers/test', requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, printerController.testPrinter);
-router.post('/:restaurantId/printers/print-kot', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printKOT);
-router.post('/:restaurantId/printers/print-bill', requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printBill);
+router.post('/:restaurantId/printers/test', requireFeature('pos') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'SUPER_ADMIN') as any, printerController.testPrinter);
+router.post('/:restaurantId/printers/print-kot', requireFeature('pos') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printKOT);
+router.post('/:restaurantId/printers/print-bill', requireFeature('pos') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, printerController.printBill);
 
 export default router;

@@ -23,6 +23,7 @@ router.use(requireAuth as any);
 router.get('/:restaurantId/categories', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, menuController.listCategories);
 router.post(
   '/:restaurantId/categories',
+  requireFeature('qr_menu') as any,
   requireRestaurantAccess as any,
   requireRole('MANAGER', 'SUPER_ADMIN') as any,
   validateBody(createCategorySchema),
@@ -30,6 +31,7 @@ router.post(
 );
 router.patch(
   '/:restaurantId/categories/:categoryId',
+  requireFeature('qr_menu') as any,
   requireRestaurantAccess as any,
   requireRole('MANAGER', 'SUPER_ADMIN') as any,
   validateBody(updateCategorySchema),
@@ -43,6 +45,7 @@ router.get('/:restaurantId/menu-items', requireFeature('qr_menu') as any, requir
 router.get('/:restaurantId/menu-items/:itemId', requireFeature('qr_menu') as any, requireRestaurantAccess as any, requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any, menuController.getMenuItem);
 router.post(
   '/:restaurantId/menu-items',
+  requireFeature('qr_menu') as any,
   requireRestaurantAccess as any,
   requireRole('MANAGER', 'SUPER_ADMIN') as any,
   validateBody(createMenuItemSchema),
@@ -50,6 +53,7 @@ router.post(
 );
 router.patch(
   '/:restaurantId/menu-items/:itemId',
+  requireFeature('qr_menu') as any,
   requireRestaurantAccess as any,
   requireRole('MANAGER', 'SUPER_ADMIN') as any,
   validateBody(updateMenuItemSchema),
