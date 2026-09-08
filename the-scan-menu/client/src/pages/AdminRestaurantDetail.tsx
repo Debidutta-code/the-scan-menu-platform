@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService, managerService, OutletSetupAuditResult, Table, MenuItem, Staff } from '../services/restaurant.service';
 import { useToast } from '../hooks/useToast';
@@ -40,11 +40,19 @@ import { IntegrationsTab } from '../components/admin/restaurant-detail/tabs/Inte
 export const AdminRestaurantDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab') as AdminTab | null;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<AdminTab>('checklist');
+  const [activeTab, setActiveTab] = useState<AdminTab>(urlTab || 'checklist');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (urlTab) {
+      setActiveTab(urlTab);
+    }
+  }, [urlTab]);
 
   // Queries
   const { data: restResponse, isLoading: isLoadingRest } = useQuery({
