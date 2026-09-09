@@ -778,8 +778,13 @@ export const ManagerTransactions: React.FC = () => {
                                                 <span className="font-mono font-bold text-slate-900 w-5">
                                                   {item.quantity}x
                                                 </span>
-                                                <span className="text-slate-800 font-medium">
-                                                  {item.nameSnapshot || item.name || 'Dish'}
+                                                <span className="text-slate-800 font-medium flex items-center gap-1.5 flex-wrap">
+                                                  <span>{item.nameSnapshot || item.name || 'Dish'}</span>
+                                                  {item.variantName && !(item.nameSnapshot || item.name)?.includes(`(${item.variantName})`) && (
+                                                    <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+                                                      {item.variantName}
+                                                    </span>
+                                                  )}
                                                 </span>
                                               </div>
                                               <span className="font-mono text-slate-700 font-bold">

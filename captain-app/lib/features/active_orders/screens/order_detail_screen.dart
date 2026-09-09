@@ -256,6 +256,28 @@ class OrderDetailScreen extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
+                                    if (item.variantName != null &&
+                                        item.variantName!.isNotEmpty &&
+                                        !item.name.contains('(${item.variantName})')) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                                        ),
+                                        child: Text(
+                                          item.variantName!,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                     if (item.isCombo) ...[
                                       const SizedBox(width: 6),
                                       Container(

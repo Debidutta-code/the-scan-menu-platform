@@ -377,9 +377,16 @@ export const PublicOrderConfirmation: React.FC = () => {
                 {order.items.map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between py-2 first:pt-0">
                     <div>
-                      <h5 className="text-xs font-bold text-slate-900">
-                        {item.nameSnapshot} <span className="font-mono text-slate-400">x{item.quantity}</span>
-                      </h5>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h5 className="text-xs font-bold text-slate-900">
+                          {item.nameSnapshot || item.name} <span className="font-mono text-slate-400">x{item.quantity}</span>
+                        </h5>
+                        {item.variantName && !(item.nameSnapshot || item.name)?.includes(`(${item.variantName})`) && (
+                          <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+                            {item.variantName}
+                          </span>
+                        )}
+                      </div>
                       {item.selectedAddOns.length > 0 && (
                         <p className="text-[10px] text-slate-400">
                           + {item.selectedAddOns.map((x: any) => x.name).join(', ')}

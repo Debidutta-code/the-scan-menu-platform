@@ -62,8 +62,20 @@ export const ViewBillSheet: React.FC<ViewBillSheetProps> = ({
                   {(sessionDetailsData.data.orders || []).flatMap((o: any) => o.items || []).map((item: any, idx: number) => (
                     <div key={idx} className="pt-2 first:pt-0 flex justify-between items-start text-xs">
                       <div>
-                        <span className="font-bold text-slate-800">{item.nameSnapshot}</span>
-                        <span className="text-slate-400 font-mono ml-1.5">x{item.quantity}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800">{item.nameSnapshot || item.name}</span>
+                          <span className="text-slate-400 font-mono text-[11px]">x{item.quantity}</span>
+                          {item.variantName && !(item.nameSnapshot || item.name)?.includes(`(${item.variantName})`) && (
+                            <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+                              {item.variantName}
+                            </span>
+                          )}
+                          {item.isCombo && (
+                            <span className="text-[9px] font-black uppercase text-amber-900 bg-amber-100 border border-amber-200 px-1 py-0.2 rounded font-mono">
+                              Combo
+                            </span>
+                          )}
+                        </div>
                         {item.selectedAddOns && item.selectedAddOns.length > 0 && (
                           <p className="text-[10px] text-slate-500 font-medium">
                             + {item.selectedAddOns.map((x: any) => {

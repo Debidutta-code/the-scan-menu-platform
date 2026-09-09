@@ -677,8 +677,13 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                                         <div className="min-w-0 flex-1">
                                           <div className="flex items-center gap-1.5 flex-wrap">
                                             <h6 className={`font-bold text-slate-900 leading-tight ${isServed ? 'line-through text-slate-400 font-normal' : ''}`}>
-                                              {item.nameSnapshot} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
+                                              {item.nameSnapshot || item.name} <span className="font-mono text-slate-500 font-bold text-[11px]">x{item.quantity}</span>
                                             </h6>
+                                            {item.variantName && !(item.nameSnapshot || item.name)?.includes(`(${item.variantName})`) && (
+                                              <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+                                                {item.variantName}
+                                              </span>
+                                            )}
                                             {item.isCombo && (
                                               <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-200 px-1.5 py-0.2 rounded font-mono">
                                                 Combo

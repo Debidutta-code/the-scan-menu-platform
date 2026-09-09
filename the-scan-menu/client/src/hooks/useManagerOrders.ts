@@ -9,6 +9,7 @@ export type WorkflowMode = 'FIVE_STEP' | 'FOUR_STEP' | 'THREE_STEP';
 
 export interface OrderItem {
   nameSnapshot: string;
+  variantName?: string;
   unitPriceSnapshot: number;
   quantity: number;
   selectedAddOns: { name: string; priceDelta: number }[];

@@ -926,6 +926,11 @@ export const ManagerOrders: React.FC = () => {
                                 <span className="font-semibold text-slate-800 block truncate">
                                   {item.nameSnapshot || (item as any).name}
                                 </span>
+                                {item.variantName && !(item.nameSnapshot || (item as any).name)?.includes(`(${item.variantName})`) && (
+                                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                    {item.variantName}
+                                  </span>
+                                )}
                                 {item.isCombo && (
                                   <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">
                                     Combo

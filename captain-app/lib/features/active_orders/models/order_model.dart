@@ -27,6 +27,7 @@ class OrderComboSubItemSnapshot {
 
 class OrderItemSnapshot {
   final String name;
+  final String? variantName;
   final int unitPrice;
   final int? originalPrice;
   final int quantity;
@@ -38,6 +39,7 @@ class OrderItemSnapshot {
 
   OrderItemSnapshot({
     required this.name,
+    this.variantName,
     required this.unitPrice,
     this.originalPrice,
     required this.quantity,
@@ -51,6 +53,7 @@ class OrderItemSnapshot {
   factory OrderItemSnapshot.fromJson(Map<String, dynamic> json) {
     return OrderItemSnapshot(
       name: json['nameSnapshot'] ?? json['name'] ?? '',
+      variantName: json['variantName'],
       unitPrice: json['unitPriceSnapshot'] ?? json['unitPrice'] ?? 0,
       originalPrice: json['originalPriceSnapshot'] is int
           ? json['originalPriceSnapshot']

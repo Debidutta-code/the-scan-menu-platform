@@ -201,6 +201,7 @@ class _TableOrdersBottomSheetState
                         const SizedBox(height: 8),
                         ...items.map((it) {
                           final name = it['nameSnapshot'] ?? it['name'] ?? '';
+                          final variantName = it['variantName']?.toString();
                           final qty = it['quantity'] ?? 1;
                           final price = (it['itemTotal'] ??
                                   (it['unitPriceSnapshot'] ?? 0) * qty) as num;
@@ -234,6 +235,28 @@ class _TableOrdersBottomSheetState
                                               ),
                                             ),
                                           ),
+                                          if (variantName != null &&
+                                              variantName.isNotEmpty &&
+                                              !name.contains('($variantName)')) ...[
+                                            const SizedBox(width: 4),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF1F5F9),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFCBD5E1)),
+                                              ),
+                                              child: Text(
+                                                variantName,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: const Color(0xFF334155),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                           if (isCombo) ...[
                                             const SizedBox(width: 4),
                                             Container(

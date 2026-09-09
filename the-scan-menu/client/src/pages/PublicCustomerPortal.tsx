@@ -478,9 +478,14 @@ export const PublicCustomerPortal: React.FC = () => {
                     <div className="space-y-1.5">
                       {order.items?.map((item: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center text-xs">
-                          <span className="text-slate-700 font-medium">
+                          <span className="text-slate-700 font-medium flex items-center gap-1.5 flex-wrap">
                             <strong className="text-slate-900 font-mono font-bold">{item.quantity}x</strong>{' '}
-                            {item.nameSnapshot}
+                            <span>{item.nameSnapshot}</span>
+                            {item.variantName && !item.nameSnapshot?.includes(`(${item.variantName})`) && (
+                              <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-mono">
+                                {item.variantName}
+                              </span>
+                            )}
                           </span>
                           <span className="text-slate-600 font-mono font-semibold">
                             {formatPrice(item.itemTotal || item.itemSubtotal)}

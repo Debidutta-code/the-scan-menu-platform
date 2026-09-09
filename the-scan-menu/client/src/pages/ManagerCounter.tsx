@@ -1998,7 +1998,11 @@ export const ManagerCounter: React.FC = () => {
                     });
                     const isPaid = ord.paymentStatus === 'PAID';
                     const itemsSummary = (ord.items || [])
-                      .map((i: any) => `${i.quantity}x ${i.nameSnapshot || i.name || 'Item'}`)
+                      .map((i: any) => {
+                        const baseName = i.nameSnapshot || i.name || 'Item';
+                        const variantTag = i.variantName && !baseName.includes(`(${i.variantName})`) ? ` (${i.variantName})` : '';
+                        return `${i.quantity}x ${baseName}${variantTag}`;
+                      })
                       .join(', ');
 
                     return (

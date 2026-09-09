@@ -3,6 +3,7 @@ import { EscPosBuilder } from './escposBuilder';
 export interface PrintItem {
   name: string;
   nameSnapshot?: string;
+  variantName?: string;
   quantity: number;
   price?: number;
   unitPriceSnapshot?: number;
@@ -113,7 +114,10 @@ export function buildCustomerBillBuffer(
 
   // 4. Items
   for (const item of order.items) {
-    const itemName = item.nameSnapshot || item.name || 'Item';
+    const rawName = item.nameSnapshot || item.name || 'Item';
+    const itemName = item.variantName && !rawName.includes(`(${item.variantName})`)
+      ? `${rawName} (${item.variantName})`
+      : rawName;
     const unitPrice = item.unitPriceSnapshot ?? item.price ?? 0;
     const itemBaseTotal = unitPrice * item.quantity;
 
@@ -244,8 +248,13 @@ export function buildKOTBuffer(
   builder.divider('-');
 
   for (const item of order.items) {
+    const rawName = item.nameSnapshot || item.name || 'Item';
+    const displayName = item.variantName && !rawName.includes(`(${item.variantName})`)
+      ? `${rawName} (${item.variantName})`
+      : rawName;
+
     builder.bold(true);
-    builder.twoColumnRow(item.name, `x${item.quantity}`);
+    builder.twoColumnRow(displayName, `x${item.quantity}`);
     builder.bold(false);
 
     if (item.selectedAddOns && item.selectedAddOns.length > 0) {

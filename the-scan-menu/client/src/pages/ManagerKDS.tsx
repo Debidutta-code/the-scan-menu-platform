@@ -59,6 +59,7 @@ interface KDSComboItem {
 interface KDSItem {
   menuItemId: string;
   nameSnapshot: string;
+  variantName?: string;
   unitPriceSnapshot: number;
   originalPriceSnapshot?: number;
   isCombo?: boolean;
@@ -394,9 +395,11 @@ export const ManagerKDS: React.FC = () => {
             map.set(bundleKey, existing);
           });
         } else {
-          const key = item.nameSnapshot.toLowerCase().trim();
+          const key = `${item.nameSnapshot}_${item.variantName || ''}`.toLowerCase().trim();
           const existing = map.get(key) || {
-            name: item.nameSnapshot,
+            name: item.variantName && !item.nameSnapshot?.includes(`(${item.variantName})`)
+              ? `${item.nameSnapshot} (${item.variantName})`
+              : item.nameSnapshot,
             totalQuantity: 0,
             pendingQuantity: 0,
             preparingQuantity: 0,
@@ -991,7 +994,10 @@ export const ManagerKDS: React.FC = () => {
                     <div className="space-y-1 pt-2 border-t border-slate-200/80">
                       {ticket.items.map((it, i) => (
                         <div key={i} className="flex justify-between text-xs text-slate-600 font-medium">
-                          <span className="truncate">{it.nameSnapshot}</span>
+                          <span className="truncate">
+                            {it.nameSnapshot}
+                            {it.variantName && !it.nameSnapshot?.includes(`(${it.variantName})`) && ` (${it.variantName})`}
+                          </span>
                           <span className="font-mono font-bold ml-2">x{it.quantity}</span>
                         </div>
                       ))}
@@ -1302,6 +1308,11 @@ const KDSTicketCard: React.FC<KDSTicketCardProps> = ({
                       >
                         {item.nameSnapshot}
                       </span>
+                      {item.variantName && !item.nameSnapshot?.includes(`(${item.variantName})`) && (
+                        <span className="text-[10px] font-black uppercase text-slate-700 bg-slate-200/90 px-1.5 py-0.2 rounded font-mono">
+                          {item.variantName}
+                        </span>
+                      )}
                       {item.isCombo && (
                         <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-300 px-1.5 py-0.2 rounded font-mono">
                           COMBO

@@ -775,7 +775,14 @@ export const ManagerCustomers: React.FC = () => {
                             <div className="space-y-1 pt-1.5 border-t border-slate-100">
                               {ord.items?.map((it: any, i: number) => (
                                 <div key={i} className="flex justify-between text-xs text-slate-600">
-                                  <span>{it.quantity}× {it.nameSnapshot}</span>
+                                  <span className="flex items-center gap-1.5 flex-wrap">
+                                    <span>{it.quantity}× {it.nameSnapshot}</span>
+                                    {it.variantName && !it.nameSnapshot?.includes(`(${it.variantName})`) && (
+                                      <span className="text-[9px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1 py-0.2 rounded font-mono">
+                                        {it.variantName}
+                                      </span>
+                                    )}
+                                  </span>
                                   <span className="font-mono">{formatPrice(it.itemTotal || it.itemSubtotal)}</span>
                                 </div>
                               ))}
