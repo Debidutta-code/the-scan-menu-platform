@@ -145,6 +145,15 @@ class CartNotifier extends StateNotifier<CartState> {
     List<AddOnModel> selectedAddOns = const [],
     String specialInstructions = '',
   }) {
+    if (item.trackStock) {
+      final currentTotalQty = state.getItemQuantity(item.id);
+      if (currentTotalQty + quantity > item.stockQuantity) {
+        final availableToAdd = (item.stockQuantity - currentTotalQty).toInt();
+        if (availableToAdd <= 0) return;
+        quantity = availableToAdd;
+      }
+    }
+
     final existingIndex = state.items.indexWhere((i) {
       final sameItem = i.item.id == item.id;
       final sameVariant = i.selectedVariant?.name == selectedVariant?.name;
@@ -179,6 +188,13 @@ class CartNotifier extends StateNotifier<CartState> {
       state.items.where((i) => i.item.id == itemId).toList();
 
   void incrementSpecificItem(CartItemModel target) {
+    if (target.item.trackStock) {
+      final currentTotalQty = state.getItemQuantity(target.item.id);
+      if (currentTotalQty >= target.item.stockQuantity) {
+        return;
+      }
+    }
+
     final existingIndex = state.items.indexWhere((i) {
       final sameItem = i.item.id == target.item.id;
       final sameVariant = i.selectedVariant?.name == target.selectedVariant?.name;
@@ -220,6 +236,13 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 
   void incrementItem(MenuItemModel item) {
+    if (item.trackStock) {
+      final currentTotalQty = state.getItemQuantity(item.id);
+      if (currentTotalQty >= item.stockQuantity) {
+        return;
+      }
+    }
+
     final existingIndex =
         state.items.lastIndexWhere((i) => i.item.id == item.id);
     if (existingIndex != -1) {

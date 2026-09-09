@@ -132,11 +132,17 @@ class MenuNotifier extends StateNotifier<MenuState> {
     _socketService.onInventoryUpdated.listen((data) {
       final itemId = data['itemId']?.toString();
       final isAvailable = data['isAvailable'] as bool?;
-      if (itemId != null && isAvailable != null) {
+      final stockQuantity = data['stockQuantity'] is int
+          ? data['stockQuantity'] as int?
+          : (data['stockQuantity'] as num?)?.toInt();
+      if (itemId != null) {
         state = state.copyWith(
           menuItems: state.menuItems.map((item) {
             if (item.id == itemId) {
-              return item.copyWith(isAvailable: isAvailable);
+              return item.copyWith(
+                isAvailable: isAvailable ?? item.isAvailable,
+                stockQuantity: stockQuantity ?? item.stockQuantity,
+              );
             }
             return item;
           }).toList(),
@@ -174,7 +180,9 @@ class MenuNotifier extends StateNotifier<MenuState> {
       if (menuItemsRes.data['success'] == true && menuItemsRes.data['data'] is List) {
         loadedItems = (menuItemsRes.data['data'] as List)
             .map((e) => MenuItemModel.fromJson(e))
+            .where((item) => !item.isDraft && !item.isArchived)
             .toList();
+        loadedItems.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       }
 
       state = state.copyWith(

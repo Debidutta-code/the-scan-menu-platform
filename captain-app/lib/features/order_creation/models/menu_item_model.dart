@@ -56,6 +56,7 @@ class ComboSubItemModel {
   final int quantity;
   final String? categoryName;
   final int? priceSnapshot;
+  final String? imageUrl;
 
   ComboSubItemModel({
     this.menuItemId,
@@ -63,6 +64,7 @@ class ComboSubItemModel {
     this.quantity = 1,
     this.categoryName,
     this.priceSnapshot,
+    this.imageUrl,
   });
 
   factory ComboSubItemModel.fromJson(Map<String, dynamic> json) {
@@ -76,6 +78,7 @@ class ComboSubItemModel {
       priceSnapshot: json['priceSnapshot'] is int
           ? json['priceSnapshot']
           : (json['priceSnapshot'] as num?)?.toInt(),
+      imageUrl: json['imageUrl']?.toString(),
     );
   }
 
@@ -85,6 +88,7 @@ class ComboSubItemModel {
         'quantity': quantity,
         'categoryName': categoryName,
         'priceSnapshot': priceSnapshot,
+        'imageUrl': imageUrl,
       };
 }
 
@@ -100,6 +104,9 @@ class MenuItemModel {
   final List<MenuItemVariantModel> variants;
   final String? imageUrl;
   final bool isAvailable;
+  final bool trackStock;
+  final int stockQuantity;
+  final int lowStockThreshold;
   final bool isVegetarian;
   final bool isSpicy;
   final bool isCombo;
@@ -107,7 +114,11 @@ class MenuItemModel {
   final bool isChefsSpecial;
   final List<ComboSubItemModel> comboItems;
   final int prepTimeMinutes;
+  final int sortOrder;
   final List<AddOnModel> addOns;
+  final List<String> attachedAddOnGroupIds;
+  final bool isDraft;
+  final bool isArchived;
 
   MenuItemModel({
     required this.id,
@@ -121,6 +132,9 @@ class MenuItemModel {
     this.variants = const [],
     this.imageUrl,
     required this.isAvailable,
+    this.trackStock = false,
+    this.stockQuantity = 0,
+    this.lowStockThreshold = 5,
     this.isVegetarian = true,
     this.isSpicy = false,
     this.isCombo = false,
@@ -128,7 +142,11 @@ class MenuItemModel {
     this.isChefsSpecial = false,
     this.comboItems = const [],
     this.prepTimeMinutes = 15,
+    this.sortOrder = 0,
     required this.addOns,
+    this.attachedAddOnGroupIds = const [],
+    this.isDraft = false,
+    this.isArchived = false,
   });
 
   factory MenuItemModel.fromJson(Map<String, dynamic> json) {
@@ -159,6 +177,13 @@ class MenuItemModel {
           [],
       imageUrl: json['imageUrl'],
       isAvailable: json['isAvailable'] ?? true,
+      trackStock: json['trackStock'] ?? false,
+      stockQuantity: json['stockQuantity'] is int
+          ? json['stockQuantity']
+          : (json['stockQuantity'] as num?)?.toInt() ?? 0,
+      lowStockThreshold: json['lowStockThreshold'] is int
+          ? json['lowStockThreshold']
+          : (json['lowStockThreshold'] as num?)?.toInt() ?? 5,
       isVegetarian: json['isVegetarian'] ?? true,
       isSpicy: json['isSpicy'] ?? false,
       isCombo: json['isCombo'] ?? false,
@@ -168,19 +193,35 @@ class MenuItemModel {
               ?.map((e) => ComboSubItemModel.fromJson(e))
               .toList() ??
           [],
-      prepTimeMinutes: json['prepTimeMinutes'] ?? 15,
+      prepTimeMinutes: json['prepTimeMinutes'] is int
+          ? json['prepTimeMinutes']
+          : (json['prepTimeMinutes'] as num?)?.toInt() ?? 15,
+      sortOrder: json['sortOrder'] is int
+          ? json['sortOrder']
+          : (json['sortOrder'] as num?)?.toInt() ?? 0,
       addOns: (json['addOns'] as List<dynamic>?)
               ?.map((e) => AddOnModel.fromJson(e))
               .toList() ??
           [],
+      attachedAddOnGroupIds: (json['attachedAddOnGroupIds'] as List<dynamic>?)
+              ?.map((e) => e is Map ? (e['_id'] ?? e['id'] ?? '').toString() : e.toString())
+              .toList() ??
+          [],
+      isDraft: json['isDraft'] ?? false,
+      isArchived: json['isArchived'] ?? false,
     );
   }
 
   MenuItemModel copyWith({
     bool? isAvailable,
+    bool? trackStock,
+    int? stockQuantity,
+    int? lowStockThreshold,
     bool? isTopPick,
     bool? isChefsSpecial,
     bool? isCombo,
+    bool? isDraft,
+    bool? isArchived,
   }) {
     return MenuItemModel(
       id: id,
@@ -194,6 +235,9 @@ class MenuItemModel {
       variants: variants,
       imageUrl: imageUrl,
       isAvailable: isAvailable ?? this.isAvailable,
+      trackStock: trackStock ?? this.trackStock,
+      stockQuantity: stockQuantity ?? this.stockQuantity,
+      lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       isVegetarian: isVegetarian,
       isSpicy: isSpicy,
       isCombo: isCombo ?? this.isCombo,
@@ -201,7 +245,11 @@ class MenuItemModel {
       isChefsSpecial: isChefsSpecial ?? this.isChefsSpecial,
       comboItems: comboItems,
       prepTimeMinutes: prepTimeMinutes,
+      sortOrder: sortOrder,
       addOns: addOns,
+      attachedAddOnGroupIds: attachedAddOnGroupIds,
+      isDraft: isDraft ?? this.isDraft,
+      isArchived: isArchived ?? this.isArchived,
     );
   }
 }

@@ -29,9 +29,10 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
   }
 
   void _onItemTapped(MenuItemModel item) {
-    if (!item.isAvailable) {
+    final isOutOfStock = !item.isAvailable || (item.trackStock && item.stockQuantity <= 0);
+    if (isOutOfStock) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This item is currently 86ed / unavailable.')),
+        const SnackBar(content: Text('This item is currently out of stock / 86ed.')),
       );
       return;
     }
@@ -41,6 +42,24 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
 
   void _onQuickIncrement(MenuItemModel item) {
     HapticFeedback.lightImpact();
+    final isOutOfStock = !item.isAvailable || (item.trackStock && item.stockQuantity <= 0);
+    if (isOutOfStock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This item is currently out of stock / 86ed.')),
+      );
+      return;
+    }
+
+    if (item.trackStock) {
+      final currentQty = ref.read(cartProvider).getItemQuantity(item.id);
+      if (currentQty >= item.stockQuantity) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot add more. Only ${item.stockQuantity} portions in stock.')),
+        );
+        return;
+      }
+    }
+
     final isCustomizable = item.pricingType == 'PORTION' || item.variants.isNotEmpty || item.addOns.isNotEmpty;
 
     if (isCustomizable) {
@@ -764,18 +783,20 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
     final isSelected = quantity > 0;
     final hasDiscount = item.originalPrice != null && item.originalPrice! > item.price;
     final savingsPaise = hasDiscount ? (item.originalPrice! - item.price) : 0;
+    final isOutOfStock = !item.isAvailable || (item.trackStock && item.stockQuantity <= 0);
+    final isLowStock = item.trackStock && item.stockQuantity > 0 && item.stockQuantity <= item.lowStockThreshold;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: item.isAvailable ? () => _onItemTapped(item) : null,
+        onTap: !isOutOfStock ? () => _onItemTapped(item) : null,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFFFFFBEB) : AppColors.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: !item.isAvailable
+              color: isOutOfStock
                   ? AppColors.error.withValues(alpha: 0.3)
                   : isSelected
                       ? AppColors.primary
@@ -826,8 +847,8 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Badges row: Special, Top Pick, Combo
-                    if (item.isChefsSpecial || item.isTopPick || item.isCombo)
+                    // Badges row: Special, Top Pick, Combo, Low Stock, Spicy, Prep
+                    if (item.isChefsSpecial || item.isTopPick || item.isCombo || isLowStock || item.isSpicy || item.prepTimeMinutes > 0)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Wrap(
@@ -915,6 +936,85 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                                   ],
                                 ),
                               ),
+                            if (isLowStock)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: const Color(0xFFFDE68A)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.package,
+                                        size: 10, color: Color(0xFFD97706)),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Only ${item.stockQuantity} left',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFD97706),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (item.isSpicy)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: const Color(0xFFFECACA)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.flame,
+                                        size: 10, color: Color(0xFFDC2626)),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Spicy',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (item.prepTimeMinutes > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(LucideIcons.clock,
+                                        size: 10, color: AppColors.textSecondary),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${item.prepTimeMinutes}m',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -924,7 +1024,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: item.isAvailable
+                        color: !isOutOfStock
                             ? AppColors.textPrimary
                             : AppColors.textMuted,
                       ),
@@ -1077,7 +1177,7 @@ class _TakeOrderScreenState extends ConsumerState<TakeOrderScreen> {
               const SizedBox(width: 10),
 
               // Add / Stepper / 86ed
-              if (!item.isAvailable)
+              if (isOutOfStock)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

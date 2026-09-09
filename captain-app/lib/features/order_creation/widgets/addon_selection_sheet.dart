@@ -198,6 +198,57 @@ class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
                                     ],
                                   ),
                                 ),
+                              if (widget.item.isSpicy)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF2F2),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFFECACA)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(LucideIcons.flame,
+                                          size: 10, color: Color(0xFFDC2626)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Spicy',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (widget.item.prepTimeMinutes > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceLight,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(LucideIcons.clock,
+                                          size: 10, color: AppColors.textSecondary),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '${widget.item.prepTimeMinutes}m',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -512,7 +563,9 @@ class _AddonSelectionSheetState extends State<AddonSelectionSheet> {
                       IconButton(
                         icon: const Icon(LucideIcons.plus,
                             size: 18, color: AppColors.textPrimary),
-                        onPressed: () => setState(() => _quantity++),
+                        onPressed: (!widget.item.trackStock || _quantity < widget.item.stockQuantity)
+                            ? () => setState(() => _quantity++)
+                            : null,
                       ),
                     ],
                   ),
