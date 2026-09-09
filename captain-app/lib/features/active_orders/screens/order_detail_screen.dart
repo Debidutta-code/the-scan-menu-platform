@@ -428,17 +428,39 @@ class OrderDetailScreen extends ConsumerWidget {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await ref
+                      if (nextStatus == 'COMPLETED' && currentOrder.paymentStatus != 'PAID') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Cannot complete order while payment is unpaid. Please collect bill first.'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                        _showPaymentModal(context, ref, currentOrder, authState.activeRestaurant);
+                        return;
+                      }
+
+                      final success = await ref
                           .read(activeOrdersProvider.notifier)
                           .advanceOrderStatus(currentOrder.id, nextStatus);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'Order #${currentOrder.orderNumber} updated to $nextStatus'),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Order #${currentOrder.orderNumber} updated to $nextStatus'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Failed to advance order. Please ensure payment is settled.'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
                       }
                     },
                     child: Text(

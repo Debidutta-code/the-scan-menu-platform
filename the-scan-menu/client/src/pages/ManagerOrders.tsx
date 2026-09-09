@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useManagerOrders, Order, WorkflowMode } from '../hooks/useManagerOrders';
+import { useToast } from '../hooks/useToast';
 import { printOrderTicket } from '../utils/printReceipt';
 import apiClient from '../lib/api';
 
@@ -183,6 +184,7 @@ export const ManagerOrders: React.FC = () => {
   }, [searchQuery]);
 
   // Hook for orders
+  const { toast } = useToast();
   const {
     activeRestaurantId,
     workflowMode,
@@ -323,8 +325,20 @@ export const ManagerOrders: React.FC = () => {
     }
     const nextStatus = getNextStatus(order.status, workflowMode);
     if (!nextStatus) return;
+
+    if (nextStatus === 'COMPLETED' && order.paymentStatus !== 'PAID') {
+      setSelectedOrderId(order._id);
+      setIsPaymentHighlighted(true);
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => {
+        setIsPaymentHighlighted(false);
+      }, 3500);
+      toast('Cannot complete order while payment is unpaid. Please collect payment or mark as PAID first.', 'error');
+      return;
+    }
+
     updateStatusMutation.mutate({ orderId: order._id, nextStatus });
-  }, [orderingPaymentPolicy, workflowMode, updateStatusMutation]);
+  }, [orderingPaymentPolicy, workflowMode, updateStatusMutation, toast]);
 
   const handleRevertStatus = useCallback((order: Order) => {
     const prevStatus = getPreviousStatus(order.status, workflowMode);

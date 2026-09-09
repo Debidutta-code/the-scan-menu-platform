@@ -552,6 +552,19 @@ export class OrderService {
       throw new CustomError('PAYMENT_REQUIRED', 'Prepaid orders require payment before moving to kitchen preparation.', 400);
     }
 
+    // Unpaid Order Guard: Cannot mark an order as COMPLETED if it is unpaid/pending
+    if (
+      nextStatus === 'COMPLETED' &&
+      order.paymentStatus !== 'PAID' &&
+      paymentUpdate?.paymentStatus !== 'PAID'
+    ) {
+      throw new CustomError(
+        'UNPAID_ORDER_CANNOT_COMPLETE',
+        'Cannot complete order while payment is pending / unpaid. Please collect or verify payment first.',
+        400
+      );
+    }
+
     order.status = nextStatus;
     await orderRepository.save(order);
 
