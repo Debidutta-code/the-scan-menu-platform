@@ -90,11 +90,18 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (error.response && error.response.status === 401) {
-      const errorCode = error.response.data?.error?.code;
+      const errorCode = error.response.data?.error?.code || error.response.data?.code;
+      const isTokenExpired =
+        errorCode === 'TOKEN_EXPIRED' ||
+        error.response.data?.error?.code === 'TOKEN_EXPIRED' ||
+        (typeof error.response.data?.error?.message === 'string' &&
+          error.response.data.error.message.toLowerCase().includes('expired')) ||
+        (typeof error.response.data?.message === 'string' &&
+          error.response.data.message.toLowerCase().includes('expired'));
 
       // 1. Handle token expired (TOKEN_EXPIRED) with silent refresh attempt for all protected endpoints
       if (
-        errorCode === 'TOKEN_EXPIRED' &&
+        isTokenExpired &&
         !originalRequest._retry &&
         !originalRequest?.url?.includes('/auth/login') &&
         !originalRequest?.url?.includes('/auth/refresh')

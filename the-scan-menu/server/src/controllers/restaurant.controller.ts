@@ -283,7 +283,19 @@ export class RestaurantController {
         }
 
         if (!matchedUser) {
-          sendError(res, 'INVALID_PIN', 'Invalid PIN for current account. Please enter your account PIN.', null, 400);
+          const staffJoins = await restaurantStaffRepository.findActiveByRestaurantIdPopulated(restaurantId);
+          for (const join of staffJoins) {
+            const u = join.userId as any;
+            if (u && u.isActive && u.pin && u.pin.trim() === cleanPin) {
+              matchedUser = u;
+              matchedRole = join.role || u.role;
+              break;
+            }
+          }
+        }
+
+        if (!matchedUser) {
+          sendError(res, 'INVALID_PIN', 'Invalid PIN. Please enter a valid staff or account PIN.', null, 400);
           return;
         }
       } else {
