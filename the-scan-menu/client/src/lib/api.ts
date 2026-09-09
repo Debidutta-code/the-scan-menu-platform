@@ -90,23 +90,14 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (error.response && error.response.status === 401) {
-      // If the request was for /auth/login, /public/, /customer/, or POS PIN validation, don't clear session or redirect away to /login
-      if (
-        originalRequest?.url?.includes('/auth/login') ||
-        originalRequest?.url?.includes('/public/') ||
-        originalRequest?.url?.includes('/customer/') ||
-        originalRequest?.url?.includes('/pos/unlock') ||
-        originalRequest?.url?.includes('/pos/verify-manager-pin') ||
-        error.response.data?.error?.code === 'INVALID_PIN' ||
-        error.response.data?.error?.code === 'UNAUTHORIZED_MANAGER_PIN'
-      ) {
-        return Promise.reject(error);
-      }
+      const errorCode = error.response.data?.error?.code;
 
-      // Handle token expired (TOKEN_EXPIRED) with silent refresh attempt
+      // 1. Handle token expired (TOKEN_EXPIRED) with silent refresh attempt for all protected endpoints
       if (
-        error.response.data?.error?.code === 'TOKEN_EXPIRED' &&
-        !originalRequest._retry
+        errorCode === 'TOKEN_EXPIRED' &&
+        !originalRequest._retry &&
+        !originalRequest?.url?.includes('/auth/login') &&
+        !originalRequest?.url?.includes('/auth/refresh')
       ) {
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
@@ -146,7 +137,20 @@ apiClient.interceptors.response.use(
         }
       }
 
-      // For any other 401 (invalid/revoked token, user deleted/disabled, unauthorized session)
+      // 2. If the request was for /auth/login, /public/, /customer/, or POS PIN validation, don't clear session or redirect away to /login
+      if (
+        originalRequest?.url?.includes('/auth/login') ||
+        originalRequest?.url?.includes('/public/') ||
+        originalRequest?.url?.includes('/customer/') ||
+        originalRequest?.url?.includes('/pos/unlock') ||
+        originalRequest?.url?.includes('/pos/verify-manager-pin') ||
+        errorCode === 'INVALID_PIN' ||
+        errorCode === 'UNAUTHORIZED_MANAGER_PIN'
+      ) {
+        return Promise.reject(error);
+      }
+
+      // 3. For any other 401 (invalid/revoked token, user deleted/disabled, unauthorized session)
       handleAuthUnauthorized();
     }
 
