@@ -61,6 +61,12 @@ class MenuState {
         case 'COMBOS':
           items = items.where((i) => i.isCombo).toList();
           break;
+        case 'UNAVAILABLE':
+          items = items.where((i) => !i.isAvailable).toList();
+          break;
+        case 'LOW_STOCK':
+          items = items.where((i) => i.trackStock && i.stockQuantity <= i.lowStockThreshold).toList();
+          break;
       }
     }
     

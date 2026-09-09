@@ -9,6 +9,7 @@ import {
   createMenuItemSchema,
   updateMenuItemSchema,
   updateStockSchema,
+  toggleAvailabilitySchema,
   createCustomizationGroupSchema,
   updateCustomizationGroupSchema,
 } from '../validators/menu.validator';
@@ -67,6 +68,7 @@ router.patch(
   requireFeature('qr_menu') as any,
   requireRestaurantAccess as any,
   requireRole('MANAGER', 'STAFF', 'SUPER_ADMIN') as any,
+  validateBody(toggleAvailabilitySchema),
   menuController.toggleAvailability
 );
 

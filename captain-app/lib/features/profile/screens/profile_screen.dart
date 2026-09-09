@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../menu_management/screens/menu_management_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -40,6 +41,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final authState = ref.watch(authProvider);
     final user = authState.user;
     final restaurant = authState.activeRestaurant;
+    final featureFlags = restaurant?.featureFlags ?? [];
+    final hasMenu = featureFlags.isEmpty || featureFlags.contains('qr_menu');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -181,6 +184,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // Floor Tools (Menu 86ing)
+            if (hasMenu) ...[
+              Material(
+                color: AppColors.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppColors.cardBorder),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(LucideIcons.bookOpen, color: AppColors.primaryDark, size: 20),
+                  ),
+                  title: Text(
+                    'Menu & Item Availability',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Live view & floor 86ing (unavailable toggle)',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(LucideIcons.chevronRight, size: 18, color: AppColors.textMuted),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MenuManagementScreen()),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
 
             // Preferences Card
             Material(

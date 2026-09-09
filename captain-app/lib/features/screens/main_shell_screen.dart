@@ -10,6 +10,8 @@ import '../active_orders/providers/active_orders_provider.dart';
 import '../active_orders/screens/active_orders_screen.dart';
 import '../auth/providers/auth_provider.dart';
 import '../auth/screens/mobile_disabled_screen.dart';
+import '../menu_management/screens/menu_management_screen.dart';
+import '../order_creation/providers/menu_provider.dart';
 import '../profile/screens/profile_screen.dart';
 import '../tables/screens/tables_screen.dart';
 import '../waiter_calls/providers/waiter_calls_provider.dart';
@@ -62,25 +64,41 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
   void _handleNotificationRoute(Map<String, dynamic> data) {
     final type = (data['type'] ?? data['notificationType'] ?? '').toString().toUpperCase();
     debugPrint('[MainShell] Notification navigation route triggered for type: $type | data: $data');
+
+    final authState = ref.read(authProvider);
+    final featureFlags = authState.activeRestaurant?.featureFlags ?? [];
+    final hasOrdering = featureFlags.isEmpty || featureFlags.contains('ordering');
+    final hasWaiterCall = featureFlags.isEmpty || featureFlags.contains('waiter_call');
+
+    int? targetIndex;
     if (type == 'WAITER_CALL' || type == 'CALL') {
-      if (mounted) {
-        setState(() => _currentIndex = 2); // Waiter calls tab
+      if (hasWaiterCall) {
+        targetIndex = 1 + (hasOrdering ? 1 : 0);
       }
       ref.read(waiterCallsProvider.notifier).fetchWaiterCalls(isSilent: false);
     } else if (type == 'NEW_ORDER' || type == 'ORDER') {
-      if (mounted) {
-        setState(() => _currentIndex = 1); // Active orders tab
+      if (hasOrdering) {
+        targetIndex = 1;
       }
       ref.read(activeOrdersProvider.notifier).fetchActiveOrders(isSilent: false);
     }
+
+    if (targetIndex != null && mounted) {
+      setState(() => _currentIndex = targetIndex!);
+    }
   }
 
-  void _onTabSelected(int idx) {
+  void _onTabSelected(int idx, List<String> tabKeys) {
     setState(() => _currentIndex = idx);
-    if (idx == 2) {
-      ref.read(waiterCallsProvider.notifier).fetchWaiterCalls(isSilent: true);
-    } else if (idx == 1) {
-      ref.read(activeOrdersProvider.notifier).fetchActiveOrders(isSilent: true);
+    if (idx < tabKeys.length) {
+      final key = tabKeys[idx];
+      if (key == 'calls') {
+        ref.read(waiterCallsProvider.notifier).fetchWaiterCalls(isSilent: true);
+      } else if (key == 'orders') {
+        ref.read(activeOrdersProvider.notifier).fetchActiveOrders(isSilent: true);
+      } else if (key == 'menu') {
+        ref.read(menuProvider.notifier).fetchMenu(isSilent: true);
+      }
     }
   }
 
@@ -112,24 +130,25 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
 
     final featureFlags = authState.activeRestaurant?.featureFlags ?? [];
     // Default to true if featureFlags list is empty (e.g. legacy backend) or explicitly contains the flag
+    final hasMenu = featureFlags.isEmpty || featureFlags.contains('qr_menu');
     final hasOrdering = featureFlags.isEmpty || featureFlags.contains('ordering');
     final hasWaiterCall = featureFlags.isEmpty || featureFlags.contains('waiter_call');
 
-    // Build tabs dynamically based on feature flags
-    final List<Widget> activeScreens = [
-      const TablesScreen(),
-      if (hasOrdering) const ActiveOrdersScreen(),
-      if (hasWaiterCall) const WaiterCallsScreen(),
-      const ProfileScreen(),
-    ];
-
+    // Build tab keys and screens dynamically based on feature flags
+    final List<String> tabKeys = ['tables'];
+    final List<Widget> activeScreens = [const TablesScreen()];
     final List<BottomNavigationBarItem> navItems = [
       const BottomNavigationBarItem(
         icon: Icon(LucideIcons.layoutGrid),
         activeIcon: Icon(LucideIcons.layoutGrid, color: AppColors.primaryDark),
         label: 'Tables',
       ),
-      if (hasOrdering)
+    ];
+
+    if (hasOrdering) {
+      tabKeys.add('orders');
+      activeScreens.add(const ActiveOrdersScreen());
+      navItems.add(
         BottomNavigationBarItem(
           icon: badges.Badge(
             showBadge: activeOrdersCount > 0,
@@ -165,7 +184,13 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
           ),
           label: 'Orders',
         ),
-      if (hasWaiterCall)
+      );
+    }
+
+    if (hasWaiterCall) {
+      tabKeys.add('calls');
+      activeScreens.add(const WaiterCallsScreen());
+      navItems.add(
         BottomNavigationBarItem(
           icon: badges.Badge(
             showBadge: pendingCallsCount > 0,
@@ -201,12 +226,30 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
           ),
           label: 'Calls',
         ),
+      );
+    }
+
+    if (hasMenu) {
+      tabKeys.add('menu');
+      activeScreens.add(const MenuManagementScreen());
+      navItems.add(
+        const BottomNavigationBarItem(
+          icon: Icon(LucideIcons.bookOpen),
+          activeIcon: Icon(LucideIcons.bookOpen, color: AppColors.primaryDark),
+          label: 'Menu',
+        ),
+      );
+    }
+
+    tabKeys.add('profile');
+    activeScreens.add(const ProfileScreen());
+    navItems.add(
       const BottomNavigationBarItem(
         icon: Icon(LucideIcons.user),
         activeIcon: Icon(LucideIcons.user, color: AppColors.primaryDark),
         label: 'Profile',
       ),
-    ];
+    );
 
     // Ensure _currentIndex is valid for the dynamically built list
     final safeIndex = _currentIndex >= activeScreens.length ? 0 : _currentIndex;
@@ -225,7 +268,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
           ),
           child: BottomNavigationBar(
             currentIndex: safeIndex,
-            onTap: _onTabSelected,
+            onTap: (idx) => _onTabSelected(idx, tabKeys),
             items: navItems,
             type: BottomNavigationBarType.fixed,
           ),
@@ -234,3 +277,4 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen>
     );
   }
 }
+
