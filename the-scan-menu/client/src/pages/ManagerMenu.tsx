@@ -30,6 +30,7 @@ import {
   Package,
   Clock,
   AlertCircle,
+  Layers,
 } from 'lucide-react';
 
 import {
@@ -113,7 +114,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   const [activeTab, setActiveTab] = useState<'MENU' | 'CUSTOMIZATIONS'>('MENU');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFTS'>('ALL');
 
-  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [selectedCatId, setSelectedCatId] = useState<string | null>('ALL');
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -170,13 +171,6 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   });
 
   const categories = useMemo(() => catResponse?.data || [], [catResponse]);
-
-  // Automatically select the first category if none is selected
-  React.useEffect(() => {
-    if (categories.length > 0 && !selectedCatId) {
-      setSelectedCatId(categories[0]._id);
-    }
-  }, [categories, selectedCatId]);
 
   // Fetch ALL Menu Items for global search and high-speed category switching
   const { data: itemsResponse, isLoading: isLoadingItems } = useQuery({
@@ -478,7 +472,10 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
     name: 'options',
   });
 
+  const isCatLoading = createCatMutation.isPending || editCatMutation.isPending;
+
   const onCatSubmit = (values: CategoryFormValues) => {
+    if (isCatLoading) return;
     setErrorMsg(null);
     if (editingCat) {
       editCatMutation.mutate({ id: editingCat._id, data: values });
@@ -503,7 +500,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
   };
 
   const handleNewItemClick = () => {
-    navigate('/manager/menu/new' + (selectedCatId ? `?categoryId=${selectedCatId}` : ''));
+    navigate('/manager/menu/new' + (selectedCatId && selectedCatId !== 'ALL' ? `?categoryId=${selectedCatId}` : ''));
   };
 
   // ── Global & Category Filtering ──────────────────────────────────────────
@@ -524,6 +521,12 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           );
         });
       }
+      if (selectedCatId && selectedCatId !== 'ALL') {
+        return allMenuItems.filter((item: any) => {
+          const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
+          return !!item.isDraft && cId === selectedCatId;
+        });
+      }
       return allMenuItems.filter((item: any) => !!item.isDraft);
     }
 
@@ -539,13 +542,13 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           item.variants?.some((v: any) => v.name?.toLowerCase().includes(q))
         );
       });
-    } else if (selectedCatId) {
+    } else if (selectedCatId && selectedCatId !== 'ALL') {
       list = allMenuItems.filter((item: any) => {
         const cId = typeof item.categoryId === 'object' ? item.categoryId?._id : item.categoryId;
         return cId === selectedCatId;
       });
     } else {
-      list = [];
+      list = allMenuItems;
     }
 
     if (statusFilter === 'PUBLISHED') {
@@ -621,6 +624,30 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
 
             {/* Categories List (Scrollable) */}
             <div className="space-y-1 overflow-y-auto flex-1 scrollbar-none p-2" onScroll={handleItemsScroll}>
+              {/* All Dishes Tab */}
+              <div
+                onClick={() => { setSelectedCatId('ALL'); setActiveItemInspector(null); setSearchQuery(''); }}
+                className={`group flex items-center gap-2 px-2.5 py-2 rounded-xl cursor-pointer text-xs font-semibold transition mb-1 ${
+                  (selectedCatId === 'ALL' || !selectedCatId) && !isSearching
+                    ? 'bg-slate-950 text-white shadow-xs'
+                    : 'hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-lg shrink-0 flex items-center justify-center ${
+                  (selectedCatId === 'ALL' || !selectedCatId) && !isSearching ? 'bg-white/10' : 'bg-slate-100'
+                }`}>
+                  <Layers className={`w-3.5 h-3.5 ${(selectedCatId === 'ALL' || !selectedCatId) && !isSearching ? 'text-white' : 'text-slate-600'}`} />
+                </div>
+                <span className="truncate flex-1 leading-tight">All Dishes</span>
+                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md shrink-0 ${
+                  (selectedCatId === 'ALL' || !selectedCatId) && !isSearching
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200/80 group-hover:text-slate-600'
+                }`}>
+                  {allMenuItems.length}
+                </span>
+              </div>
+
               {isLoadingCats ? (
                 <div className="space-y-1">
                   {[1, 2, 3, 4, 5].map((n) => (
@@ -633,7 +660,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                   ))}
                 </div>
               ) : categories.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-400">No categories yet.<br />Click below to add one.</div>
+                <div className="text-center py-6 text-xs text-slate-400">No categories yet.<br />Click below to add one.</div>
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCategories}>
                   <SortableContext items={categories.map((c: any) => c._id)} strategy={verticalListSortingStrategy}>
@@ -724,7 +751,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             {/* Panel Header */}
             <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 flex items-center gap-2 shrink-0 flex-nowrap min-w-0">
               <div className="min-w-0 mr-1 flex-1">
-                <h2 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5" title={statusFilter === 'DRAFTS' ? 'Draft Dishes' : isSearching ? 'Search Results' : categories.find((c: any) => c._id === selectedCatId)?.name || 'Categories'}>
+                <h2 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate flex items-center gap-1.5" title={statusFilter === 'DRAFTS' ? 'Draft Dishes' : isSearching ? 'Search Results' : selectedCatId === 'ALL' || !selectedCatId ? 'All Dishes' : categories.find((c: any) => c._id === selectedCatId)?.name || 'Categories'}>
                   {statusFilter === 'DRAFTS' ? (
                     <>
                       <span className="truncate">Draft Dishes</span>
@@ -734,6 +761,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     <>
                       <span className="truncate">Results</span>
                       <span className="text-[11px] font-normal text-amber-600 font-mono truncate">(&ldquo;{searchQuery}&rdquo;)</span>
+                    </>
+                  ) : selectedCatId === 'ALL' || !selectedCatId ? (
+                    <>
+                      <span className="truncate">All Dishes</span>
+                      <span className="text-[11px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded font-mono truncate">All Categories</span>
                     </>
                   ) : (
                     categories.find((c: any) => c._id === selectedCatId)?.name || 'Select a category'
@@ -821,7 +853,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                       variant="amber"
                       size="icon-md"
                       onClick={handleNewItemClick}
-                      disabled={!selectedCatId && !isSearching}
+                      disabled={categories.length === 0}
                       title="New Item"
                     >
                       <Plus className="w-4 h-4" />
@@ -840,7 +872,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                       type="button"
                       variant="amber"
                       onClick={handleNewItemClick}
-                      disabled={!selectedCatId && !isSearching}
+                      disabled={categories.length === 0}
                       leftIcon={<Plus className="w-3.5 h-3.5" />}
                     >
                       New Item
@@ -958,23 +990,24 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                     </div>
                   ))}
                 </div>
-              ) : !selectedCatId && !isSearching ? (
-                <div className="text-center py-16 text-xs text-slate-400 space-y-2">
-                  <FolderOpen className="w-12 h-12 mx-auto text-slate-200 mb-3" />
-                  <p>Select a category to view its items</p>
-                </div>
               ) : filteredMenuItems.length === 0 ? (
                 <div className="text-center py-16 text-xs text-slate-400 space-y-3">
                   {statusFilter === 'DRAFTS' ? (
                     <>
                       <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
                       <p>No draft dishes found. Any unfinished dishes will appear here.</p>
-                      <Button variant="primary" onClick={handleNewItemClick}>Create New Dish</Button>
+                      <Button variant="primary" onClick={handleNewItemClick} disabled={categories.length === 0}>Create New Dish</Button>
                     </>
                   ) : isSearching ? (
                     <>
                       <p>No menu items matched &ldquo;<strong>{searchQuery}</strong>&rdquo; across all categories.</p>
                       <button onClick={() => setSearchQuery('')} className="text-amber-600 font-bold hover:underline cursor-pointer">Clear global search</button>
+                    </>
+                  ) : selectedCatId === 'ALL' || !selectedCatId ? (
+                    <>
+                      <Sparkles className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                      <p>No dishes created yet.</p>
+                      <Button variant="primary" onClick={handleNewItemClick} disabled={categories.length === 0}>Create First Dish</Button>
                     </>
                   ) : (
                     <>
@@ -1039,8 +1072,8 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                               <span
                                 {...dragHandleProps}
                                 onClick={(e) => e.stopPropagation()}
-                                className={`cursor-grab transition ${isSearching ? 'opacity-20 cursor-not-allowed' : 'text-slate-300 group-hover:text-slate-400'}`}
-                                title={isSearching ? 'Reordering disabled during global search' : 'Drag to reorder'}
+                                className={`cursor-grab transition ${isSearching || selectedCatId === 'ALL' || !selectedCatId ? 'opacity-20 cursor-not-allowed' : 'text-slate-300 group-hover:text-slate-400'}`}
+                                title={isSearching || selectedCatId === 'ALL' || !selectedCatId ? 'Select a specific category to drag & reorder items' : 'Drag to reorder'}
                               >
                                 <GripVertical className="w-4 h-4" />
                               </span>
@@ -1091,7 +1124,7 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
                                   </div>
 
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    {(isSearching || statusFilter === 'DRAFTS') && categoryName && (
+                                    {(isSearching || statusFilter === 'DRAFTS' || selectedCatId === 'ALL' || !selectedCatId) && categoryName && (
                                       <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded flex items-center gap-1">
                                         <FolderOpen className="w-2.5 h-2.5 text-slate-400" />
                                         {categoryName}
@@ -1773,7 +1806,11 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
               <h2 className="font-display text-xl font-bold text-slate-900">
                 {editingCat ? 'Edit Category' : 'New Category'}
               </h2>
-              <button onClick={() => setIsCatOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+              <button
+                onClick={() => !isCatLoading && setIsCatOpen(false)}
+                disabled={isCatLoading}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer disabled:opacity-50"
+              >
                 <X className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
@@ -1785,20 +1822,33 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
             <form onSubmit={catForm.handleSubmit(onCatSubmit)} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Category Name</label>
-                <input type="text" placeholder="Desserts" {...catForm.register('name')} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500" />
+                <input
+                  type="text"
+                  placeholder="Desserts"
+                  disabled={isCatLoading}
+                  {...catForm.register('name')}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 disabled:opacity-60"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea placeholder="Sweet treats & baked delights..." {...catForm.register('description')} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20 resize-none" />
+                <textarea
+                  placeholder="Sweet treats & baked delights..."
+                  disabled={isCatLoading}
+                  {...catForm.register('description')}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500 h-20 resize-none disabled:opacity-60"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Category Image</label>
                 <ImageUploader restaurantId={activeRestaurantId!} value={catForm.watch('imageUrl')} onChange={(url: string) => catForm.setValue('imageUrl', url)} />
               </div>
               <div className="flex gap-3 pt-4">
-                <Button type="button" variant="outline" fullWidth onClick={() => setIsCatOpen(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" fullWidth>
-                  {editingCat ? 'Save Changes' : 'Create Category'}
+                <Button type="button" variant="outline" fullWidth onClick={() => setIsCatOpen(false)} disabled={isCatLoading}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" fullWidth isLoading={isCatLoading} disabled={isCatLoading}>
+                  {isCatLoading ? (editingCat ? 'Saving Changes...' : 'Creating Category...') : editingCat ? 'Save Changes' : 'Create Category'}
                 </Button>
               </div>
             </form>
@@ -1834,29 +1884,97 @@ export const ManagerMenu: React.FC<ManagerMenuProps> = ({ restaurantId }) => {
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4 my-auto">
             <div className="flex justify-between items-center">
               <h2 className="font-display text-xl font-bold text-slate-900">New Add-On Template</h2>
-              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"><X className="w-5 h-5" /></button>
+              <button
+                onClick={() => !createGroupMutation.isPending && setIsGroupModalOpen(false)}
+                disabled={createGroupMutation.isPending}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <form onSubmit={groupForm.handleSubmit((values: any) => { createGroupMutation.mutate({ ...values, options: values.options.map((opt: any) => ({ name: opt.name.trim(), priceDelta: Math.round(Number(opt.priceDelta || 0) * 100) })) }); })} className="space-y-4">
+            <form
+              onSubmit={groupForm.handleSubmit((values: any) => {
+                if (createGroupMutation.isPending) return;
+                createGroupMutation.mutate({
+                  ...values,
+                  options: values.options.map((opt: any) => ({
+                    name: opt.name.trim(),
+                    priceDelta: Math.round(Number(opt.priceDelta || 0) * 100),
+                  })),
+                });
+              })}
+              className="space-y-4"
+            >
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Template Name</label>
-                <input type="text" placeholder="e.g. Extra Dips & Sauces" {...groupForm.register('name')} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold" />
+                <input
+                  type="text"
+                  placeholder="e.g. Extra Dips & Sauces"
+                  disabled={createGroupMutation.isPending}
+                  {...groupForm.register('name')}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm font-bold disabled:opacity-60"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Options List</label>
                 <div className="space-y-2">
                   {groupOptionFields.map((field, idx) => (
                     <div key={field.id} className="flex gap-2 items-center">
-                      <input type="text" placeholder="Option name" {...groupForm.register(`options.${idx}.name` as const)} className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
-                      <input type="number" step="0.01" placeholder="Price (INR)" {...groupForm.register(`options.${idx}.priceDelta` as const)} className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold" />
-                      <button type="button" onClick={() => removeGroupOption(idx)} className="text-rose-500 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                      <input
+                        type="text"
+                        placeholder="Option name"
+                        disabled={createGroupMutation.isPending}
+                        {...groupForm.register(`options.${idx}.name` as const)}
+                        className="w-1/2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs disabled:opacity-60"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price (INR)"
+                        disabled={createGroupMutation.isPending}
+                        {...groupForm.register(`options.${idx}.priceDelta` as const)}
+                        className="w-1/3 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono font-bold disabled:opacity-60"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeGroupOption(idx)}
+                        disabled={createGroupMutation.isPending}
+                        className="text-rose-500 p-1 cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
-                  <button type="button" onClick={() => appendGroupOption({ name: '', priceDelta: 0, price: 0 })} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Add Option</button>
+                  <button
+                    type="button"
+                    onClick={() => appendGroupOption({ name: '', priceDelta: 0, price: 0 })}
+                    disabled={createGroupMutation.isPending}
+                    className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 mt-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Option
+                  </button>
                 </div>
               </div>
               <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <Button type="button" variant="outline" fullWidth onClick={() => setIsGroupModalOpen(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" fullWidth>Save Template</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  fullWidth
+                  onClick={() => setIsGroupModalOpen(false)}
+                  disabled={createGroupMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  fullWidth
+                  isLoading={createGroupMutation.isPending}
+                  disabled={createGroupMutation.isPending}
+                >
+                  {createGroupMutation.isPending ? 'Saving Template...' : 'Save Template'}
+                </Button>
               </div>
             </form>
           </div>
