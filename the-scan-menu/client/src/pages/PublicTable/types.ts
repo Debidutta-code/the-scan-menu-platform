@@ -179,6 +179,10 @@ export interface CartOrdersTabProps {
     delta: number,
     variantName?: string
   ) => void;
+  onIncrementItem?: (
+    cartItem: import('../../store/useCartStore').CartItem,
+    e: React.MouseEvent
+  ) => void;
   onCustomerNoteChange: (note: string) => void;
   onCheckoutTrigger: () => void;
   onClearCart: () => void;

@@ -41,6 +41,7 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
   tableDisplayName,
   onSubTabChange,
   onUpdateQuantity,
+  onIncrementItem,
   onCustomerNoteChange,
   onCheckoutTrigger,
   onClearCart,
@@ -211,7 +212,13 @@ export const CartOrdersTab: React.FC<CartOrdersTabProps> = ({
                           </button>
                           <span className="px-2 font-bold text-slate-900 text-[11px] font-mono w-5 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', 1, item.variantName)}
+                            onClick={(e) => {
+                              if (onIncrementItem) {
+                                onIncrementItem(item, e);
+                              } else {
+                                onUpdateQuantity(item.itemId, item.selectedAddOns, item.specialInstructions || '', 1, item.variantName);
+                              }
+                            }}
                             className="p-1 text-slate-500 hover:text-slate-800 transition-colors rounded-lg hover:bg-white active:scale-95 cursor-pointer"
                             title="Increase quantity"
                           >

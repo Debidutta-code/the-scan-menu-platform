@@ -5,7 +5,7 @@ import Fuse from 'fuse.js';
 import { Helmet } from 'react-helmet-async';
 import { Loader, AlertTriangle, X, Plus, Minus } from 'lucide-react';
 import { publicService, PublicCategory, MenuItem, AddOn, MenuItemVariant } from '../../services/restaurant.service';
-import { useCartStore } from '../../store/useCartStore';
+import { useCartStore, CartItem } from '../../store/useCartStore';
 import { useCustomerAuth } from '../../hooks/useCustomerAuth';
 import apiClient from '../../lib/api';
 import { useSocket } from '../../hooks/useSocket';
@@ -723,6 +723,28 @@ export const PublicTable: React.FC = () => {
     updateQuantity(item._id, target.selectedAddOns, target.specialInstructions || '', 1, target.variantName);
   };
 
+  // Helper to handle incrementing an item directly from Cart screen
+  const handleCartItemIncrement = (cartItem: CartItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const menuItem = rawCategories.flatMap((c) => c.menuItems).find((i) => i._id === cartItem.itemId);
+
+    const isPortion = menuItem
+      ? menuItem.pricingType === 'PORTION' && menuItem.variants && menuItem.variants.length > 0
+      : Boolean(cartItem.variantName);
+    const isCustomizable =
+      isPortion ||
+      Boolean(menuItem?.addOns && menuItem.addOns.length > 0) ||
+      Boolean(cartItem.selectedAddOns && cartItem.selectedAddOns.length > 0);
+
+    if (isCustomizable && menuItem) {
+      const existingEntries = cartItems.filter((ci) => ci.itemId === menuItem._id);
+      setRepeatPromptItem({ item: menuItem, configurations: existingEntries });
+      return;
+    }
+
+    updateQuantity(cartItem.itemId, cartItem.selectedAddOns, cartItem.specialInstructions || '', 1, cartItem.variantName);
+  };
+
   // Helper to decrement an item from the card
   const handleQuickDecrement = (item: MenuItem, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1175,6 +1197,7 @@ export const PublicTable: React.FC = () => {
           table={table}
           onSubTabChange={setCartOrdersSubTab}
           onUpdateQuantity={updateQuantity}
+          onIncrementItem={handleCartItemIncrement}
           onCustomerNoteChange={setCustomerNote}
           onCheckoutTrigger={handleCheckoutTrigger}
           onClearCart={() => setIsClearCartModalOpen(true)}
