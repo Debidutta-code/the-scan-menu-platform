@@ -311,7 +311,23 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
     let combinedTotal = 0;
 
     tableOrders.forEach((ord) => {
-      ord.items?.forEach((it: any) => combinedItems.push(it));
+      ord.items?.forEach((it: any) => {
+        const itemName = it.nameSnapshot || it.name || '';
+        const variantName = it.variantName || '';
+        const price = it.unitPriceSnapshot || it.price || 0;
+        const existing = combinedItems.find(
+          (ci) =>
+            (ci.nameSnapshot || ci.name || '') === itemName &&
+            (ci.variantName || '') === variantName &&
+            (ci.unitPriceSnapshot || ci.price || 0) === price
+        );
+        if (existing) {
+          existing.quantity = (existing.quantity || 1) + (it.quantity || 1);
+          existing.itemTotal = (existing.itemTotal || 0) + (it.itemTotal || price * (it.quantity || 1));
+        } else {
+          combinedItems.push({ ...it });
+        }
+      });
       combinedSubtotal += ord.subtotal || 0;
       combinedTax += ord.tax || 0;
       combinedRoundOff += ord.roundOff || 0;

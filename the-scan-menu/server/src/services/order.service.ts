@@ -37,6 +37,32 @@ class CustomError extends Error {
   }
 }
 
+export function isSameOrderItem(a: any, b: any): boolean {
+  const aId = (a.menuItemId?._id || a.menuItemId || a.itemId || '').toString();
+  const bId = (b.menuItemId?._id || b.menuItemId || b.itemId || '').toString();
+  if (aId !== bId) return false;
+
+  const aVariant = (a.variantName || '').toLowerCase().trim();
+  const bVariant = (b.variantName || '').toLowerCase().trim();
+  if (aVariant !== bVariant) return false;
+
+  const aInstructions = (a.specialInstructions || '').toLowerCase().trim();
+  const bInstructions = (b.specialInstructions || '').toLowerCase().trim();
+  if (aInstructions !== bInstructions) return false;
+
+  if (Boolean(a.isCombo) !== Boolean(b.isCombo)) return false;
+
+  const aAddons = Array.isArray(a.selectedAddOns)
+    ? a.selectedAddOns.map((x: any) => (typeof x === 'string' ? x : x.name || '').toLowerCase().trim()).filter(Boolean).sort()
+    : [];
+  const bAddons = Array.isArray(b.selectedAddOns)
+    ? b.selectedAddOns.map((x: any) => (typeof x === 'string' ? x : x.name || '').toLowerCase().trim()).filter(Boolean).sort()
+    : [];
+
+  if (aAddons.length !== bAddons.length) return false;
+  return aAddons.every((val: string, idx: number) => val === bAddons[idx]);
+}
+
 export class OrderService {
   /**
    * Places an immutable Order ticket under an active DiningSession.
@@ -178,10 +204,24 @@ export class OrderService {
       throw new CustomError('ITEMS_UNAVAILABLE', 'Some items in your cart are unavailable', 400, failedItems);
     }
 
+    // Consolidate identical items within the incoming order batch
+    const consolidatedValidatedItems: typeof validatedItems = [];
+    for (const item of validatedItems) {
+      const existing = consolidatedValidatedItems.find((ci) => isSameOrderItem(ci, item));
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.itemSubtotal += item.itemSubtotal;
+        existing.itemTax = (existing.itemTax || 0) + (item.itemTax || 0);
+        existing.itemTotal = (existing.itemTotal || 0) + (item.itemTotal || 0);
+      } else {
+        consolidatedValidatedItems.push({ ...item });
+      }
+    }
+
     // 2. Atomic Stock Decrement
     const stockResult = await inventoryService.validateAndDecrementStock(
       new Types.ObjectId(restaurantId),
-      validatedItems.map((vi) => ({
+      consolidatedValidatedItems.map((vi) => ({
         itemId: vi.menuItemId.toString(),
         quantity: vi.quantity,
         name: vi.nameSnapshot,
@@ -193,7 +233,7 @@ export class OrderService {
     }
 
     // 3. Compute Totals and Taxes Server-Side
-    const subtotal = validatedItems.reduce((sum, item) => sum + item.itemSubtotal, 0);
+    const subtotal = consolidatedValidatedItems.reduce((sum, item) => sum + item.itemSubtotal, 0);
     const activeTaxes = await taxRepository.findActiveByRestaurantId(restaurantId);
 
     let tax = 0;
@@ -300,10 +340,19 @@ export class OrderService {
             : null;
 
         if (!priorBill) {
-          // Always append as separate line items — never accumulate quantity.
-          // This preserves order history granularity per request.
-          for (const newItem of validatedItems) {
-            pendingRound.items.push(newItem as any);
+          // Consolidate identical items with existing pending line items, or append new items
+          for (const newItem of consolidatedValidatedItems) {
+            const existingItem = pendingRound.items.find(
+              (pi: any) => isSameOrderItem(pi, newItem) && (pi.itemStatus === 'PENDING' || !pi.itemStatus)
+            );
+            if (existingItem) {
+              existingItem.quantity += newItem.quantity;
+              existingItem.itemSubtotal += newItem.itemSubtotal;
+              existingItem.itemTax = (existingItem.itemTax || 0) + (newItem.itemTax || 0);
+              existingItem.itemTotal = (existingItem.itemTotal || 0) + (newItem.itemTotal || 0);
+            } else {
+              pendingRound.items.push(newItem as any);
+            }
           }
 
           const mergedSubtotal = pendingRound.items.reduce((s, i) => s + i.itemSubtotal, 0);
@@ -322,6 +371,13 @@ export class OrderService {
               total,
               balanceDue: total,
             });
+          }
+
+          // Emit real-time notification to all manager, staff, KDS, and displays
+          try {
+            NotificationService.getInstance().notifyOrderCreated(restaurantId.toString(), pendingRound);
+          } catch (notifErr) {
+            console.error('Failed to notify merged order update via socket:', notifErr);
           }
 
           return pendingRound as any;
@@ -423,7 +479,7 @@ export class OrderService {
       deliveryAddress,
       roundNumber,
       orderNumber,
-      items: validatedItems,
+      items: consolidatedValidatedItems,
       subtotal,
       tax,
       taxBreakdown,
