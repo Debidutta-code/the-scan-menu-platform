@@ -40,7 +40,7 @@ import {
 import apiClient from '../lib/api';
 
 export const ManagerLayout: React.FC = () => {
-  const { user, impersonatedOutlet, activeRestaurantId, exitImpersonation } = useAuth();
+  const { user, impersonatedOutlet, activeRestaurantId, exitImpersonation, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -1063,6 +1063,12 @@ export const ManagerLayout: React.FC = () => {
         onUnlockSuccess={(unlockedUser) => {
           sessionStorage.setItem(`pos_cashier_${activeRestaurantId}`, JSON.stringify(unlockedUser));
           setIsPinLocked(false);
+        }}
+        onLogout={async () => {
+          sessionStorage.removeItem(`pos_cashier_${activeRestaurantId}`);
+          setIsPinLocked(false);
+          await logout();
+          navigate('/login');
         }}
       />
     </div>

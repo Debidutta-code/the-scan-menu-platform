@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { managerService } from '../../services/restaurant.service';
+import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import {
   Lock,
@@ -9,6 +11,8 @@ import {
   Delete,
   Loader,
   Store,
+  LogOut,
+  User,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 
@@ -26,6 +30,7 @@ export interface PosLockScreenModalProps {
   restaurantId: string;
   restaurantName?: string;
   onUnlockSuccess: (unlockedUser: PosUnlockedUser) => void;
+  onLogout?: () => void;
   title?: string;
   subtitle?: string;
 }
@@ -36,12 +41,16 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
   restaurantId,
   restaurantName,
   onUnlockSuccess,
+  onLogout,
   title = 'Restaurant Terminal Locked',
   subtitle = 'Enter your 4-digit staff or manager PIN to access dashboard',
 }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [pin, setPin] = useState('');
   const [isShaking, setIsShaking] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const unlockMutation = useMutation({
     mutationFn: (enteredPin: string) => managerService.unlockPosByPin(restaurantId, enteredPin),
@@ -111,7 +120,23 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, pin, handleKeyPress, handleBackspace, unlockMutation]);
 
-  if (!isOpen) return null;
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      if (onLogout) {
+        onLogout();
+      } else {
+        await logout();
+        if (onClose) onClose();
+        navigate('/login');
+      }
+    } catch {
+      navigate('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }, [isLoggingOut, onLogout, logout, onClose, navigate]);
 
   return createPortal(
     <div className="fixed inset-0 z-[999999] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-200 font-sans">
@@ -201,13 +226,36 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
         <Button
           type="button"
           onClick={handleSubmit}
-          disabled={pin.length < 4}
+          disabled={pin.length < 4 || isLoggingOut}
           isLoading={unlockMutation.isPending}
           leftIcon={<Unlock className={`w-3.5 h-3.5 ${pin.length === 4 ? 'text-amber-400' : 'text-slate-400'}`} />}
           className="w-full max-w-[240px]"
         >
           Unlock Workstation
         </Button>
+
+        {/* Change User / Logout Action Area */}
+        <div className="mt-4 pt-3 border-t border-slate-100 w-full max-w-[240px] flex flex-col items-center gap-1.5 text-center">
+          {user && (
+            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium truncate max-w-[230px]">
+              <User className="w-3 h-3 text-slate-400 shrink-0" />
+              <span className="truncate">Session: <strong className="text-slate-700 font-semibold">{user.name || user.email}</strong></span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut || unlockMutation.isPending}
+            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer w-full disabled:opacity-50"
+          >
+            {isLoggingOut ? (
+              <Loader className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <LogOut className="w-3.5 h-3.5" />
+            )}
+            <span>Switch User / Log Out</span>
+          </button>
+        </div>
       </div>
     </div>,
     document.body
