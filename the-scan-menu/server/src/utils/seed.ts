@@ -1646,8 +1646,9 @@ export const seedDatabase = async () => {
           },
         });
 
+        let bill: any = null;
         if (isClosed || ord.paymentStatus === 'PAID') {
-          const bill = await Bill.create({
+          bill = await Bill.create({
             restaurantId: restaurant._id,
             tableId: ord.table?._id,
             diningSessionId: session?._id,
@@ -1668,22 +1669,28 @@ export const seedDatabase = async () => {
             generatedBy: manager._id,
             settledAt: new Date(),
           });
-
-          await Payment.create({
-            restaurantId: restaurant._id,
-            diningSessionId: session?._id,
-            billId: bill._id,
-            orderId: existingOrder._id,
-            amount: total,
-            currency: 'INR',
-            provider: ord.paymentProvider || 'UPI',
-            method: ord.paymentProvider === 'CARD' ? 'CARD' : ord.paymentProvider === 'CASH' ? 'CASH' : 'UPI',
-            status: 'CAPTURED',
-            providerReferenceId: `tx_ref_${ord.orderNumber}_${Date.now()}`,
-            capturedAt: new Date(),
-          });
         }
-        logger.info(`Sample order ORD-${ord.orderNumber} seeded (${mappedItems.length} items, status: ${ord.status}, mode: ${ord.mode}).`);
+
+        // Seed single consistent Payment / Transaction ledger record
+        const isPaid = isClosed || ord.paymentStatus === 'PAID';
+        await Payment.create({
+          restaurantId: restaurant._id,
+          diningSessionId: session?._id,
+          tableId: ord.table?._id,
+          billId: bill?._id,
+          orderId: existingOrder._id,
+          amount: total,
+          currency: 'INR',
+          provider: ord.paymentProvider || 'UPI',
+          method: ord.paymentProvider === 'CARD' ? 'CARD' : ord.paymentProvider === 'CASH' ? 'CASH' : 'UPI',
+          mode: 'POSTPAID',
+          status: isPaid ? 'CAPTURED' : 'PENDING',
+          providerReferenceId: isPaid ? `tx_ref_${ord.orderNumber}_${Date.now()}` : undefined,
+          metadata: { orderNumber: ord.orderNumber, seeded: true },
+          createdAt: new Date(Date.now() - (120 - (ord.orderNumber - 100) * 5) * 60 * 1000),
+        });
+
+        logger.info(`Sample order ORD-${ord.orderNumber} seeded (${mappedItems.length} items, status: ${ord.status}, payment: ${ord.paymentStatus}).`);
       }
 
       if (existingOrder) {
@@ -1697,27 +1704,9 @@ export const seedDatabase = async () => {
     }
 
     // ------------------------------------------------------------------------
-    // 9. Seed Financial Transactions for Paid Orders
+    // 9. Financial Transactions Summary
     // ------------------------------------------------------------------------
-    logger.info('Seeding financial transactions...');
-    for (const { order, meta } of seededOrders) {
-      const existingTx = await Transaction.findOne({ restaurantId: restaurant._id, orderId: order._id });
-      if (!existingTx) {
-        await Transaction.create({
-          restaurantId: restaurant._id,
-          tableSessionId: order.sessionId,
-          orderId: order._id,
-          provider: meta.paymentProvider || 'UPI',
-          mode: 'POSTPAID',
-          amount: order.total,
-          currency: 'INR',
-          status: 'CAPTURED',
-          providerReferenceId: `tx_ref_${order.orderNumber}_${Date.now()}`,
-          metadata: { orderNumber: order.orderNumber, seeded: true },
-        });
-        logger.info(`Transaction for order ORD-${order.orderNumber} seeded.`);
-      }
-    }
+    logger.info('Financial transactions & ledger synchronized for all seeded orders.');
 
     // ------------------------------------------------------------------------
     // 10. Seed Inventory Logs for Inventory Tracking Auditing
