@@ -12,7 +12,7 @@ export class PlatformSettingsRepository {
   }
 
   async updateSettings(data: Partial<IPlatformSettings>, session?: ClientSession): Promise<IPlatformSettings> {
-    let settings = await PlatformSettings.findOne({}, null, { session });
+    const settings = await PlatformSettings.findOne({}, null, { session });
     if (!settings) {
       const created = await PlatformSettings.create([data], { session });
       return created[0];

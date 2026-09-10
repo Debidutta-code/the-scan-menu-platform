@@ -28,7 +28,6 @@ import { IntegrationSyncLog } from '../models/IntegrationSyncLog';
 import { ApiKey } from '../models/ApiKey';
 import { WebhookSubscription } from '../models/WebhookSubscription';
 import { InventoryLog } from '../models/InventoryLog';
-import { Transaction } from '../models/Transaction';
 import { AuditLog } from '../models/AuditLog';
 import { PlatformSettings } from '../models/PlatformSettings';
 import { subscriptionService } from '../services/subscription.service';

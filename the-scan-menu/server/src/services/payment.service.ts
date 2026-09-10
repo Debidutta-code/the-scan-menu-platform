@@ -453,7 +453,7 @@ export class PaymentService {
       const method = (paymentMethod || order.paymentMethod || 'CASH').toUpperCase();
       const provider = ['UPI', 'CASH', 'CARD', 'RAZORPAY', 'STRIPE'].includes(method) ? method : 'CASH';
 
-      let transaction = await paymentRepository.findByOrderId(oId);
+      const transaction = await paymentRepository.findByOrderId(oId);
       if (!transaction) {
         await paymentRepository.create({
           restaurantId: rId,
@@ -499,15 +499,14 @@ export class PaymentService {
    * Ensures the financial ledger accurately reflects that the payment was undone/set unpaid.
    */
   async syncOrderPaymentRevert(
-    restaurantId: string | Types.ObjectId,
+    _restaurantId: string | Types.ObjectId,
     order: any,
     staffUserId?: string
   ): Promise<void> {
     try {
-      const rId = new Types.ObjectId(restaurantId.toString());
       const oId = new Types.ObjectId(order._id.toString());
 
-      let transaction = await paymentRepository.findByOrderId(oId);
+      const transaction = await paymentRepository.findByOrderId(oId);
       if (transaction) {
         transaction.status = 'PENDING';
         transaction.metadata = {
@@ -526,13 +525,12 @@ export class PaymentService {
    * Synchronizes and captures all pending transactions for a dining session on table settlement/close.
    */
   async syncDiningSessionPaymentCapture(
-    restaurantId: string | Types.ObjectId,
+    _restaurantId: string | Types.ObjectId,
     sessionId: string | Types.ObjectId,
     staffUserId?: string,
     defaultMethod: string = 'CASH'
   ): Promise<void> {
     try {
-      const rId = new Types.ObjectId(restaurantId.toString());
       const sId = new Types.ObjectId(sessionId.toString());
 
       // Find all transactions associated with this dining session
