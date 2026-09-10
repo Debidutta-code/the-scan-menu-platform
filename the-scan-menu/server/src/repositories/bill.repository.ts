@@ -13,6 +13,12 @@ export class BillRepository {
     }).sort({ version: -1 });
   }
 
+  async findHighestVersionByDiningSessionId(diningSessionId: string | Types.ObjectId, session?: ClientSession): Promise<IBill | null> {
+    return Bill.findOne({
+      diningSessionId: new Types.ObjectId(diningSessionId.toString()),
+    }, null, { session }).sort({ version: -1 });
+  }
+
   async findLatestByDiningSessionId(diningSessionId: string | Types.ObjectId, session?: ClientSession): Promise<IBill | null> {
     return this.findByDiningSessionId(diningSessionId);
   }

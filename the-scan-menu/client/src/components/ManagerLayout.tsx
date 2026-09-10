@@ -531,9 +531,6 @@ export const ManagerLayout: React.FC = () => {
                 <CreditCard className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
                 <span className="truncate">Transactions</span>
               </div>
-              {!isEnabled('payments') && (
-                <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-              )}
             </button>
           )}
 

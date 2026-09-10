@@ -24,6 +24,7 @@ import { loyaltyService } from './loyalty.service';
 import { normalizeIndianPhoneNumber } from '../utils/phone';
 import { calculateRoundOff } from '../utils/rounding.util';
 import { auditLogRepository } from '../repositories/auditLog.repository';
+import { paymentService } from './payment.service';
 
 class CustomError extends Error {
   status: number;
@@ -624,6 +625,16 @@ export class OrderService {
     order.status = nextStatus;
     await orderRepository.save(order);
 
+    if (order.paymentStatus === 'PAID') {
+      paymentService.syncOrderPaymentCapture(restaurantId, order, undefined, order.paymentMethod).catch((err) =>
+        console.error('[PaymentSync] Error syncing payment on updateOrderStatus:', err)
+      );
+    } else if (paymentUpdate?.paymentStatus === 'PENDING') {
+      paymentService.syncOrderPaymentRevert(restaurantId, order, undefined).catch((err) =>
+        console.error('[PaymentSync] Error syncing payment revert on updateOrderStatus:', err)
+      );
+    }
+
     // Accrue loyalty points when order status transitions to SERVED, COMPLETED, DELIVERED, READY or ACCEPTED
     if (['SERVED', 'COMPLETED', 'DELIVERED', 'READY', 'ACCEPTED'].includes(nextStatus)) {
       accrueLoyaltyForOrder(restaurantId, order).catch((err) =>
@@ -771,6 +782,12 @@ export class OrderService {
       order.paymentStatus = 'PAID';
     }
     await orderRepository.save(order);
+
+    if (order.paymentStatus === 'PAID') {
+      paymentService.syncOrderPaymentCapture(restaurantId, order, staffUserId, order.paymentMethod).catch((err) =>
+        console.error('[PaymentSync] Error syncing payment on clearOrder:', err)
+      );
+    }
 
     // 1. If linked to a dining session, close session and clear all orders for that session
     const sessId = order.diningSessionId || order.sessionId;

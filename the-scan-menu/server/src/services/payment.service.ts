@@ -436,6 +436,128 @@ export class PaymentService {
 
     return { success: true, order, transaction };
   }
+
+  /**
+   * Synchronizes and captures an order's transaction ledger entry when the order is marked PAID or CLEARED.
+   * Prevents ledger desynchronization and ensures transactions match order payment statuses.
+   */
+  async syncOrderPaymentCapture(
+    restaurantId: string | Types.ObjectId,
+    order: any,
+    staffUserId?: string,
+    paymentMethod?: string
+  ): Promise<void> {
+    try {
+      const rId = new Types.ObjectId(restaurantId.toString());
+      const oId = new Types.ObjectId(order._id.toString());
+      const method = (paymentMethod || order.paymentMethod || 'CASH').toUpperCase();
+      const provider = ['UPI', 'CASH', 'CARD', 'RAZORPAY', 'STRIPE'].includes(method) ? method : 'CASH';
+
+      let transaction = await paymentRepository.findByOrderId(oId);
+      if (!transaction) {
+        await paymentRepository.create({
+          restaurantId: rId,
+          orderId: oId,
+          diningSessionId: order.diningSessionId || order.sessionId,
+          tableId: order.tableId,
+          provider: provider as any,
+          method: (['UPI', 'CARD', 'NETBANKING', 'OTHER'].includes(method) ? method : 'CASH') as any,
+          mode: order.orderMode === 'DINE_IN' ? 'POSTPAID' : 'PREPAID',
+          amount: order.total,
+          currency: 'INR',
+          status: 'CAPTURED',
+          metadata: {
+            orderNumber: order.orderNumber,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            orderMode: order.orderMode,
+            source: order.source,
+            capturedByStaffId: staffUserId,
+            capturedAt: new Date(),
+          },
+        });
+      } else {
+        transaction.status = 'CAPTURED';
+        if (method) {
+          transaction.method = (['UPI', 'CARD', 'NETBANKING', 'OTHER'].includes(method) ? method : 'CASH') as any;
+          transaction.provider = provider as any;
+        }
+        transaction.metadata = {
+          ...(transaction.metadata || {}),
+          capturedByStaffId: staffUserId || transaction.metadata?.capturedByStaffId,
+          capturedAt: new Date(),
+        };
+        await paymentRepository.save(transaction);
+      }
+    } catch (err) {
+      console.error('[PaymentSync] Failed to sync and capture order payment in ledger:', err);
+    }
+  }
+
+  /**
+   * Reverts an order's transaction ledger entry from CAPTURED back to PENDING when undoing payment.
+   * Ensures the financial ledger accurately reflects that the payment was undone/set unpaid.
+   */
+  async syncOrderPaymentRevert(
+    restaurantId: string | Types.ObjectId,
+    order: any,
+    staffUserId?: string
+  ): Promise<void> {
+    try {
+      const rId = new Types.ObjectId(restaurantId.toString());
+      const oId = new Types.ObjectId(order._id.toString());
+
+      let transaction = await paymentRepository.findByOrderId(oId);
+      if (transaction) {
+        transaction.status = 'PENDING';
+        transaction.metadata = {
+          ...(transaction.metadata || {}),
+          revertedByStaffId: staffUserId,
+          revertedAt: new Date(),
+        };
+        await paymentRepository.save(transaction);
+      }
+    } catch (err) {
+      console.error('[PaymentSync] Failed to revert order payment in ledger:', err);
+    }
+  }
+
+  /**
+   * Synchronizes and captures all pending transactions for a dining session on table settlement/close.
+   */
+  async syncDiningSessionPaymentCapture(
+    restaurantId: string | Types.ObjectId,
+    sessionId: string | Types.ObjectId,
+    staffUserId?: string,
+    defaultMethod: string = 'CASH'
+  ): Promise<void> {
+    try {
+      const rId = new Types.ObjectId(restaurantId.toString());
+      const sId = new Types.ObjectId(sessionId.toString());
+
+      // Find all transactions associated with this dining session
+      const sessionTransactions = await paymentRepository.findByDiningSessionId(sId);
+
+      for (const txn of sessionTransactions) {
+        if (txn.status !== 'CAPTURED') {
+          txn.status = 'CAPTURED';
+          if (!txn.method || txn.method === 'OTHER') {
+            txn.method = defaultMethod as any;
+            txn.provider = defaultMethod as any;
+          }
+          txn.metadata = {
+            ...(txn.metadata || {}),
+            capturedByStaffId: staffUserId || txn.metadata?.capturedByStaffId,
+            capturedAt: new Date(),
+            source: 'SESSION_SETTLEMENT',
+          };
+          await paymentRepository.save(txn);
+        }
+      }
+    } catch (err) {
+      console.error('[PaymentSync] Failed to capture session payments in ledger:', err);
+    }
+  }
 }
 
 export const paymentService = new PaymentService();

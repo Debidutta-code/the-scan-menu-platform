@@ -606,6 +606,7 @@ export function useManagerOrders({
           };
         });
       }
+      queryClient.invalidateQueries({ queryKey: ['transactions', activeRestaurantId] });
     },
   });
 

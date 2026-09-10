@@ -11,6 +11,8 @@ import { analyticsService } from '../services/analytics.service';
 import { posIntegrationService } from '../services/posIntegration.service';
 import { customerService } from '../services/customer.service';
 import { loyaltyService } from '../services/loyalty.service';
+import { paymentService } from '../services/payment.service';
+import { NotificationService } from '../services/notification.service';
 import { sendSuccess, sendError } from '../utils/response';
 import mongoose from 'mongoose';
 
@@ -487,6 +489,32 @@ export class OrderController {
         order.paymentMethod = paymentMethod.toUpperCase();
       }
       await orderRepository.save(order);
+
+      if (paymentStatus === 'PAID') {
+        await paymentService.syncOrderPaymentCapture(
+          restaurantId,
+          order,
+          req.user?.id,
+          order.paymentMethod
+        );
+      } else if (paymentStatus === 'PENDING') {
+        await paymentService.syncOrderPaymentRevert(
+          restaurantId,
+          order,
+          req.user?.id
+        );
+      }
+
+      try {
+        NotificationService.getInstance().notifyOrderStatusUpdated(
+          restaurantId.toString(),
+          order._id.toString(),
+          order.status,
+          order.updatedAt
+        );
+      } catch (notifErr) {
+        console.error('Failed to broadcast order payment status update:', notifErr);
+      }
 
       sendSuccess(res, order, `Order payment marked as ${paymentStatus}`);
     } catch (error) {

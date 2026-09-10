@@ -332,8 +332,23 @@ export class DiningSessionService {
     }
 
     // Record payment in transactions ledger if not already recorded
-    const existingPayments = await paymentRepository.findCapturedByDiningSessionId(session._id);
-    if (existingPayments.length === 0 && session.total > 0) {
+    const existingPayments = await paymentRepository.findByDiningSessionId(session._id);
+    const hasCaptured = existingPayments.some((p: any) => p.status === 'CAPTURED');
+    const pendingPayments = existingPayments.filter((p: any) => p.status === 'PENDING');
+
+    if (pendingPayments.length > 0) {
+      // Capture any pending payments for this session rather than creating duplicate transactions
+      for (const p of pendingPayments) {
+        p.status = 'CAPTURED';
+        p.metadata = {
+          ...(p.metadata || {}),
+          closedByStaffId: staffUserId,
+          settledAt: new Date(),
+        };
+        await paymentRepository.save(p);
+      }
+    } else if (!hasCaptured && session.total > 0) {
+      // Only create a new CASH transaction if no prior transaction exists at all
       await paymentRepository.create({
         restaurantId: session.restaurantId,
         diningSessionId: session._id,

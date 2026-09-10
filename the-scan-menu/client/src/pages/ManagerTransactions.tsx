@@ -150,7 +150,7 @@ export const ManagerTransactions: React.FC = () => {
       const res = await apiClient.get(`/restaurants/${activeRestaurantId}/payments/transactions?${params}`);
       return res.data;
     },
-    enabled: !!activeRestaurantId && isEnabled('payments') && !flagsLoading,
+    enabled: !!activeRestaurantId && (isEnabled('payments') || isEnabled('pos')) && !flagsLoading,
   });
 
   // Capture / Settle Pending Transaction Mutation
@@ -293,7 +293,7 @@ export const ManagerTransactions: React.FC = () => {
     );
   }
 
-  if (!isEnabled('payments')) {
+  if (!isEnabled('payments') && !isEnabled('pos')) {
     return (
       <div className="w-full space-y-8 font-sans">
         <div>

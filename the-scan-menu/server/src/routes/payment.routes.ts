@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller';
 import { requireAuth, requireRole, requireRestaurantAccess } from '../middleware/auth';
-import { requireFeature } from '../middleware/featureFlag';
+import { requireFeature, requireAnyFeature } from '../middleware/featureFlag';
 
 const router = Router({ mergeParams: true });
 
 router.use(requireAuth as any);
 router.use(requireRestaurantAccess as any);
-router.use(requireFeature('payments') as any);
+router.use(requireAnyFeature(['payments', 'pos']) as any);
 
 // POST /restaurants/:restaurantId/payments/intent
 router.post('/intent', paymentController.createIntent);

@@ -148,7 +148,7 @@ export class BillService {
       await billRepository.save(existingPendingBill);
       version = existingPendingBill.version + 1;
     } else {
-      const highestVersionBill = await billRepository.findByDiningSessionId(session._id);
+      const highestVersionBill = await billRepository.findHighestVersionByDiningSessionId(session._id);
       if (highestVersionBill) {
         version = highestVersionBill.version + 1;
       }

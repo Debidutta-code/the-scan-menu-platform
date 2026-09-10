@@ -92,9 +92,9 @@ export const DEFAULT_FLAGS: FeatureFlagMeta[] = [
   // 3. Finance & Billing
   {
     key: 'payments',
-    name: 'Digital Payments Integration',
+    name: 'Payments & Transactions Ledger',
     category: 'FINANCE',
-    description: 'Online payment gateways (Razorpay, UPI QR, Cards) and automated refunds.',
+    description: 'Financial transaction ledger, settlement history, cash/card/UPI audit, and Razorpay/online payment integrations.',
   },
   {
     key: 'analytics',
