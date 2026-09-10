@@ -170,7 +170,7 @@ export const App = () => {
                       <Route path="/manager/kds" element={<ManagerKDS />} />
                     </Route>
 
-                    <Route element={<FeatureProtectedRoute requiredAnyFeatures={['payments', 'pos']} featureName="Transactions & Payments" />}>
+                    <Route element={<FeatureProtectedRoute requiredFeature="payments" featureName="Transactions & Payments" />}>
                       <Route path="/manager/transactions" element={<ManagerTransactions />} />
                     </Route>
 

@@ -517,8 +517,8 @@ export const ManagerLayout: React.FC = () => {
             </a>
           )}
 
-          {/* Transactions tab (Sidebar) — visible only for manager/admin */}
-          {!isStaff && (isEnabled('payments') || isEnabled('pos')) && (
+          {/* Transactions tab (Sidebar) — visible only for manager/admin when payments feature is enabled */}
+          {!isStaff && isEnabled('payments') && (
             <button
               onClick={() => navigate('/manager/transactions')}
               className={`flex items-center justify-between w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${

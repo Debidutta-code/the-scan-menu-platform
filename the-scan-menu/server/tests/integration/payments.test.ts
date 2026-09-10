@@ -204,13 +204,12 @@ describe('Payment Framework API Integration', () => {
 
   it('should return Upgrade Required error if payments flag is disabled', async () => {
     await FeatureFlag.updateOne({ restaurantId, key: 'payments' }, { enabled: false });
-    await FeatureFlag.updateOne({ restaurantId, key: 'pos' }, { enabled: false });
 
     const res = await request(app)
       .get(`/api/v1/restaurants/${restaurantId}/payments/transactions`)
       .set('Authorization', `Bearer ${adminAccessToken}`);
 
     expect(res.status).toBe(403);
-    expect(res.body.message).toMatch(/disabled|must be enabled/);
+    expect(res.body.message).toContain('is disabled');
   });
 });
