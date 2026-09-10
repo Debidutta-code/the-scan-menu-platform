@@ -138,6 +138,8 @@ export const PosLockScreenModal: React.FC<PosLockScreenModalProps> = ({
     }
   }, [isLoggingOut, onLogout, logout, onClose, navigate]);
 
+  if (!isOpen) return null;
+
   return createPortal(
     <div className="fixed inset-0 z-[999999] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-200 font-sans">
       <div
