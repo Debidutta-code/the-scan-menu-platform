@@ -136,6 +136,55 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [tableSelectionMode, setTableSelectionMode] = useState<'EDIT' | 'DELETE' | null>(null);
 
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const lastScrollTopRef = useRef<number>(0);
+  const upScrollAccumulatorRef = useRef<number>(0);
+  const isCooldownRef = useRef<boolean>(false);
+
+  const handleTablesScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    const delta = scrollTop - lastScrollTopRef.current;
+    lastScrollTopRef.current = scrollTop;
+
+    // If at the very top, always restore header smoothly
+    if (scrollTop <= 15) {
+      upScrollAccumulatorRef.current = 0;
+      if (isHeaderCollapsed && !isCooldownRef.current) {
+        setIsHeaderCollapsed(false);
+        isCooldownRef.current = true;
+        setTimeout(() => { isCooldownRef.current = false; }, 350);
+      }
+      return;
+    }
+
+    if (isCooldownRef.current) return;
+
+    // Scrolling down: smoothly collapse top header & KPI strip to maximize table grid window
+    if (delta > 8 && scrollTop > 50) {
+      upScrollAccumulatorRef.current = 0;
+      if (!isHeaderCollapsed) {
+        setIsHeaderCollapsed(true);
+        isCooldownRef.current = true;
+        setTimeout(() => { isCooldownRef.current = false; }, 350);
+      }
+    }
+    // Scrolling up: require sustained upward scroll (> 160px) or reaching top (<= 30px)
+    // so the tab stays sticky at top without oscillating or flickering during table browsing!
+    else if (delta < -6) {
+      upScrollAccumulatorRef.current += Math.abs(delta);
+      if (upScrollAccumulatorRef.current > 160 || scrollTop <= 30) {
+        if (isHeaderCollapsed) {
+          setIsHeaderCollapsed(false);
+          upScrollAccumulatorRef.current = 0;
+          isCooldownRef.current = true;
+          setTimeout(() => { isCooldownRef.current = false; }, 350);
+        }
+      }
+    } else {
+      upScrollAccumulatorRef.current = 0;
+    }
+  };
+
   const addMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const zoneManagerMoreRef = useRef<HTMLDivElement>(null);
@@ -528,8 +577,14 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   return (
     <div className="w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden pb-1">
 
-      {/* ── Page Header & KPI Strip (Stable, non-flickering) ─────────── */}
-      <div className="shrink-0 mb-2.5 z-30 relative">
+      {/* ── Page Header & KPI Strip (Smoothly collapsible to maximize table window) ── */}
+      <div
+        className={`transition-all duration-300 ease-in-out shrink-0 ${
+          isHeaderCollapsed
+            ? 'max-h-0 opacity-0 mb-0 pointer-events-none scale-y-95 overflow-hidden'
+            : 'max-h-[500px] opacity-100 mb-2.5 scale-y-100 z-30 relative'
+        }`}
+      >
         <div className="space-y-2.5">
           {/* Page Header */}
           <div className="relative z-40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
@@ -778,21 +833,32 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative sm:ml-auto min-w-[200px]">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
-          <input
-            type="text"
-            placeholder="Search tables…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition shadow-2xs"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        {/* Search & Collapse Toggle */}
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <div className="relative min-w-[180px] sm:min-w-[200px]">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.75} />
+            <input
+              type="text"
+              placeholder="Search tables…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition shadow-2xs"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsHeaderCollapsed((prev) => !prev)}
+            className="h-8.5 w-8.5 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition shadow-2xs cursor-pointer active:scale-95 shrink-0"
+            title={isHeaderCollapsed ? 'Show Header & Stats' : 'Maximize Tables Workspace'}
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isHeaderCollapsed ? '' : 'rotate-180'}`} />
+          </button>
         </div>
       </div>
 
@@ -833,7 +899,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
       {/* ── Main Tables Workspace (Independent Split View) ─────────────── */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 items-stretch overflow-hidden">
         {/* Left Side: Tables Grid (Independent Scroll) */}
-        <div className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-none pr-1 space-y-3.5 pb-6">
+        <div
+          className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-none pr-1 space-y-3.5 pb-6"
+          onScroll={handleTablesScroll}
+        >
           {zoneGroupings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl text-center shadow-sm">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
