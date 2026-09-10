@@ -1,3 +1,4 @@
+process.env.TESTING_FEATURE_FLAGS = 'true';
 import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
@@ -62,6 +63,10 @@ describe('Phase 12 Inventory Management Test Suite', () => {
     // Enable inventory & qr_menu feature flags for both
     await featureFlagService.enable(restAId, 'inventory');
     await featureFlagService.enable(restAId, 'qr_menu');
+    await featureFlagService.enable(restAId, 'ordering');
+    await featureFlagService.enable(restAId, 'pos');
+    await featureFlagService.enable(restAId, 'takeaway');
+    await featureFlagService.enable(restAId, 'delivery');
     await featureFlagService.enable(restBId, 'inventory');
     await featureFlagService.enable(restBId, 'qr_menu');
     await featureFlagService.enable(restAId, 'kds');

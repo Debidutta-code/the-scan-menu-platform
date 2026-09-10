@@ -71,8 +71,8 @@ export const updateStockSchema = z.object({
 });
 
 export const toggleAvailabilitySchema = z.object({
-  isAvailable: z.boolean({ required_error: 'isAvailable boolean is required' }),
-});
+  isAvailable: z.boolean().optional(),
+}).default({});
 
 export const createCustomizationGroupSchema = z.object({
   name: z.string().trim().min(1, 'Group name is required'),
