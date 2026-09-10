@@ -136,29 +136,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [tableSelectionMode, setTableSelectionMode] = useState<'EDIT' | 'DELETE' | null>(null);
 
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const lastScrollTopRef = useRef<number>(0);
-
-  const handleTablesScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollTop = e.currentTarget.scrollTop;
-    const delta = scrollTop - lastScrollTopRef.current;
-
-    // When scrolling down past 30px, smoothly collapse the top header & KPI strip to maximize table grid
-    if (delta > 6 && scrollTop > 30) {
-      if (!isHeaderCollapsed) {
-        setIsHeaderCollapsed(true);
-      }
-    }
-    // When scrolling up or when reaching top, smoothly restore header
-    else if (delta < -6 || scrollTop <= 5) {
-      if (isHeaderCollapsed) {
-        setIsHeaderCollapsed(false);
-      }
-    }
-
-    lastScrollTopRef.current = scrollTop;
-  };
-
   const addMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const zoneManagerMoreRef = useRef<HTMLDivElement>(null);
@@ -551,12 +528,8 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
   return (
     <div className="w-full h-full min-h-0 flex flex-col font-sans select-none overflow-hidden pb-1">
 
-      {/* ── Page Header & KPI Strip (Smoothly collapsible on scroll) ─────────── */}
-      <div
-        className={`transition-all duration-300 ease-in-out shrink-0 ${
-          isHeaderCollapsed ? 'max-h-0 opacity-0 mb-0 pointer-events-none scale-y-95 overflow-hidden' : 'max-h-[500px] opacity-100 mb-2.5 scale-y-100 z-40 relative'
-        }`}
-      >
+      {/* ── Page Header & KPI Strip (Stable, non-flickering) ─────────── */}
+      <div className="shrink-0 mb-2.5 z-30 relative">
         <div className="space-y-2.5">
           {/* Page Header */}
           <div className="relative z-40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 md:px-5 shadow-xs">
@@ -857,14 +830,10 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
         </div>
       )}
 
-      {/* ── Main Tables Workspace (Split View when Table Selected) ─────────────── */}
-      <div
-        className="flex-1 min-h-0 overflow-y-auto scrollbar-none pb-6 pr-0.5"
-        onScroll={handleTablesScroll}
-      >
-        <div className="flex flex-col lg:flex-row gap-3 items-start">
-          {/* Left Side: Tables Grid */}
-          <div className="flex-1 min-w-0 space-y-3.5">
+      {/* ── Main Tables Workspace (Independent Split View) ─────────────── */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 items-stretch overflow-hidden">
+        {/* Left Side: Tables Grid (Independent Scroll) */}
+        <div className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-none pr-1 space-y-3.5 pb-6">
           {zoneGroupings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-3xl text-center shadow-sm">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
@@ -1054,7 +1023,7 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full lg:w-96 lg:min-w-[24rem] lg:max-w-[24rem] shrink-0 sticky top-0 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col max-h-[calc(100vh-10rem)] overflow-hidden"
+                className="fixed inset-x-3 bottom-3 top-20 z-50 lg:static lg:inset-auto lg:z-auto w-auto lg:w-96 lg:min-w-[24rem] lg:max-w-[24rem] h-[calc(100vh-6rem)] lg:h-full shrink-0 bg-white rounded-3xl border border-slate-200 shadow-2xl lg:shadow-sm flex flex-col overflow-hidden"
               >
                 {/* Header */}
                 <div className={`p-4 border-b border-slate-100 shrink-0 ${
@@ -1493,7 +1462,6 @@ export const ManagerTables: React.FC<ManagerTablesProps> = ({ restaurantId }) =>
             );
           })()}
         </AnimatePresence>
-        </div>
       </div>
 
       {/* ── Manage Zones Modal ─────────────────────────────────────────────────── */}
